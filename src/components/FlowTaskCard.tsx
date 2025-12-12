@@ -97,17 +97,17 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+  },
   title: {
     flex: 1,
     fontSize: 20,
     fontWeight: '500',
-    color: colors.textSecondary,
+    color: colors.textPrimary,
   },
   titleActive: {
     fontSize: 22,
     fontWeight: '600',
     color: colors.background,
-  },color: colors.textPrimary,
   },
   titleCompleted: {
     textDecorationLine: 'line-through',

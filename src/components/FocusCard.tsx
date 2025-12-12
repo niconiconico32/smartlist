@@ -112,6 +112,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     fontVariant: ['tabular-nums'],
+    lineHeight: 56,
+  },
   card: {
     width: '100%',
     minHeight: 300,
@@ -138,7 +140,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
     lineHeight: 64,
-  },lineHeight: 56,
   },
   hintContainer: {
     marginTop: 40,

@@ -3,8 +3,19 @@ import { ActivityButton } from '@/src/components/ActivityButton';
 import { NotificationCard } from '@/src/components/NotificationCard';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
 import { useBottomTabInset } from '@/src/hooks/useBottomTabInset';
+import { Link2 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
+} from 'react-native';
 
 interface Activity {
   id: string;
@@ -18,6 +29,9 @@ interface Activity {
 
 export default function PlanScreen() {
   const bottomInset = useBottomTabInset();
+  
+  const [recipeUrl, setRecipeUrl] = useState('');
+  const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
   
   const [activities, setActivities] = useState<Activity[]>([
     {
@@ -50,6 +64,64 @@ export default function PlanScreen() {
     );
   };
 
+  const loadRecipeFromUrl = async () => {
+    if (!recipeUrl.trim()) {
+      Alert.alert('Error', 'Pega una URL de receta primero');
+      return;
+    }
+
+    setIsLoadingRecipe(true);
+    try {
+      const response = await fetch(
+        'https://wdqwgqfisiteswbbdurg.supabase.co/functions/v1/parse-recipe',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: recipeUrl }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (!data.tasks || data.tasks.length === 0) {
+        Alert.alert('Aviso', 'No se encontraron pasos en esta receta');
+        return;
+      }
+
+      // Convertir tasks de la receta en activities
+      const recipeActivities: Activity[] = data.tasks.map((task: any, index: number) => ({
+        id: `recipe-${Date.now()}-${index}`,
+        title: task.title,
+        emoji: '🍳',
+        metric: `${task.duration} min`,
+        color: '#FFD93D',
+        action: 'play' as const,
+        completed: false,
+      }));
+
+      // Agregar las nuevas actividades al principio
+      setActivities(prev => [...recipeActivities, ...prev]);
+      setRecipeUrl('');
+      
+      Alert.alert(
+        '✅ Receta cargada', 
+        `${data.title}\n\n${data.tasks.length} pasos agregados a tus tareas`
+      );
+
+    } catch (error) {
+      console.error('Error cargando receta:', error);
+      Alert.alert('Error', 'No se pudo cargar la receta. Verifica la URL.');
+    } finally {
+      setIsLoadingRecipe(false);
+    }
+  };
+
   const pendingActivities = activities.filter(a => !a.completed);
   const completedActivities = activities.filter(a => a.completed);
   const totalCompleted = completedActivities.length;
@@ -71,6 +143,34 @@ export default function PlanScreen() {
               month: totalCompleted + 22,
             }}
           />
+        </View>
+
+        {/* Input para cargar recetas */}
+        <View style={styles.recipeInputContainer}>
+          <View style={styles.inputWrapper}>
+            <Link2 size={20} color={colors.textTertiary} />
+            <TextInput
+              style={styles.recipeInput}
+              placeholder="Pega una URL de receta aquí..."
+              placeholderTextColor={colors.textTertiary}
+              value={recipeUrl}
+              onChangeText={setRecipeUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isLoadingRecipe}
+            />
+          </View>
+          <Pressable 
+            style={[styles.loadButton, isLoadingRecipe && styles.loadButtonDisabled]}
+            onPress={loadRecipeFromUrl}
+            disabled={isLoadingRecipe}
+          >
+            {isLoadingRecipe ? (
+              <ActivityIndicator size="small" color="#1C2120" />
+            ) : (
+              <Text style={styles.loadButtonText}>Cargar</Text>
+            )}
+          </Pressable>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -168,5 +268,49 @@ const styles = StyleSheet.create({
     opacity: 0.3,
     textAlign: 'center',
     paddingVertical: 32,
+  },
+  recipeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    gap: 12,
+  },
+  inputWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(168, 230, 207, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  recipeInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1C2120',
+    fontWeight: '500',
+  },
+  loadButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  loadButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C2120',
   },
 });

@@ -35,22 +35,20 @@ export default function TabLayout() {
           left: 20,
           right: 20,
           height: TAB_BAR_HEIGHT,
-          backgroundColor: 'rgba(44, 51, 49, 0.98)', // Surface con 98% opacidad
+          backgroundColor: 'rgba(44, 51, 49, 0.98)',
           borderRadius: 32,
           borderTopWidth: 0,
-          borderWidth: 1,
-          borderColor: 'rgba(168, 230, 207, 0.1)',
-          paddingBottom: 0,
-          paddingTop: 0,
+          paddingBottom: 8,
+          paddingTop: 8,
+          paddingHorizontal: 20,
           shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 10,
-          elevation: 5,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.2,
+          shadowRadius: 16,
+          elevation: 8,
         },
         tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
+          paddingVertical: 0,
         },
         headerShown: false,
       }}>
@@ -67,26 +65,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="add"
         options={{
-          title: 'Add',
+          title: 'Testing',
           tabBarIcon: ({ color }) => (
             <FontAwesome 
-              name="plus" 
-              size={26} 
-              color="#1C2120"
-              style={{
-                backgroundColor: colors.primary,
-                width: 52,
-                height: 52,
-                borderRadius: 26,
-                textAlign: 'center',
-                textAlignVertical: 'center',
-                lineHeight: 52,
-                shadowColor: colors.primary,
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 6,
-                elevation: 4,
-              }}
+              name="flask" 
+              size={24} 
+              color={color}
             />
           ),
         }}
