@@ -7,12 +7,13 @@ interface ActivityButtonProps {
   emoji: string;
   metric: string;
   color: string;
+  iconColor?: string;
   action: 'add' | 'play';
   onPress?: () => void;
   completed?: boolean;
 }
 
-export function ActivityButton({ title, emoji, metric, color, action, onPress, completed = false }: ActivityButtonProps) {
+export function ActivityButton({ title, emoji, metric, color, iconColor, action, onPress, completed = false }: ActivityButtonProps) {
   return (
     <Pressable
       style={({ pressed }) => [
@@ -24,19 +25,19 @@ export function ActivityButton({ title, emoji, metric, color, action, onPress, c
     >
       <View style={styles.content}>
         <View style={styles.leftSection}>
-          <View style={[styles.iconContainer, { backgroundColor: completed ? 'rgba(255, 255, 255, 0.3)' : `${color}20` }]}>
+          <View style={[styles.iconContainer, { backgroundColor: completed ? 'rgba(255, 255, 255, 0.3)' : (iconColor || `${color}20`) }]}>
             <Text style={styles.emoji}>{emoji}</Text>
           </View>
           <Text style={[styles.title, completed && styles.titleCompleted]}>{title}</Text>
         </View>
 
         <View style={styles.rightSection}>
-          <Text style={[styles.metric, { color: completed ? '#FFFFFF' : color }]}>{metric}</Text>
+          <Text style={[styles.metric, { color: completed ? '#FFFFFF' : 'rgba(0, 0, 0, 0.4)' }]}>{metric}</Text>
           <View style={styles.actionButton}>
             {action === 'add' ? (
               <Plus size={28} color={completed ? '#FFFFFF' : color} strokeWidth={3} />
             ) : (
-              <Play size={24} color={completed ? '#FFFFFF' : color} strokeWidth={3} fill={completed ? '#FFFFFF' : color} />
+              <Play size={24} color={completed ? '#FFFFFF' : '#7F00FF'} strokeWidth={3} fill={completed ? '#FFFFFF' : '#7F00FF'} />
             )}
           </View>
         </View>
@@ -48,15 +49,13 @@ export function ActivityButton({ title, emoji, metric, color, action, onPress, c
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 3,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 30,
+    padding: 6,
+    marginBottom: 7,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 3,
   },
   pressed: {
     transform: [{ scale: 0.98 }],
@@ -72,6 +71,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    marginRight: 12,
   },
   iconContainer: {
     width: 48,
@@ -79,14 +79,17 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   emoji: {
     fontSize: 24,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#1a1a1a',
+    flex: 1,
+    flexWrap: 'wrap',
   },
   titleCompleted: {
     color: '#FFFFFF',
@@ -95,9 +98,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    flexShrink: 0,
   },
   metric: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
   },
   actionButton: {

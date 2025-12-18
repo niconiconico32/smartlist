@@ -16,13 +16,13 @@ export const colors = {
   textTertiary: '#6B7C75',    // Muted gray-green
   disabled: '#4A5550',        // Low emphasis
   
-  // Brand Colors (Calm Mint Green)
-  primary: '#A8E6CF',         // Mint Green - Main accent
-  primaryDark: '#7DC4A5',     // Darker mint for pressed states
-  primaryLight: '#C5F2DC',    // Lighter mint for highlights
+  // Brand Colors (Purple)
+  primary: '#8334D2',         // Purple - Main accent
+  primaryDark: '#6b2aae',     // Darker purple for pressed states
+  primaryLight: '#9b4fe6',    // Lighter purple for highlights
   
   // Status Colors (Soft and muted)
-  success: '#A8E6CF',         // Use mint for success (consistency)
+  success: '#A8E6CF',         // Mint green for success
   warning: '#FDFD96',         // Pale yellow
   danger: '#FF8B94',          // Salmon red (soft, not aggressive)
   

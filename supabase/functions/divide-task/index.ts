@@ -13,6 +13,7 @@ interface Subtask {
 interface TaskDivisionResult {
   title: string;
   tasks: Subtask[];
+  emoji: string;
 }
 
 serve(async (req) => {
@@ -43,11 +44,13 @@ REGLAS:
 2. Cada subtarea debe ser UNA acción clara (ej: "Recoger objetos del suelo", "Limpiar el espejo")
 3. Estima la duración de cada paso en minutos (tareas simples 3-5min, medias 8-12min, largas 15-20min)
 4. Genera entre 4-8 subtareas normalmente
-5. Mantén el título de la tarea original (sin decoración)
+5. IMPORTANTE: Resume el título de la tarea a MÁXIMO 50 caracteres, capturando la esencia de la tarea
+6. Selecciona UN SOLO emoji que represente mejor la tarea (ej: 🧹 para limpieza, 📚 para estudio, 🍳 para cocina)
 
 FORMATO DE SALIDA (JSON puro):
 {
-  "title": "Título de la tarea original",
+  "title": "Título resumido (máx 50 caracteres)",
+  "emoji": "🧹",
   "tasks": [
     { "title": "Primera subtarea", "duration": 5 },
     { "title": "Segunda subtarea", "duration": 8 }
@@ -111,12 +114,13 @@ Responde ÚNICAMENTE con el JSON, sin explicaciones.`;
     }
 
     result.title = result.title || task;
+    result.emoji = result.emoji || "✨";
     result.tasks = result.tasks.map(subtask => ({
       title: subtask.title || "Subtarea sin nombre",
       duration: subtask.duration || 5,
     }));
 
-    console.log(`✅ Tarea dividida: ${result.title} - ${result.tasks.length} subtareas`);
+    console.log(`✅ Tarea dividida: ${result.emoji} ${result.title} - ${result.tasks.length} subtareas`);
 
     return new Response(JSON.stringify(result, null, 2), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

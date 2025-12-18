@@ -1,144 +1,150 @@
-import { addDays, format, isBefore, isToday, startOfDay, startOfWeek } from 'date-fns';
+import { addDays, format, isToday, startOfWeek, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Check, Paperclip, Settings } from 'lucide-react-native';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const DAY_WIDTH = 64; // minWidth + gap
 
 export function WeeklyCalendar() {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: es });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const scrollViewRef = useRef<ScrollView>(null);
   
-  // Simular días completados (ayer tiene check)
-  const completedDays = [format(addDays(today, -1), 'yyyy-MM-dd')];
+  // Generate 4 weeks (2 before, current week, 1 after)
+  const startDate = subDays(weekStart, 14); // 2 weeks before
+  const allDays = Array.from({ length: 28 }, (_, i) => addDays(startDate, i));
 
-  const isDayCompleted = (date: Date) => {
-    return completedDays.includes(format(date, 'yyyy-MM-dd'));
-  };
+  // Find index of today
+  const todayIndex = allDays.findIndex(day => isToday(day));
+
+  useEffect(() => {
+    // Center today's date on mount
+    if (scrollViewRef.current && todayIndex >= 0) {
+      const scrollToX = (todayIndex * DAY_WIDTH) - (SCREEN_WIDTH / 2) + (DAY_WIDTH / 2);
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ x: scrollToX, animated: false });
+      }, 100);
+    }
+  }, []);
 
   return (
     <View style={styles.container}>
-      {/* Header Row */}
+      {/* Header - Day and Date */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton}>
-          <Paperclip size={24} color="#14b8a6" style={{ transform: [{ rotate: '45deg' }] }} />
-        </TouchableOpacity>
-        
-        <View style={styles.centerDate}>
-          <Text style={styles.dateText}>{format(today, 'd MMM', { locale: es })}</Text>
-          <Calendar size={20} color="#14b8a6" style={styles.calendarIcon} />
+        <View style={styles.dayNameContainer}>
+          <Text style={styles.dayName}>{format(today, 'EEE', { locale: es })}</Text>
+          <View style={styles.redDot} />
         </View>
-        
-        <TouchableOpacity style={styles.iconButton}>
-          <Settings size={24} color="#6b7280" />
-        </TouchableOpacity>
+        <Text style={styles.fullDate}>{format(today, 'MMMM d', { locale: es })}</Text>
+        <Text style={styles.year}>{format(today, 'yyyy')}</Text>
       </View>
 
-      {/* Week Days Row */}
-      <View style={styles.weekRow}>
-        {weekDays.map((day, index) => {
+      {/* Scrollable Week Days Row */}
+      <ScrollView 
+        ref={scrollViewRef}
+        horizontal 
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.weekScrollContent}
+        style={styles.weekScroll}
+      >
+        {allDays.map((day, index) => {
           const isCurrentDay = isToday(day);
-          const isPast = isBefore(startOfDay(day), startOfDay(today));
-          const isCompleted = isDayCompleted(day);
 
           return (
             <View key={index} style={styles.dayContainer}>
-              <Text style={styles.dayLabel}>
-                {format(day, 'EEE', { locale: es }).slice(0, 3)}
+              <Text style={[
+                styles.dayNumber,
+                isCurrentDay && styles.dayNumberActive
+              ]}>
+                {format(day, 'd')}
               </Text>
-              
-              {isCompleted && isPast ? (
-                <View style={styles.checkContainer}>
-                  <Check size={18} color="#14b8a6" strokeWidth={3} />
-                </View>
-              ) : (
-                <View style={[
-                  styles.dayNumber,
-                  isCurrentDay && styles.dayNumberActive
-                ]}>
-                  <Text style={[
-                    styles.dayNumberText,
-                    isCurrentDay && styles.dayNumberTextActive
-                  ]}>
-                    {format(day, 'd')}
-                  </Text>
-                </View>
-              )}
+              <Text style={[
+                styles.dayLabel,
+                isCurrentDay && styles.dayLabelActive
+              ]}>
+                {format(day, 'EEE', { locale: es }).toUpperCase().slice(0, 3)}
+              </Text>
             </View>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F0F9F8',
-    paddingTop: 50,
-    paddingBottom: 16,
+    backgroundColor: '#F5F5F5',
+    paddingTop: 20,
+    paddingBottom: 20,
     paddingHorizontal: 20,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  iconButton: {
-    padding: 8,
-  },
-  centerDate: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
   },
-  dateText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  calendarIcon: {
-    marginTop: 4,
-  },
-  weekRow: {
+  dayNameContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    alignItems: 'center',
+    gap: 6,
+  },
+  dayName: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#7F00FF',
+    letterSpacing: -1,
+  },
+  redDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#7F00FF',
+  },
+  fullDate: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#9CA3AF',
+    marginLeft: 'auto',
+  },
+  year: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#D1D5DB',
+  },
+  weekScroll: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+    paddingTop: 12,
+  },
+  weekScrollContent: {
+    paddingHorizontal: 20,
+    gap: 24,
   },
   dayContainer: {
     alignItems: 'center',
     gap: 6,
+    width: 40,
+  },
+  dayNumber: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  dayNumberActive: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#7F00FF',
   },
   dayLabel: {
     fontSize: 11,
-    color: '#9ca3af',
-    textTransform: 'lowercase',
-    fontWeight: '500',
-  },
-  dayNumber: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayNumberActive: {
-    backgroundColor: '#99f6e4',
-    borderRadius: 12,
-  },
-  dayNumberText: {
-    fontSize: 16,
-    color: '#4b5563',
     fontWeight: '600',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
   },
-  dayNumberTextActive: {
-    color: '#111827',
-    fontWeight: '700',
-  },
-  checkContainer: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+  dayLabelActive: {
+    color: '#7F00FF',
   },
 });
