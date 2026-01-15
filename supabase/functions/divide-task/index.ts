@@ -39,29 +39,41 @@ serve(async (req) => {
 
     const systemPrompt = `Eres un asistente experto en dividir tareas complejas en subtareas simples y accionables.
 
-REGLAS:
-1. Divide la tarea en pasos específicos, concretos y secuenciales
-2. Cada subtarea debe ser UNA acción clara (ej: "Recoger objetos del suelo", "Limpiar el espejo")
-3. Estima la duración de cada paso en minutos (tareas simples 3-5min, medias 8-12min, largas 15-20min)
-4. Genera entre 4-8 subtareas normalmente
-5. IMPORTANTE: Resume el título de la tarea a MÁXIMO 50 caracteres, capturando la esencia de la tarea
-6. Selecciona UN SOLO emoji que represente mejor la tarea (ej: 🧹 para limpieza, 📚 para estudio, 🍳 para cocina)
+REGLAS CRÍTICAS:
+1. CAPTURA TODOS LOS DETALLES mencionados en la tarea (números, especificaciones, requisitos)
+2. Convierte CADA detalle en una subtarea específica (ej: si dice "10 abdominales, 5 lagartijas, correr 5km", crea UNA subtarea por cada ejercicio con el número exacto)
+3. Mantén los números y especificaciones en el título de cada subtarea
+4. Estima la duración realista de cada subtarea específica en minutos
+5. Genera entre 3-10 subtareas basadas en la complejidad
+6. Resume el título principal a MÁXIMO 50 caracteres
+7. Selecciona UN emoji que represente la tarea completa
 
-FORMATO DE SALIDA (JSON puro):
+EJEMPLO - Input: "Quiero hacer ejercicio: 10 abdominales, 5 lagartijas y correr 5 kilómetros"
+Output:
 {
-  "title": "Título resumido (máx 50 caracteres)",
-  "emoji": "🧹",
+  "title": "Plan de ejercicio completo",
+  "emoji": "💪",
   "tasks": [
-    { "title": "Primera subtarea", "duration": 5 },
-    { "title": "Segunda subtarea", "duration": 8 }
+    { "title": "Hacer 10 abdominales", "duration": 3 },
+    { "title": "Hacer 5 lagartijas", "duration": 3 },
+    { "title": "Correr 5 kilómetros", "duration": 30 }
+  ]
+}
+
+FORMATO DE SALIDA:
+{
+  "title": "Título resumido",
+  "emoji": "🎯",
+  "tasks": [
+    { "title": "Subtarea con detalles específicos", "duration": número }
   ]
 }`;
 
-    const userPrompt = `Divide esta tarea en subtareas específicas y accionables:
+    const userPrompt = `Divide COMPLETAMENTE esta tarea en subtareas específicas. IMPORTANTE: Captura TODOS los números, especificaciones y detalles mencionados en cada subtarea:
 
 "${task.trim()}"
 
-Responde ÚNICAMENTE con el JSON, sin explicaciones.`;
+Responde ÚNICAMENTE con JSON válido, sin explicaciones.`;
 
     console.log(`[2/2] Enviando a OpenAI...`);
 

@@ -1,18 +1,69 @@
+// --- Type Definitions ---
+type Subtask = {
+  id: string;
+  title: string;
+  duration: number;
+  isCompleted: boolean;
+};
+
+type Activity = {
+  id: string;
+  title: string;
+  emoji: string;
+  metric: string;
+  color: string;
+  iconColor: string;
+  action: 'add' | 'play';
+  completed: boolean;
+  subtasks: Subtask[];
+  recurrence?: {
+    type: 'once' | 'daily' | 'weekly';
+    days?: number[];
+    time?: string;
+  };
+  reminder?: {
+    enabled: boolean;
+    minutesBefore: number;
+  };
+  completedDates?: string[];
+};
+
+// --- Fallbacks for missing imports ---
+function getRandomIconColor() {
+  // Return a random color from a palette
+  const palette = ['#A8E6CF', '#FFD3B6', '#FFAAA5', '#D1C4E9', '#B2EBF2', '#FFCCBC'];
+  return palette[Math.floor(Math.random() * palette.length)];
+}
+
+// Dummy fallback for ConfettiCannon if not imported
+const ConfettiCannon = (props: any) => null;
 import { colors } from '@/constants/theme';
 import { ActivityButton } from '@/src/components/ActivityButton';
+import { FocusModeScreen } from '@/src/components/FocusModeScreen';
+import { SubtaskListScreen } from '@/src/components/SubtaskListScreen';
+import { TaskModalNew } from '@/src/components/TaskModalNew';
 import { useBottomTabInset } from '@/src/hooks/useBottomTabInset';
+import { useVoiceTask } from '@/src/hooks/useVoiceTask';
+import {
+  ONBOARDING_BUTTONS,
+  ONBOARDING_COLORS,
+  ONBOARDING_DIMENSIONS,
+  ONBOARDING_DOTS,
+  ONBOARDING_SHADOWS,
+  ONBOARDING_TYPOGRAPHY,
+} from '@/src/styles/onboardingStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Check, Clock, Edit2, Plus, RefreshCw, Trash2, X } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { Check, Clock, Mic, Play, X } from 'lucide-react-native';
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Animated,
   Dimensions,
+  Image,
   Modal,
   Pressable,
-  SafeAreaView,
+  Animated as RNAnimated,
   ScrollView,
   StyleSheet,
   Switch,
@@ -20,115 +71,309 @@ import {
   TextInput,
   View
 } from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { addTaskRef } from './swipeable-layout';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const AnimatedPressable = RNAnimated.createAnimatedComponent(Pressable);
 
-// Paleta de colores para iconos de tareas
-const ICON_COLORS = [
-  '#E8D5FF', // Lavanda suave
-  '#FFE5F1', // Rosa pastel
-  '#D4F1F4', // Aqua claro
-  '#FFE8CC', // Melocotón
-  '#E5F9E0', // Verde menta
-  '#FFF4E0', // Amarillo crema
-  '#E8E8FF', // Azul lavanda
-  '#FFE4E1', // Rosa misty
-];
-
-const getRandomIconColor = () => {
-  return ICON_COLORS[Math.floor(Math.random() * ICON_COLORS.length)];
-};
-
-interface Activity {
-  id: string;
-  title: string;
-  emoji: string;
-  metric: string;
-  color: string;
-  iconColor?: string;
-  action: 'add' | 'play';
-  completed: boolean;
-  recurrence?: {
-    type: 'once' | 'daily' | 'weekly' | 'monthly';
-    days?: number[]; // Para semanal: [0,2,4] = L,M,V
-    time?: string; // "14:30" opcional
-  };
-  completedDates?: string[]; // ['2025-12-12', '2025-12-13']
-  subtasks?: Subtask[];
-  reminder?: {
-    enabled: boolean;
-    minutesBefore: number;
-  };
-}
-
-interface Subtask {
-  title: string;
-  duration: number;
-}
-
-export default function PlanScreen() {
+const PlanScreen = React.forwardRef(function PlanScreen({ 
+  setIsFirstTime, 
+  pulseAnim: parentPulseAnim, 
+  isFirstTime: parentIsFirstTime 
+}: { 
+  setIsFirstTime?: (value: boolean) => void; 
+  pulseAnim?: any; 
+  isFirstTime?: boolean;
+}, ref: any) {
   const bottomInset = useBottomTabInset();
+  const router = useRouter();
   
+  // Local state for isFirstTime if not passed from parent
+  const [taskInput, setTaskInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [localIsFirstTime, setLocalIsFirstTime] = useState(parentIsFirstTime !== undefined ? parentIsFirstTime : true);
+  const localPulseAnimFirstTime = useRef(new RNAnimated.Value(1)).current;
+  
+  const { recording, isProcessing, startRecording, stopRecording, cleanup } = useVoiceTask(
+    (transcribedText: string) => {
+      setTaskInput(transcribedText);
+      setIsListening(false);
+    }
+  );
+  
+  const handleMicPressIn = async () => {
+    try {
+      setIsListening(true);
+      await startRecording();
+    } catch (error) {
+      console.error('Error in handleMicPressIn:', error);
+      setIsListening(false);
+    }
+  };
+  
+  const handleMicPressOut = async () => {
+    try {
+      await stopRecording();
+    } catch (error) {
+      console.error('Error in handleMicPressOut:', error);
+    } finally {
+      setIsListening(false);
+    }
+  };
+  
+  // Onboarding Modal State
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const onboardingSlideAnim = useRef(new RNAnimated.Value(0)).current;
+
   // Task Modal States
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const [taskInput, setTaskInput] = useState('');
+  const [showScheduleOption, setShowScheduleOption] = useState(false);
+  const [shouldShowTaskModalAfterSchedule, setShouldShowTaskModalAfterSchedule] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [generatedTaskTitle, setGeneratedTaskTitle] = useState('');
   const [generatedEmoji, setGeneratedEmoji] = useState('✨');
   const [editingSubtaskIndex, setEditingSubtaskIndex] = useState<number | null>(null);
+  const [showSubtasksModal, setShowSubtasksModal] = useState(false);
   
+  // Focus Mode States
+  const [showFocusMode, setShowFocusMode] = useState(false);
+  const [focusModeSubtasks, setFocusModeSubtasks] = useState<Subtask[]>([]);
+
   // Schedule States  
   const [isScheduled, setIsScheduled] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [recurrenceType, setRecurrenceType] = useState<'once' | 'daily' | 'weekly' | 'monthly'>('once');
+  const [recurrenceType, setRecurrenceType] = useState<'once' | 'daily' | 'weekly'>('once');
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderTime, setReminderTime] = useState(15);
-  
+
   // Execution Modal States
   const [showExecutionModal, setShowExecutionModal] = useState(false);
   const [executingActivity, setExecutingActivity] = useState<Activity | null>(null);
   const [currentSubtaskIndex, setCurrentSubtaskIndex] = useState(0);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const executionSlideAnim = useRef(new RNAnimated.Value(0)).current;
+  const micVibrationAnim = useRef(new RNAnimated.Value(0)).current;
+  const pulseAnim = useRef(new RNAnimated.Value(1)).current;
+  const dot1Opacity = useRef(new RNAnimated.Value(0.3)).current;
+  const dot2Opacity = useRef(new RNAnimated.Value(0.3)).current;
+  const dot3Opacity = useRef(new RNAnimated.Value(0.3)).current;
   const confettiRef = useRef<any>(null);
-  
+
   const [activities, setActivities] = useState<Activity[]>([]);
 
+  // Función para avanzar al siguiente paso del onboarding
+  const goToNextStep = () => {
+    setOnboardingStep((prev) => prev + 1);
+  };
+
+  // Función para volver al paso anterior (solo para la pantalla 1)
+  const goToPreviousStep = () => {
+    setOnboardingStep(1);
+  };
+
   // Exponer función para abrir modal desde el botón +
-  useImperativeHandle(addTaskRef, () => ({
-    openTaskModal: () => {
+  useImperativeHandle(ref, () => ({
+    openTaskModal: (showSchedule = false) => {
       setShowTaskModal(true);
+      setShowScheduleOption(showSchedule);
+      setShouldShowTaskModalAfterSchedule(false);
+    },
+    openProgramScheduleModal: () => {
+      setShowScheduleModal(true);
+      setShouldShowTaskModalAfterSchedule(true);
     }
   }));
 
   // Load activities from AsyncStorage
   useEffect(() => {
-    loadActivities();
+    // Only keep activities in memory during session
+    // Commenting out loadActivities to clear data on reload (Ctrl+R in console)
+    // loadActivities();
+    // clearAllActivities();
   }, []);
 
-  // Save activities to AsyncStorage whenever they change
+  // Save activities to memory only (not persisted)
   useEffect(() => {
     if (activities.length > 0) {
-      saveActivities();
+      // Not saving to AsyncStorage - kept only in memory during session
+      // saveActivities();
+      setLocalIsFirstTime(false);
+      if (setIsFirstTime) {
+        setIsFirstTime(false);
+      }
     }
   }, [activities]);
+
+  // Microphone vibration animation
+  useEffect(() => {
+    if (recording || isListening) {
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(micVibrationAnim, {
+            toValue: 1,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(micVibrationAnim, {
+            toValue: -1,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(micVibrationAnim, {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      micVibrationAnim.setValue(0);
+    }
+  }, [recording, isListening]);
+
+  // Clean up listening state when processing finishes
+  useEffect(() => {
+    if (!recording && !isProcessing && isListening) {
+      setIsListening(false);
+    }
+  }, [recording, isProcessing]);
+
+  // Cleanup recording when modal closes
+  useEffect(() => {
+    if (!showTaskModal && (recording || isListening)) {
+      cleanup();
+      setIsListening(false);
+    }
+  }, [showTaskModal]);
+
+  // Pulse animation effect while listening
+  useEffect(() => {
+    if (recording || isListening) {
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [recording, isListening]);
+
+  // Pulse animation for first time overlay
+  useEffect(() => {
+    const effectiveIsFirstTime = parentIsFirstTime !== undefined ? parentIsFirstTime : localIsFirstTime;
+    const effectivePulseAnim = parentPulseAnim || localPulseAnimFirstTime;
+    
+    if (effectiveIsFirstTime) {
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(effectivePulseAnim, {
+            toValue: 1.15,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(effectivePulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      effectivePulseAnim.setValue(1);
+    }
+  }, [parentIsFirstTime, localIsFirstTime]);
+
+  // Dots loading animation while processing
+  useEffect(() => {
+    if (isProcessing) {
+      RNAnimated.loop(
+        RNAnimated.sequence([
+          RNAnimated.timing(dot1Opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(dot2Opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(dot3Opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(dot1Opacity, {
+            toValue: 0.3,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(dot2Opacity, {
+            toValue: 0.3,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(dot3Opacity, {
+            toValue: 0.3,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      dot1Opacity.setValue(0.3);
+      dot2Opacity.setValue(0.3);
+      dot3Opacity.setValue(0.3);
+    }
+  }, [isProcessing]);
 
   const loadActivities = async () => {
     try {
       const stored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
       if (stored) {
-        setActivities(JSON.parse(stored));
+        const activities = JSON.parse(stored);
+        setActivities(activities);
+        if (activities.length > 0) {
+          setLocalIsFirstTime(false);
+          if (setIsFirstTime) {
+            setIsFirstTime(false);
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading activities:', error);
+    }
+  };
+
+  const clearAllActivities = async () => {
+    try {
+      await AsyncStorage.removeItem(ACTIVITIES_STORAGE_KEY);
+      setActivities([]);
+      setLocalIsFirstTime(true);
+      if (setIsFirstTime) {
+        setIsFirstTime(true);
+      }
+    } catch (error) {
+      console.error('Error clearing activities:', error);
     }
   };
 
@@ -140,13 +385,14 @@ export default function PlanScreen() {
     }
   };
 
-  const generateSubtasks = async () => {
-    if (!taskInput.trim()) {
+  const generateSubtasks = async (inputText: string) => {
+    if (!inputText.trim()) {
       Alert.alert('Error', 'Escribe una tarea primero');
       return;
     }
 
     setIsGenerating(true);
+    setTaskInput(inputText);
     setSubtasks([]);
     setGeneratedTaskTitle('');
 
@@ -160,7 +406,7 @@ export default function PlanScreen() {
             'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg',
             'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg',
           },
-          body: JSON.stringify({ task: taskInput.trim() }),
+          body: JSON.stringify({ task: inputText.trim() }),
         }
       );
 
@@ -177,7 +423,7 @@ export default function PlanScreen() {
       }
 
       // Usar el título generado por la IA o resumir el input del usuario
-      let finalTitle = data.title || taskInput;
+      let finalTitle = data.title || inputText;
       
       // Si el título es muy largo, truncar a 50 caracteres
       if (finalTitle.length > 50) {
@@ -186,7 +432,23 @@ export default function PlanScreen() {
 
       setGeneratedTaskTitle(finalTitle);
       setGeneratedEmoji(data.emoji || '✨');
-      setSubtasks(data.tasks);
+      
+      // Transform subtasks to include id and isCompleted
+      const transformedSubtasks: Subtask[] = data.tasks.map((task: any, index: number) => ({
+        id: `${Date.now()}-${index}`,
+        title: task.title,
+        duration: task.duration,
+        isCompleted: false,
+      }));
+      setSubtasks(transformedSubtasks);
+
+      // Cerrar el modal de tarea y mostrar el modal de subtareas
+      setShowTaskModal(false);
+      
+      // Mostrar las subtareas generadas después de un pequeño delay
+      setTimeout(() => {
+        setShowSubtasksModal(true);
+      }, 300);
     } catch (error) {
       console.error('Error generando subtareas:', error);
       Alert.alert('Error', 'No se pudieron generar las subtareas. Intenta de nuevo.');
@@ -195,8 +457,10 @@ export default function PlanScreen() {
     }
   };
 
-  const addTaskToList = () => {
-    if (!generatedTaskTitle || subtasks.length === 0) {
+  const addTaskToList = (finalSubtasks?: Subtask[]) => {
+    const tasksToUse = finalSubtasks || subtasks;
+    
+    if (!generatedTaskTitle || tasksToUse.length === 0) {
       Alert.alert('Error', 'Genera subtareas primero');
       return;
     }
@@ -205,12 +469,12 @@ export default function PlanScreen() {
       id: Date.now().toString(),
       title: generatedTaskTitle,
       emoji: generatedEmoji,
-      metric: `${subtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
+      metric: `${tasksToUse.reduce((sum, t) => sum + t.duration, 0)} min`,
       color: '#A8E6CF',
       iconColor: getRandomIconColor(),
       action: 'play',
       completed: false,
-      subtasks: subtasks,
+      subtasks: tasksToUse,
       recurrence: isScheduled ? {
         type: recurrenceType,
         days: recurrenceType === 'weekly' ? selectedDays : undefined,
@@ -226,6 +490,7 @@ export default function PlanScreen() {
     setActivities(prev => [newActivity, ...prev]);
     
     // Reset modal
+    setShowSubtasksModal(false);
     setShowTaskModal(false);
     setTaskInput('');
     setSubtasks([]);
@@ -283,7 +548,7 @@ export default function PlanScreen() {
 
   // Stopwatch effect (counts up)
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: number;
     if (showExecutionModal && !showSuccessScreen) {
       interval = setInterval(() => {
         setElapsedTime(prev => prev + 1);
@@ -312,7 +577,7 @@ export default function PlanScreen() {
       // Next subtask
       setCurrentSubtaskIndex(nextIndex);
       setElapsedTime(0);
-      Animated.timing(slideAnim, {
+      RNAnimated.timing(executionSlideAnim, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
@@ -375,23 +640,45 @@ export default function PlanScreen() {
   const totalCompleted = completedActivities.length;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView 
-        style={styles.container}
-        contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 130 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Por Hacer</Text>
-        </View>
+    <>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 130 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Por Hacer</Text>
+          </View>
 
-        <View style={styles.activitiesContainer}>
-          {pendingActivities.length === 0 ? (
-            <Text style={styles.emptyPlaceholder}>
-              No tienes tareas para hoy. Agrega una pinchando +
-            </Text>
-          ) : (
-            pendingActivities.map(activity => (
+          <View style={styles.activitiesContainer}>
+            {pendingActivities.length === 0 ? (
+              <Text style={styles.emptyPlaceholder}>
+                No tienes tareas para hoy. Agrega una pinchando +
+              </Text>
+            ) : (
+              pendingActivities.map(activity => (
+                <ActivityButton
+                  key={activity.id}
+                  title={activity.title}
+                  emoji={activity.emoji}
+                  metric={activity.metric}
+                  color={activity.color}
+                  iconColor={activity.iconColor}
+                  action={activity.action}
+                  completed={false}
+                  onPress={() => handleActivityPress(activity)}
+                />
+              ))
+            )}
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Completadas</Text>
+          </View>
+
+          <View style={styles.activitiesContainer}>
+            {completedActivities.map(activity => (
               <ActivityButton
                 key={activity.id}
                 title={activity.title}
@@ -400,560 +687,840 @@ export default function PlanScreen() {
                 color={activity.color}
                 iconColor={activity.iconColor}
                 action={activity.action}
-                completed={false}
+                completed={true}
                 onPress={() => handleActivityPress(activity)}
               />
-            ))
-          )}
-        </View>
+            ))}
+          </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Completadas</Text>
-        </View>
+          {/* Test Onboarding Button */}
+          <Pressable 
+            style={styles.testOnboardingButton}
+            onPress={() => setShowOnboardingModal(true)}
+          >
+            <Text style={styles.testOnboardingText}>Test Onboarding</Text>
+          </Pressable>
+        </ScrollView>
 
-        <View style={styles.activitiesContainer}>
-          {completedActivities.map(activity => (
-            <ActivityButton
-              key={activity.id}
-              title={activity.title}
-              emoji={activity.emoji}
-              metric={activity.metric}
-              color={activity.color}
-              iconColor={activity.iconColor}
-              action={activity.action}
-              completed={true}
-              onPress={() => handleActivityPress(activity)}
-            />
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Task Creation Modal */}
-      <Modal
-        visible={showTaskModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowTaskModal(false)}
-      >
-        <View style={styles.taskModalOverlay}>
-          <View style={styles.taskModalContent}>
-            <View style={styles.taskModalHeader}>
-              <Text style={styles.taskModalTitle}>Nueva Tarea</Text>
-              <Pressable onPress={() => setShowTaskModal(false)}>
-                <X size={24} color={colors.textSecondary} />
+        {/* Onboarding Modal */}
+        <Modal
+          visible={showOnboardingModal}
+          animationType="slide"
+          transparent={false}
+        >
+          <SafeAreaView style={styles.onboardingContainer}>
+            <View style={styles.onboardingHeader}>
+              <Pressable 
+                onPress={() => {
+                  setShowOnboardingModal(false);
+                  setOnboardingStep(1);
+                  onboardingSlideAnim.setValue(0);
+                }} 
+                style={styles.backButton}
+              >
+                <X size={24} color="#121212" />
               </Pressable>
             </View>
 
-            <ScrollView style={styles.taskModalBody} showsVerticalScrollIndicator={false}>
-              {/* Task Input */}
-              <View style={styles.taskInputWrapper}>
-                <TextInput
-                  style={styles.taskInput}
-                  placeholder="Describe tu tarea con detalle..."
-                  placeholderTextColor={colors.textTertiary}
-                  value={taskInput}
-                  onChangeText={setTaskInput}
-                  multiline
-                  numberOfLines={6}
-                  textAlignVertical="top"
-                  editable={!isGenerating}
-                  autoFocus
-                />
-              </View>
+            <View style={styles.onboardingScrollContainer}>
+              {/* Progress Dots - Hidden on first screen */}
+              {onboardingStep !== 1 && (
+                <View style={styles.progressDotsContainer}>
+                  {[0, 1, 2, 3, 4, 5].map((index) => (
+                    <View
+                      key={index}
+                      style={
+                        index === onboardingStep - 1
+                          ? {
+                              width: 16,
+                              height: 14,
+                              borderRadius: 25,
+                              backgroundColor: '#7F00FF',
+                            }
+                          : {
+                              width: 9,
+                              height: 9,
+                              borderRadius: 55,
+                              backgroundColor: '#7F00FF',
+                            }
+                      }
+                    />
+                  ))}
+                </View>
+              )}
 
-              {/* Schedule Toggle */}
-              <Pressable 
-                style={styles.scheduleToggle}
-                onPress={() => {
-                  if (!isScheduled) {
-                    setShowScheduleModal(true);
-                  }
-                  setIsScheduled(!isScheduled);
-                }}
-              >
-                <View style={styles.scheduleToggleContent}>
-                  <Clock size={16} color={colors.textSecondary} />
-                  <Text style={styles.scheduleLabel}>Programar</Text>
-                  {isScheduled && (
-                    <View style={styles.scheduleBadge}>
-                      <Text style={styles.scheduleBadgeText}>
-                        {recurrenceType === 'once' ? 'Una vez' : 
-                         recurrenceType === 'daily' ? 'Diaria' :
-                         recurrenceType === 'weekly' ? 'Semanal' : 'Mensual'}
-                      </Text>
+              {/* Fixed Height Content Container */}
+              <View style={styles.onboardingContentWrapper}>
+                {/* Title Section - Fixed Height */}
+                <View style={styles.onboardingTitleSection}>
+                  <Text style={styles.onboardingTitle}>
+                    {onboardingStep === 1 && 'Your Focus Keeper'}
+                    {onboardingStep === 3 && "Don't worry"}
+                    {(onboardingStep === 2 || onboardingStep === 4 || onboardingStep === 5 || onboardingStep === 6) && 'Have you been diagnosed with ADHD or do you suspect you have it?'}
+                  </Text>
+                </View>
+
+                {/* Subtitle Section - Fixed Height */}
+                <View style={styles.onboardingSubtitleSection}>
+                  {onboardingStep === 1 && (
+                    <Text style={styles.onboardingSubtitle}>
+                      ADHD daily companion.{"\n"}
+                      Habits for focus, peace, and progress,{"\n"}
+                      by the team behind 🔥 FABULOUS
+                    </Text>
+                  )}
+                  {onboardingStep === 3 && (
+                    <Text style={styles.onboardingSubtitle}>
+                      Having a brain that works differently can feel like having too many programs running on your computer.
+                    </Text>
+                  )}
+                </View>
+
+                {/* Image Section - Fixed Height & Size */}
+                <View style={styles.onboardingImageSection}>
+                  {(onboardingStep === 1 || onboardingStep === 3) && (
+                    <Image
+                      source={require('@/assets/images/Scrum board-rafiki.png')}
+                      style={styles.onboardingImage}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
+
+                {/* Options Section - Flex for different layouts */}
+                <View style={styles.onboardingOptionsSection}>
+                  {(onboardingStep === 2 || onboardingStep === 4 || onboardingStep === 5 || onboardingStep === 6) && (
+                    <View style={styles.optionsContainer}>
+                      {["Yes, I've been diagnosed with ADHD", "I think I might have it", "No, but I'd like to improve my focus and productivity"].map((option, idx) => (
+                        <Pressable
+                          key={idx}
+                          style={[
+                            styles.optionButton,
+                            selectedOption === idx && { borderColor: '#7F00FF', borderWidth: 3 },
+                          ]}
+                          onPress={() => {
+                            setSelectedOption(idx);
+                            setTimeout(() => {
+                              setSelectedOption(null);
+                              goToNextStep();
+                            }, 200);
+                          }}
+                        >
+                          <Text style={styles.optionText}>{option}</Text>
+                        </Pressable>
+                      ))}
                     </View>
                   )}
                 </View>
-                <Switch
-                  value={isScheduled}
-                  onValueChange={(value) => {
-                    if (value) {
-                      setShowScheduleModal(true);
-                    }
-                    setIsScheduled(value);
-                  }}
-                  trackColor={{ false: '#E0E0E0', true: colors.primary }}
-                  thumbColor={'#FFFFFF'}
-                />
-              </Pressable>
+              </View>
 
-              {/* Generate Button */}
-              <Pressable
-                style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]}
-                onPress={generateSubtasks}
-                disabled={isGenerating}
-              >
-                {isGenerating ? (
-                  <>
-                    <ActivityIndicator size="small" color="#1C2120" />
-                    <Text style={styles.generateButtonText}>Generando...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Plus size={20} color="#1C2120" />
-                    <Text style={styles.generateButtonText}>Generar Subtareas</Text>
-                  </>
-                )}
-              </Pressable>
-
-              {/* Subtasks Result */}
-              {subtasks.length > 0 && (
-                <View style={styles.subtasksSection}>
-                  <View style={styles.subtasksHeader}>
-                    <Text style={styles.subtasksTitle}>{generatedTaskTitle}</Text>
-                    <Pressable onPress={generateSubtasks} style={styles.regenerateButton}>
-                      <RefreshCw size={18} color={colors.textSecondary} />
-                      <Text style={styles.regenerateText}>Regenerar</Text>
-                    </Pressable>
-                  </View>
-
-                  <View style={styles.subtasksList}>
-                    {subtasks.map((subtask, index) => (
-                      <View key={index} style={styles.subtaskCard}>
-                        <View style={styles.subtaskNumber}>
-                          <Text style={styles.subtaskNumberText}>{index + 1}</Text>
-                        </View>
-                        <View style={styles.subtaskContent}>
-                          {editingSubtaskIndex === index ? (
-                            <TextInput
-                              style={styles.subtaskInput}
-                              value={subtask.title}
-                              onChangeText={(text) => {
-                                const newSubtasks = [...subtasks];
-                                newSubtasks[index] = { ...subtask, title: text };
-                                setSubtasks(newSubtasks);
-                              }}
-                              onBlur={() => setEditingSubtaskIndex(null)}
-                              autoFocus
-                            />
-                          ) : (
-                            <Text style={styles.subtaskTitle}>{subtask.title}</Text>
-                          )}
-                          <Text style={styles.subtaskDuration}>{subtask.duration} min</Text>
-                        </View>
-                        <View style={styles.subtaskActions}>
-                          <Pressable 
-                            onPress={() => setEditingSubtaskIndex(index)}
-                            style={styles.iconButton}
-                          >
-                            <Edit2 size={16} color={colors.textTertiary} />
-                          </Pressable>
-                          <Pressable 
-                            onPress={() => {
-                              const newSubtasks = subtasks.filter((_, i) => i !== index);
-                              setSubtasks(newSubtasks);
-                            }}
-                            style={styles.iconButton}
-                          >
-                            <Trash2 size={16} color="#FF8B94" />
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-
-                  <View style={styles.totalDuration}>
-                    <Text style={styles.totalDurationText}>
-                      Duración total: {subtasks.reduce((sum, task) => sum + task.duration, 0)} minutos
-                    </Text>
-                  </View>
-                </View>
+              {/* Button - Positioned at bottom */}
+              {onboardingStep === 1 && (
+                <Pressable 
+                  style={styles.comenzarButton}
+                  onPress={goToNextStep}
+                >
+                  <Text style={styles.comenzarButtonText}>Comenzar</Text>
+                </Pressable>
               )}
-            </ScrollView>
-
-            {/* Add to List Button */}
-            {subtasks.length > 0 && (
-              <Pressable
-                style={styles.addToListButton}
-                onPress={addTaskToList}
-              >
-                <Text style={styles.addToListButtonText}>Agregar a Por Hacer</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Schedule Modal - Copy from add.tsx */}
-      <Modal
-        visible={showScheduleModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowScheduleModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Programar Tarea</Text>
-              <Pressable onPress={() => setShowScheduleModal(false)}>
-                <X size={24} color={colors.textSecondary} />
-              </Pressable>
             </View>
+          </SafeAreaView>
+        </Modal>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {/* Frequency Chips */}
-              <Text style={styles.sectionLabel}>Frecuencia</Text>
-              <View style={styles.frequencyChips}>
-                <Pressable
-                  style={[styles.chip, recurrenceType === 'once' && styles.chipActive]}
-                  onPress={() => setRecurrenceType('once')}
-                >
-                  <Text style={[styles.chipText, recurrenceType === 'once' && styles.chipTextActive]}>
-                    Una vez
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.chip, recurrenceType === 'daily' && styles.chipActive]}
-                  onPress={() => setRecurrenceType('daily')}
-                >
-                  <Text style={[styles.chipText, recurrenceType === 'daily' && styles.chipTextActive]}>
-                    Diaria
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.chip, recurrenceType === 'weekly' && styles.chipActive]}
-                  onPress={() => setRecurrenceType('weekly')}
-                >
-                  <Text style={[styles.chipText, recurrenceType === 'weekly' && styles.chipTextActive]}>
-                    Semanal
-                  </Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.chip, recurrenceType === 'monthly' && styles.chipActive]}
-                  onPress={() => setRecurrenceType('monthly')}
-                >
-                  <Text style={[styles.chipText, recurrenceType === 'monthly' && styles.chipTextActive]}>
-                    Mensual
-                  </Text>
+        {/* Task Creation Modal - New Design */}
+        <TaskModalNew
+          visible={showTaskModal}
+          onClose={() => {
+            // Cleanup recording if active
+            if (isListening) {
+              cleanup();
+              setIsListening(false);
+            }
+            setShowTaskModal(false);
+            setTaskInput('');
+            setSubtasks([]);
+            setGeneratedTaskTitle('');
+            setGeneratedEmoji('✨');
+          }}
+          onSubmit={generateSubtasks}
+          onVoiceStart={handleMicPressIn}
+          onVoiceStop={handleMicPressOut}
+          isListening={isListening}
+          isProcessing={isGenerating || isProcessing}
+          transcribedText={taskInput}
+        />
+
+        {/* Subtasks Modal - Full-screen SubtaskListScreen */}
+        <Modal
+          visible={showSubtasksModal}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => {
+            setShowSubtasksModal(false);
+            setSubtasks([]);
+            setGeneratedTaskTitle('');
+            setGeneratedEmoji('✨');
+          }}
+        >
+          <SubtaskListScreen
+            taskTitle={generatedTaskTitle}
+            taskEmoji={generatedEmoji}
+            initialSubtasks={subtasks}
+            onStart={(finalSubtasks) => {
+              // First add the task to the list
+              addTaskToList(finalSubtasks);
+              // Then open Focus Mode
+              setFocusModeSubtasks(finalSubtasks);
+              setShowSubtasksModal(false);
+              setTimeout(() => {
+                setShowFocusMode(true);
+              }, 300);
+            }}
+            onClose={() => {
+              setShowSubtasksModal(false);
+              setSubtasks([]);
+              setGeneratedTaskTitle('');
+              setGeneratedEmoji('✨');
+            }}
+          />
+        </Modal>
+
+        {/* Focus Mode Screen - Immersive Task Execution */}
+        <Modal
+          visible={showFocusMode}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => setShowFocusMode(false)}
+          statusBarTranslucent
+        >
+          <FocusModeScreen
+            taskTitle={generatedTaskTitle}
+            taskEmoji={generatedEmoji}
+            subtasks={focusModeSubtasks}
+            onComplete={() => {
+              setShowFocusMode(false);
+              setFocusModeSubtasks([]);
+              setSubtasks([]);
+              setGeneratedTaskTitle('');
+              setGeneratedEmoji('✨');
+              Alert.alert('🎉 ¡Felicidades!', 'Has completado todas las subtareas');
+            }}
+            onClose={() => {
+              setShowFocusMode(false);
+            }}
+          />
+        </Modal>
+
+        {/* Schedule Modal - Copy from add.tsx */}
+        <Modal
+          visible={showScheduleModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowScheduleModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Programar Tarea</Text>
+                <Pressable onPress={() => setShowScheduleModal(false)}>
+                  <X size={24} color="#6B7280" />
                 </Pressable>
               </View>
 
-              {/* Day Selector for Weekly */}
-              {recurrenceType === 'weekly' && (
-                <>
-                  <Text style={styles.sectionLabel}>Días</Text>
-                  <View style={styles.daySelector}>
-                    {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
-                      <Pressable
-                        key={index}
-                        style={[
-                          styles.dayChip,
-                          selectedDays.includes(index) && styles.dayChipActive
-                        ]}
-                        onPress={() => {
-                          setSelectedDays(prev =>
-                            prev.includes(index)
-                              ? prev.filter(d => d !== index)
-                              : [...prev, index].sort()
-                          );
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dayChipText,
-                            selectedDays.includes(index) && styles.dayChipTextActive
-                          ]}
-                        >
-                          {day}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </>
-              )}
-
-              {/* Time Picker */}
-              <Text style={styles.sectionLabel}>Hora (opcional)</Text>
-              <Pressable
-                style={styles.timePickerButton}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Clock size={20} color={colors.textSecondary} />
-                <Text style={styles.timePickerText}>
-                  {scheduledTime 
-                    ? scheduledTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                    : 'Sin hora específica'
-                  }
-                </Text>
-                {scheduledTime && (
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                {/* Frequency Chips */}
+                <Text style={styles.sectionLabel}>Frecuencia</Text>
+                <View style={styles.frequencyChips}>
                   <Pressable
-                    onPress={() => setScheduledTime(null)}
-                    hitSlop={8}
+                    style={[styles.chip, recurrenceType === 'once' && styles.chipActive]}
+                    onPress={() => setRecurrenceType('once')}
                   >
-                    <X size={16} color={colors.textTertiary} />
+                    <Text style={[styles.chipText, recurrenceType === 'once' && styles.chipTextActive]}>
+                      Una vez
+                    </Text>
                   </Pressable>
-                )}
-              </Pressable>
-
-              {showTimePicker && (
-                <DateTimePicker
-                  value={scheduledTime || new Date()}
-                  mode="time"
-                  is24Hour={true}
-                  onChange={(event, selectedDate) => {
-                    setShowTimePicker(false);
-                    if (selectedDate) {
-                      setScheduledTime(selectedDate);
-                    }
-                  }}
-                />
-              )}
-
-              {/* Reminder Toggle */}
-              <View style={styles.reminderSection}>
-                <View style={styles.reminderToggle}>
-                  <Text style={styles.sectionLabel}>Recordatorio</Text>
-                  <Switch
-                    value={reminderEnabled}
-                    onValueChange={setReminderEnabled}
-                    trackColor={{ false: '#E0E0E0', true: colors.primary }}
-                    thumbColor={'#FFFFFF'}
-                  />
+                  <Pressable
+                    style={[styles.chip, recurrenceType === 'daily' && styles.chipActive]}
+                    onPress={() => setRecurrenceType('daily')}
+                  >
+                    <Text style={[styles.chipText, recurrenceType === 'daily' && styles.chipTextActive]}>
+                      Diaria
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.chip, recurrenceType === 'weekly' && styles.chipActive]}
+                    onPress={() => setRecurrenceType('weekly')}
+                  >
+                    <Text style={[styles.chipText, recurrenceType === 'weekly' && styles.chipTextActive]}>
+                      Semanal
+                    </Text>
+                  </Pressable>
                 </View>
-                {reminderEnabled && (
-                  <View style={styles.reminderOptions}>
-                    {[5, 15, 30, 60].map((mins) => (
-                      <Pressable
-                        key={mins}
-                        style={[styles.chip, reminderTime === mins && styles.chipActive]}
-                        onPress={() => setReminderTime(mins)}
-                      >
-                        <Text style={[styles.chipText, reminderTime === mins && styles.chipTextActive]}>
-                          {mins} min antes
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+
+                {/* Day Selector for Weekly */}
+                {recurrenceType === 'weekly' && (
+                  <>
+                    <Text style={styles.sectionLabel}>Días</Text>
+                    <View style={styles.daySelector}>
+                      {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
+                        <Pressable
+                          key={index}
+                          style={[
+                            styles.dayChip,
+                            selectedDays.includes(index) && styles.dayChipActive
+                          ]}
+                          onPress={() => {
+                            setSelectedDays(prev =>
+                              prev.includes(index)
+                                ? prev.filter(d => d !== index)
+                                : [...prev, index].sort()
+                            );
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dayChipText,
+                              selectedDays.includes(index) && styles.dayChipTextActive
+                            ]}
+                          >
+                            {day}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </>
                 )}
-              </View>
-            </ScrollView>
 
-            <Pressable
-              style={styles.modalButton}
-              onPress={() => setShowScheduleModal(false)}
-            >
-              <Text style={styles.modalButtonText}>Confirmar</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Execution Modal */}
-      <Modal
-        visible={showExecutionModal}
-        animationType="fade"
-        transparent={false}
-        onRequestClose={() => {
-          Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
-            { text: 'Continuar', style: 'cancel' },
-            { 
-              text: 'Salir', 
-              style: 'destructive',
-              onPress: () => {
-                setShowExecutionModal(false);
-                setExecutingActivity(null);
-                setCurrentSubtaskIndex(0);
-                setShowSuccessScreen(false);
-              }
-            },
-          ]);
-        }}
-      >
-        <SafeAreaView style={styles.executionContainer}>
-          {showSuccessScreen ? (
-            /* Success Screen */
-            <View style={styles.successScreen}>
-              <View style={styles.successIcon}>
-                <Check size={80} color="#FFFFFF" strokeWidth={4} />
-              </View>
-              <Text style={styles.successTitle}>¡Tarea Completada!</Text>
-              <Text style={styles.successSubtitle}>{executingActivity?.title}</Text>
-              <ConfettiCannon
-                ref={confettiRef}
-                count={200}
-                origin={{x: SCREEN_WIDTH / 2, y: 0}}
-                autoStart={false}
-                fadeOut={true}
-                fallSpeed={3000}
-              />
-            </View>
-          ) : (
-            /* Execution Screen */
-            <>
-              {/* Header */}
-              <View style={styles.executionHeader}>
+                {/* Time Picker */}
+                <Text style={styles.sectionLabel}>Hora (opcional)</Text>
                 <Pressable
-                  style={styles.closeButton}
-                  onPress={() => {
-                    Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
-                      { text: 'Continuar', style: 'cancel' },
-                      { 
-                        text: 'Salir', 
-                        style: 'destructive',
-                        onPress: () => {
-                          setShowExecutionModal(false);
-                          setExecutingActivity(null);
-                          setCurrentSubtaskIndex(0);
-                          setShowSuccessScreen(false);
-                        }
-                      },
-                    ]);
-                  }}
+                  style={styles.timePickerButton}
+                  onPress={() => setShowTimePicker(true)}
                 >
-                  <X size={28} color="#1C2120" />
+                  <Clock size={20} color="#6B7280" />
+                  <Text style={styles.timePickerText}>
+                    {scheduledTime 
+                      ? scheduledTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                      : 'Sin hora específica'
+                    }
+                  </Text>
+                  {scheduledTime && (
+                    <Pressable
+                      onPress={() => setScheduledTime(null)}
+                      hitSlop={8}
+                    >
+                      <X size={16} color="#9CA3AF" />
+                    </Pressable>
+                  )}
                 </Pressable>
-                <Text style={styles.executionTaskTitle}>{executingActivity?.title}</Text>
-              </View>
 
-              {/* Progress Indicator */}
-              <View style={styles.progressContainer}>
-                {executingActivity?.subtasks?.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.progressDot,
-                      index === currentSubtaskIndex && styles.progressDotActive,
-                      index < currentSubtaskIndex && styles.progressDotCompleted,
-                    ]}
-                  />
-                ))}
-              </View>
-
-              {/* Subtask Counter & Stopwatch */}
-              <View style={styles.counterContainer}>
-
-                <Text style={styles.stopwatchText}>
-                  {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, '0')}
-                </Text>
-              </View>
-
-              {/* Current Subtask - Main Element */}
-              <View style={styles.subtaskDisplay}>
-                <Text style={styles.subtaskDisplayTitle}>
-                  {executingActivity?.subtasks?.[currentSubtaskIndex]?.title}
-                </Text>
-              </View>
-
-              {/* Slider to Complete */}
-              <View style={styles.sliderContainer}>
-                <View style={styles.sliderTrack}>
-                  <Text style={styles.sliderLabel}>desliza para completar</Text>
-                  <Animated.View
-                    style={[
-                      styles.sliderThumb,
-                      {
-                        transform: [{
-                          translateX: slideAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0, SCREEN_WIDTH - 140],
-                          })
-                        }]
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={scheduledTime || new Date()}
+                    mode="time"
+                    is24Hour={true}
+                    onChange={(event, selectedDate) => {
+                      setShowTimePicker(false);
+                      if (selectedDate) {
+                        setScheduledTime(selectedDate);
                       }
-                    ]}
-                    {...({
-                      onStartShouldSetResponder: () => true,
-                      onResponderMove: (evt: any) => {
-                        const x = evt.nativeEvent.pageX - 50;
-                        const maxX = SCREEN_WIDTH - 140;
-                        const progress = Math.max(0, Math.min(1, x / maxX));
-                        slideAnim.setValue(progress);
-                      },
-                      onResponderRelease: () => {
-                        const currentValue = (slideAnim as any)._value;
-                        if (currentValue > 0.8) {
-                          Animated.spring(slideAnim, {
-                            toValue: 1,
-                            useNativeDriver: true,
-                          }).start(() => {
-                            handleSlideComplete();
-                          });
-                        } else {
-                          Animated.spring(slideAnim, {
-                            toValue: 0,
-                            useNativeDriver: true,
-                          }).start();
-                        }
-                      },
-                    } as any)}
+                    }}
                   />
+                )}
+
+                {/* Reminder Toggle */}
+                <View style={styles.reminderSection}>
+                  <View style={styles.reminderToggle}>
+                    <Text style={styles.sectionLabel}>Recordatorio</Text>
+                    <Switch
+                      value={reminderEnabled}
+                      onValueChange={setReminderEnabled}
+                      trackColor={{ false: '#E0E0E0', true: colors.primary }}
+                      thumbColor={'#FFFFFF'}
+                    />
+                  </View>
+                  {reminderEnabled && (
+                    <View style={styles.reminderOptions}>
+                      {[5, 15, 30, 60].map((mins) => (
+                        <Pressable
+                          key={mins}
+                          style={[styles.chip, reminderTime === mins && styles.chipActive]}
+                          onPress={() => setReminderTime(mins)}
+                        >
+                          <Text style={[styles.chipText, reminderTime === mins && styles.chipTextActive]}>
+                            {mins} min antes
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
                 </View>
+              </ScrollView>
+
+              <Pressable
+                style={styles.modalButton}
+                onPress={() => {
+                  setShowScheduleModal(false);
+                  // Si se abrió desde "Programar Tarea", abre el modal de tarea
+                  if (shouldShowTaskModalAfterSchedule) {
+                    setShowTaskModal(true);
+                    setShouldShowTaskModalAfterSchedule(false);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Confirmar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Execution Modal */}
+        <Modal
+          visible={showExecutionModal}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => {
+            Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
+              { text: 'Continuar', style: 'cancel' },
+              { 
+                text: 'Salir', 
+                style: 'destructive',
+                onPress: () => {
+                  setShowExecutionModal(false);
+                  setExecutingActivity(null);
+                  setCurrentSubtaskIndex(0);
+                  setShowSuccessScreen(false);
+                }
+              },
+            ]);
+          }}
+        >
+          <SafeAreaView style={styles.executionContainer}>
+            {showSuccessScreen ? (
+              /* Success Screen */
+              <View style={styles.successScreen}>
+                <View style={styles.successIcon}>
+                  <Check size={80} color="#FFFFFF" strokeWidth={4} />
+                </View>
+                <Text style={styles.successTitle}>¡Tarea Completada!</Text>
+                <Text style={styles.successSubtitle}>{executingActivity?.title}</Text>
+                <ConfettiCannon
+                  count={200}
+                  origin={{x: SCREEN_WIDTH / 2, y: 0}}
+                  autoStart={false}
+                  fadeOut={true}
+                  fallSpeed={3000}
+                />
               </View>
-            </>
-          )}
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+            ) : (
+              /* Execution Screen */
+              <>
+                {/* Header */}
+                <View style={styles.executionHeader}>
+                  <Pressable
+                    style={styles.closeButton}
+                    onPress={() => {
+                      Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
+                        { text: 'Continuar', style: 'cancel' },
+                        { 
+                          text: 'Salir', 
+                          style: 'destructive',
+                          onPress: () => {
+                            setShowExecutionModal(false);
+                            setExecutingActivity(null);
+                            setCurrentSubtaskIndex(0);
+                            setShowSuccessScreen(false);
+                          }
+                        },
+                      ]);
+                    }}
+                  >
+                    <X size={28} color="#1C2120" />
+                  </Pressable>
+                  <Text style={styles.executionTaskTitle}>{executingActivity?.title}</Text>
+                </View>
+
+                {/* Progress Indicator */}
+                <View style={styles.progressContainer}>
+                  {executingActivity?.subtasks?.map((_: Subtask, index: number) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.progressDot,
+                        index === currentSubtaskIndex && styles.progressDotActive,
+                        index < currentSubtaskIndex && styles.progressDotCompleted,
+                      ]}
+                    />
+                  ))}
+                </View>
+
+                {/* Subtask Counter & Stopwatch */}
+                <View style={styles.counterContainer}>
+
+                  <Text style={styles.stopwatchText}>
+                    {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, '0')}
+                  </Text>
+                </View>
+
+                {/* Current Subtask - Main Element */}
+                <View style={styles.subtaskDisplay}>
+                  <Text style={styles.subtaskDisplayTitle}>
+                    {executingActivity?.subtasks?.[currentSubtaskIndex]?.title}
+                  </Text>
+                </View>
+
+                {/* Slider to Complete */}
+                <View style={styles.sliderContainer}>
+                  <View style={styles.sliderTrack}>
+                    <Text style={styles.sliderLabel}>desliza para completar</Text>
+                    <RNAnimated.View
+                      style={[
+                        styles.sliderThumb,
+                        {
+                          transform: [{
+                            translateX: executionSlideAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, SCREEN_WIDTH - 140],
+                            })
+                          }]
+                        }
+                      ]}
+                      {...({
+                        onStartShouldSetResponder: () => true,
+                        onResponderMove: (evt: any) => {
+                          const x = evt.nativeEvent.pageX - 50;
+                          const maxX = SCREEN_WIDTH - 140;
+                          const progress = Math.max(0, Math.min(1, x / maxX));
+                          executionSlideAnim.setValue(progress);
+                        },
+                        onResponderRelease: () => {
+                          const currentValue = (executionSlideAnim as any)._value;
+                          if (currentValue > 0.8) {
+                            RNAnimated.spring(executionSlideAnim, {
+                              toValue: 1,
+                              useNativeDriver: true,
+                            }).start(() => {
+                              handleSlideComplete();
+                            });
+                          } else {
+                            RNAnimated.spring(executionSlideAnim, {
+                              toValue: 0,
+                              useNativeDriver: true,
+                            }).start();
+                          }
+                        },
+                      } as any)}
+                    />
+                  </View>
+                </View>
+              </>
+            )}
+          </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </>
   );
-}
+});
+
+PlanScreen.displayName = 'PlanScreen';
+export default PlanScreen;
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safeArea: { flex: 1, backgroundColor: '#F5F5F5' } as any,
+  container: { flex: 1 } as any,
+  contentContainer: { paddingTop: 16, marginBottom: 24 } as any,
+  notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
+  sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#121212', letterSpacing: -0.5, textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 } as any,
+  activitiesContainer: { paddingHorizontal: 20 } as any,
+  testOnboardingButton: { marginHorizontal: 20, marginTop: 24, backgroundColor: '#8334D2', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12, alignItems: 'center' } as any,
+  testOnboardingText: {
+    color: '#7F00FF',
+    fontSize: 14,
+    fontWeight: '600',
+  } as any,
+  // Subtasks Modal Styles
+  subtasksContainer: {
     flex: 1,
     backgroundColor: '#F5F5F5',
-  },
-  container: {
+  } as any,
+  subtasksHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  } as any,
+  subtasksTitle: {
     flex: 1,
-  },
-  contentContainer: {
-    paddingTop: 16,
-    marginBottom: 24,
-  },
-  notificationWrapper: {
-    paddingHorizontal: 20,
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  sectionTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  } as any,
+  subtasksTitleEmoji: {
+    fontSize: 28,
+  } as any,
+  subtasksTitleText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#121212',
-    letterSpacing: -0.5,
-  },
-  activitiesContainer: {
+    fontWeight: '700',
+    color: '#1e293b',
+    maxWidth: 200,
+  } as any,
+  subtasksScrollView: {
+    flex: 1,
     paddingHorizontal: 20,
-  },
+    paddingTop: 20,
+  } as any,
+  subtasksLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 16,
+  } as any,
+  subtaskItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7c3aed',
+  } as any,
+  subtaskContent: {
+    flexDirection: 'column',
+  } as any,
+  subtaskItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 4,
+  } as any,
+  subtaskItemDuration: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontWeight: '500',
+  } as any,
+  totalDuration: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: 24,
+  } as any,
+  totalDurationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  } as any,
+  totalDurationValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#7c3aed',
+  } as any,
+  subtasksActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    paddingTop: 12,
+  } as any,
+  subtasksCancelButton: {
+    flex: 1,
+    backgroundColor: '#E5E7EB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  } as any,
+  subtasksCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  } as any,
+  subtasksConfirmButton: {
+    flex: 1,
+    backgroundColor: '#7c3aed',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  } as any,
+  subtasksConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  } as any,
+  onboardingContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  } as any,
+  onboardingHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  } as any,
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as any,
+  onboardingContentWrapper: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  } as any,
+  onboardingTitleSection: {
+    height: ONBOARDING_DIMENSIONS.titleSectionHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: ONBOARDING_DIMENSIONS.marginTop,
+  } as any,
+  onboardingSubtitleSection: {
+    height: ONBOARDING_DIMENSIONS.subtitleSectionHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
+  } as any,
+  onboardingImageSection: {
+    height: ONBOARDING_DIMENSIONS.imageSectionHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: ONBOARDING_DIMENSIONS.verticalGap,
+  } as any,
+  onboardingOptionsSection: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  } as any,
+  onboardingContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    width: '100%',
+  } as any,
+  onboardingScrollContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingBottom: 20,
+  } as any,
+  progressDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: ONBOARDING_DOTS.gap,
+    marginBottom: ONBOARDING_DOTS.marginBottom,
+  } as any,
+  progressDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    backgroundColor: '#000000',
+  } as any,
+  // Fix misplaced properties
+  progressDotText: {
+    textAlign: 'left',
+    marginBottom: 32,
+    paddingHorizontal: 20,
+    lineHeight: 30,
+  } as any,
+  optionsContainer: {
+    width: '100%',
+    paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
+    gap: ONBOARDING_BUTTONS.optionButtonGap,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as any,
+  optionButton: {
+    backgroundColor: ONBOARDING_COLORS.optionButtonBg,
+    paddingVertical: ONBOARDING_BUTTONS.optionButtonPaddingVertical,
+    paddingHorizontal: ONBOARDING_BUTTONS.optionButtonPaddingHorizontal,
+    borderRadius: ONBOARDING_BUTTONS.optionButtonBorderRadius,
+    borderWidth: ONBOARDING_BUTTONS.optionButtonBorderWidth,
+    borderColor: ONBOARDING_COLORS.optionButtonBorder,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as any,
+  optionText: {
+    fontSize: ONBOARDING_TYPOGRAPHY.optionFontSize,
+    fontWeight: ONBOARDING_TYPOGRAPHY.optionFontWeight,
+    color: ONBOARDING_COLORS.optionTextColor,
+    textAlign: 'center',
+  } as any,
+  onboardingSubtitle: {
+    fontSize: ONBOARDING_TYPOGRAPHY.subtitleFontSize,
+    fontWeight: ONBOARDING_TYPOGRAPHY.subtitleFontWeight,
+    color: ONBOARDING_COLORS.subtitleColor,
+    textAlign: 'center',
+    lineHeight: ONBOARDING_TYPOGRAPHY.subtitleLineHeight,
+  } as any,
+  onboardingImage: {
+    width: ONBOARDING_DIMENSIONS.imageWidth,
+    height: ONBOARDING_DIMENSIONS.imageHeight,
+    resizeMode: 'contain',
+  } as any,
+  onboardingFooter: {
+    paddingHorizontal: 40,
+    paddingBottom: 40,
+  } as any,
+  comenzarButton: {
+    backgroundColor: ONBOARDING_COLORS.primaryButton,
+    paddingVertical: ONBOARDING_BUTTONS.primaryButtonPaddingVertical,
+    paddingHorizontal: ONBOARDING_BUTTONS.primaryButtonPaddingHorizontal,
+    borderRadius: ONBOARDING_BUTTONS.primaryButtonBorderRadius,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: ONBOARDING_BUTTONS.primaryButtonMarginBottom,
+    minWidth: ONBOARDING_BUTTONS.primaryButtonMinWidth,
+    shadowColor: ONBOARDING_COLORS.shadowColor,
+    shadowOffset: ONBOARDING_SHADOWS.shadowOffset,
+    shadowOpacity: ONBOARDING_SHADOWS.shadowOpacity,
+    shadowRadius: ONBOARDING_SHADOWS.shadowRadius,
+    elevation: ONBOARDING_SHADOWS.elevation,
+  } as any,
+  comenzarButtonText: {
+    color: ONBOARDING_COLORS.buttonTextColor,
+    fontSize: ONBOARDING_TYPOGRAPHY.buttonFontSize,
+    fontWeight: ONBOARDING_TYPOGRAPHY.buttonFontWeight,
+  } as any,
+  onboardingTitle: {
+    fontSize: ONBOARDING_TYPOGRAPHY.titleFontSize,
+    fontWeight: ONBOARDING_TYPOGRAPHY.titleFontWeight,
+    color: ONBOARDING_COLORS.titleColor,
+    textAlign: 'center',
+    marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
+  } as any,
   emptyPlaceholder: {
     fontSize: 16,
     color: '#F9FAFB ',
     opacity: 0.4,
     textAlign: 'center',
     paddingVertical: 32,
-  },
+  } as any,
   taskModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-  },
+    position: 'relative',
+  } as any,
   taskModalContent: {
     backgroundColor: '#F9FAFB',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
     maxHeight: '90%',
-  },
+  } as any,
   taskModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -962,16 +1529,16 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(168, 230, 207, 0.3)',
-  },
+  } as any,
   taskModalTitle: {
     fontSize: 24,
     fontWeight: '900',
     color: '#121212',
     letterSpacing: -0.5,
-  },
+  } as any,
   taskModalBody: {
     padding: 20,
-  },
+  } as any,
   taskInputWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 16,
@@ -979,88 +1546,268 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(168, 230, 207, 0.3)',
     padding: 16,
     marginBottom: 16,
-  },
+    position: 'relative',
+  } as any,
+  inputContainer: {
+    position: 'relative',
+    width: '100%',
+    overflow: 'visible',
+  } as any,
   taskInput: {
     fontSize: 16,
     color: '#F9FAFB ',
     fontWeight: '500',
     minHeight: 140,
-  },
+    paddingRight: 50,
+    paddingTop: 12,
+    paddingBottom: 12,
+  } as any,
+  voiceButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+    zIndex: 1002,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  } as any,
+  voiceButtonActive: {
+    backgroundColor: '#DC2626',
+  } as any,
+  voiceSectionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 20,
+    paddingHorizontal: 8,
+  } as any,
+
+  voiceButtonContainer: {
+    width: 54,
+    height: 54,
+  } as any,
+  voiceText: {
+    fontSize: 12,
+    color: 'rgba(168, 230, 207, 0.6)',
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 12,
+  } as any,
+  processingText: {
+    fontSize: 13,
+    color: '#A8E6CF',
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 12,
+  } as any,
+  processingButton: {
+    backgroundColor: '#9CA3AF',
+  } as any,
+  loadingDot: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '900',
+  } as any,
+  recordingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+    pointerEvents: 'none',
+  } as any,
+  recordingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as any,
+  recordingPulse: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EF4444',
+    opacity: 0.4,
+    marginTop: 24,
+  } as any,
+  recordingButtonContainer: {
+    marginBottom: 24,
+  } as any,
+  recordingButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 10,
+  } as any,
+  recordingButtonProcessing: {
+    backgroundColor: '#9CA3AF',
+    shadowColor: '#9CA3AF',
+  } as any,
+  recordingStatusText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 1.5,
+  } as any,
+  recordingDots: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    letterSpacing: 4,
+  } as any,
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  } as any,
+  recordingDot: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '900',
+  } as any,
+  generateButton: {
+    backgroundColor: '#A8E6CF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+  } as any,
+  generateButtonDisabled: {
+    backgroundColor: 'rgba(168, 230, 207, 0.3)',
+    opacity: 0.5,
+  } as any,
+  generateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#121212',
+  } as any,
+  generatedTaskSection: {
+    backgroundColor: 'rgba(168, 230, 207, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  } as any,
+  taskHeader: {
+    marginBottom: 12,
+  } as any,
+  generatedTaskTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#A8E6CF',
+  } as any,
+  subtasksList: {
+    backgroundColor: 'rgba(168, 230, 207, 0.15)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#A8E6CF',
+  } as any,
+  subtaskText: {
+    fontSize: 14,
+    color: '#A8E6CF',
+    flex: 1,
+    fontWeight: '600',
+  } as any,
+  subtaskDuration: {
+    fontSize: 12,
+    color: '#FFD3B6',
+    fontWeight: '700',
+    backgroundColor: 'rgba(255, 211, 182, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  } as any,
+  addTaskButton: {
+    backgroundColor: '#A8E6CF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  } as any,
+  addTaskButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#121212',
+  } as any,
+  actionOptionsContainer: {
+    gap: 12,
+    marginBottom: 16,
+  } as any,
+  actionOptionButton: {
+    backgroundColor: '#A8E6CF',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as any,
+  actionOptionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  } as any,
+  actionOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#121212',
+  } as any,
+  actionOptionSubtext: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7F00FF',
+  } as any,
   scheduleToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#A8E6CF',
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderColor: '#A8E6CF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     marginBottom: 16,
-  },
+  } as any,
   scheduleToggleContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flex: 1,
-  },
+  } as any,
   scheduleLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C2120',
-  },
+    color: '#121212',
+  } as any,
   scheduleBadge: {
     backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     marginLeft: 4,
-  },
-  scheduleBadgeText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#1C2120',
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 16,
-    gap: 8,
-    marginBottom: 24,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  generateButtonDisabled: {
-    opacity: 0.6,
-  },
-  generateButtonText: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#F9FAFB',
-  },
+  } as any,
   subtasksSection: {
     marginBottom: 24,
-  },
-  subtasksHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  subtasksTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    flex: 1,
-    letterSpacing: -0.5,
-  },
+  } as any,
   regenerateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1071,15 +1818,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
+  } as any,
   regenerateText: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  subtasksList: {
-    gap: 12,
-  },
+  } as any,
   subtaskCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1089,7 +1833,7 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: 'rgba(168, 230, 207, 0.2)',
-  },
+  } as any,
   subtaskNumber: {
     width: 32,
     height: 32,
@@ -1097,21 +1841,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  } as any,
   subtaskNumberText: {
     fontSize: 16,
     fontWeight: '900',
     color: '#1C2120',
-  },
-  subtaskContent: {
-    flex: 1,
-  },
+  } as any,
   subtaskTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1C2120',
     marginBottom: 4,
-  },
+  } as any,
   subtaskInput: {
     fontSize: 16,
     fontWeight: '600',
@@ -1119,31 +1860,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
-  },
-  subtaskDuration: {
-    fontSize: 14,
-    color: colors.textTertiary,
-    fontWeight: '500',
-  },
+  } as any,
   subtaskActions: {
     flexDirection: 'row',
     gap: 8,
-  },
+  } as any,
   iconButton: {
     padding: 4,
-  },
-  totalDuration: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: 'rgba(168, 230, 207, 0.15)',
-    borderRadius: 16,
-    alignItems: 'center',
-  },
+  } as any,
   totalDurationText: {
     fontSize: 16,
     fontWeight: '900',
     color: '#1C2120',
-  },
+  } as any,
   addToListButton: {
     backgroundColor: colors.primary,
     marginHorizontal: 20,
@@ -1156,24 +1885,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 6,
-  },
+  } as any,
   addToListButtonText: {
     fontSize: 18,
     fontWeight: '900',
     color: '#1C2120',
-  },
+  } as any,
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-  },
+  } as any,
   modalContent: {
-    backgroundColor: '#2B0057',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
     maxHeight: '85%',
-  },
+  } as any,
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1181,139 +1910,142 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(168, 230, 207, 0.3)',
-  },
+    borderBottomColor: '#E5E7EB',
+  } as any,
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#121212',
-  },
-  modalBody: {
-    padding: 20,
-  },
-  modalButton: {
-    backgroundColor: colors.primary,
-    marginHorizontal: 20,
-    marginVertical: 20,
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  modalButtonText: {
-    fontSize: 17,
+    fontSize: 24,
     fontWeight: '900',
     color: '#1C2120',
-  },
+    letterSpacing: -0.5,
+  } as any,
+  modalBody: {
+    padding: 20,
+  } as any,
+  modalButton: {
+    backgroundColor: '#A8E6CF',
+    marginHorizontal: 20,
+    marginVertical: 20,
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  } as any,
+  modalButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1C2120',
+    letterSpacing: 0.3,
+  } as any,
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1C2120',
     marginBottom: 12,
     marginTop: 8,
-  },
+  } as any,
   frequencyChips: {
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
     marginBottom: 16,
-  },
+  } as any,
   chip: {
     flex: 1,
     minWidth: 70,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
     alignItems: 'center',
-  },
+  } as any,
   chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
+    backgroundColor: '#A8E6CF',
+    borderColor: '#A8E6CF',
+  } as any,
   chipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
+    color: '#6B7280',
+  } as any,
   chipTextActive: {
-    color: '#1C2120',
-  },
+    color: '#121212',
+  } as any,
   daySelector: {
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
     marginBottom: 16,
-  },
+  } as any,
   dayChip: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F3F4F6',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  } as any,
   dayChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
+    backgroundColor: '#A8E6CF',
+    borderColor: '#A8E6CF',
+  } as any,
   dayChipText: {
     fontSize: 14,
     fontWeight: '900',
-    color: colors.textSecondary,
-  },
+    color: '#6B7280',
+  } as any,
   dayChipTextActive: {
-    color: '#1C2120',
-  },
+    color: '#121212',
+  } as any,
   timePickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F3F4F6',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#E5E7EB',
     padding: 16,
     marginBottom: 16,
-  },
+  } as any,
   timePickerText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
     color: '#1C2120',
-  },
+  } as any,
   reminderSection: {
     marginTop: 8,
-  },
+  } as any,
   reminderToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
-  },
+  } as any,
   reminderOptions: {
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
-  },
+  } as any,
   executionContainer: {
     flex: 1,
     backgroundColor: '#ffc300',
-  },
+  } as any,
   executionHeader: {
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-  },
+  } as any,
   closeButton: {
     width: 44,
     height: 44,
@@ -1321,63 +2053,34 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  } as any,
   executionTaskTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: '300',
     color: '#1C2120',
-  },
+  } as any,
   progressContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
     paddingHorizontal: 20,
     marginBottom: 40,
-  },
-  progressDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(28, 33, 32, 0.2)',
-  },
-  progressDotActive: {
-    backgroundColor: '#1C2120',
-    width: 24,
-  },
-  progressDotCompleted: {
-    backgroundColor: '#1C2120',
-  },
-  counterContainer: {
-    alignItems: 'center',
-    marginBottom: 60,
-  },
-  subtaskNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(28, 33, 32, 0.6)',
-    marginBottom: 12,
-  },
-  stopwatchText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1C2120',
-    fontVariant: ['tabular-nums'],
-  },
+  } as any,
   subtaskDisplay: {
     alignItems: 'center',
     paddingHorizontal: 24,
     marginBottom: 320,
     flex: 1,
     justifyContent: 'center',
-  },
+  } as any,
   subtaskDisplayTitle: {
     fontSize: 48,
     fontWeight: '900',
     color: '#1C2120',
     textAlign: 'center',
     lineHeight: 56,
-  },
+  } as any,
   sliderContainer: {
     position: 'absolute',
     bottom: 60,
@@ -1385,7 +2088,7 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 40,
     alignItems: 'center',
-  },
+  } as any,
   sliderLabel: {
     position: 'absolute',
     fontSize: 15,
@@ -1393,7 +2096,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.5)',
     zIndex: 1,
     letterSpacing: 0.5,
-  },
+  } as any,
   sliderTrack: {
     width: SCREEN_WIDTH - 80,
     height: 72,
@@ -1404,7 +2107,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
+  } as any,
   sliderThumb: {
     position: 'absolute',
     left: 4,
@@ -1419,13 +2122,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
-  },
+  } as any,
   successScreen: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#A8E6CF',
-  },
+  } as any,
   successIcon: {
     width: 120,
     height: 120,
@@ -1434,19 +2137,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
-  },
+  } as any,
   successTitle: {
     fontSize: 36,
     fontWeight: '900',
     color: '#FFFFFF',
     marginBottom: 12,
     letterSpacing: -1,
-  },
-  successSubtitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-});
+  } as any,
+}) as any;

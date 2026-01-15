@@ -22,7 +22,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.smartlist"
     },
     "web": {
       "bundler": "metro",
@@ -41,7 +42,15 @@
             "newArchEnabled": true
           }
         }
-      ]
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Necesitamos acceso a tu micrófono para que puedas dictar nuevas tareas."
+        }
+      ],
+      "expo-audio",
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,24 +1,32 @@
 import { colors } from '@/constants/theme';
+import { LiquidFAB } from '@/src/components/LiquidFAB';
 import { ProgressCard } from '@/src/components/ProgressCard';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
 import React, { createRef, useRef, useState } from 'react';
-import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
+import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
 import IndexScreen from './index';
 import TwoScreen from './two';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Ref para llamar función del IndexScreen
-export const addTaskRef = createRef<{ openTaskModal: () => void }>();
+export const addTaskRef = createRef<{ 
+  openTaskModal: (showSchedule?: boolean) => void;
+  openProgramScheduleModal: () => void;
+}>();
 
 export default function SwipeableLayout() {
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
+  const [isFABOpen, setIsFABOpen] = useState(false);
+  const [isFirstTime, setIsFirstTime] = useState(true);
+  const pulseAnimFirstTime = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
   const handleTabPress = (page: number) => {
@@ -40,8 +48,58 @@ export default function SwipeableLayout() {
     addTaskRef.current?.openTaskModal();
   };
 
+  const handleHacerTareaPress = () => {
+    // Abrir modal de agregar tarea sin opción de programar
+    addTaskRef.current?.openTaskModal(false);
+  };
+
+  const handleProgramarTareaPress = () => {
+    // Abrir modal de programación primero, luego la tarea
+    addTaskRef.current?.openProgramScheduleModal();
+  };
+
+  const handleFABOpenChange = (isOpen: boolean) => {
+    // Desaparecer overlay cuando se abre el FAB por primera vez
+    if (isOpen && isFirstTime) {
+      setIsFirstTime(false);
+    }
+    setIsFABOpen(isOpen);
+  };
+
+  // Pulse animation for first time overlay
+  React.useEffect(() => {
+    if (isFirstTime) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnimFirstTime, {
+            toValue: 1.15,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnimFirstTime, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnimFirstTime.setValue(1);
+    }
+  }, [isFirstTime]);
+
   return (
     <View style={styles.container}>
+      {/* Blur overlay cuando FAB está abierto */}
+      {isFABOpen && (
+        <BlurView intensity={100} tint="dark" style={styles.blurOverlay}>
+          <Pressable
+            style={styles.blurPressable}
+            onPress={() => setIsFABOpen(false)}
+          />
+        </BlurView>
+      )}
+
       {/* Fixed Header Components */}
       <View style={styles.fixedHeader}>
         <WeeklyCalendar />
@@ -61,7 +119,7 @@ export default function SwipeableLayout() {
         onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
       >
         <View key="1" style={styles.page}>
-          <IndexScreen />
+          <IndexScreen ref={addTaskRef} setIsFirstTime={setIsFirstTime} pulseAnim={pulseAnimFirstTime} isFirstTime={isFirstTime} />
         </View>
         <View key="2" style={styles.page}>
           <TwoScreen />
@@ -83,11 +141,14 @@ export default function SwipeableLayout() {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.centralButtonContainer} onPress={handleAddPress}>
-          <View style={styles.centralButton}>
-            <FontAwesome name="plus" size={24} color="#F5F5F5" />
-          </View>
-        </Pressable>
+        <View style={styles.centralButtonContainer}>
+          <LiquidFAB 
+            onHacerTareaPress={handleHacerTareaPress}
+            onProgramarTareaPress={handleProgramarTareaPress}
+            onOpenChange={handleFABOpenChange}
+            isOpen={isFABOpen}
+          />
+        </View>
 
         <Pressable
           style={[styles.tabItem, currentPage === 1 && styles.tabItemActive]}
@@ -102,6 +163,40 @@ export default function SwipeableLayout() {
           </Text>
         </Pressable>
       </View>
+
+      {/* First Time Overlay - Top Level */}
+      {isFirstTime && (
+        <Animated_Reanimated.View 
+          style={styles.firstTimeOverlay}
+          entering={FadeIn.duration(500)}
+        >
+          <View style={styles.firstTimeContent}>
+            <Image 
+              source={require('@/assets/images/amico.png')}
+              style={styles.firstTimeImage}
+              resizeMode="contain"
+            />
+            <Text 
+              style={styles.firstTimeText}
+              numberOfLines={3}
+            >
+              Comencémos creando tu primera tarea!
+            </Text>
+            <Animated.View
+              style={[
+                styles.firstTimePulseRing,
+                {
+                  transform: [{ scale: pulseAnimFirstTime }],
+                  opacity: pulseAnimFirstTime.interpolate({
+                    inputRange: [1, 1.15],
+                    outputRange: [0.3, 0.1],
+                  }),
+                },
+              ]}
+            />
+          </View>
+        </Animated_Reanimated.View>
+      )}
     </View>
   );
 }
@@ -110,6 +205,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  blurOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
+  },
+  blurPressable: {
+    ...StyleSheet.absoluteFillObject,
   },
   fixedHeader: {
     backgroundColor: '#F5F5F5',
@@ -160,6 +262,8 @@ const styles = StyleSheet.create({
   centralButtonContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 20,
+    zIndex: 10000,
   },
   centralButton: {
     width: 70,
@@ -175,4 +279,46 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  firstTimeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 140,
+    zIndex: 9999,
+  } as any,
+  firstTimeContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginBottom: 20,
+    maxWidth: 280,
+    paddingHorizontal: 20,
+  } as any,
+  firstTimeImage: {
+    width: 220,
+    height: 220,
+    marginBottom: 20,
+  } as any,
+  firstTimeText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 0.3,
+    lineHeight: 28,
+  } as any,
+  firstTimePulseRing: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#A8E6CF',
+    top: '40%',
+    left: '50%',
+    marginTop: 211,
+    marginLeft: -26,
+  } as any,
 });
