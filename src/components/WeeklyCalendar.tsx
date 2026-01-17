@@ -1,3 +1,4 @@
+import { colors } from '@/constants/theme';
 import { addDays, format, isToday, startOfWeek, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import React, { useEffect, useRef } from 'react';
@@ -75,7 +76,7 @@ export function WeeklyCalendar() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     paddingTop: 20,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -94,25 +95,25 @@ const styles = StyleSheet.create({
   dayName: {
     fontSize: 48,
     fontWeight: '900',
-    color: '#7F00FF',
+    color: colors.primary,
     letterSpacing: -1,
   },
   redDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#7F00FF',
+    backgroundColor: colors.primary,
   },
   fullDate: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     marginLeft: 'auto',
   },
   year: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#D1D5DB',
+    color: colors.textSecondary,
   },
   weekScroll: {
     borderTopWidth: 1,
@@ -131,20 +132,20 @@ const styles = StyleSheet.create({
   dayNumber: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   dayNumberActive: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#7F00FF',
+    color: colors.primary,
   },
   dayLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#9CA3AF',
+    color: colors.textSecondary,
     letterSpacing: 0.5,
   },
   dayLabelActive: {
-    color: '#7F00FF',
+    color: colors.primary,
   },
 });

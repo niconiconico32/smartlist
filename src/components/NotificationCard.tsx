@@ -1,3 +1,4 @@
+import { colors } from '@/constants/theme';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
@@ -44,13 +45,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#C300FF',
+    backgroundColor: colors.primary,
     borderRadius: 24,
     padding: 20,
     gap: 12,
-    shadowColor: '#000000',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },

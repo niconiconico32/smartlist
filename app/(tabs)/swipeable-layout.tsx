@@ -1,6 +1,6 @@
 import { colors } from '@/constants/theme';
+import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
-import { ProgressCard } from '@/src/components/ProgressCard';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -104,7 +104,7 @@ export default function SwipeableLayout() {
       <View style={styles.fixedHeader}>
         <WeeklyCalendar />
         <View style={styles.progressWrapper}>
-          <ProgressCard 
+          <FocusHeroCard 
             completedToday={0}
             totalToday={0}
           />
@@ -134,7 +134,7 @@ export default function SwipeableLayout() {
         >
           <CalendarCheck
             size={22}
-            color={currentPage === 0 ? '#181824' : '#9CA3AF'}
+            color={currentPage === 0 ? colors.textPrimary : colors.textSecondary}
           />
           <Text style={[styles.tabLabel, currentPage === 0 && styles.tabLabelActive]}>
             Tareas
@@ -156,7 +156,7 @@ export default function SwipeableLayout() {
         >
           <Grid2x2
             size={22}
-            color={currentPage === 1 ? '#181824' : '#9CA3AF'}
+            color={currentPage === 1 ? colors.textPrimary : colors.textSecondary}
           />
           <Text style={[styles.tabLabel, currentPage === 1 && styles.tabLabelActive]}>
             Rutinas
@@ -204,7 +204,7 @@ export default function SwipeableLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
   },
   blurOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -214,12 +214,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   fixedHeader: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     zIndex: 1,
   },
   progressWrapper: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 0,
   },
   pagerView: {
     flex: 1,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 110,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+    backgroundColor: colors.glass,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
@@ -254,10 +254,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
   },
   tabLabelActive: {
-    color: '#181824',
+    color: colors.textPrimary,
   },
   centralButtonContainer: {
     alignItems: 'center',
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: '#A8E6CF',
+    borderColor: colors.success,
     top: '40%',
     left: '50%',
     marginTop: 211,

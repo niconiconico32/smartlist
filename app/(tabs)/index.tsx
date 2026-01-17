@@ -31,7 +31,7 @@ type Activity = {
 // --- Fallbacks for missing imports ---
 function getRandomIconColor() {
   // Return a random color from a palette
-  const palette = ['#A8E6CF', '#FFD3B6', '#FFAAA5', '#D1C4E9', '#B2EBF2', '#FFCCBC'];
+  const palette = ['#CBA6F7', '#FAB387', '#F38BA8', '#F9E2AF', '#A6E3A1', '#89B4FA', '#F5C2E7'];
   return palette[Math.floor(Math.random() * palette.length)];
 }
 
@@ -45,34 +45,33 @@ import { TaskModalNew } from '@/src/components/TaskModalNew';
 import { useBottomTabInset } from '@/src/hooks/useBottomTabInset';
 import { useVoiceTask } from '@/src/hooks/useVoiceTask';
 import {
-  ONBOARDING_BUTTONS,
-  ONBOARDING_COLORS,
-  ONBOARDING_DIMENSIONS,
-  ONBOARDING_DOTS,
-  ONBOARDING_SHADOWS,
-  ONBOARDING_TYPOGRAPHY,
+    ONBOARDING_BUTTONS,
+    ONBOARDING_COLORS,
+    ONBOARDING_DIMENSIONS,
+    ONBOARDING_DOTS,
+    ONBOARDING_SHADOWS,
+    ONBOARDING_TYPOGRAPHY,
 } from '@/src/styles/onboardingStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Check, Clock, Mic, Play, X } from 'lucide-react-native';
+import { Check, Clock, X } from 'lucide-react-native';
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  Image,
-  Modal,
-  Pressable,
-  Animated as RNAnimated,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View
+    Alert,
+    Dimensions,
+    Image,
+    Modal,
+    Pressable,
+    Animated as RNAnimated,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addTaskRef } from './swipeable-layout';
 
 const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -143,6 +142,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
   // Focus Mode States
   const [showFocusMode, setShowFocusMode] = useState(false);
   const [focusModeSubtasks, setFocusModeSubtasks] = useState<Subtask[]>([]);
+  const [showStartTaskModal, setShowStartTaskModal] = useState(false);
+  const [pendingActivityToStart, setPendingActivityToStart] = useState<Activity | null>(null);
 
   // Schedule States  
   const [isScheduled, setIsScheduled] = useState(false);
@@ -470,7 +471,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
       title: generatedTaskTitle,
       emoji: generatedEmoji,
       metric: `${tasksToUse.reduce((sum, t) => sum + t.duration, 0)} min`,
-      color: '#A8E6CF',
+      color: '#A6E3A1',
       iconColor: getRandomIconColor(),
       action: 'play',
       completed: false,
@@ -518,31 +519,22 @@ const PlanScreen = React.forwardRef(function PlanScreen({
       return;
     }
 
-    // Si tiene subtareas, mostrar alert para iniciar
+    // Si tiene subtareas, mostrar modal para iniciar
     if (activity.subtasks && activity.subtasks.length > 0) {
-      Alert.alert(
-        '¿Empezar Tarea?',
-        activity.title,
-        [
-          {
-            text: 'Más Tarde',
-            style: 'cancel',
-          },
-          {
-            text: 'Empezar',
-            onPress: () => {
-              setExecutingActivity(activity);
-              setCurrentSubtaskIndex(0);
-              setShowSuccessScreen(false);
-              setElapsedTime(0);
-              setShowExecutionModal(true);
-            },
-          },
-        ]
-      );
+      setPendingActivityToStart(activity);
+      setShowStartTaskModal(true);
     } else {
       // Sin subtareas, solo toggle
       toggleActivityStatus(activity.id);
+    }
+  };
+
+  const handleEditSubtasks = (activity: Activity) => {
+    if (activity.subtasks && activity.subtasks.length > 0) {
+      setGeneratedTaskTitle(activity.title);
+      setGeneratedEmoji(activity.emoji);
+      setSubtasks(activity.subtasks);
+      setShowSubtasksModal(true);
     }
   };
 
@@ -667,7 +659,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   iconColor={activity.iconColor}
                   action={activity.action}
                   completed={false}
+                  hasSubtasks={activity.subtasks ? activity.subtasks.length > 0 : false}
                   onPress={() => handleActivityPress(activity)}
+                  onEditPress={() => handleEditSubtasks(activity)}
                 />
               ))
             )}
@@ -688,7 +682,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 iconColor={activity.iconColor}
                 action={activity.action}
                 completed={true}
+                hasSubtasks={activity.subtasks ? activity.subtasks.length > 0 : false}
                 onPress={() => handleActivityPress(activity)}
+                onEditPress={() => handleEditSubtasks(activity)}
               />
             ))}
           </View>
@@ -718,7 +714,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 }} 
                 style={styles.backButton}
               >
-                <X size={24} color="#121212" />
+                <X size={24} color={colors.textPrimary} />
               </Pressable>
             </View>
 
@@ -735,13 +731,13 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                               width: 16,
                               height: 14,
                               borderRadius: 25,
-                              backgroundColor: '#7F00FF',
+                              backgroundColor: colors.primary,
                             }
                           : {
                               width: 9,
                               height: 9,
                               borderRadius: 55,
-                              backgroundColor: '#7F00FF',
+                              backgroundColor: colors.primary,
                             }
                       }
                     />
@@ -796,7 +792,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                           key={idx}
                           style={[
                             styles.optionButton,
-                            selectedOption === idx && { borderColor: '#7F00FF', borderWidth: 3 },
+                            selectedOption === idx && { borderColor: colors.primary, borderWidth: 3 },
                           ]}
                           onPress={() => {
                             setSelectedOption(idx);
@@ -923,7 +919,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Programar Tarea</Text>
                 <Pressable onPress={() => setShowScheduleModal(false)}>
-                  <X size={24} color="#6B7280" />
+                  <X size={24} color={colors.textSecondary} />
                 </Pressable>
               </View>
 
@@ -997,7 +993,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   style={styles.timePickerButton}
                   onPress={() => setShowTimePicker(true)}
                 >
-                  <Clock size={20} color="#6B7280" />
+                  <Clock size={20} color={colors.textSecondary} />
                   <Text style={styles.timePickerText}>
                     {scheduledTime 
                       ? scheduledTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
@@ -1135,11 +1131,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                       ]);
                     }}
                   >
-                    <X size={28} color="#1C2120" />
+                    <X size={28} color="#1E1E2E" />
                   </Pressable>
-                  <Text style={styles.executionTaskTitle}>{executingActivity?.title}</Text>
                 </View>
-
                 {/* Progress Indicator */}
                 <View style={styles.progressContainer}>
                   {executingActivity?.subtasks?.map((_: Subtask, index: number) => (
@@ -1217,6 +1211,81 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             )}
           </SafeAreaView>
         </Modal>
+
+        {/* Start Task Modal */}
+        <Modal
+          visible={showStartTaskModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowStartTaskModal(false)}
+        >
+          <View style={styles.startTaskModalOverlay}>
+            <View style={styles.startTaskModalContent}>
+              <LinearGradient
+                colors={['#CBA6F7', '#DFC0FF', '#CBA6F7']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFill}
+              />
+              
+              {/* Content */}
+              <View style={styles.startTaskModalInner}>
+                {/* Close Button */}
+                <Pressable
+                  onPress={() => setShowStartTaskModal(false)}
+                  style={styles.startTaskCloseButton}
+                >
+                  <X size={24} color="rgba(59, 66, 97, 0.6)" />
+                </Pressable>
+
+                {/* Emoji */}
+                <Text style={styles.startTaskEmoji}>{pendingActivityToStart?.emoji}</Text>
+
+                {/* Title */}
+                <Text style={styles.startTaskTitle}>¿Empezar Tarea?</Text>
+
+                {/* Subtitle */}
+                <Text style={styles.startTaskSubtitle}>
+                  {pendingActivityToStart?.title}
+                </Text>
+
+                {/* Buttons */}
+                <View style={styles.startTaskButtonsContainer}>
+                  {/* Cancel Button */}
+                  <Pressable
+                    onPress={() => setShowStartTaskModal(false)}
+                    style={styles.startTaskCancelButton}
+                  >
+                    <Text style={styles.startTaskCancelButtonText}>Más Tarde</Text>
+                  </Pressable>
+
+                  {/* Start Button */}
+                  <Pressable
+                    onPress={() => {
+                      if (pendingActivityToStart) {
+                        setGeneratedTaskTitle(pendingActivityToStart.title);
+                        setGeneratedEmoji(pendingActivityToStart.emoji);
+                        setFocusModeSubtasks(pendingActivityToStart.subtasks || []);
+                        setShowFocusMode(true);
+                        setShowStartTaskModal(false);
+                      }
+                    }}
+                    style={styles.startTaskStartButton}
+                  >
+                    <LinearGradient
+                      colors={['#1E1E2E', '#252536']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.startTaskStartButtonGradient}
+                    >
+                      <Text style={styles.startTaskStartButtonText}>Empezar</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -1226,23 +1295,23 @@ PlanScreen.displayName = 'PlanScreen';
 export default PlanScreen;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F5F5F5' } as any,
+  safeArea: { flex: 1, backgroundColor: colors.background } as any,
   container: { flex: 1 } as any,
   contentContainer: { paddingTop: 16, marginBottom: 24 } as any,
   notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
   sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#121212', letterSpacing: -0.5, textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 } as any,
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.5, textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 } as any,
   activitiesContainer: { paddingHorizontal: 20 } as any,
-  testOnboardingButton: { marginHorizontal: 20, marginTop: 24, backgroundColor: '#8334D2', paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12, alignItems: 'center' } as any,
+  testOnboardingButton: { marginHorizontal: 20, marginTop: 24, backgroundColor: colors.primary, paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12, alignItems: 'center' } as any,
   testOnboardingText: {
-    color: '#7F00FF',
+    color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
   } as any,
   // Subtasks Modal Styles
   subtasksContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
   } as any,
   subtasksHeader: {
     flexDirection: 'row',
@@ -1250,9 +1319,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   } as any,
   subtasksTitle: {
     flex: 1,
@@ -1267,7 +1336,7 @@ const styles = StyleSheet.create({
   subtasksTitleText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.textPrimary,
     maxWidth: 200,
   } as any,
   subtasksScrollView: {
@@ -1278,17 +1347,17 @@ const styles = StyleSheet.create({
   subtasksLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
     marginBottom: 16,
   } as any,
   subtaskItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#7c3aed',
+    borderLeftColor: colors.primary,
   } as any,
   subtaskContent: {
     flexDirection: 'column',
@@ -1296,12 +1365,12 @@ const styles = StyleSheet.create({
   subtaskItemTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
+    color: colors.textPrimary,
     marginBottom: 4,
   } as any,
   subtaskItemDuration: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     fontWeight: '500',
   } as any,
   totalDuration: {
@@ -1317,12 +1386,12 @@ const styles = StyleSheet.create({
   totalDurationLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1e293b',
+    color: colors.textPrimary,
   } as any,
   totalDurationValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#7c3aed',
+    color: colors.primary,
   } as any,
   subtasksActions: {
     flexDirection: 'row',
@@ -1341,11 +1410,11 @@ const styles = StyleSheet.create({
   subtasksCancelText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.textSecondary,
   } as any,
   subtasksConfirmButton: {
     flex: 1,
-    backgroundColor: '#7c3aed',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -1357,7 +1426,7 @@ const styles = StyleSheet.create({
   } as any,
   onboardingContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
   } as any,
   onboardingHeader: {
     paddingHorizontal: 20,
@@ -1503,7 +1572,7 @@ const styles = StyleSheet.create({
   } as any,
   emptyPlaceholder: {
     fontSize: 16,
-    color: '#F9FAFB ',
+    color: colors.textPrimary,
     opacity: 0.4,
     textAlign: 'center',
     paddingVertical: 32,
@@ -1515,7 +1584,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   } as any,
   taskModalContent: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
@@ -1533,7 +1602,7 @@ const styles = StyleSheet.create({
   taskModalTitle: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#121212',
+    color: colors.textPrimary,
     letterSpacing: -0.5,
   } as any,
   taskModalBody: {
@@ -1555,7 +1624,7 @@ const styles = StyleSheet.create({
   } as any,
   taskInput: {
     fontSize: 16,
-    color: '#F9FAFB ',
+    color: colors.textPrimary,
     fontWeight: '500',
     minHeight: 140,
     paddingRight: 50,
@@ -1571,16 +1640,16 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     zIndex: 1002,
-    shadowColor: '#EF4444',
+    shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
   } as any,
   voiceButtonActive: {
-    backgroundColor: '#DC2626',
+    backgroundColor: '#D96C82',
   } as any,
   voiceSectionContainer: {
     flexDirection: 'row',
@@ -1603,7 +1672,7 @@ const styles = StyleSheet.create({
   } as any,
   processingText: {
     fontSize: 13,
-    color: '#A8E6CF',
+    color: '#A6E3A1',
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
@@ -1683,7 +1752,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   } as any,
   generateButton: {
-    backgroundColor: '#A8E6CF',
+    backgroundColor: '#A6E3A1',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,
@@ -1711,19 +1780,19 @@ const styles = StyleSheet.create({
   generatedTaskTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#A8E6CF',
+    color: colors.success,
   } as any,
   subtasksList: {
-    backgroundColor: 'rgba(168, 230, 207, 0.15)',
+    backgroundColor: 'rgba(166, 227, 161, 0.15)',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#A8E6CF',
+    borderLeftColor: colors.success,
   } as any,
   subtaskText: {
     fontSize: 14,
-    color: '#A8E6CF',
+    color: colors.success,
     flex: 1,
     fontWeight: '600',
   } as any,
@@ -1737,7 +1806,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   } as any,
   addTaskButton: {
-    backgroundColor: '#A8E6CF',
+    backgroundColor: colors.success,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -1745,14 +1814,14 @@ const styles = StyleSheet.create({
   addTaskButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#121212',
+    color: colors.background,
   } as any,
   actionOptionsContainer: {
     gap: 12,
     marginBottom: 16,
   } as any,
   actionOptionButton: {
-    backgroundColor: '#A8E6CF',
+    backgroundColor: colors.success,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -1768,21 +1837,21 @@ const styles = StyleSheet.create({
   actionOptionLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#121212',
+    color: colors.background,
   } as any,
   actionOptionSubtext: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#7F00FF',
+    color: colors.primary,
   } as any,
   scheduleToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#A8E6CF',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#A8E6CF',
+    borderColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginBottom: 16,
@@ -1796,7 +1865,7 @@ const styles = StyleSheet.create({
   scheduleLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#121212',
+    color: colors.textPrimary,
   } as any,
   scheduleBadge: {
     backgroundColor: colors.primary,
@@ -1845,18 +1914,18 @@ const styles = StyleSheet.create({
   subtaskNumberText: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#1C2120',
+    color: '#1E1E2E',
   } as any,
   subtaskTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C2120',
+    color: '#1E1E2E',
     marginBottom: 4,
   } as any,
   subtaskInput: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C2120',
+    color: '#1E1E2E',
     marginBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
@@ -1871,7 +1940,7 @@ const styles = StyleSheet.create({
   totalDurationText: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#1C2120',
+    color: '#1E1E2E',
   } as any,
   addToListButton: {
     backgroundColor: colors.primary,
@@ -1889,7 +1958,7 @@ const styles = StyleSheet.create({
   addToListButtonText: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#1C2120',
+    color: '#1E1E2E',
   } as any,
   modalOverlay: {
     flex: 1,
@@ -1897,7 +1966,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   } as any,
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#313244',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
@@ -1915,14 +1984,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#1C2120',
+    color: '#1E1E2E',
     letterSpacing: -0.5,
   } as any,
   modalBody: {
     padding: 20,
   } as any,
   modalButton: {
-    backgroundColor: '#A8E6CF',
+    backgroundColor: '#A6E3A1',
     marginHorizontal: 20,
     marginVertical: 20,
     paddingVertical: 18,
@@ -1938,13 +2007,13 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1C2120',
+    color: '#1E1E2E',
     letterSpacing: 0.3,
   } as any,
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1C2120',
+    color: '#1E1E2E',
     marginBottom: 12,
     marginTop: 8,
   } as any,
@@ -1966,8 +2035,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as any,
   chipActive: {
-    backgroundColor: '#A8E6CF',
-    borderColor: '#A8E6CF',
+    backgroundColor: '#A6E3A1',
+    borderColor: '#A6E3A1',
   } as any,
   chipText: {
     fontSize: 14,
@@ -1994,8 +2063,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as any,
   dayChipActive: {
-    backgroundColor: '#A8E6CF',
-    borderColor: '#A8E6CF',
+    backgroundColor: '#A6E3A1',
+    borderColor: '#A6E3A1',
   } as any,
   dayChipText: {
     fontSize: 14,
@@ -2020,7 +2089,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
-    color: '#1C2120',
+    color: '#1E1E2E',
   } as any,
   reminderSection: {
     marginTop: 8,
@@ -2058,7 +2127,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '300',
-    color: '#1C2120',
+    color: '#1E1E2E',
   } as any,
   progressContainer: {
     flexDirection: 'row',
@@ -2077,7 +2146,7 @@ const styles = StyleSheet.create({
   subtaskDisplayTitle: {
     fontSize: 48,
     fontWeight: '900',
-    color: '#1C2120',
+    color: '#1E1E2E',
     textAlign: 'center',
     lineHeight: 56,
   } as any,
@@ -2114,7 +2183,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 66,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#313244',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -2127,7 +2196,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#A8E6CF',
+    backgroundColor: '#A6E3A1',
   } as any,
   successIcon: {
     width: 120,
@@ -2144,5 +2213,80 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 12,
     letterSpacing: -1,
+  } as any,
+  startTaskModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  } as any,
+  startTaskModalContent: {
+    width: '85%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#CBA6F7',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+  } as any,
+  startTaskModalInner: {
+    paddingHorizontal: 24,
+    paddingVertical: 32,
+    alignItems: 'center',
+  } as any,
+  startTaskCloseButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    padding: 8,
+    zIndex: 10,
+  } as any,
+  startTaskEmoji: {
+    fontSize: 60,
+    marginBottom: 20,
+  } as any,
+  startTaskTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#3B4261',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  } as any,
+  startTaskSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'rgba(59, 66, 97, 0.75)',
+    textAlign: 'center',
+    marginBottom: 28,
+    paddingHorizontal: 12,
+  } as any,
+  startTaskButtonsContainer: {
+    width: '100%',
+    gap: 12,
+  } as any,
+  startTaskCancelButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  } as any,
+  startTaskCancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(59, 66, 97, 0.6)',
+  } as any,
+  startTaskStartButton: {
+    borderRadius: 50,
+    overflow: 'hidden',
+  } as any,
+  startTaskStartButtonGradient: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+  } as any,
+  startTaskStartButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: -0.3,
   } as any,
 }) as any;

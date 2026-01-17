@@ -1,53 +1,45 @@
-import React, { useState, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  Pressable,
-  TextInput,
-  useColorScheme,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import DraggableFlatList, {
-  ScaleDecorator,
-  RenderItemParams,
-} from 'react-native-draggable-flatlist';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withSequence,
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideInRight,
-  ZoomIn,
-  Layout,
-  Easing,
-  interpolateColor,
-  runOnJS,
-} from 'react-native-reanimated';
-import { 
-  GripVertical, 
-  Trash2, 
-  Plus, 
-  Play, 
-  Clock, 
-  Sparkles,
-  CheckCircle2,
-  Circle,
-  Edit3,
-  X,
-  Check,
-} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+    Check,
+    Clock,
+    Edit2,
+    GripVertical,
+    Play,
+    Plus,
+    Sparkles,
+    Trash2,
+    X
+} from 'lucide-react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+    Dimensions,
+    LayoutAnimation,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    UIManager,
+    useColorScheme,
+    View,
+} from 'react-native';
+import DraggableFlatList, {
+    RenderItemParams,
+    ScaleDecorator,
+} from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+    FadeIn,
+    Layout,
+    SlideInDown,
+    SlideInRight,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withTiming
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Enable LayoutAnimation for Android
@@ -148,6 +140,29 @@ export function SubtaskListScreen({
     }, 100);
   }, [subtasks]);
 
+  const handleInsertStep = useCallback((atIndex: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    
+    const newTask: Subtask = {
+      id: Date.now().toString(),
+      title: 'Nuevo Subarea',
+      duration: 5,
+      isCompleted: false,
+    };
+    
+    const newSubtasks = [...subtasks];
+    newSubtasks.splice(atIndex, 0, newTask);
+    setSubtasks(newSubtasks);
+    
+    // Start editing the new task
+    setTimeout(() => {
+      setEditingId(newTask.id);
+      setEditingText(newTask.title);
+    }, 100);
+  }, [subtasks]);
+
   const handleDelete = useCallback((id: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     
@@ -180,13 +195,6 @@ export function SubtaskListScreen({
     setEditingText('');
   }, []);
 
-  const handleToggleComplete = useCallback((id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSubtasks(subtasks.map(task =>
-      task.id === id ? { ...task, isCompleted: !task.isCompleted } : task
-    ));
-  }, [subtasks]);
-
   const handleStart = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     buttonScale.value = withSequence(
@@ -205,153 +213,145 @@ export function SubtaskListScreen({
   const renderItem = useCallback(({ item, drag, isActive, getIndex }: RenderItemParams<Subtask>) => {
     const index = getIndex() ?? 0;
     const isEditing = editingId === item.id;
-    const isLast = index === subtasks.length - 1;
 
     return (
-      <ScaleDecorator>
-        <Animated.View
-          entering={SlideInRight.delay(index * 50).springify().damping(15)}
-          layout={Layout.springify().damping(15)}
-          style={[
-            styles.itemContainer,
-            isActive && styles.itemContainerActive,
-          ]}
-        >
-          {/* Metro Line Node */}
-          <View style={styles.metroNodeContainer}>
-            <LinearGradient
-              colors={colors.metroLine as [string, string, ...string[]]}
-              style={[
-                styles.metroLine,
-                index === 0 && styles.metroLineFirst,
-                isLast && styles.metroLineLast,
-              ]}
-            />
-            <Animated.View 
-              style={[
-                styles.metroNode,
-                item.isCompleted && styles.metroNodeCompleted,
-                isActive && styles.metroNodeActive,
-              ]}
-            >
-              {item.isCompleted ? (
-                <CheckCircle2 size={16} color="#22c55e" />
-              ) : (
-                <Text style={[styles.metroNodeText, { color: colors.accent }]}>
-                  {index + 1}
-                </Text>
-              )}
-            </Animated.View>
-          </View>
-
-          {/* Card */}
-          <Pressable
-            onLongPress={drag}
-            onPress={() => !isEditing && handleStartEdit(item)}
-            delayLongPress={150}
-            disabled={isActive}
-            style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}
+      <>
+        <ScaleDecorator>
+          <Animated.View
+            entering={SlideInRight.delay(index * 30).duration(300)}
+            layout={Layout.springify().damping(15)}
+            style={[
+              styles.itemContainer,
+              isActive && styles.itemContainerActive,
+            ]}
           >
-            <BlurView
-              intensity={isActive ? 50 : 30}
-              tint={isDark ? 'dark' : 'light'}
-              style={[
-                styles.card,
-                { 
-                  backgroundColor: isActive 
-                    ? (isDark ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.1)')
-                    : colors.surface,
-                  borderColor: isActive ? colors.accent : colors.border,
-                },
-              ]}
+            {/* Metro Line Node */}
+           
+
+            {/* Card */}
+            <Pressable
+              onLongPress={drag}
+              onPress={() => !isEditing && handleStartEdit(item)}
+              delayLongPress={150}
+              disabled={isActive}
+              style={[styles.cardWrapper, isActive && styles.cardWrapperActive]}
             >
-              {/* Drag Handle */}
-              <View style={styles.dragHandle}>
-                <GripVertical 
-                  size={18} 
-                  color={isActive ? colors.accent : colors.textSecondary} 
-                />
-              </View>
-
-              {/* Content */}
-              <View style={styles.cardContent}>
-                {isEditing ? (
-                  <View style={styles.editContainer}>
-                    <TextInput
-                      ref={editInputRef}
-                      value={editingText}
-                      onChangeText={setEditingText}
-                      style={[styles.editInput, { color: colors.text }]}
-                      placeholder="Nombre del paso..."
-                      placeholderTextColor={colors.textSecondary}
-                      onSubmitEditing={handleSaveEdit}
-                      autoFocus
-                      selectTextOnFocus
-                    />
-                    <View style={styles.editActions}>
-                      <Pressable 
-                        onPress={handleCancelEdit}
-                        style={styles.editButton}
-                      >
-                        <X size={18} color={colors.danger} />
-                      </Pressable>
-                      <Pressable 
-                        onPress={handleSaveEdit}
-                        style={styles.editButton}
-                      >
-                        <Check size={18} color={colors.success} />
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <>
-                    <Text 
-                      style={[
-                        styles.cardTitle, 
-                        { color: colors.text },
-                        item.isCompleted && styles.cardTitleCompleted,
-                      ]}
-                      numberOfLines={2}
-                    >
-                      {item.title}
-                    </Text>
-                    <View style={styles.cardMeta}>
-                      <Clock size={12} color={colors.textSecondary} />
-                      <Text style={[styles.cardDuration, { color: colors.textSecondary }]}>
-                        {item.duration} min
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </View>
-
-              {/* Actions */}
-              {!isEditing && (
-                <View style={styles.cardActions}>
-                  <Pressable
-                    onPress={() => handleToggleComplete(item.id)}
-                    style={styles.actionButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    {item.isCompleted ? (
-                      <CheckCircle2 size={20} color={colors.success} />
-                    ) : (
-                      <Circle size={20} color={colors.textSecondary} />
-                    )}
-                  </Pressable>
-                  <Pressable
-                    onPress={() => handleDelete(item.id)}
-                    style={styles.actionButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Trash2 size={18} color={colors.danger} />
-                  </Pressable>
+              <BlurView
+                intensity={isActive ? 50 : 30}
+                tint={isDark ? 'dark' : 'light'}
+                style={[
+                  styles.card,
+                  { 
+                    backgroundColor: isActive 
+                      ? (isDark ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.1)')
+                      : colors.surface,
+                    borderColor: isActive ? colors.accent : colors.border,
+                  },
+                ]}
+              >
+                {/* Drag Handle */}
+                <View style={styles.dragHandle}>
+                  <GripVertical 
+                    size={18} 
+                    color={isActive ? colors.accent : colors.textSecondary} 
+                  />
                 </View>
-              )}
-            </BlurView>
+
+                {/* Content */}
+                <View style={styles.cardContent}>
+                  {isEditing ? (
+                    <View style={styles.editContainer}>
+                      <TextInput
+                        ref={editInputRef}
+                        value={editingText}
+                        onChangeText={setEditingText}
+                        style={[styles.editInput, { color: colors.text }]}
+                        placeholder="Nombre del paso..."
+                        placeholderTextColor={colors.textSecondary}
+                        onSubmitEditing={handleSaveEdit}
+                        autoFocus
+                        selectTextOnFocus
+                      />
+                      <View style={styles.editActions}>
+                        <Pressable 
+                          onPress={handleCancelEdit}
+                          style={styles.editButton}
+                        >
+                          <X size={18} color={colors.danger} />
+                        </Pressable>
+                        <Pressable 
+                          onPress={handleSaveEdit}
+                          style={styles.editButton}
+                        >
+                          <Check size={18} color={colors.success} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Text 
+                        style={[
+                          styles.cardTitle, 
+                          { color: colors.text },
+                          item.isCompleted && styles.cardTitleCompleted,
+                        ]}
+                        numberOfLines={2}
+                      >
+                        {item.title}
+                      </Text>
+                      <View style={styles.cardMeta}>
+                        <Clock size={12} color={colors.textSecondary} />
+                        <Text style={[styles.cardDuration, { color: colors.textSecondary }]}>
+                          {item.duration} min
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+
+                {/* Actions */}
+                {!isEditing && (
+                  <View style={styles.cardActions}>
+                    <Pressable
+                      onPress={() => handleStartEdit(item)}
+                      style={styles.actionButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Edit2 size={18} color={colors.accent} />
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleDelete(item.id)}
+                      style={styles.actionButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Trash2 size={18} color={colors.danger} />
+                    </Pressable>
+                  </View>
+                )}
+              </BlurView>
+            </Pressable>
+          </Animated.View>
+        </ScaleDecorator>
+
+        {/* Insert Step Button (between items) */}
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          layout={Layout.springify().damping(15)}
+          style={styles.insertStepButtonContainer}
+        >
+          <Pressable
+            onPress={() => handleInsertStep(index + 1)}
+            style={({ pressed }) => [
+              styles.insertStepButton,
+              pressed && styles.insertStepButtonPressed,
+              { borderColor: colors.border }
+            ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Plus size={16} color={colors.textSecondary} />
           </Pressable>
         </Animated.View>
-      </ScaleDecorator>
+      </>
     );
   }, [
     colors, 
@@ -362,14 +362,14 @@ export function SubtaskListScreen({
     handleStartEdit,
     handleSaveEdit,
     handleCancelEdit,
-    handleToggleComplete,
     handleDelete,
+    handleInsertStep,
   ]);
 
   // Header Component
   const ListHeaderComponent = useCallback(() => (
     <Animated.View 
-      entering={FadeIn.duration(400)}
+      entering={FadeIn.duration(300)}
       style={styles.header}
     >
       {/* Task Title */}
@@ -380,45 +380,17 @@ export function SubtaskListScreen({
         </Text>
       </View>
 
-      {/* Stats */}
-      <View style={[styles.statsContainer, { backgroundColor: colors.surface }]}>
-        <BlurView intensity={20} tint={isDark ? 'dark' : 'light'} style={styles.statsBlur}>
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.accent }]}>{totalSteps}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pasos</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.accent }]}>{totalMinutes}</Text>
-            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Minutos</Text>
-          </View>
-        </BlurView>
-      </View>
+      
+      
 
-      {/* Add Step at Start */}
-      <Pressable
-        onPress={() => handleAddStep('start')}
-        style={({ pressed }) => [
-          styles.addStepButton,
-          styles.addStepButtonTop,
-          { 
-            backgroundColor: pressed ? colors.accent : 'transparent',
-            borderColor: colors.accent,
-          },
-        ]}
-      >
-        <Plus size={16} color={colors.accent} />
-        <Text style={[styles.addStepText, { color: colors.accent }]}>
-          Agregar paso inicial
-        </Text>
-      </Pressable>
+
     </Animated.View>
   ), [taskTitle, taskEmoji, totalSteps, totalMinutes, colors, isDark, handleAddStep]);
 
   // Footer Component
   const ListFooterComponent = useCallback(() => (
     <Animated.View 
-      entering={FadeIn.delay(200).duration(400)}
+      entering={FadeIn.delay(100).duration(300)}
       style={styles.footer}
     >
       {/* Add Step at End */}
@@ -427,7 +399,7 @@ export function SubtaskListScreen({
         style={({ pressed }) => [
           styles.addStepButton,
           { 
-            backgroundColor: pressed ? colors.accent : 'transparent',
+            backgroundColor:  'transparent',
             borderColor: colors.border,
           },
         ]}
@@ -453,7 +425,7 @@ export function SubtaskListScreen({
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Close Button */}
         <Animated.View 
-          entering={FadeIn.duration(300)}
+          entering={FadeIn.duration(200)}
           style={styles.closeButtonContainer}
         >
           <Pressable
@@ -480,7 +452,7 @@ export function SubtaskListScreen({
 
         {/* Start Button */}
         <Animated.View 
-          entering={SlideInDown.springify().damping(15)}
+          entering={FadeIn.duration(300)}
           style={styles.startButtonContainer}
         >
           <AnimatedPressable
@@ -615,7 +587,7 @@ const styles = StyleSheet.create({
   itemContainer: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginBottom: 12,
+    marginBottom: 0,
   },
   itemContainerActive: {
     zIndex: 100,
@@ -735,6 +707,25 @@ const styles = StyleSheet.create({
   },
   editButton: {
     padding: 6,
+  },
+  insertStepButtonContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 0,
+  },
+  insertStepButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(124, 58, 237, 0.08)',
+  },
+  insertStepButtonPressed: {
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    transform: [{ scale: 0.92 }],
   },
   startButtonContainer: {
     position: 'absolute',

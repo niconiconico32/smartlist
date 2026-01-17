@@ -1,7 +1,9 @@
 /**
  * Onboarding Styles Configuration
- * Cambia los valores aquí para personalizar el diseño del onboarding
+ * 🎨 Soft Focus (Pastel Dark) - Actualizado con nueva paleta
  */
+
+import { colors } from '@/constants/theme';
 
 // ========== DIMENSIONES ==========
 export const ONBOARDING_DIMENSIONS = {
@@ -23,23 +25,23 @@ export const ONBOARDING_DIMENSIONS = {
 
 // ========== COLORES ==========
 export const ONBOARDING_COLORS = {
-  background: '#F5F5F5',
+  background: colors.background,  // #1E1E2E - Deep Dream
   
   // Textos
-  titleColor: '#121212',
-  subtitleColor: '#666666',
-  buttonTextColor: '#FFFFFF',
-  optionTextColor: '#374151',
+  titleColor: colors.textPrimary,  // #CDD6F4 - Cloud White
+  subtitleColor: colors.textSecondary,  // #A6ADC8 - Mist Grey
+  buttonTextColor: colors.background,  // #1E1E2E para contraste sobre botones
+  optionTextColor: colors.textPrimary,  // #CDD6F4
   
   // Botones y elementos
-  primaryButton: '#7F00FF',
-  optionButtonBg: '#F9FAFB',
-  optionButtonBorder: '#E5E7EB',
-  activeDot: '#7F00FF',
-  inactiveDot: '#7F00FF',
+  primaryButton: colors.primary,  // #CBA6F7 - Lavender Haze
+  optionButtonBg: colors.surface,  // #313244 - Soft Layer
+  optionButtonBorder: colors.border,  // rgba(203, 166, 247, 0.12)
+  activeDot: colors.primary,  // #CBA6F7
+  inactiveDot: colors.primary,  // #CBA6F7
   
   // Sombras
-  shadowColor: '#7F00FF',
+  shadowColor: colors.primary,  // #CBA6F7 - Lavender glow
 };
 
 // ========== TIPOGRAFÍA ==========

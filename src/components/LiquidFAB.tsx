@@ -1,6 +1,7 @@
 import { colors } from '@/constants/theme';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Clock, Play } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -28,6 +29,25 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulsación sutil y continua en reposo
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   // Sincronizar estado interno con el prop externo
   useEffect(() => {
@@ -50,10 +70,11 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
 
       setIsOpen(externalIsOpen);
     }
-  }, [externalIsOpen]);
+  }, [externalIsOpen, isOpen]);
 
   const toggleFAB = () => {
-    const toValue = isOpen ? 0 : 1;
+    const newOpenState = !isOpen;
+    const toValue = newOpenState ? 1 : 0;
 
     Animated.parallel([
       Animated.spring(scaleAnim, {
@@ -63,15 +84,14 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
         useNativeDriver: true,
       }),
       Animated.timing(rotateAnim, {
-        toValue: isOpen ? 0 : 1,
+        toValue,
         duration: 300,
         useNativeDriver: true,
       }),
     ]).start();
 
-    const newState = !isOpen;
-    setIsOpen(newState);
-    onOpenChange?.(newState);
+    setIsOpen(newOpenState);
+    onOpenChange?.(newOpenState);
 
     if (Platform.OS === 'ios') {
       Haptics.selectionAsync();
@@ -124,6 +144,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     <View style={styles.container}>
       {/* Hacer Tarea Option */}
       <Animated.View
+        pointerEvents={isOpen ? 'auto' : 'none'}
         style={[
           styles.optionButton,
           {
@@ -147,6 +168,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
       >
         <Text style={styles.optionLabel}>Nueva Tarea</Text>
         <Pressable
+          hitSlop={20}
           style={styles.optionButtonInner}
           onPress={handleHacerTareaPress}
         >
@@ -156,6 +178,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
 
       {/* Programar Tarea Option */}
       <Animated.View
+        pointerEvents={isOpen ? 'auto' : 'none'}
         style={[
           styles.optionButton,
           {
@@ -179,6 +202,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
       >
         <Text style={styles.optionLabel}>Programar Tarea</Text>
         <Pressable
+          hitSlop={20}
           style={styles.optionButtonInner}
           onPress={handleProgramarTareaPress}
         >
@@ -186,20 +210,33 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
         </Pressable>
       </Animated.View>
 
-      {/* Main FAB Button */}
+      {/* Main FAB Button - Con Gradiente Digital Sunset */}
       <Animated.View
         style={[
           styles.mainButtonContainer,
           {
-            transform: [{ rotate }],
+            transform: [
+              { rotate },
+              { scale: pulseAnim }
+            ],
           },
         ]}
       >
         <Pressable
-          style={styles.mainButton}
-          onPress={toggleFAB}
+          style={[styles.mainButton]}
+          onPress={() => {
+            console.log('FAB pressed, isOpen:', isOpen);
+            toggleFAB();
+          }}
         >
-          <MaterialCommunityIcons name="plus" size={28} color="#F5F5F5" />
+          <LinearGradient
+            colors={['#CBA6F7', '#FAB387']} // Lavender Haze to Peach Fuzz
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientButton}
+          >
+            <MaterialCommunityIcons name="plus" size={32} color="#FFFFFF" />
+          </LinearGradient>
         </Pressable>
       </Animated.View>
     </View>
@@ -213,19 +250,30 @@ const styles = StyleSheet.create({
   },
   mainButtonContainer: {
     zIndex: 10,
+    width: 70,
+    height: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mainButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    overflow: 'hidden',
+    shadowColor: '#CBA6F7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
     shadowRadius: 12,
-    elevation: 8,
+    elevation: 10,
+  },
+  gradientButton: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   optionButton: {
     position: 'absolute',
@@ -249,11 +297,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   optionLabel: {
-    color: '#F5F5F5',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '600',
     minWidth: 90,
     textAlign: 'right',
-
   },
 });

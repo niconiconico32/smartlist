@@ -4,11 +4,11 @@ import { CheckCircle, Circle, Trash2 } from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
-    interpolateColor,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 interface Task {
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '500',
     color: colors.textPrimary,
     flex: 1,

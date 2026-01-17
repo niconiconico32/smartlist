@@ -1,4 +1,5 @@
-import { Play, Plus } from 'lucide-react-native';
+import { colors } from '@/constants/theme';
+import { Edit2, Play, Plus } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -10,10 +11,12 @@ interface ActivityButtonProps {
   iconColor?: string;
   action: 'add' | 'play';
   onPress?: () => void;
+  onEditPress?: () => void;
+  hasSubtasks?: boolean;
   completed?: boolean;
 }
 
-export function ActivityButton({ title, emoji, metric, color, iconColor, action, onPress, completed = false }: ActivityButtonProps) {
+export function ActivityButton({ title, emoji, metric, color, iconColor, action, onPress, onEditPress, hasSubtasks = false, completed = false }: ActivityButtonProps) {
   return (
     <Pressable
       style={({ pressed }) => [
@@ -33,12 +36,23 @@ export function ActivityButton({ title, emoji, metric, color, iconColor, action,
 
         <View style={styles.rightSection}>
           <Text style={[styles.metric, { color: completed ? '#FFFFFF' : 'rgba(0, 0, 0, 0.4)' }]}>{metric}</Text>
-          <View style={styles.actionButton}>
-            {action === 'add' ? (
-              <Plus size={28} color={completed ? '#FFFFFF' : color} strokeWidth={3} />
-            ) : (
-              <Play size={24} color={completed ? '#FFFFFF' : '#7F00FF'} strokeWidth={3} fill={completed ? '#FFFFFF' : '#7F00FF'} />
+          <View style={styles.actionButtonsContainer}>
+            {hasSubtasks && !completed && onEditPress && (
+              <Pressable 
+                style={styles.actionButton}
+                onPress={onEditPress}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Edit2 size={20} color={color} strokeWidth={2.5} />
+              </Pressable>
             )}
+            <View style={styles.actionButton}>
+              {action === 'add' ? (
+                <Plus size={28} color={completed ? '#FFFFFF' : color} strokeWidth={3} />
+              ) : (
+                <Play size={24} color={completed ? '#FFFFFF' : colors.primary} strokeWidth={3} fill={completed ? '#FFFFFF' : colors.primary} />
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -48,7 +62,7 @@ export function ActivityButton({ title, emoji, metric, color, iconColor, action,
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 30,
     padding: 6,
     marginBottom: 7,
@@ -87,7 +101,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#1a1a1a',
+    color: colors.textPrimary,
     flex: 1,
     flexWrap: 'wrap',
   },
@@ -97,8 +111,13 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
     flexShrink: 0,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   metric: {
     fontSize: 13,

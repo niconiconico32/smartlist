@@ -1,34 +1,34 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Calendar, Clock, Mic, MicOff, Sparkles, X, Zap } from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-  Dimensions,
   TouchableWithoutFeedback,
-  Keyboard,
+  View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
+  Easing,
   FadeIn,
-  FadeOut,
   SlideInDown,
   SlideOutDown,
-  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
-import { X, Mic, Sparkles, Calendar, Clock, Zap, MicOff } from 'lucide-react-native';
-import * as Haptics from 'expo-haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -68,8 +68,10 @@ export function TaskModalNew({
 
   // Animaciones
   const micScale = useSharedValue(1);
+  const micPulse = useSharedValue(1);
   const buttonScale = useSharedValue(1);
   const glowOpacity = useSharedValue(0.5);
+  const iconRotation = useSharedValue(0);
   const waveHeights = useRef([
     useSharedValue(8),
     useSharedValue(12),
@@ -143,6 +145,31 @@ export function TaskModalNew({
       });
     }
   }, [isListening, isRecording]);
+
+  // Palpitación suave del micrófono (siempre activa)
+  useEffect(() => {
+    micPulse.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1400, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  // Animación de carga para el botón de generar
+  useEffect(() => {
+    if (isProcessing) {
+      iconRotation.value = withRepeat(
+        withTiming(360, { duration: 1500, easing: Easing.linear }),
+        -1,
+        false
+      );
+    } else {
+      iconRotation.value = withTiming(0, { duration: 300 });
+    }
+  }, [isProcessing, iconRotation]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -218,11 +245,17 @@ export function TaskModalNew({
 
   // Estilos animados
   const micAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: micScale.value }],
+    transform: [
+      { scale: isListening || isRecording ? micScale.value : micPulse.value }
+    ],
   }));
 
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
+  }));
+
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRotation.value}deg` }],
   }));
 
   const glowStyle = useAnimatedStyle(() => ({
@@ -379,34 +412,54 @@ export function TaskModalNew({
                           {isActive ? (
                             <MicOff size={24} color="white" />
                           ) : (
-                            <Mic size={24} color={isProcessing ? '#94a3b8' : '#64748b'} />
+                            <Mic size={24} color="white" />
                           )}
                         </Pressable>
                       </Animated.View>
 
                       {/* Botón Principal: Generar */}
                       <Animated.View style={[buttonAnimatedStyle, { flex: 1 }]}>
-                        <TouchableOpacity
+                        <Pressable
                           onPress={handleSubmit}
-                          activeOpacity={0.85}
                           disabled={!canSubmit || isActive}
                           style={[
                             styles.submitButton,
-                            canSubmit && !isActive ? styles.submitButtonActive : styles.submitButtonDisabled
+                            !canSubmit || isActive ? styles.submitButtonDisabled : {}
                           ]}
                         >
-                          <Sparkles 
-                            size={20} 
-                            color={canSubmit && !isActive ? 'white' : '#94a3b8'} 
-                            style={{ marginRight: 8 }}
-                          />
-                          <Text style={[
-                            styles.submitButtonText,
-                            canSubmit && !isActive ? styles.submitButtonTextActive : styles.submitButtonTextDisabled
-                          ]}>
-                            Generar Subtarea
-                          </Text>
-                        </TouchableOpacity>
+                          {canSubmit && !isActive ? (
+                            <LinearGradient
+                              colors={['#CBA6F7', '#FAB387']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.submitButtonGradient}
+                            >
+                              <Animated.View style={iconAnimatedStyle}>
+                                <Sparkles 
+                                  size={20} 
+                                  color="#ffffff"
+                                  style={{ marginRight: 8 }}
+                                />
+                              </Animated.View>
+                              <Text style={styles.submitButtonTextActive}>
+                                {isProcessing ? 'Generando...' : 'Generar Subtarea'}
+                              </Text>
+                            </LinearGradient>
+                          ) : (
+                            <>
+                              <Animated.View style={iconAnimatedStyle}>
+                                <Sparkles 
+                                  size={20} 
+                                  color="#94a3b8" 
+                                  style={{ marginRight: 8 }}
+                                />
+                              </Animated.View>
+                              <Text style={styles.submitButtonTextDisabled}>
+                                {isProcessing ? 'Generando...' : 'Generar Subtarea'}
+                              </Text>
+                            </>
+                          )}
+                        </Pressable>
                       </Animated.View>
 
                     </View>
@@ -579,18 +632,25 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'transparent',
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   micButtonActive: {
-    backgroundColor: '#ef4444',
-    borderColor: '#fca5a5',
+    backgroundColor: '#DC2626',
+    borderColor: '#FCA5A5',
+    shadowOpacity: 0.4,
   },
   micButtonPressed: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: '#DC2626',
+    opacity: 0.9,
   },
   micButtonDisabled: {
     opacity: 0.5,
@@ -598,20 +658,25 @@ const styles = StyleSheet.create({
   submitButton: {
     height: 56,
     borderRadius: 28,
+    overflow: 'hidden',
+  },
+  submitButtonGradient: {
+    height: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  submitButtonActive: {
-    backgroundColor: '#7c3aed',
-    shadowColor: '#7c3aed',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#CBA6F7',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   submitButtonDisabled: {
     backgroundColor: '#e2e8f0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
   },
   submitButtonText: {
     fontWeight: '700',
@@ -619,9 +684,13 @@ const styles = StyleSheet.create({
   },
   submitButtonTextActive: {
     color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 16,
   },
   submitButtonTextDisabled: {
     color: '#94a3b8',
+    fontWeight: '700',
+    fontSize: 16,
   },
   hintText: {
     fontSize: 12,
