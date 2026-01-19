@@ -2,43 +2,42 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-    Check,
-    Clock,
-    Edit2,
-    GripVertical,
-    Play,
-    Plus,
-    Sparkles,
-    Trash2,
-    X
+  Check,
+  Clock,
+  Edit2,
+  GripVertical,
+  Play,
+  Plus,
+  Sparkles,
+  Trash2,
+  X
 } from 'lucide-react-native';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-    Dimensions,
-    LayoutAnimation,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    UIManager,
-    useColorScheme,
-    View,
+  Dimensions,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  UIManager,
+  useColorScheme,
+  View,
 } from 'react-native';
 import DraggableFlatList, {
-    RenderItemParams,
-    ScaleDecorator,
+  RenderItemParams,
+  ScaleDecorator,
 } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
-    FadeIn,
-    Layout,
-    SlideInDown,
-    SlideInRight,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withTiming
+  FadeIn,
+  Layout,
+  SlideInRight,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

@@ -14,15 +14,19 @@ import {
 } from 'react-native';
 
 interface LiquidFABProps {
+  currentPage: number;
   onHacerTareaPress: () => void;
   onProgramarTareaPress: () => void;
+  onCreateRoutinePress: () => void;
   onOpenChange?: (isOpen: boolean) => void;
   isOpen?: boolean;
 }
 
 export const LiquidFAB: React.FC<LiquidFABProps> = ({
+  currentPage,
   onHacerTareaPress,
   onProgramarTareaPress,
+  onCreateRoutinePress,
   onOpenChange,
   isOpen: externalIsOpen,
 }) => {
@@ -120,6 +124,16 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     toggleFAB();
   };
 
+  const handleCreateRoutinePress = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.selectionAsync();
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onCreateRoutinePress();
+    toggleFAB();
+  };
+
   const rotate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '45deg'],
@@ -140,75 +154,120 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     outputRange: [0, 0, 1],
   });
 
+  // Para la página de rutinas, mostrar solo crear rutina
+  const isRoutinesPage = currentPage === 1;
+
   return (
     <View style={styles.container}>
-      {/* Hacer Tarea Option */}
-      <Animated.View
-        pointerEvents={isOpen ? 'auto' : 'none'}
-        style={[
-          styles.optionButton,
-          {
-            transform: [
+      {currentPage === 0 && (
+        <>
+          {/* Hacer Tarea Option - Solo en Tareas */}
+          <Animated.View
+            pointerEvents={isOpen ? 'auto' : 'none'}
+            style={[
+              styles.optionButton,
               {
-                translateY: scaleAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -140],
-                }),
+                transform: [
+                  {
+                    translateY: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -140],
+                    }),
+                  },
+                  {
+                    translateX: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -10],
+                    }),
+                  },
+                ],
+                opacity: voiceOpacity,
               },
-              {
-                translateX: scaleAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -10],
-                }),
-              },
-            ],
-            opacity: voiceOpacity,
-          },
-        ]}
-      >
-        <Text style={styles.optionLabel}>Nueva Tarea</Text>
-        <Pressable
-          hitSlop={20}
-          style={styles.optionButtonInner}
-          onPress={handleHacerTareaPress}
-        >
-          <Play size={20} color="#F5F5F5" strokeWidth={2} fill="#F5F5F5" />
-        </Pressable>
-      </Animated.View>
+            ]}
+          >
+            <Text style={styles.optionLabel}>Nueva Tarea</Text>
+            <Pressable
+              hitSlop={20}
+              style={styles.optionButtonInner}
+              onPress={handleHacerTareaPress}
+            >
+              <Play size={20} color="#F5F5F5" strokeWidth={2} fill="#F5F5F5" />
+            </Pressable>
+          </Animated.View>
 
-      {/* Programar Tarea Option */}
-      <Animated.View
-        pointerEvents={isOpen ? 'auto' : 'none'}
-        style={[
-          styles.optionButton,
-          {
-            transform: [
+          {/* Programar Tarea Option - Solo en Tareas */}
+          <Animated.View
+            pointerEvents={isOpen ? 'auto' : 'none'}
+            style={[
+              styles.optionButton,
               {
-                translateY: scaleAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -80],
-                }),
+                transform: [
+                  {
+                    translateY: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -80],
+                    }),
+                  },
+                  {
+                    translateX: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -10],
+                    }),
+                  },
+                ],
+                opacity: attachmentOpacity,
               },
+            ]}
+          >
+            <Text style={styles.optionLabel}>Programar Tarea</Text>
+            <Pressable
+              hitSlop={20}
+              style={styles.optionButtonInner}
+              onPress={handleProgramarTareaPress}
+            >
+              <Clock size={20} color="#F5F5F5" strokeWidth={2} />
+            </Pressable>
+          </Animated.View>
+        </>
+      )}
+
+      {currentPage === 1 && (
+        <>
+          {/* Nueva Rutina Option - Solo en Rutinas */}
+          <Animated.View
+            pointerEvents={isOpen ? 'auto' : 'none'}
+            style={[
+              styles.optionButton,
               {
-                translateX: scaleAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -10],
-                }),
+                transform: [
+                  {
+                    translateY: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -110],
+                    }),
+                  },
+                  {
+                    translateX: scaleAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -10],
+                    }),
+                  },
+                ],
+                opacity: voiceOpacity,
               },
-            ],
-            opacity: attachmentOpacity,
-          },
-        ]}
-      >
-        <Text style={styles.optionLabel}>Programar Tarea</Text>
-        <Pressable
-          hitSlop={20}
-          style={styles.optionButtonInner}
-          onPress={handleProgramarTareaPress}
-        >
-          <Clock size={20} color="#F5F5F5" strokeWidth={2} />
-        </Pressable>
-      </Animated.View>
+            ]}
+          >
+            <Text style={styles.optionLabel}>Nueva Rutina</Text>
+            <Pressable
+              hitSlop={20}
+              style={styles.optionButtonInner}
+              onPress={handleCreateRoutinePress}
+            >
+              <MaterialCommunityIcons name="calendar-plus" size={20} color="#F5F5F5" />
+            </Pressable>
+          </Animated.View>
+        </>
+      )}
 
       {/* Main FAB Button - Con Gradiente Digital Sunset */}
       <Animated.View

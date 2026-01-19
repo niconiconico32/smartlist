@@ -23,7 +23,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.smartlist"
+      "package": "com.anonymous.smartlist",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -50,7 +56,15 @@
         }
       ],
       "expo-audio",
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#CBA6F7",
+          "defaultChannel": "routines"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,13 +1,15 @@
 import { colors } from '@/constants/theme';
+import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
 import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
 import React, { createRef, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
 import IndexScreen from './index';
@@ -26,6 +28,7 @@ export default function SwipeableLayout() {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(true);
+  const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
   const pulseAnimFirstTime = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
@@ -56,6 +59,40 @@ export default function SwipeableLayout() {
   const handleProgramarTareaPress = () => {
     // Abrir modal de programación primero, luego la tarea
     addTaskRef.current?.openProgramScheduleModal();
+  };
+
+  const handleCreateRoutinePress = () => {
+    // Abrir modal para crear una nueva rutina
+    setShowCreateRoutineModal(true);
+  };
+
+  const handleCreateRoutine = async (routine: {
+    name: string;
+    days: string[];
+    tasks: any[];
+    reminderEnabled: boolean;
+    reminderTime?: string;
+  }) => {
+    try {
+      // Guardar la rutina en AsyncStorage
+      const existingRoutines = await AsyncStorage.getItem('@smartlist_routines');
+      const routines = existingRoutines ? JSON.parse(existingRoutines) : [];
+      
+      const newRoutine = {
+        id: Date.now().toString(),
+        ...routine,
+        createdAt: new Date().toISOString(),
+      };
+      
+      routines.push(newRoutine);
+      await AsyncStorage.setItem('@smartlist_routines', JSON.stringify(routines));
+      
+      const daysText = routine.days.join(', ');
+      Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
+    } catch (error) {
+      console.error('Error al crear rutina:', error);
+      Alert.alert('Error', 'No se pudo crear la rutina');
+    }
   };
 
   const handleFABOpenChange = (isOpen: boolean) => {
@@ -116,7 +153,8 @@ export default function SwipeableLayout() {
         ref={pagerRef}
         style={styles.pagerView}
         initialPage={0}
-        onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
+        scrollEnabled={!showCreateRoutineModal}
+        onPageSelected={(e: any) => setCurrentPage(e.nativeEvent.position)}
       >
         <View key="1" style={styles.page}>
           <IndexScreen ref={addTaskRef} setIsFirstTime={setIsFirstTime} pulseAnim={pulseAnimFirstTime} isFirstTime={isFirstTime} />
@@ -131,6 +169,7 @@ export default function SwipeableLayout() {
         <Pressable
           style={[styles.tabItem, currentPage === 0 && styles.tabItemActive]}
           onPress={() => handleTabPress(0)}
+          disabled={showCreateRoutineModal}
         >
           <CalendarCheck
             size={22}
@@ -143,8 +182,10 @@ export default function SwipeableLayout() {
 
         <View style={styles.centralButtonContainer}>
           <LiquidFAB 
+            currentPage={currentPage}
             onHacerTareaPress={handleHacerTareaPress}
             onProgramarTareaPress={handleProgramarTareaPress}
+            onCreateRoutinePress={handleCreateRoutinePress}
             onOpenChange={handleFABOpenChange}
             isOpen={isFABOpen}
           />
@@ -153,6 +194,7 @@ export default function SwipeableLayout() {
         <Pressable
           style={[styles.tabItem, currentPage === 1 && styles.tabItemActive]}
           onPress={() => handleTabPress(1)}
+          disabled={showCreateRoutineModal}
         >
           <Grid2x2
             size={22}
@@ -197,6 +239,16 @@ export default function SwipeableLayout() {
           </View>
         </Animated_Reanimated.View>
       )}
+
+      {/* Create Routine Modal */}
+      <CreateRoutineModal
+        visible={showCreateRoutineModal}
+        onClose={() => {
+          setShowCreateRoutineModal(false);
+          setIsFABOpen(false);
+        }}
+        onCreateRoutine={handleCreateRoutine}
+      />
     </View>
   );
 }

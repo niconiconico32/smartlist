@@ -13,11 +13,11 @@ type Activity = {
   metric: string;
   color: string;
   iconColor: string;
-  action: 'add' | 'play';
+  action: "add" | "play";
   completed: boolean;
   subtasks: Subtask[];
   recurrence?: {
-    type: 'once' | 'daily' | 'weekly';
+    type: "once" | "daily" | "weekly";
     days?: number[];
     time?: string;
   };
@@ -31,19 +31,27 @@ type Activity = {
 // --- Fallbacks for missing imports ---
 function getRandomIconColor() {
   // Return a random color from a palette
-  const palette = ['#CBA6F7', '#FAB387', '#F38BA8', '#F9E2AF', '#A6E3A1', '#89B4FA', '#F5C2E7'];
+  const palette = [
+    "#CBA6F7",
+    "#FAB387",
+    "#F38BA8",
+    "#F9E2AF",
+    "#A6E3A1",
+    "#89B4FA",
+    "#F5C2E7",
+  ];
   return palette[Math.floor(Math.random() * palette.length)];
 }
 
 // Dummy fallback for ConfettiCannon if not imported
 const ConfettiCannon = (props: any) => null;
-import { colors } from '@/constants/theme';
-import { ActivityButton } from '@/src/components/ActivityButton';
-import { FocusModeScreen } from '@/src/components/FocusModeScreen';
-import { SubtaskListScreen } from '@/src/components/SubtaskListScreen';
-import { TaskModalNew } from '@/src/components/TaskModalNew';
-import { useBottomTabInset } from '@/src/hooks/useBottomTabInset';
-import { useVoiceTask } from '@/src/hooks/useVoiceTask';
+import { colors } from "@/constants/theme";
+import { ActivityButton } from "@/src/components/ActivityButton";
+import { FocusModeScreen } from "@/src/components/FocusModeScreen";
+import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
+import { TaskModalNew } from "@/src/components/TaskModalNew";
+import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
+import { useVoiceTask } from "@/src/hooks/useVoiceTask";
 import {
     ONBOARDING_BUTTONS,
     ONBOARDING_COLORS,
@@ -51,13 +59,13 @@ import {
     ONBOARDING_DOTS,
     ONBOARDING_SHADOWS,
     ONBOARDING_TYPOGRAPHY,
-} from '@/src/styles/onboardingStyles';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Check, Clock, X } from 'lucide-react-native';
-import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
+} from "@/src/styles/onboardingStyles";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { Check, Clock, X } from "lucide-react-native";
+import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
     Alert,
     Dimensions,
@@ -69,59 +77,63 @@ import {
     StyleSheet,
     Switch,
     Text,
-    View
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const ACTIVITIES_STORAGE_KEY = "@smartlist_activities";
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const AnimatedPressable = RNAnimated.createAnimatedComponent(Pressable);
 
-const PlanScreen = React.forwardRef(function PlanScreen({ 
-  setIsFirstTime, 
-  pulseAnim: parentPulseAnim, 
-  isFirstTime: parentIsFirstTime 
-}: { 
-  setIsFirstTime?: (value: boolean) => void; 
-  pulseAnim?: any; 
-  isFirstTime?: boolean;
-}, ref: any) {
+const PlanScreen = React.forwardRef(function PlanScreen(
+  {
+    setIsFirstTime,
+    pulseAnim: parentPulseAnim,
+    isFirstTime: parentIsFirstTime,
+  }: {
+    setIsFirstTime?: (value: boolean) => void;
+    pulseAnim?: any;
+    isFirstTime?: boolean;
+  },
+  ref: any,
+) {
   const bottomInset = useBottomTabInset();
   const router = useRouter();
-  
+
   // Local state for isFirstTime if not passed from parent
-  const [taskInput, setTaskInput] = useState('');
+  const [taskInput, setTaskInput] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [localIsFirstTime, setLocalIsFirstTime] = useState(parentIsFirstTime !== undefined ? parentIsFirstTime : true);
+  const [localIsFirstTime, setLocalIsFirstTime] = useState(
+    parentIsFirstTime !== undefined ? parentIsFirstTime : true,
+  );
   const localPulseAnimFirstTime = useRef(new RNAnimated.Value(1)).current;
-  
-  const { recording, isProcessing, startRecording, stopRecording, cleanup } = useVoiceTask(
-    (transcribedText: string) => {
+
+  const { recording, isProcessing, startRecording, stopRecording, cleanup } =
+    useVoiceTask((transcribedText: string) => {
       setTaskInput(transcribedText);
       setIsListening(false);
-    }
-  );
-  
+    });
+
   const handleMicPressIn = async () => {
     try {
       setIsListening(true);
       await startRecording();
     } catch (error) {
-      console.error('Error in handleMicPressIn:', error);
+      console.error("Error in handleMicPressIn:", error);
       setIsListening(false);
     }
   };
-  
+
   const handleMicPressOut = async () => {
     try {
       await stopRecording();
     } catch (error) {
-      console.error('Error in handleMicPressOut:', error);
+      console.error("Error in handleMicPressOut:", error);
     } finally {
       setIsListening(false);
     }
   };
-  
+
   // Onboarding Modal State
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(1);
@@ -131,24 +143,32 @@ const PlanScreen = React.forwardRef(function PlanScreen({
   // Task Modal States
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showScheduleOption, setShowScheduleOption] = useState(false);
-  const [shouldShowTaskModalAfterSchedule, setShouldShowTaskModalAfterSchedule] = useState(false);
+  const [
+    shouldShowTaskModalAfterSchedule,
+    setShouldShowTaskModalAfterSchedule,
+  ] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
-  const [generatedTaskTitle, setGeneratedTaskTitle] = useState('');
-  const [generatedEmoji, setGeneratedEmoji] = useState('✨');
-  const [editingSubtaskIndex, setEditingSubtaskIndex] = useState<number | null>(null);
+  const [generatedTaskTitle, setGeneratedTaskTitle] = useState("");
+  const [generatedEmoji, setGeneratedEmoji] = useState("✨");
+  const [editingSubtaskIndex, setEditingSubtaskIndex] = useState<number | null>(
+    null,
+  );
   const [showSubtasksModal, setShowSubtasksModal] = useState(false);
-  
+
   // Focus Mode States
   const [showFocusMode, setShowFocusMode] = useState(false);
   const [focusModeSubtasks, setFocusModeSubtasks] = useState<Subtask[]>([]);
   const [showStartTaskModal, setShowStartTaskModal] = useState(false);
-  const [pendingActivityToStart, setPendingActivityToStart] = useState<Activity | null>(null);
+  const [pendingActivityToStart, setPendingActivityToStart] =
+    useState<Activity | null>(null);
 
-  // Schedule States  
+  // Schedule States
   const [isScheduled, setIsScheduled] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [recurrenceType, setRecurrenceType] = useState<'once' | 'daily' | 'weekly'>('once');
+  const [recurrenceType, setRecurrenceType] = useState<
+    "once" | "daily" | "weekly"
+  >("once");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -157,7 +177,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
 
   // Execution Modal States
   const [showExecutionModal, setShowExecutionModal] = useState(false);
-  const [executingActivity, setExecutingActivity] = useState<Activity | null>(null);
+  const [executingActivity, setExecutingActivity] = useState<Activity | null>(
+    null,
+  );
   const [currentSubtaskIndex, setCurrentSubtaskIndex] = useState(0);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -191,7 +213,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
     openProgramScheduleModal: () => {
       setShowScheduleModal(true);
       setShouldShowTaskModalAfterSchedule(true);
-    }
+    },
   }));
 
   // Load activities from AsyncStorage
@@ -234,7 +256,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             duration: 150,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       micVibrationAnim.setValue(0);
@@ -271,7 +293,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             duration: 800,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       pulseAnim.setValue(1);
@@ -280,9 +302,10 @@ const PlanScreen = React.forwardRef(function PlanScreen({
 
   // Pulse animation for first time overlay
   useEffect(() => {
-    const effectiveIsFirstTime = parentIsFirstTime !== undefined ? parentIsFirstTime : localIsFirstTime;
+    const effectiveIsFirstTime =
+      parentIsFirstTime !== undefined ? parentIsFirstTime : localIsFirstTime;
     const effectivePulseAnim = parentPulseAnim || localPulseAnimFirstTime;
-    
+
     if (effectiveIsFirstTime) {
       RNAnimated.loop(
         RNAnimated.sequence([
@@ -296,7 +319,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             duration: 1000,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       effectivePulseAnim.setValue(1);
@@ -338,7 +361,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             duration: 400,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       dot1Opacity.setValue(0.3);
@@ -361,7 +384,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
         }
       }
     } catch (error) {
-      console.error('Error loading activities:', error);
+      console.error("Error loading activities:", error);
     }
   };
 
@@ -374,85 +397,99 @@ const PlanScreen = React.forwardRef(function PlanScreen({
         setIsFirstTime(true);
       }
     } catch (error) {
-      console.error('Error clearing activities:', error);
+      console.error("Error clearing activities:", error);
     }
   };
 
   const saveActivities = async () => {
     try {
-      await AsyncStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities));
+      await AsyncStorage.setItem(
+        ACTIVITIES_STORAGE_KEY,
+        JSON.stringify(activities),
+      );
     } catch (error) {
-      console.error('Error saving activities:', error);
+      console.error("Error saving activities:", error);
     }
   };
 
   const generateSubtasks = async (inputText: string) => {
     if (!inputText.trim()) {
-      Alert.alert('Error', 'Escribe una tarea primero');
+      Alert.alert("Error", "Escribe una tarea primero");
       return;
     }
 
     setIsGenerating(true);
     setTaskInput(inputText);
     setSubtasks([]);
-    setGeneratedTaskTitle('');
+    setGeneratedTaskTitle("");
 
     try {
       const response = await fetch(
-        'https://wdqwgqfisiteswbbdurg.supabase.co/functions/v1/divide-task',
+        "https://wdqwgqfisiteswbbdurg.supabase.co/functions/v1/divide-task",
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg',
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg',
+            "Content-Type": "application/json",
+            apikey:
+              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg",
+            Authorization:
+              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg",
           },
           body: JSON.stringify({ task: inputText.trim() }),
-        }
+        },
       );
 
       const data = await response.json();
 
-      console.log('Respuesta de la API:', data);
+      console.log("Respuesta de la API:", data);
 
       if (data.error) {
         throw new Error(data.error);
       }
 
-      if (!data.tasks || !Array.isArray(data.tasks) || data.tasks.length === 0) {
-        throw new Error('No se pudieron generar subtareas');
+      if (
+        !data.tasks ||
+        !Array.isArray(data.tasks) ||
+        data.tasks.length === 0
+      ) {
+        throw new Error("No se pudieron generar subtareas");
       }
 
       // Usar el título generado por la IA o resumir el input del usuario
       let finalTitle = data.title || inputText;
-      
+
       // Si el título es muy largo, truncar a 50 caracteres
       if (finalTitle.length > 50) {
-        finalTitle = finalTitle.substring(0, 47) + '...';
+        finalTitle = finalTitle.substring(0, 47) + "...";
       }
 
       setGeneratedTaskTitle(finalTitle);
-      setGeneratedEmoji(data.emoji || '✨');
-      
+      setGeneratedEmoji(data.emoji || "✨");
+
       // Transform subtasks to include id and isCompleted
-      const transformedSubtasks: Subtask[] = data.tasks.map((task: any, index: number) => ({
-        id: `${Date.now()}-${index}`,
-        title: task.title,
-        duration: task.duration,
-        isCompleted: false,
-      }));
+      const transformedSubtasks: Subtask[] = data.tasks.map(
+        (task: any, index: number) => ({
+          id: `${Date.now()}-${index}`,
+          title: task.title,
+          duration: task.duration,
+          isCompleted: false,
+        }),
+      );
       setSubtasks(transformedSubtasks);
 
       // Cerrar el modal de tarea y mostrar el modal de subtareas
       setShowTaskModal(false);
-      
+
       // Mostrar las subtareas generadas después de un pequeño delay
       setTimeout(() => {
         setShowSubtasksModal(true);
       }, 300);
     } catch (error) {
-      console.error('Error generando subtareas:', error);
-      Alert.alert('Error', 'No se pudieron generar las subtareas. Intenta de nuevo.');
+      console.error("Error generando subtareas:", error);
+      Alert.alert(
+        "Error",
+        "No se pudieron generar las subtareas. Intenta de nuevo.",
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -460,9 +497,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
 
   const addTaskToList = (finalSubtasks?: Subtask[]) => {
     const tasksToUse = finalSubtasks || subtasks;
-    
+
     if (!generatedTaskTitle || tasksToUse.length === 0) {
-      Alert.alert('Error', 'Genera subtareas primero');
+      Alert.alert("Error", "Genera subtareas primero");
       return;
     }
 
@@ -471,49 +508,60 @@ const PlanScreen = React.forwardRef(function PlanScreen({
       title: generatedTaskTitle,
       emoji: generatedEmoji,
       metric: `${tasksToUse.reduce((sum, t) => sum + t.duration, 0)} min`,
-      color: '#A6E3A1',
+      color: "#A6E3A1",
       iconColor: getRandomIconColor(),
-      action: 'play',
+      action: "play",
       completed: false,
       subtasks: tasksToUse,
-      recurrence: isScheduled ? {
-        type: recurrenceType,
-        days: recurrenceType === 'weekly' ? selectedDays : undefined,
-        time: scheduledTime?.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-      } : { type: 'once' },
-      reminder: reminderEnabled ? {
-        enabled: true,
-        minutesBefore: reminderTime,
-      } : undefined,
+      recurrence: isScheduled
+        ? {
+            type: recurrenceType,
+            days: recurrenceType === "weekly" ? selectedDays : undefined,
+            time: scheduledTime?.toLocaleTimeString("es-ES", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          }
+        : { type: "once" },
+      reminder: reminderEnabled
+        ? {
+            enabled: true,
+            minutesBefore: reminderTime,
+          }
+        : undefined,
       completedDates: [],
     };
 
-    setActivities(prev => [newActivity, ...prev]);
-    
+    setActivities((prev) => [newActivity, ...prev]);
+
     // Reset modal
     setShowSubtasksModal(false);
     setShowTaskModal(false);
-    setTaskInput('');
+    setTaskInput("");
     setSubtasks([]);
-    setGeneratedTaskTitle('');
-    setGeneratedEmoji('✨');
+    setGeneratedTaskTitle("");
+    setGeneratedEmoji("✨");
     setIsScheduled(false);
-    setRecurrenceType('once');
+    setRecurrenceType("once");
     setSelectedDays([]);
     setScheduledTime(null);
     setReminderEnabled(false);
     setReminderTime(15);
-    
-    Alert.alert('✅ Tarea agregada', `"${generatedTaskTitle}" fue agregada a tu lista`);
+
+    Alert.alert(
+      "✅ Tarea agregada",
+      `"${generatedTaskTitle}" fue agregada a tu lista`,
+    );
   };
 
   const handleActivityPress = (activity: Activity) => {
     // Si está completada, solo toggle
-    const today = new Date().toISOString().split('T')[0];
-    const isCompleted = activity.recurrence?.type !== 'once' 
-      ? activity.completedDates?.includes(today)
-      : activity.completed;
-    
+    const today = new Date().toISOString().split("T")[0];
+    const isCompleted =
+      activity.recurrence?.type !== "once"
+        ? activity.completedDates?.includes(today)
+        : activity.completed;
+
     if (isCompleted) {
       toggleActivityStatus(activity.id);
       return;
@@ -543,7 +591,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
     let interval: number;
     if (showExecutionModal && !showSuccessScreen) {
       interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
+        setElapsedTime((prev) => prev + 1);
       }, 1000);
     }
     return () => {
@@ -564,7 +612,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
     if (!executingActivity) return;
 
     const nextIndex = currentSubtaskIndex + 1;
-    
+
     if (nextIndex < executingActivity.subtasks!.length) {
       // Next subtask
       setCurrentSubtaskIndex(nextIndex);
@@ -588,59 +636,63 @@ const PlanScreen = React.forwardRef(function PlanScreen({
   };
 
   const toggleActivityStatus = (id: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    
-    setActivities(prevActivities =>
-      prevActivities.map(activity => {
+    const today = new Date().toISOString().split("T")[0];
+
+    setActivities((prevActivities) =>
+      prevActivities.map((activity) => {
         if (activity.id !== id) return activity;
 
-        const isRecurrent = activity.recurrence?.type !== 'once';
-        
+        const isRecurrent = activity.recurrence?.type !== "once";
+
         if (isRecurrent) {
           // Para tareas recurrentes, agregar fecha a completedDates
-          const alreadyCompletedToday = activity.completedDates?.includes(today);
+          const alreadyCompletedToday =
+            activity.completedDates?.includes(today);
           return {
             ...activity,
             completedDates: alreadyCompletedToday
-              ? activity.completedDates?.filter(d => d !== today)
+              ? activity.completedDates?.filter((d) => d !== today)
               : [...(activity.completedDates || []), today],
           };
         } else {
           // Para tareas de una vez, toggle completed
           return { ...activity, completed: !activity.completed };
         }
-      })
+      }),
     );
   };
 
   // Filtrar actividades considerando recurrencia
-  const today = new Date().toISOString().split('T')[0];
-  const pendingActivities = activities.filter(a => {
-    if (a.recurrence?.type !== 'once') {
+  const today = new Date().toISOString().split("T")[0];
+  const pendingActivities = activities.filter((a) => {
+    if (a.recurrence?.type !== "once") {
       return !a.completedDates?.includes(today);
     }
     return !a.completed;
   });
-  
-  const completedActivities = activities.filter(a => {
-    if (a.recurrence?.type !== 'once') {
+
+  const completedActivities = activities.filter((a) => {
+    if (a.recurrence?.type !== "once") {
       return a.completedDates?.includes(today);
     }
     return a.completed;
   });
-  
+
   const totalCompleted = completedActivities.length;
 
   return (
     <>
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView 
+        <ScrollView
           style={styles.container}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: bottomInset + 130 }]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: bottomInset + 130 },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Por Hacer</Text>
+            <Text style={styles.sectionTitle}>Tus tareas de hoy</Text>
           </View>
 
           <View style={styles.activitiesContainer}>
@@ -649,7 +701,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 No tienes tareas para hoy. Agrega una pinchando +
               </Text>
             ) : (
-              pendingActivities.map(activity => (
+              pendingActivities.map((activity, index) => (
                 <ActivityButton
                   key={activity.id}
                   title={activity.title}
@@ -659,9 +711,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   iconColor={activity.iconColor}
                   action={activity.action}
                   completed={false}
-                  hasSubtasks={activity.subtasks ? activity.subtasks.length > 0 : false}
+                  hasSubtasks={
+                    activity.subtasks ? activity.subtasks.length > 0 : false
+                  }
                   onPress={() => handleActivityPress(activity)}
                   onEditPress={() => handleEditSubtasks(activity)}
+                  index={index}
                 />
               ))
             )}
@@ -672,7 +727,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
           </View>
 
           <View style={styles.activitiesContainer}>
-            {completedActivities.map(activity => (
+            {completedActivities.map((activity) => (
               <ActivityButton
                 key={activity.id}
                 title={activity.title}
@@ -682,20 +737,53 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 iconColor={activity.iconColor}
                 action={activity.action}
                 completed={true}
-                hasSubtasks={activity.subtasks ? activity.subtasks.length > 0 : false}
+                hasSubtasks={
+                  activity.subtasks ? activity.subtasks.length > 0 : false
+                }
                 onPress={() => handleActivityPress(activity)}
                 onEditPress={() => handleEditSubtasks(activity)}
               />
             ))}
           </View>
 
-          {/* Test Onboarding Button */}
-          <Pressable 
-            style={styles.testOnboardingButton}
-            onPress={() => setShowOnboardingModal(true)}
-          >
-            <Text style={styles.testOnboardingText}>Test Onboarding</Text>
-          </Pressable>
+          {/* Test Buttons */}
+          <View style={{ gap: 12 }}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.testOnboardingButton,
+                pressed && styles.testOnboardingButtonPressed,
+              ]}
+              onPress={() => router.push("/onboarding-new")}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.testOnboardingGradient}
+              >
+                <Text style={styles.testOnboardingText}>
+                  Explorar Onboarding
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.testOnboardingButton,
+                pressed && styles.testOnboardingButtonPressed,
+              ]}
+              onPress={() => router.push("/paywall")}
+            >
+              <LinearGradient
+                colors={["#FF6B6B", "#FF4757"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.testOnboardingGradient}
+              >
+                <Text style={styles.testOnboardingText}>Ver Paywall</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
         </ScrollView>
 
         {/* Onboarding Modal */}
@@ -706,12 +794,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
         >
           <SafeAreaView style={styles.onboardingContainer}>
             <View style={styles.onboardingHeader}>
-              <Pressable 
+              <Pressable
                 onPress={() => {
                   setShowOnboardingModal(false);
                   setOnboardingStep(1);
                   onboardingSlideAnim.setValue(0);
-                }} 
+                }}
                 style={styles.backButton}
               >
                 <X size={24} color={colors.textPrimary} />
@@ -750,9 +838,13 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 {/* Title Section - Fixed Height */}
                 <View style={styles.onboardingTitleSection}>
                   <Text style={styles.onboardingTitle}>
-                    {onboardingStep === 1 && 'Your Focus Keeper'}
+                    {onboardingStep === 1 && "Your Focus Keeper"}
                     {onboardingStep === 3 && "Don't worry"}
-                    {(onboardingStep === 2 || onboardingStep === 4 || onboardingStep === 5 || onboardingStep === 6) && 'Have you been diagnosed with ADHD or do you suspect you have it?'}
+                    {(onboardingStep === 2 ||
+                      onboardingStep === 4 ||
+                      onboardingStep === 5 ||
+                      onboardingStep === 6) &&
+                      "Have you been diagnosed with ADHD or do you suspect you have it?"}
                   </Text>
                 </View>
 
@@ -767,7 +859,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   )}
                   {onboardingStep === 3 && (
                     <Text style={styles.onboardingSubtitle}>
-                      Having a brain that works differently can feel like having too many programs running on your computer.
+                      Having a brain that works differently can feel like having
+                      too many programs running on your computer.
                     </Text>
                   )}
                 </View>
@@ -776,7 +869,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 <View style={styles.onboardingImageSection}>
                   {(onboardingStep === 1 || onboardingStep === 3) && (
                     <Image
-                      source={require('@/assets/images/Scrum board-rafiki.png')}
+                      source={require("@/assets/images/Scrum board-rafiki.png")}
                       style={styles.onboardingImage}
                       resizeMode="contain"
                     />
@@ -785,14 +878,24 @@ const PlanScreen = React.forwardRef(function PlanScreen({
 
                 {/* Options Section - Flex for different layouts */}
                 <View style={styles.onboardingOptionsSection}>
-                  {(onboardingStep === 2 || onboardingStep === 4 || onboardingStep === 5 || onboardingStep === 6) && (
+                  {(onboardingStep === 2 ||
+                    onboardingStep === 4 ||
+                    onboardingStep === 5 ||
+                    onboardingStep === 6) && (
                     <View style={styles.optionsContainer}>
-                      {["Yes, I've been diagnosed with ADHD", "I think I might have it", "No, but I'd like to improve my focus and productivity"].map((option, idx) => (
+                      {[
+                        "Yes, I've been diagnosed with ADHD",
+                        "I think I might have it",
+                        "No, but I'd like to improve my focus and productivity",
+                      ].map((option, idx) => (
                         <Pressable
                           key={idx}
                           style={[
                             styles.optionButton,
-                            selectedOption === idx && { borderColor: colors.primary, borderWidth: 3 },
+                            selectedOption === idx && {
+                              borderColor: colors.primary,
+                              borderWidth: 3,
+                            },
                           ]}
                           onPress={() => {
                             setSelectedOption(idx);
@@ -812,10 +915,7 @@ const PlanScreen = React.forwardRef(function PlanScreen({
 
               {/* Button - Positioned at bottom */}
               {onboardingStep === 1 && (
-                <Pressable 
-                  style={styles.comenzarButton}
-                  onPress={goToNextStep}
-                >
+                <Pressable style={styles.comenzarButton} onPress={goToNextStep}>
                   <Text style={styles.comenzarButtonText}>Comenzar</Text>
                 </Pressable>
               )}
@@ -833,10 +933,10 @@ const PlanScreen = React.forwardRef(function PlanScreen({
               setIsListening(false);
             }
             setShowTaskModal(false);
-            setTaskInput('');
+            setTaskInput("");
             setSubtasks([]);
-            setGeneratedTaskTitle('');
-            setGeneratedEmoji('✨');
+            setGeneratedTaskTitle("");
+            setGeneratedEmoji("✨");
           }}
           onSubmit={generateSubtasks}
           onVoiceStart={handleMicPressIn}
@@ -854,8 +954,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
           onRequestClose={() => {
             setShowSubtasksModal(false);
             setSubtasks([]);
-            setGeneratedTaskTitle('');
-            setGeneratedEmoji('✨');
+            setGeneratedTaskTitle("");
+            setGeneratedEmoji("✨");
           }}
         >
           <SubtaskListScreen
@@ -875,8 +975,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
             onClose={() => {
               setShowSubtasksModal(false);
               setSubtasks([]);
-              setGeneratedTaskTitle('');
-              setGeneratedEmoji('✨');
+              setGeneratedTaskTitle("");
+              setGeneratedEmoji("✨");
             }}
           />
         </Modal>
@@ -897,9 +997,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
               setShowFocusMode(false);
               setFocusModeSubtasks([]);
               setSubtasks([]);
-              setGeneratedTaskTitle('');
-              setGeneratedEmoji('✨');
-              Alert.alert('🎉 ¡Felicidades!', 'Has completado todas las subtareas');
+              setGeneratedTaskTitle("");
+              setGeneratedEmoji("✨");
+              Alert.alert(
+                "🎉 ¡Felicidades!",
+                "Has completado todas las subtareas",
+              );
             }}
             onClose={() => {
               setShowFocusMode(false);
@@ -923,60 +1026,89 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 </Pressable>
               </View>
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                showsVerticalScrollIndicator={false}
+              >
                 {/* Frequency Chips */}
                 <Text style={styles.sectionLabel}>Frecuencia</Text>
                 <View style={styles.frequencyChips}>
                   <Pressable
-                    style={[styles.chip, recurrenceType === 'once' && styles.chipActive]}
-                    onPress={() => setRecurrenceType('once')}
+                    style={[
+                      styles.chip,
+                      recurrenceType === "once" && styles.chipActive,
+                    ]}
+                    onPress={() => setRecurrenceType("once")}
                   >
-                    <Text style={[styles.chipText, recurrenceType === 'once' && styles.chipTextActive]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        recurrenceType === "once" && styles.chipTextActive,
+                      ]}
+                    >
                       Una vez
                     </Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.chip, recurrenceType === 'daily' && styles.chipActive]}
-                    onPress={() => setRecurrenceType('daily')}
+                    style={[
+                      styles.chip,
+                      recurrenceType === "daily" && styles.chipActive,
+                    ]}
+                    onPress={() => setRecurrenceType("daily")}
                   >
-                    <Text style={[styles.chipText, recurrenceType === 'daily' && styles.chipTextActive]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        recurrenceType === "daily" && styles.chipTextActive,
+                      ]}
+                    >
                       Diaria
                     </Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.chip, recurrenceType === 'weekly' && styles.chipActive]}
-                    onPress={() => setRecurrenceType('weekly')}
+                    style={[
+                      styles.chip,
+                      recurrenceType === "weekly" && styles.chipActive,
+                    ]}
+                    onPress={() => setRecurrenceType("weekly")}
                   >
-                    <Text style={[styles.chipText, recurrenceType === 'weekly' && styles.chipTextActive]}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        recurrenceType === "weekly" && styles.chipTextActive,
+                      ]}
+                    >
                       Semanal
                     </Text>
                   </Pressable>
                 </View>
 
                 {/* Day Selector for Weekly */}
-                {recurrenceType === 'weekly' && (
+                {recurrenceType === "weekly" && (
                   <>
                     <Text style={styles.sectionLabel}>Días</Text>
                     <View style={styles.daySelector}>
-                      {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => (
+                      {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => (
                         <Pressable
                           key={index}
                           style={[
                             styles.dayChip,
-                            selectedDays.includes(index) && styles.dayChipActive
+                            selectedDays.includes(index) &&
+                              styles.dayChipActive,
                           ]}
                           onPress={() => {
-                            setSelectedDays(prev =>
+                            setSelectedDays((prev) =>
                               prev.includes(index)
-                                ? prev.filter(d => d !== index)
-                                : [...prev, index].sort()
+                                ? prev.filter((d) => d !== index)
+                                : [...prev, index].sort(),
                             );
                           }}
                         >
                           <Text
                             style={[
                               styles.dayChipText,
-                              selectedDays.includes(index) && styles.dayChipTextActive
+                              selectedDays.includes(index) &&
+                                styles.dayChipTextActive,
                             ]}
                           >
                             {day}
@@ -995,10 +1127,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 >
                   <Clock size={20} color={colors.textSecondary} />
                   <Text style={styles.timePickerText}>
-                    {scheduledTime 
-                      ? scheduledTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                      : 'Sin hora específica'
-                    }
+                    {scheduledTime
+                      ? scheduledTime.toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Sin hora específica"}
                   </Text>
                   {scheduledTime && (
                     <Pressable
@@ -1031,8 +1165,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                     <Switch
                       value={reminderEnabled}
                       onValueChange={setReminderEnabled}
-                      trackColor={{ false: '#E0E0E0', true: colors.primary }}
-                      thumbColor={'#FFFFFF'}
+                      trackColor={{ false: "#E0E0E0", true: colors.primary }}
+                      thumbColor={"#FFFFFF"}
                     />
                   </View>
                   {reminderEnabled && (
@@ -1040,10 +1174,18 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                       {[5, 15, 30, 60].map((mins) => (
                         <Pressable
                           key={mins}
-                          style={[styles.chip, reminderTime === mins && styles.chipActive]}
+                          style={[
+                            styles.chip,
+                            reminderTime === mins && styles.chipActive,
+                          ]}
                           onPress={() => setReminderTime(mins)}
                         >
-                          <Text style={[styles.chipText, reminderTime === mins && styles.chipTextActive]}>
+                          <Text
+                            style={[
+                              styles.chipText,
+                              reminderTime === mins && styles.chipTextActive,
+                            ]}
+                          >
                             {mins} min antes
                           </Text>
                         </Pressable>
@@ -1076,17 +1218,17 @@ const PlanScreen = React.forwardRef(function PlanScreen({
           animationType="fade"
           transparent={false}
           onRequestClose={() => {
-            Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
-              { text: 'Continuar', style: 'cancel' },
-              { 
-                text: 'Salir', 
-                style: 'destructive',
+            Alert.alert("¿Salir?", "¿Quieres abandonar esta tarea?", [
+              { text: "Continuar", style: "cancel" },
+              {
+                text: "Salir",
+                style: "destructive",
                 onPress: () => {
                   setShowExecutionModal(false);
                   setExecutingActivity(null);
                   setCurrentSubtaskIndex(0);
                   setShowSuccessScreen(false);
-                }
+                },
               },
             ]);
           }}
@@ -1099,10 +1241,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   <Check size={80} color="#FFFFFF" strokeWidth={4} />
                 </View>
                 <Text style={styles.successTitle}>¡Tarea Completada!</Text>
-                <Text style={styles.successSubtitle}>{executingActivity?.title}</Text>
+                <Text style={styles.successSubtitle}>
+                  {executingActivity?.title}
+                </Text>
                 <ConfettiCannon
                   count={200}
-                  origin={{x: SCREEN_WIDTH / 2, y: 0}}
+                  origin={{ x: SCREEN_WIDTH / 2, y: 0 }}
                   autoStart={false}
                   fadeOut={true}
                   fallSpeed={3000}
@@ -1116,17 +1260,17 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                   <Pressable
                     style={styles.closeButton}
                     onPress={() => {
-                      Alert.alert('¿Salir?', '¿Quieres abandonar esta tarea?', [
-                        { text: 'Continuar', style: 'cancel' },
-                        { 
-                          text: 'Salir', 
-                          style: 'destructive',
+                      Alert.alert("¿Salir?", "¿Quieres abandonar esta tarea?", [
+                        { text: "Continuar", style: "cancel" },
+                        {
+                          text: "Salir",
+                          style: "destructive",
                           onPress: () => {
                             setShowExecutionModal(false);
                             setExecutingActivity(null);
                             setCurrentSubtaskIndex(0);
                             setShowSuccessScreen(false);
-                          }
+                          },
                         },
                       ]);
                     }}
@@ -1136,23 +1280,27 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 </View>
                 {/* Progress Indicator */}
                 <View style={styles.progressContainer}>
-                  {executingActivity?.subtasks?.map((_: Subtask, index: number) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.progressDot,
-                        index === currentSubtaskIndex && styles.progressDotActive,
-                        index < currentSubtaskIndex && styles.progressDotCompleted,
-                      ]}
-                    />
-                  ))}
+                  {executingActivity?.subtasks?.map(
+                    (_: Subtask, index: number) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.progressDot,
+                          index === currentSubtaskIndex &&
+                            styles.progressDotActive,
+                          index < currentSubtaskIndex &&
+                            styles.progressDotCompleted,
+                        ]}
+                      />
+                    ),
+                  )}
                 </View>
 
                 {/* Subtask Counter & Stopwatch */}
                 <View style={styles.counterContainer}>
-
                   <Text style={styles.stopwatchText}>
-                    {Math.floor(elapsedTime / 60)}:{String(elapsedTime % 60).padStart(2, '0')}
+                    {Math.floor(elapsedTime / 60)}:
+                    {String(elapsedTime % 60).padStart(2, "0")}
                   </Text>
                 </View>
 
@@ -1166,18 +1314,22 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 {/* Slider to Complete */}
                 <View style={styles.sliderContainer}>
                   <View style={styles.sliderTrack}>
-                    <Text style={styles.sliderLabel}>desliza para completar</Text>
+                    <Text style={styles.sliderLabel}>
+                      desliza para completar
+                    </Text>
                     <RNAnimated.View
                       style={[
                         styles.sliderThumb,
                         {
-                          transform: [{
-                            translateX: executionSlideAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0, SCREEN_WIDTH - 140],
-                            })
-                          }]
-                        }
+                          transform: [
+                            {
+                              translateX: executionSlideAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [0, SCREEN_WIDTH - 140],
+                              }),
+                            },
+                          ],
+                        },
                       ]}
                       {...({
                         onStartShouldSetResponder: () => true,
@@ -1188,7 +1340,8 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                           executionSlideAnim.setValue(progress);
                         },
                         onResponderRelease: () => {
-                          const currentValue = (executionSlideAnim as any)._value;
+                          const currentValue = (executionSlideAnim as any)
+                            ._value;
                           if (currentValue > 0.8) {
                             RNAnimated.spring(executionSlideAnim, {
                               toValue: 1,
@@ -1222,12 +1375,12 @@ const PlanScreen = React.forwardRef(function PlanScreen({
           <View style={styles.startTaskModalOverlay}>
             <View style={styles.startTaskModalContent}>
               <LinearGradient
-                colors={['#CBA6F7', '#DFC0FF', '#CBA6F7']}
+                colors={["#CBA6F7", "#DFC0FF", "#CBA6F7"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
               />
-              
+
               {/* Content */}
               <View style={styles.startTaskModalInner}>
                 {/* Close Button */}
@@ -1239,7 +1392,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                 </Pressable>
 
                 {/* Emoji */}
-                <Text style={styles.startTaskEmoji}>{pendingActivityToStart?.emoji}</Text>
+                <Text style={styles.startTaskEmoji}>
+                  {pendingActivityToStart?.emoji}
+                </Text>
 
                 {/* Title */}
                 <Text style={styles.startTaskTitle}>¿Empezar Tarea?</Text>
@@ -1256,7 +1411,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                     onPress={() => setShowStartTaskModal(false)}
                     style={styles.startTaskCancelButton}
                   >
-                    <Text style={styles.startTaskCancelButtonText}>Más Tarde</Text>
+                    <Text style={styles.startTaskCancelButtonText}>
+                      Más Tarde
+                    </Text>
                   </Pressable>
 
                   {/* Start Button */}
@@ -1265,7 +1422,9 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                       if (pendingActivityToStart) {
                         setGeneratedTaskTitle(pendingActivityToStart.title);
                         setGeneratedEmoji(pendingActivityToStart.emoji);
-                        setFocusModeSubtasks(pendingActivityToStart.subtasks || []);
+                        setFocusModeSubtasks(
+                          pendingActivityToStart.subtasks || [],
+                        );
                         setShowFocusMode(true);
                         setShowStartTaskModal(false);
                       }
@@ -1273,12 +1432,14 @@ const PlanScreen = React.forwardRef(function PlanScreen({
                     style={styles.startTaskStartButton}
                   >
                     <LinearGradient
-                      colors={['#1E1E2E', '#252536']}
+                      colors={["#1E1E2E", "#252536"]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.startTaskStartButtonGradient}
                     >
-                      <Text style={styles.startTaskStartButtonText}>Empezar</Text>
+                      <Text style={styles.startTaskStartButtonText}>
+                        Empezar
+                      </Text>
                     </LinearGradient>
                   </Pressable>
                 </View>
@@ -1291,22 +1452,56 @@ const PlanScreen = React.forwardRef(function PlanScreen({
   );
 });
 
-PlanScreen.displayName = 'PlanScreen';
+PlanScreen.displayName = "PlanScreen";
 export default PlanScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background } as any,
-  container: { flex: 1 } as any,
-  contentContainer: { paddingTop: 16, marginBottom: 24 } as any,
+  container: { flex: 1, backgroundColor: colors.background } as any,
+  contentContainer: {
+    paddingTop: 16,
+    marginBottom: 24,
+    backgroundColor: colors.background,
+  } as any,
   notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
   sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.5, textAlign: 'center', marginBottom: 32, paddingHorizontal: 16 } as any,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+    textAlign: "left",
+    marginBottom: 2,
+    paddingHorizontal: 0,
+  } as any,
   activitiesContainer: { paddingHorizontal: 20 } as any,
-  testOnboardingButton: { marginHorizontal: 20, marginTop: 24, backgroundColor: colors.primary, paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12, alignItems: 'center' } as any,
+  testOnboardingButton: {
+    marginHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 40,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  } as any,
+  testOnboardingGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  } as any,
   testOnboardingText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.background,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  } as any,
+  testOnboardingButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   } as any,
   // Subtasks Modal Styles
   subtasksContainer: {
@@ -1314,9 +1509,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   } as any,
   subtasksHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: colors.surface,
@@ -1325,9 +1520,9 @@ const styles = StyleSheet.create({
   } as any,
   subtasksTitle: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
   } as any,
   subtasksTitleEmoji: {
@@ -1335,7 +1530,7 @@ const styles = StyleSheet.create({
   } as any,
   subtasksTitleText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     maxWidth: 200,
   } as any,
@@ -1346,7 +1541,7 @@ const styles = StyleSheet.create({
   } as any,
   subtasksLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
     marginBottom: 16,
   } as any,
@@ -1360,41 +1555,41 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.primary,
   } as any,
   subtaskContent: {
-    flexDirection: 'column',
+    flexDirection: "column",
   } as any,
   subtaskItemTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     marginBottom: 4,
   } as any,
   subtaskItemDuration: {
     fontSize: 14,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
   } as any,
   totalDuration: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginVertical: 24,
   } as any,
   totalDurationLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   } as any,
   totalDurationValue: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
   } as any,
   subtasksActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 24,
@@ -1402,14 +1597,14 @@ const styles = StyleSheet.create({
   } as any,
   subtasksCancelButton: {
     flex: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   subtasksCancelText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   } as any,
   subtasksConfirmButton: {
@@ -1417,12 +1612,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   subtasksConfirmText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   } as any,
   onboardingContainer: {
     flex: 1,
@@ -1435,58 +1630,58 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   onboardingContentWrapper: {
     flex: 1,
-    width: '100%',
+    width: "100%",
     paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    justifyContent: "flex-start",
+    alignItems: "center",
   } as any,
   onboardingTitleSection: {
     height: ONBOARDING_DIMENSIONS.titleSectionHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: ONBOARDING_DIMENSIONS.marginTop,
   } as any,
   onboardingSubtitleSection: {
     height: ONBOARDING_DIMENSIONS.subtitleSectionHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
   } as any,
   onboardingImageSection: {
     height: ONBOARDING_DIMENSIONS.imageSectionHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginVertical: ONBOARDING_DIMENSIONS.verticalGap,
   } as any,
   onboardingOptionsSection: {
     flex: 1,
-    width: '100%',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    width: "100%",
+    justifyContent: "flex-start",
+    alignItems: "center",
   } as any,
   onboardingContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 32,
-    width: '100%',
+    width: "100%",
   } as any,
   onboardingScrollContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
+    justifyContent: "flex-start",
+    alignItems: "center",
     paddingBottom: 20,
   } as any,
   progressDotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: ONBOARDING_DOTS.gap,
     marginBottom: ONBOARDING_DOTS.marginBottom,
   } as any,
@@ -1494,21 +1689,21 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 5.5,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
   } as any,
   // Fix misplaced properties
   progressDotText: {
-    textAlign: 'left',
+    textAlign: "left",
     marginBottom: 32,
     paddingHorizontal: 20,
     lineHeight: 30,
   } as any,
   optionsContainer: {
-    width: '100%',
+    width: "100%",
     paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
     gap: ONBOARDING_BUTTONS.optionButtonGap,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   optionButton: {
     backgroundColor: ONBOARDING_COLORS.optionButtonBg,
@@ -1517,27 +1712,27 @@ const styles = StyleSheet.create({
     borderRadius: ONBOARDING_BUTTONS.optionButtonBorderRadius,
     borderWidth: ONBOARDING_BUTTONS.optionButtonBorderWidth,
     borderColor: ONBOARDING_COLORS.optionButtonBorder,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   optionText: {
     fontSize: ONBOARDING_TYPOGRAPHY.optionFontSize,
     fontWeight: ONBOARDING_TYPOGRAPHY.optionFontWeight,
     color: ONBOARDING_COLORS.optionTextColor,
-    textAlign: 'center',
+    textAlign: "center",
   } as any,
   onboardingSubtitle: {
     fontSize: ONBOARDING_TYPOGRAPHY.subtitleFontSize,
     fontWeight: ONBOARDING_TYPOGRAPHY.subtitleFontWeight,
     color: ONBOARDING_COLORS.subtitleColor,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: ONBOARDING_TYPOGRAPHY.subtitleLineHeight,
   } as any,
   onboardingImage: {
     width: ONBOARDING_DIMENSIONS.imageWidth,
     height: ONBOARDING_DIMENSIONS.imageHeight,
-    resizeMode: 'contain',
+    resizeMode: "contain",
   } as any,
   onboardingFooter: {
     paddingHorizontal: 40,
@@ -1548,8 +1743,8 @@ const styles = StyleSheet.create({
     paddingVertical: ONBOARDING_BUTTONS.primaryButtonPaddingVertical,
     paddingHorizontal: ONBOARDING_BUTTONS.primaryButtonPaddingHorizontal,
     borderRadius: ONBOARDING_BUTTONS.primaryButtonBorderRadius,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: ONBOARDING_BUTTONS.primaryButtonMarginBottom,
     minWidth: ONBOARDING_BUTTONS.primaryButtonMinWidth,
     shadowColor: ONBOARDING_COLORS.shadowColor,
@@ -1567,41 +1762,41 @@ const styles = StyleSheet.create({
     fontSize: ONBOARDING_TYPOGRAPHY.titleFontSize,
     fontWeight: ONBOARDING_TYPOGRAPHY.titleFontWeight,
     color: ONBOARDING_COLORS.titleColor,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
   } as any,
   emptyPlaceholder: {
     fontSize: 16,
     color: colors.textPrimary,
     opacity: 0.4,
-    textAlign: 'center',
+    textAlign: "center",
     paddingVertical: 32,
   } as any,
   taskModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-    position: 'relative',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+    position: "relative",
   } as any,
   taskModalContent: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
-    maxHeight: '90%',
+    maxHeight: "90%",
   } as any,
   taskModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(168, 230, 207, 0.3)',
+    borderBottomColor: "rgba(168, 230, 207, 0.3)",
   } as any,
   taskModalTitle: {
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
     letterSpacing: -0.5,
   } as any,
@@ -1609,37 +1804,37 @@ const styles = StyleSheet.create({
     padding: 20,
   } as any,
   taskInputWrapper: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: 'rgba(168, 230, 207, 0.3)',
+    borderColor: "rgba(168, 230, 207, 0.3)",
     padding: 16,
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
   } as any,
   inputContainer: {
-    position: 'relative',
-    width: '100%',
-    overflow: 'visible',
+    position: "relative",
+    width: "100%",
+    overflow: "visible",
   } as any,
   taskInput: {
     fontSize: 16,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: "500",
     minHeight: 140,
     paddingRight: 50,
     paddingTop: 12,
     paddingBottom: 12,
   } as any,
   voiceButton: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 16,
     right: 16,
     width: 54,
     height: 54,
     borderRadius: 27,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: colors.danger,
     zIndex: 1002,
     shadowColor: colors.danger,
@@ -1649,12 +1844,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   } as any,
   voiceButtonActive: {
-    backgroundColor: '#D96C82',
+    backgroundColor: "#D96C82",
   } as any,
   voiceSectionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     marginTop: 20,
     paddingHorizontal: 8,
   } as any,
@@ -1665,47 +1860,47 @@ const styles = StyleSheet.create({
   } as any,
   voiceText: {
     fontSize: 12,
-    color: 'rgba(168, 230, 207, 0.6)',
-    fontWeight: '500',
+    color: "rgba(168, 230, 207, 0.6)",
+    fontWeight: "500",
     flex: 1,
     marginRight: 12,
   } as any,
   processingText: {
     fontSize: 13,
-    color: '#A6E3A1',
-    fontWeight: '600',
+    color: "#A6E3A1",
+    fontWeight: "600",
     flex: 1,
     marginRight: 12,
   } as any,
   processingButton: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: "#9CA3AF",
   } as any,
   loadingDot: {
     fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '900',
+    color: "#FFFFFF",
+    fontWeight: "900",
   } as any,
   recordingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 999,
-    pointerEvents: 'none',
+    pointerEvents: "none",
   } as any,
   recordingContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   recordingPulse: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EF4444',
+    backgroundColor: "#EF4444",
     opacity: 0.4,
     marginTop: 24,
   } as any,
@@ -1716,60 +1911,60 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#EF4444',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#EF4444',
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#EF4444",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 20,
     elevation: 10,
   } as any,
   recordingButtonProcessing: {
-    backgroundColor: '#9CA3AF',
-    shadowColor: '#9CA3AF',
+    backgroundColor: "#9CA3AF",
+    shadowColor: "#9CA3AF",
   } as any,
   recordingStatusText: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     letterSpacing: 1.5,
   } as any,
   recordingDots: {
     fontSize: 24,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     letterSpacing: 4,
   } as any,
   dotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     gap: 4,
   } as any,
   recordingDot: {
     fontSize: 20,
-    color: '#FFFFFF',
-    fontWeight: '900',
+    color: "#FFFFFF",
+    fontWeight: "900",
   } as any,
   generateButton: {
-    backgroundColor: '#A6E3A1',
+    backgroundColor: "#A6E3A1",
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
   } as any,
   generateButtonDisabled: {
-    backgroundColor: 'rgba(168, 230, 207, 0.3)',
+    backgroundColor: "rgba(168, 230, 207, 0.3)",
     opacity: 0.5,
   } as any,
   generateButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#121212',
+    fontWeight: "700",
+    color: "#121212",
   } as any,
   generatedTaskSection: {
-    backgroundColor: 'rgba(168, 230, 207, 0.1)',
+    backgroundColor: "rgba(168, 230, 207, 0.1)",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -1779,11 +1974,11 @@ const styles = StyleSheet.create({
   } as any,
   generatedTaskTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.success,
   } as any,
   subtasksList: {
-    backgroundColor: 'rgba(166, 227, 161, 0.15)',
+    backgroundColor: "rgba(166, 227, 161, 0.15)",
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
@@ -1794,13 +1989,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.success,
     flex: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   } as any,
   subtaskDuration: {
     fontSize: 12,
-    color: '#FFD3B6',
-    fontWeight: '700',
-    backgroundColor: 'rgba(255, 211, 182, 0.2)',
+    color: "#FFD3B6",
+    fontWeight: "700",
+    backgroundColor: "rgba(255, 211, 182, 0.2)",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -1809,11 +2004,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
     borderRadius: 12,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   addTaskButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.background,
   } as any,
   actionOptionsContainer: {
@@ -1825,29 +2020,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   } as any,
   actionOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   } as any,
   actionOptionLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.background,
   } as any,
   actionOptionSubtext: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
   } as any,
   scheduleToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: colors.surface,
     borderRadius: 12,
     borderWidth: 1.5,
@@ -1857,14 +2052,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   } as any,
   scheduleToggleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     flex: 1,
   } as any,
   scheduleLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   } as any,
   scheduleBadge: {
@@ -1878,60 +2073,60 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   } as any,
   regenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
   } as any,
   regenerateText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   } as any,
   subtaskCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 16,
     padding: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(168, 230, 207, 0.2)',
+    borderColor: "rgba(168, 230, 207, 0.2)",
   } as any,
   subtaskNumber: {
     width: 32,
     height: 32,
     borderRadius: 16,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   subtaskNumberText: {
     fontSize: 16,
-    fontWeight: '900',
-    color: '#1E1E2E',
+    fontWeight: "900",
+    color: "#1E1E2E",
   } as any,
   subtaskTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E1E2E',
+    fontWeight: "600",
+    color: "#1E1E2E",
     marginBottom: 4,
   } as any,
   subtaskInput: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1E1E2E',
+    fontWeight: "600",
+    color: "#1E1E2E",
     marginBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: colors.primary,
   } as any,
   subtaskActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   } as any,
   iconButton: {
@@ -1939,8 +2134,8 @@ const styles = StyleSheet.create({
   } as any,
   totalDurationText: {
     fontSize: 16,
-    fontWeight: '900',
-    color: '#1E1E2E',
+    fontWeight: "900",
+    color: "#1E1E2E",
   } as any,
   addToListButton: {
     backgroundColor: colors.primary,
@@ -1948,7 +2143,7 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     paddingVertical: 18,
     borderRadius: 16,
-    alignItems: 'center',
+    alignItems: "center",
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -1957,48 +2152,48 @@ const styles = StyleSheet.create({
   } as any,
   addToListButtonText: {
     fontSize: 18,
-    fontWeight: '900',
-    color: '#1E1E2E',
+    fontWeight: "900",
+    color: "#1E1E2E",
   } as any,
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   } as any,
   modalContent: {
-    backgroundColor: '#313244',
+    backgroundColor: "#313244",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
-    maxHeight: '85%',
+    maxHeight: "85%",
   } as any,
   modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   } as any,
   modalTitle: {
     fontSize: 24,
-    fontWeight: '900',
-    color: '#1E1E2E',
+    fontWeight: "900",
+    color: "#1E1E2E",
     letterSpacing: -0.5,
   } as any,
   modalBody: {
     padding: 20,
   } as any,
   modalButton: {
-    backgroundColor: '#A6E3A1',
+    backgroundColor: "#A6E3A1",
     marginHorizontal: 20,
     marginVertical: 20,
     paddingVertical: 18,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -2006,21 +2201,21 @@ const styles = StyleSheet.create({
   } as any,
   modalButtonText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1E1E2E',
+    fontWeight: "700",
+    color: "#1E1E2E",
     letterSpacing: 0.3,
   } as any,
   sectionLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1E1E2E',
+    fontWeight: "600",
+    color: "#1E1E2E",
     marginBottom: 12,
     marginTop: 8,
   } as any,
   frequencyChips: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     marginBottom: 16,
   } as any,
   chip: {
@@ -2029,164 +2224,164 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
+    borderColor: "#E5E7EB",
+    alignItems: "center",
   } as any,
   chipActive: {
-    backgroundColor: '#A6E3A1',
-    borderColor: '#A6E3A1',
+    backgroundColor: "#A6E3A1",
+    borderColor: "#A6E3A1",
   } as any,
   chipText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
   } as any,
   chipTextActive: {
-    color: '#121212',
+    color: "#121212",
   } as any,
   daySelector: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     marginBottom: 16,
   } as any,
   dayChip: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "#E5E7EB",
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   dayChipActive: {
-    backgroundColor: '#A6E3A1',
-    borderColor: '#A6E3A1',
+    backgroundColor: "#A6E3A1",
+    borderColor: "#A6E3A1",
   } as any,
   dayChipText: {
     fontSize: 14,
-    fontWeight: '900',
-    color: '#6B7280',
+    fontWeight: "900",
+    color: "#6B7280",
   } as any,
   dayChipTextActive: {
-    color: '#121212',
+    color: "#121212",
   } as any,
   timePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     padding: 16,
     marginBottom: 16,
   } as any,
   timePickerText: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1E1E2E',
+    fontWeight: "500",
+    color: "#1E1E2E",
   } as any,
   reminderSection: {
     marginTop: 8,
   } as any,
   reminderToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   } as any,
   reminderOptions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
   } as any,
   executionContainer: {
     flex: 1,
-    backgroundColor: '#ffc300',
+    backgroundColor: "#ffc300",
   } as any,
   executionHeader: {
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   } as any,
   closeButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
   } as any,
   executionTaskTitle: {
     flex: 1,
     fontSize: 16,
-    fontWeight: '300',
-    color: '#1E1E2E',
+    fontWeight: "300",
+    color: "#1E1E2E",
   } as any,
   progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 8,
     paddingHorizontal: 20,
     marginBottom: 40,
   } as any,
   subtaskDisplay: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 24,
     marginBottom: 320,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   } as any,
   subtaskDisplayTitle: {
     fontSize: 48,
-    fontWeight: '900',
-    color: '#1E1E2E',
-    textAlign: 'center',
+    fontWeight: "900",
+    color: "#1E1E2E",
+    textAlign: "center",
     lineHeight: 56,
   } as any,
   sliderContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 60,
     left: 0,
     right: 0,
     paddingHorizontal: 40,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   sliderLabel: {
-    position: 'absolute',
+    position: "absolute",
     fontSize: 15,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.5)',
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.5)",
     zIndex: 1,
     letterSpacing: 0.5,
   } as any,
   sliderTrack: {
     width: SCREEN_WIDTH - 80,
     height: 72,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 66,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: "rgba(255, 255, 255, 0.15)",
   } as any,
   sliderThumb: {
-    position: 'absolute',
+    position: "absolute",
     left: 4,
     width: 80,
     height: 80,
     borderRadius: 66,
-    backgroundColor: '#313244',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
+    backgroundColor: "#313244",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -2194,37 +2389,37 @@ const styles = StyleSheet.create({
   } as any,
   successScreen: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#A6E3A1',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#A6E3A1",
   } as any,
   successIcon: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 32,
   } as any,
   successTitle: {
     fontSize: 36,
-    fontWeight: '900',
-    color: '#FFFFFF',
+    fontWeight: "900",
+    color: "#FFFFFF",
     marginBottom: 12,
     letterSpacing: -1,
   } as any,
   startTaskModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   } as any,
   startTaskModalContent: {
-    width: '85%',
+    width: "85%",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#CBA6F7',
+    overflow: "hidden",
+    shadowColor: "#CBA6F7",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.4,
     shadowRadius: 20,
@@ -2233,10 +2428,10 @@ const styles = StyleSheet.create({
   startTaskModalInner: {
     paddingHorizontal: 24,
     paddingVertical: 32,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   startTaskCloseButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     right: 12,
     padding: 8,
@@ -2248,45 +2443,45 @@ const styles = StyleSheet.create({
   } as any,
   startTaskTitle: {
     fontSize: 28,
-    fontWeight: '900',
-    color: '#3B4261',
+    fontWeight: "900",
+    color: "#3B4261",
     letterSpacing: -0.5,
     marginBottom: 8,
   } as any,
   startTaskSubtitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(59, 66, 97, 0.75)',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "rgba(59, 66, 97, 0.75)",
+    textAlign: "center",
     marginBottom: 28,
     paddingHorizontal: 12,
   } as any,
   startTaskButtonsContainer: {
-    width: '100%',
+    width: "100%",
     gap: 12,
   } as any,
   startTaskCancelButton: {
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   startTaskCancelButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(59, 66, 97, 0.6)',
+    fontWeight: "600",
+    color: "rgba(59, 66, 97, 0.6)",
   } as any,
   startTaskStartButton: {
     borderRadius: 50,
-    overflow: 'hidden',
+    overflow: "hidden",
   } as any,
   startTaskStartButtonGradient: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    alignItems: 'center',
+    alignItems: "center",
   } as any,
   startTaskStartButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: "700",
+    color: "#ffffff",
     letterSpacing: -0.3,
   } as any,
 }) as any;
