@@ -54,6 +54,8 @@ import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
 import { TaskModalNew } from "@/src/components/TaskModalNew";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
+import { supabase } from "@/src/lib/supabase";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
     ONBOARDING_BUTTONS,
     ONBOARDING_COLORS,
@@ -480,27 +482,20 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     setGeneratedTaskTitle("");
 
     try {
-      const response = await fetch(
-        "https://wdqwgqfisiteswbbdurg.supabase.co/functions/v1/divide-task",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey:
-              "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg",
-            Authorization:
-              "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXdncWZpc2l0ZXN3YmJkdXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MDgxNTUsImV4cCI6MjA4MTA4NDE1NX0.oLadI1C5H89CWqGAz0NjDjbp_zwDGsl726YMVvlqIYg",
-          },
-          body: JSON.stringify({ task: inputText.trim() }),
-        },
-      );
+      // ✅ SECURE: Using Supabase SDK instead of manual fetch with hardcoded token
+      const { data, error } = await supabase.functions.invoke('divide-task', {
+        body: { task: inputText.trim() },
+      });
 
-      const data = await response.json();
+      if (error) {
+        console.error('Error calling divide-task function:', error);
+        throw new Error(error.message);
+      }
 
       console.log("Respuesta de la API:", data);
 
-      if (data.error) {
-        throw new Error(data.error);
+      if (!data || data.error) {
+        throw new Error(data?.error || 'Error desconocido');
       }
 
       if (

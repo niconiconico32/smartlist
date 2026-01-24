@@ -23,6 +23,19 @@ serve(async (req) => {
   }
 
   try {
+    // ✅ Validate authentication header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('❌ No authorization header provided');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Missing authorization header' }),
+        { 
+          status: 401, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     const { task } = await req.json();
 
     if (!task || !task.trim()) {
