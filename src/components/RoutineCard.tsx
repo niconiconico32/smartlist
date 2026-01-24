@@ -4,25 +4,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import {
   Bell,
   Calendar,
-  Check,
-  ChevronDown,
   Edit3,
-  Plus,
-  Trash2,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
   Easing,
   FadeIn,
-  FadeOut,
   Layout,
   useAnimatedStyle,
   useSharedValue,
@@ -30,98 +23,9 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
-import { RoutineCelebration } from "./RoutineCelebration";
 
 // Colores para las rutinas (se asignan de forma rotativa)
 const ROUTINE_COLORS = ["#FAB387", "#CBA6F7", "#A6E3A1", "#89B4FA", "#F5C2E7"];
-
-// Componente TaskRow con animaciones propias (trend 2026: micro-feedback)
-const TaskRow = ({
-  task,
-  color,
-  onToggle,
-}: {
-  task: { id: string; title: string; completed?: boolean };
-  color: string;
-  onToggle: () => void;
-}) => {
-  const checkboxScale = useSharedValue(1);
-  const rowScale = useSharedValue(1);
-  const checkOpacity = useSharedValue(task.completed ? 1 : 0);
-  const checkScale = useSharedValue(task.completed ? 1 : 0);
-
-  useEffect(() => {
-    checkOpacity.value = withTiming(task.completed ? 1 : 0, { duration: 200 });
-    checkScale.value = withSpring(task.completed ? 1 : 0, {
-      damping: 12,
-      stiffness: 200,
-    });
-  }, [task.completed]);
-
-  const handlePress = () => {
-    // Animación de bounce del checkbox
-    checkboxScale.value = withSequence(
-      withTiming(0.8, { duration: 80 }),
-      withSpring(1, { damping: 10, stiffness: 300 }),
-    );
-
-    // Animación sutil de toda la fila
-    rowScale.value = withSequence(
-      withTiming(0.98, { duration: 80 }),
-      withSpring(1, { damping: 15, stiffness: 200 }),
-    );
-
-    onToggle();
-  };
-
-  const checkboxAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: checkboxScale.value }],
-  }));
-
-  const rowAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: rowScale.value }],
-  }));
-
-  const checkAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: checkOpacity.value,
-    transform: [{ scale: checkScale.value }],
-  }));
-
-  return (
-    <Animated.View style={rowAnimatedStyle}>
-      <TouchableOpacity
-        onPress={handlePress}
-        style={styles.taskRow}
-        activeOpacity={0.8}
-      >
-        <Animated.View
-          style={[
-            styles.checkbox,
-            task.completed
-              ? { backgroundColor: color, borderColor: "transparent" }
-              : {
-                  backgroundColor: "transparent",
-                  borderColor: `${colors.textSecondary}40`,
-                },
-            checkboxAnimatedStyle,
-          ]}
-        >
-          <Animated.View style={checkAnimatedStyle}>
-            <Check size={14} color={colors.background} strokeWidth={3} />
-          </Animated.View>
-        </Animated.View>
-        <Text
-          style={[
-            styles.taskLabel,
-            task.completed && styles.taskLabelCompleted,
-          ]}
-        >
-          {task.title}
-        </Text>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-};
 
 interface Task {
   id: string;
@@ -137,13 +41,8 @@ interface RoutineCardProps {
   reminderEnabled?: boolean;
   reminderTime?: string;
   colorIndex?: number;
+  onPress?: () => void;
   onEdit?: (id: string) => void;
-  onDelete?: (id: string) => void;
-  onTaskToggle?: (
-    routineId: string,
-    taskId: string,
-    completed: boolean,
-  ) => void;
 }
 
 export const RoutineCard: React.FC<RoutineCardProps> = ({
@@ -154,31 +53,17 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   reminderEnabled,
   reminderTime,
   colorIndex = 0,
+  onPress,
   onEdit,
-  onDelete,
-  onTaskToggle,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [tasks, setTasks] = useState(
-    initialTasks.map((t) => ({ ...t, completed: t.completed || false })),
-  );
-  const [showCelebration, setShowCelebration] = useState(false);
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
 
-  // Actualizar tareas cuando cambien las props (después de editar)
-  useEffect(() => {
-    setTasks(
-      initialTasks.map((t) => ({ ...t, completed: t.completed || false })),
-    );
-  }, [initialTasks]);
-
   // Cálculo de progreso
-  const completedCount = tasks.filter((t) => t.completed).length;
+  const completedCount = initialTasks.filter((t) => t.completed).length;
   const progressPercent =
-    tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+    initialTasks.length > 0 ? (completedCount / initialTasks.length) * 100 : 0;
 
-  // Animaciones suaves (trend 2026: micro-interacciones fluidas)
-  const rotation = useSharedValue(0);
+  // Animaciones suaves
   const cardScale = useSharedValue(1);
   const progressWidth = useSharedValue(progressPercent);
   const headerPressScale = useSharedValue(1);
@@ -192,27 +77,17 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     });
   }, [progressPercent]);
 
-  const toggleExpand = () => {
-    // Haptic suave
+  const handleCardPress = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
 
-    const target = !isExpanded;
-    setIsExpanded(target);
-
-    // Animación de rotación más suave
-    rotation.value = withSpring(target ? 180 : 0, {
-      damping: 15,
-      stiffness: 120,
-      mass: 0.8,
-    });
-
-    // Micro-bounce de la card
     cardScale.value = withSequence(
       withTiming(0.98, { duration: 100 }),
       withSpring(1, { damping: 15, stiffness: 200 }),
     );
+
+    onPress?.();
   };
 
   const onHeaderPressIn = () => {
@@ -223,45 +98,11 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     headerPressScale.value = withSpring(1, { damping: 15, stiffness: 200 });
   };
 
-  const toggleTask = (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    const willBeCompleted = !task?.completed;
-
-    // Haptic diferenciado según acción
-    try {
-      if (willBeCompleted) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    } catch (e) {}
-
-    const newTasks = tasks.map((t) =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t,
-    );
-    setTasks(newTasks);
-
-    if (task && onTaskToggle) {
-      onTaskToggle(id, taskId, !task.completed);
-    }
-
-    // Verificar si se completaron todas las tareas
-    const allCompleted = newTasks.every((t) => t.completed);
-
-    if (allCompleted && willBeCompleted && newTasks.length > 0) {
-      // Pequeño delay para que se vea la animación del checkbox
-      setTimeout(() => {
-        setShowCelebration(true);
-      }, 400);
-    }
-  };
-
   const handleEdit = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
 
-    // Animación de press
     editButtonScale.value = withSequence(
       withTiming(0.85, { duration: 80 }),
       withSpring(1, { damping: 15, stiffness: 300 }),
@@ -270,36 +111,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     onEdit?.(id);
   };
 
-  const handleDelete = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } catch (e) {}
-
-    Alert.alert(
-      "Eliminar Rutina",
-      `¿Estás seguro que deseas eliminar "${name}"?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: () => {
-            try {
-              Haptics.notificationAsync(
-                Haptics.NotificationFeedbackType.Warning,
-              );
-            } catch (e) {}
-            onDelete?.(id);
-          },
-        },
-      ],
-    );
-  };
-
   // Estilos animados
-  const arrowStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.value}deg` }],
-  }));
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: cardScale.value }],
@@ -340,7 +152,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
       {/* Header */}
       <Animated.View style={headerAnimatedStyle}>
         <Pressable
-          onPress={toggleExpand}
+          onPress={handleCardPress}
           onPressIn={onHeaderPressIn}
           onPressOut={onHeaderPressOut}
           style={styles.header}
@@ -372,26 +184,15 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
             <View style={styles.actionsRow}>
               <Animated.View style={editButtonAnimatedStyle}>
                 <Pressable
-                  onPress={handleEdit}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleEdit();
+                  }}
                   style={styles.actionButton}
                   hitSlop={12}
                 >
                   <Edit3 size={16} color={colors.textSecondary} />
                 </Pressable>
-              </Animated.View>
-              <Animated.View style={arrowStyle}>
-                <View
-                  style={[
-                    styles.expandButton,
-                    { backgroundColor: `${color}20` },
-                  ]}
-                >
-                  {isExpanded ? (
-                    <ChevronDown size={16} color={color} />
-                  ) : (
-                    <Plus size={16} color={color} />
-                  )}
-                </View>
               </Animated.View>
             </View>
           </View>
@@ -400,7 +201,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
           <View style={styles.progressSection}>
             <View style={styles.progressInfo}>
               <Text style={styles.progressText}>
-                {completedCount}/{tasks.length} tareas
+                {completedCount}/{initialTasks.length} tareas
               </Text>
               <Text style={[styles.progressPercent, { color }]}>
                 {Math.round(progressPercent)}%
@@ -418,58 +219,6 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
           </View>
         </Pressable>
       </Animated.View>
-
-      {/* Body expandible con tareas */}
-      {isExpanded && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(150)}
-          style={styles.body}
-        >
-          <View style={styles.separator} />
-
-          {tasks.map((task, index) => (
-            <Animated.View
-              key={task.id}
-              entering={FadeIn.delay(index * 40).duration(200)}
-              exiting={FadeOut.duration(120)}
-              layout={Layout.duration(200)}
-            >
-              <TaskRow
-                task={task}
-                color={color}
-                onToggle={() => toggleTask(task.id)}
-              />
-            </Animated.View>
-          ))}
-
-          {/* Botón eliminar al final */}
-          <Animated.View
-            entering={FadeIn.delay(tasks.length * 40 + 80).duration(180)}
-          >
-            <Pressable
-              onPress={handleDelete}
-              style={({ pressed }) => [
-                styles.deleteButton,
-                pressed && styles.deleteButtonPressed,
-              ]}
-            >
-              <Trash2 size={16} color="#F38BA8" />
-              <Text style={styles.deleteText}>Eliminar rutina</Text>
-            </Pressable>
-          </Animated.View>
-        </Animated.View>
-      )}
-
-      {/* Celebración cuando se completan todas las tareas */}
-      <RoutineCelebration
-        visible={showCelebration}
-        routineName={name}
-        completedTasks={tasks.length}
-        totalTasks={tasks.length}
-        routineColor={color}
-        onClose={() => setShowCelebration(false)}
-      />
     </Animated.View>
   );
 };
@@ -542,10 +291,6 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
   },
-  expandButton: {
-    padding: 6,
-    borderRadius: 10,
-  },
   progressSection: {
     marginTop: 10,
   },
@@ -573,60 +318,5 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 2,
-  },
-  body: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "rgba(203, 166, 247, 0.1)",
-    marginBottom: 8,
-  },
-  taskRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    minHeight: 44,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    marginRight: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  taskLabel: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  taskLabelCompleted: {
-    color: colors.textTertiary,
-    textDecorationLine: "line-through",
-  },
-  deleteButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(243, 139, 168, 0.2)",
-    borderRadius: 8,
-    minHeight: 44,
-  },
-  deleteButtonPressed: {
-    backgroundColor: "rgba(243, 139, 168, 0.1)",
-    transform: [{ scale: 0.98 }],
-  },
-  deleteText: {
-    fontSize: 14,
-    color: "#F38BA8",
-    fontWeight: "600",
-    marginLeft: 8,
   },
 });

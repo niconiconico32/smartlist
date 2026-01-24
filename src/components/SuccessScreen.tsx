@@ -233,17 +233,12 @@ export function SuccessScreen({
           <View style={styles.statCard}>
             <View style={styles.statGloss} />
             <Clock size={24} color="#CBA6F7" />
-            <Text style={styles.statLabel}>Tiempo Total</Text>
+            <Text style={styles.statLabel}>Tiempo que te tomó:</Text>
             <Text style={styles.statValue}>{formatTime(timeSpent)}</Text>
           </View>
 
           {/* Streak Stat */}
-          <View style={styles.statCard}>
-            <View style={styles.statGloss} />
-            <Flame size={24} color="#FAB387" />
-            <Text style={styles.statLabel}>Racha 🔥</Text>
-            <Text style={styles.statValue}>{streakCount}</Text>
-          </View>
+         
         </Animated.View>
 
         {/* Button */}
@@ -260,9 +255,7 @@ export function SuccessScreen({
             </LinearGradient>
           </Pressable>
 
-          <Pressable onPress={handleGoHome}>
-            <Text style={styles.secondaryButtonText}>Continuar después</Text>
-          </Pressable>
+
         </Animated.View>
       </View>
     </SafeAreaView>

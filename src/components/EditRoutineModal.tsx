@@ -2,27 +2,23 @@ import { colors } from '@/constants/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, BellOff, Check, Plus, Trash2, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import { Bell, GripVertical, Plus, Trash2, X } from 'lucide-react-native';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import Animated, {
-    FadeIn,
-    FadeOut,
-    Layout,
-} from 'react-native-reanimated';
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 interface Task {
   id: string;
@@ -46,14 +42,14 @@ interface EditRoutineModalProps {
   onSave: (routine: Routine) => void;
 }
 
-const DAYS = [
-  { id: 'Lun', label: 'L' },
-  { id: 'Mar', label: 'M' },
-  { id: 'Mié', label: 'X' },
-  { id: 'Jue', label: 'J' },
-  { id: 'Vie', label: 'V' },
-  { id: 'Sáb', label: 'S' },
-  { id: 'Dom', label: 'D' },
+const DAYS_OF_WEEK = [
+  { short: 'Lun', full: 'Lunes' },
+  { short: 'Mar', full: 'Martes' },
+  { short: 'Mié', full: 'Miércoles' },
+  { short: 'Jue', full: 'Jueves' },
+  { short: 'Vie', full: 'Viernes' },
+  { short: 'Sáb', full: 'Sábado' },
+  { short: 'Dom', full: 'Domingo' },
 ];
 
 export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
@@ -62,7 +58,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   onClose,
   onSave,
 }) => {
-  const [name, setName] = useState('');
+  const [routineName, setRoutineName] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -72,8 +68,8 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
   // Cargar datos de la rutina cuando cambia
   useEffect(() => {
-    if (routine) {
-      setName(routine.name);
+    if (routine && visible) {
+      setRoutineName(routine.name);
       setSelectedDays(routine.days || []);
       setTasks(routine.tasks || []);
       setReminderEnabled(routine.reminderEnabled);
@@ -84,52 +80,71 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
         setReminderTime(date);
       }
     }
-  }, [routine]);
+  }, [routine, visible]);
 
-  const handleToggleDay = (dayId: string) => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
-    
-    setSelectedDays(prev => {
-      if (prev.includes(dayId)) {
-        if (prev.length > 1) {
-          return prev.filter(d => d !== dayId);
-        }
-        return prev;
-      }
-      return [...prev, dayId];
-    });
+  const triggerHaptic = (style: 'light' | 'medium' | 'selection' = 'light') => {
+    if (Platform.OS === 'ios') {
+      if (style === 'selection') Haptics.selectionAsync();
+      else if (style === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
   };
 
   const handleAddTask = () => {
     if (newTaskTitle.trim()) {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } catch (e) {}
-      
       const newTask: Task = {
         id: Date.now().toString(),
         title: newTaskTitle.trim(),
         completed: false,
       };
-      setTasks([...tasks, newTask]);
+      setTasks(prev => [...prev, newTask]);
       setNewTaskTitle('');
+      triggerHaptic('light');
     }
   };
 
-  const handleRemoveTask = (taskId: string) => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
-    
-    setTasks(tasks.filter(t => t.id !== taskId));
+  const handleToggleDay = (day: string) => {
+    setSelectedDays((prev) => {
+      if (prev.includes(day)) {
+        if (prev.length === 1) return prev;
+        return prev.filter((d) => d !== day);
+      } else {
+        return [...prev, day];
+      }
+    });
+    triggerHaptic('selection');
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
-    setShowTimePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setReminderTime(selectedDate);
+  const handleRemoveTask = (taskId: string) => {
+    setTasks(prev => prev.filter((t) => t.id !== taskId));
+    triggerHaptic('medium');
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      setReminderTime(selectedTime);
+    }
+  };
+
+  const handleSaveRoutine = () => {
+    if (routineName.trim() && tasks.length > 0 && selectedDays.length > 0 && routine) {
+      const timeString = reminderTime.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const updatedRoutine: Routine = {
+        id: routine.id,
+        name: routineName.trim(),
+        days: selectedDays,
+        tasks: tasks.map(t => ({ ...t, completed: t.completed ?? false })),
+        reminderEnabled,
+        reminderTime: reminderEnabled ? timeString : undefined,
+      };
+
+      onSave(updatedRoutine);
+      onClose();
     }
   };
 
@@ -137,213 +152,242 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
     return date.toLocaleTimeString('es-ES', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false,
     });
   };
 
-  const handleSave = () => {
-    if (!name.trim() || selectedDays.length === 0) return;
+  const renderTaskItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Task>) => {
+      const index = getIndex() ?? 0;
+      return (
+        <ScaleDecorator>
+          <Pressable
+            onLongPress={() => {
+              triggerHaptic('medium');
+              drag();
+            }}
+            disabled={isActive}
+            style={[
+              styles.taskItem,
+              isActive && styles.taskItemDragging,
+            ]}
+          >
+            <Pressable onPressIn={drag} style={styles.dragHandle}>
+              <GripVertical size={18} color={colors.textSecondary} />
+            </Pressable>
+            <View style={styles.taskNumber}>
+              <Text style={styles.taskNumberText}>{index + 1}</Text>
+            </View>
+            <Text style={styles.taskItemText}>{item.title}</Text>
+            <Pressable
+              onPress={() => handleRemoveTask(item.id)}
+              style={styles.actionIcon}
+              hitSlop={10}
+            >
+              <Trash2 size={18} color={colors.textSecondary} />
+            </Pressable>
+          </Pressable>
+        </ScaleDecorator>
+      );
+    },
+    [tasks]
+  );
 
-    try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {}
-
-    const updatedRoutine: Routine = {
-      id: routine?.id || Date.now().toString(),
-      name: name.trim(),
-      days: selectedDays,
-      tasks: tasks,
-      reminderEnabled,
-      reminderTime: reminderEnabled ? formatTime(reminderTime) : undefined,
-    };
-
-    onSave(updatedRoutine);
-    onClose();
-  };
-
-  const isValid = name.trim().length > 0 && selectedDays.length > 0;
+  const isValid = routineName.trim().length > 0 && tasks.length > 0 && selectedDays.length > 0;
 
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={true}
       animationType="slide"
-      statusBarTranslucent
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={styles.overlay}>
-          <View style={styles.modalContainer}>
-            <LinearGradient
-              colors={['rgba(203, 166, 247, 0.15)', 'rgba(30, 30, 46, 0)']}
-              style={styles.gradientTop}
-            />
-
+          <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color={colors.textSecondary} />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Editar Rutina</Text>
-              <TouchableOpacity
-                onPress={handleSave}
-                disabled={!isValid}
-                style={[styles.saveButton, !isValid && styles.saveButtonDisabled]}
-              >
-                <Check size={24} color={isValid ? colors.primary : colors.textSecondary} />
-              </TouchableOpacity>
+              <Text style={styles.title}>Editar Rutina</Text>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <X size={24} color={colors.textPrimary} />
+              </Pressable>
             </View>
 
             {/* Content */}
-            <KeyboardAvoidingView 
-              style={styles.keyboardAvoid}
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            <ScrollView 
+              style={styles.scrollContent}
+              contentContainerStyle={styles.scrollContentContainer}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
             >
-              <ScrollView 
-                style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-              >
-                {/* Name Input */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>Nombre de la rutina</Text>
-                  <TextInput
-                    style={styles.nameInput}
-                    placeholder="Ej: Rutina matutina"
-                    placeholderTextColor={colors.textSecondary}
-                    value={name}
-                    onChangeText={setName}
-                  />
-                </View>
+              <View>
+              {/* Routine Name Input */}
+              <View style={styles.section}>
+                <Text style={styles.label}>Nombre de la rutina</Text>
+                <View style={{ height: 12 }} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Rutina Matutina"
+                  placeholderTextColor={colors.textSecondary}
+                  value={routineName}
+                  onChangeText={setRoutineName}
+                />
+              </View>
 
-                {/* Days Selection */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>Días de la semana</Text>
-                  <View style={styles.daysContainer}>
-                    {DAYS.map(day => {
-                      const isSelected = selectedDays.includes(day.id);
-                      return (
-                        <TouchableOpacity
-                          key={day.id}
-                          style={[styles.dayButton, isSelected && styles.dayButtonSelected]}
-                          onPress={() => handleToggleDay(day.id)}
-                        >
-                          <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
-                            {day.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  {selectedDays.length > 0 && (
-                    <Text style={styles.selectedDaysText}>
-                      {selectedDays.join(', ')}
-                    </Text>
+              {/* Day Selection */}
+              <View style={styles.section}>
+                <Text style={styles.label}>Día de la semana</Text>
+                <View style={{ height: 12 }} />
+                <View style={styles.daysContainer}>
+                  {DAYS_OF_WEEK.map((day) => (
+                    <Pressable
+                      key={day.short}
+                      onPress={() => handleToggleDay(day.short)}
+                      style={[
+                        styles.dayButton,
+                        selectedDays.includes(day.short) && styles.dayButtonActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.dayButtonText,
+                          selectedDays.includes(day.short) && styles.dayButtonTextActive,
+                        ]}
+                      >
+                        {day.short}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Tasks Section */}
+              <View style={styles.tasksSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.label}>Tareas</Text>
+                  {tasks.length > 0 && (
+                    <Text style={styles.helperText}>Mantén presionado para ordenar</Text>
                   )}
                 </View>
+                <View style={{ height: 12 }} />
 
-                {/* Tasks */}
-                <Animated.View 
-                  entering={FadeIn.duration(250)}
-                  style={styles.section}
-                >
-                  <Text style={styles.sectionLabel}>Tareas ({tasks.length})</Text>
-                  
-                  <View style={styles.addTaskRow}>
-                    <TextInput
-                      style={styles.taskInput}
-                      placeholder="Añadir tarea..."
-                      placeholderTextColor={colors.textSecondary}
-                      value={newTaskTitle}
-                      onChangeText={setNewTaskTitle}
-                      onSubmitEditing={handleAddTask}
-                      returnKeyType="done"
+                {/* Task Input */}
+                <View style={styles.taskInputContainer}>
+                  <TextInput
+                    style={styles.taskInput}
+                    placeholder="Escribir siguiente paso..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={newTaskTitle}
+                    onChangeText={setNewTaskTitle}
+                    onSubmitEditing={handleAddTask}
+                    returnKeyType="done"
+                  />
+                  <Pressable onPress={handleAddTask} style={styles.addTaskButton}>
+                    <Plus size={24} color="#FFFFFF" strokeWidth={3} />
+                  </Pressable>
+                </View>
+
+                <View style={{ height: 12 }} />
+
+                {/* Task List - Draggable */}
+                {tasks.length > 0 ? (
+                  <View style={styles.taskListWrapper}>
+                    <DraggableFlatList
+                      data={tasks}
+                      onDragEnd={({ data }) => {
+                        setTasks(data);
+                        triggerHaptic('medium');
+                      }}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderTaskItem}
+                      scrollEnabled={false}
+                      containerStyle={{ overflow: 'visible' }}
                     />
-                    <TouchableOpacity
-                      style={[styles.addTaskButton, !newTaskTitle.trim() && styles.addTaskButtonDisabled]}
-                      onPress={handleAddTask}
-                      disabled={!newTaskTitle.trim()}
-                      activeOpacity={0.8}
-                    >
-                      <Plus size={20} color={newTaskTitle.trim() ? colors.background : colors.textSecondary} />
-                    </TouchableOpacity>
                   </View>
-
-                  <View style={styles.tasksList}>
-                    {tasks.map((task, index) => (
-                      <Animated.View
-                        key={task.id}
-                        entering={FadeIn.delay(index * 30).duration(200)}
-                        exiting={FadeOut.duration(150)}
-                        layout={Layout.duration(200)}
-                        style={styles.taskItem}
-                      >
-                        <View style={styles.taskInfo}>
-                          <View style={styles.taskDot} />
-                          <Text style={styles.taskTitle} numberOfLines={1}>{task.title}</Text>
-                        </View>
-                        <TouchableOpacity
-                          style={styles.removeTaskButton}
-                          onPress={() => handleRemoveTask(task.id)}
-                          activeOpacity={0.7}
-                        >
-                          <Trash2 size={16} color="#F38BA8" />
-                        </TouchableOpacity>
-                      </Animated.View>
-                    ))}
+                ) : (
+                  <View style={styles.emptyStateContainer}>
+                    <Text style={styles.emptyTasksText}>
+                      Aún no hay tareas. Agrega la primera arriba.
+                    </Text>
                   </View>
-                </Animated.View>
+                )}
+              </View>
 
-                {/* Reminder */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>Recordatorio</Text>
-                  <Pressable
-                    style={styles.reminderRow}
-                    onPress={() => setReminderEnabled(!reminderEnabled)}
-                  >
-                    <View style={styles.reminderLeft}>
-                      {reminderEnabled ? (
-                        <Bell size={20} color={colors.primary} />
-                      ) : (
-                        <BellOff size={20} color={colors.textSecondary} />
-                      )}
-                      <Text style={[styles.reminderText, reminderEnabled && styles.reminderTextActive]}>
-                        {reminderEnabled ? 'Activado' : 'Desactivado'}
+              {/* Reminder Section */}
+              <View style={styles.section}>
+                <Pressable 
+                  onPress={() => setReminderEnabled(!reminderEnabled)}
+                  style={[
+                    styles.reminderCard, 
+                    reminderEnabled && styles.reminderCardActive
+                  ]}
+                >
+                  <View style={styles.reminderInfo}>
+                    <View style={[
+                      styles.iconContainer, 
+                      reminderEnabled && styles.iconContainerActive
+                    ]}>
+                      <Bell size={20} color={reminderEnabled ? '#FFF' : colors.textSecondary} />
+                    </View>
+                    <View>
+                      <Text style={[
+                        styles.reminderTitle,
+                        reminderEnabled && styles.reminderTitleActive
+                      ]}>
+                        {reminderEnabled ? 'Recordatorio Activado' : 'Sin recordatorio'}
+                      </Text>
+                      <Text style={styles.reminderSubtitle}>
+                        {reminderEnabled ? 'Te avisaremos a esta hora' : 'Toca para activar'}
                       </Text>
                     </View>
-                    <View style={[styles.toggle, reminderEnabled && styles.toggleActive]}>
-                      <View style={[styles.toggleThumb, reminderEnabled && styles.toggleThumbActive]} />
-                    </View>
-                  </Pressable>
+                  </View>
 
                   {reminderEnabled && (
-                    <Animated.View entering={FadeIn} style={styles.timePickerContainer}>
-                      <TouchableOpacity
-                        style={styles.timeButton}
-                        onPress={() => setShowTimePicker(true)}
-                      >
-                        <Text style={styles.timeButtonText}>{formatTime(reminderTime)}</Text>
-                      </TouchableOpacity>
-
-                      {showTimePicker && (
-                        <DateTimePicker
-                          value={reminderTime}
-                          mode="time"
-                          is24Hour={true}
-                          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                          onChange={handleTimeChange}
-                          themeVariant="dark"
-                        />
-                      )}
-                    </Animated.View>
+                    <Pressable 
+                      style={styles.timeDisplay}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Text style={styles.timeDisplayText}>{formatTime(reminderTime)}</Text>
+                    </Pressable>
                   )}
-                </View>
-              </ScrollView>
-            </KeyboardAvoidingView>
+                </Pressable>
+
+                {showTimePicker && (
+                  <DateTimePicker
+                    value={reminderTime}
+                    mode="time"
+                    display="spinner"
+                    onChange={handleTimeChange}
+                  />
+                )}
+              </View>
+
+              </View>
+            </ScrollView>
+
+          {/* Save Button Footer */}
+          <View style={styles.footer}>
+            <Pressable
+              onPress={handleSaveRoutine}
+              disabled={!isValid}
+              style={[
+                styles.createButton,
+                !isValid && styles.createButtonDisabled,
+              ]}
+            >
+              <LinearGradient
+                colors={['#CBA6F7', '#FAB387']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.createButtonGradient}
+              >
+                <Text style={styles.createButtonText}>Guardar Cambios</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
           </View>
         </View>
-      </TouchableWithoutFeedback>
+      </GestureHandlerRootView>
     </Modal>
   );
 };
@@ -351,244 +395,283 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
-  modalContainer: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    height: '85%',
-    minHeight: 500,
-    position: 'relative',
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+  container: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '92%',
+    minHeight: '70%',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    zIndex: 1,
+    borderBottomColor: 'rgba(203, 166, 247, 0.1)',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textPrimary,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 50,
   },
-  headerTitle: {
-    fontSize: 18,
+  scrollContent: {
+    flex: 1,
+    flexGrow: 1,
+  },
+  scrollContentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  tasksSection: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  saveButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  helperText: {
+    fontSize: 12,
     color: colors.textSecondary,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontStyle: 'italic',
   },
-  nameInput: {
-    backgroundColor: colors.background,
+  input: {
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   daysContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    marginHorizontal: -4,
   },
   dayButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.background,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surface,
+    minWidth: 45,
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    marginBottom: 8,
+    margin: 4,
   },
-  dayButtonSelected: {
-    backgroundColor: 'rgba(203, 166, 247, 0.2)',
+  dayButtonActive: {
+    backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  dayText: {
-    fontSize: 14,
+  dayButtonText: {
+    fontSize: 13,
     fontWeight: '600',
     color: colors.textSecondary,
   },
-  dayTextSelected: {
-    color: colors.primary,
+  dayButtonTextActive: {
+    color: '#1E1E2E',
+    fontWeight: '700',
   },
-  selectedDaysText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
+  
+  // Tasks
+  taskListWrapper: {
+    borderRadius: 16,
+    width: '100%',
   },
-  addTaskRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  taskInput: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: colors.textPrimary,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  addTaskButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+  taskNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary + '30',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addTaskButtonDisabled: {
-    backgroundColor: colors.background,
-  },
-  tasksList: {
-    // Sin maxHeight para permitir scroll completo
+  taskNumberText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   taskItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderRadius: 12,
+    gap: 12,
+    backgroundColor: colors.surfaceHighlight,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '20',
+    minHeight: 56,
   },
-  taskInfo: {
+  taskItemDragging: {
+    backgroundColor: colors.surfaceHighlight,
+    borderColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  taskItemText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  dragHandle: {
+    padding: 4,
+    marginRight: -4,
+  },
+  actionIcon: {
+    padding: 4,
+  },
+  emptyStateContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  emptyTasksText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  taskInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+  },
+  taskInput: {
     flex: 1,
-  },
-  taskDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
-    marginRight: 12,
-  },
-  taskTitle: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 15,
     color: colors.textPrimary,
-    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
   },
-  removeTaskButton: {
-    padding: 8,
+  addTaskButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  reminderRow: {
+
+  // Reminder
+  reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderRadius: 16,
+    backgroundColor: colors.surface,
     padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
-  reminderLeft: {
+  reminderCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(203, 166, 247, 0.05)',
+  },
+  reminderInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
   },
-  reminderText: {
-    fontSize: 15,
-    color: colors.textSecondary,
-    marginLeft: 12,
-  },
-  reminderTextActive: {
-    color: colors.textPrimary,
-  },
-  toggle: {
-    width: 50,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: 2,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  toggleActive: {
+  iconContainerActive: {
     backgroundColor: colors.primary,
   },
-  toggleThumb: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.textSecondary,
+  reminderTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
-  toggleThumbActive: {
+  reminderTitleActive: {
+    color: colors.textPrimary,
+  },
+  reminderSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    opacity: 0.7,
+  },
+  timeDisplay: {
     backgroundColor: colors.background,
-    alignSelf: 'flex-end',
-  },
-  timePickerContainer: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  timeButton: {
-    backgroundColor: 'rgba(203, 166, 247, 0.1)',
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  timeButtonText: {
-    fontSize: 24,
+  timeDisplayText: {
+    fontSize: 16,
     fontWeight: '700',
     color: colors.primary,
+  },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: colors.background,
+  },
+  createButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  createButtonDisabled: {
+    opacity: 0.5,
+  },
+  createButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  createButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1E1E2E',
   },
 });

@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -42,6 +43,7 @@ export type FocusSubtask = {
 };
 
 interface FocusModeScreenProps {
+  activityId: string;
   taskTitle: string;
   taskEmoji: string;
   subtasks: FocusSubtask[];
@@ -321,6 +323,7 @@ const ProgressBar = ({
 
 // Main Component
 export function FocusModeScreen({
+  activityId,
   taskTitle,
   taskEmoji,
   subtasks: initialSubtasks,
@@ -335,6 +338,44 @@ export function FocusModeScreen({
   const [isClosing, setIsClosing] = useState(false);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
+  const [showExitModal, setShowExitModal] = useState(false);
+
+  // Load saved progress on mount
+  useEffect(() => {
+    const loadProgress = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(`focus_progress_${activityId}`);
+        if (saved) {
+          const progress = JSON.parse(saved);
+          setSubtasks(progress.subtasks);
+          setCurrentIndex(progress.currentIndex);
+          setTotalElapsedTime(progress.totalElapsedTime);
+          setElapsedTime(progress.elapsedTime);
+        }
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      }
+    };
+    loadProgress();
+  }, [activityId]);
+
+  // Save progress whenever state changes
+  useEffect(() => {
+    const saveProgress = async () => {
+      try {
+        const progress = {
+          subtasks,
+          currentIndex,
+          totalElapsedTime,
+          elapsedTime,
+        };
+        await AsyncStorage.setItem(`focus_progress_${activityId}`, JSON.stringify(progress));
+      } catch (error) {
+        console.error('Error saving progress:', error);
+      }
+    };
+    saveProgress();
+  }, [subtasks, currentIndex, totalElapsedTime, elapsedTime, activityId]);
 
   // Background gradient animation
   const gradientPosition = useSharedValue(0);
@@ -425,26 +466,51 @@ export function FocusModeScreen({
   }, [currentIndex, subtasks.length]);
 
   const handleClose = useCallback(() => {
+    setShowExitModal(true);
+  }, []);
+
+  const handleConfirmExit = useCallback(async () => {
     setIsClosing(true);
     setIsTimerRunning(false);
     
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {
-        // Ignore haptics errors
-      });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    } catch (error) {}
+    
+    // Save progress before closing
+    try {
+      const progress = {
+        subtasks,
+        currentIndex,
+        totalElapsedTime,
+        elapsedTime,
+      };
+      await AsyncStorage.setItem(`focus_progress_${activityId}`, JSON.stringify(progress));
     } catch (error) {
-      // Silently ignore
+      console.error('Error saving progress:', error);
     }
     
-    // Delay slightly to ensure state updates complete
     setTimeout(() => {
       onClose();
     }, 50);
-  }, [onClose]);
+  }, [subtasks, currentIndex, totalElapsedTime, elapsedTime, activityId, onClose]);
 
-  const handleSuccessComplete = useCallback(() => {
+  const handleCancelExit = useCallback(() => {
+    setShowExitModal(false);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    } catch (error) {}
+  }, []);
+
+  const handleSuccessComplete = useCallback(async () => {
+    // Clear saved progress when completing successfully
+    try {
+      await AsyncStorage.removeItem(`focus_progress_${activityId}`);
+    } catch (error) {
+      console.error('Error clearing progress:', error);
+    }
     onComplete();
-  }, [onComplete]);
+  }, [activityId, onComplete]);
 
   // Show success screen if all tasks completed
   if (showSuccessScreen) {
@@ -597,6 +663,40 @@ export function FocusModeScreen({
 
       {/* Confetti */}
       <BurstExplosion visible={showConfetti} />
+
+      {/* Exit Confirmation Modal */}
+      {showExitModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <LinearGradient
+              colors={['rgba(49, 50, 68, 0.95)', 'rgba(30, 30, 46, 0.95)']}
+              style={styles.modalGradient}
+            >
+              <Text style={styles.modalTitle}>¿Salir del Focus Mode?</Text>
+              <Text style={styles.modalSubtitle}>
+                {subtasks.filter(s => !s.isCompleted).length} subtarea{subtasks.filter(s => !s.isCompleted).length !== 1 ? 's' : ''} pendiente{subtasks.filter(s => !s.isCompleted).length !== 1 ? 's' : ''}
+              </Text>
+              
+              <View style={styles.modalButtons}>
+                <Pressable onPress={handleConfirmExit} style={styles.modalButton}>
+                  <LinearGradient
+                    colors={['#CBA6F7', '#B491E0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.modalButtonGradient}
+                  >
+                    <Text style={styles.modalButtonText}>Guardar y Salir</Text>
+                  </LinearGradient>
+                </Pressable>
+                
+                <Pressable onPress={handleCancelExit} style={styles.modalSecondaryButton}>
+                  <Text style={styles.modalSecondaryButtonText}>Seguir Aquí</Text>
+                </Pressable>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+      )}
     </GestureHandlerRootView>
   );
 }
@@ -829,6 +929,60 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+
+  // Exit Modal
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  modalContainer: {
+    width: SCREEN_WIDTH - 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  modalGradient: {
+    padding: 32,
+    gap: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+  },
+  modalButtons: {
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalButtonGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  modalSecondaryButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

@@ -62,6 +62,12 @@ interface SubtaskListScreenProps {
   initialSubtasks: Subtask[];
   onStart: (subtasks: Subtask[]) => void;
   onClose: () => void;
+  onAddToList?: (taskTitle: string, subtasks: Subtask[]) => void;
+  // Props for editing existing tasks
+  isEditing?: boolean;
+  activityId?: string;
+  onUpdateTask?: (activityId: string, subtasks: Subtask[]) => void;
+  onDeleteTask?: (activityId: string) => void;
 }
 
 // Animated Pressable
@@ -73,6 +79,11 @@ export function SubtaskListScreen({
   initialSubtasks,
   onStart,
   onClose,
+  onAddToList,
+  isEditing = false,
+  activityId,
+  onUpdateTask,
+  onDeleteTask,
 }: SubtaskListScreenProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -86,18 +97,19 @@ export function SubtaskListScreen({
   const buttonScale = useSharedValue(1);
   const headerOpacity = useSharedValue(0);
 
-  // Colors based on theme
+  // Colors based on theme - Deep Ambient style
   const colors = {
-    background: isDark ? '#0f0f0f' : '#f8fafc',
-    surface: isDark ? 'rgba(30, 30, 40, 0.8)' : 'rgba(255, 255, 255, 0.85)',
-    text: isDark ? '#f1f5f9' : '#1e293b',
-    textSecondary: isDark ? '#94a3b8' : '#64748b',
-    accent: '#7c3aed',
-    accentLight: '#a78bfa',
+    background: '#1A1A2E',
+    surface: 'rgba(49, 50, 68, 0.8)',
+    surfaceLight: 'rgba(255, 255, 255, 0.98)',
+    text: '#f1f5f9',
+    textSecondary: '#94a3b8',
+    accent: '#CBA6F7',
+    accentLight: '#D4A5FF',
     danger: '#ef4444',
-    success: '#22c55e',
-    border: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-    metroLine: isDark ? ['#7c3aed', '#a78bfa', '#c4b5fd'] : ['#7c3aed', '#8b5cf6', '#a78bfa'],
+    success: '#A6E3A1',
+    border: 'rgba(255, 255, 255, 0.1)',
+    metroLine: ['#FF9A9E', '#FECFEF', '#D4A5FF'],
   };
 
   // Calculate totals
@@ -200,8 +212,39 @@ export function SubtaskListScreen({
       withTiming(0.95, { duration: 100 }),
       withTiming(1, { duration: 100 })
     );
+    
+    // Si es edición, actualizar la tarea existente antes de iniciar
+    if (isEditing && activityId && onUpdateTask) {
+      onUpdateTask(activityId, subtasks);
+    }
+    
     setTimeout(() => onStart(subtasks), 200);
-  }, [subtasks, onStart, buttonScale]);
+  }, [subtasks, onStart, buttonScale, isEditing, activityId, onUpdateTask]);
+
+  const handleAddToList = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Si es edición, solo actualizar y cerrar
+    if (isEditing && activityId && onUpdateTask) {
+      onUpdateTask(activityId, subtasks);
+      onClose();
+      return;
+    }
+    
+    // Si es nueva tarea, agregar a la lista
+    if (onAddToList) {
+      onAddToList(taskTitle, subtasks);
+    }
+    onClose();
+  }, [taskTitle, subtasks, onAddToList, onClose, isEditing, activityId, onUpdateTask]);
+
+  const handleDeleteTask = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (isEditing && activityId && onDeleteTask) {
+      onDeleteTask(activityId);
+    }
+    onClose();
+  }, [isEditing, activityId, onDeleteTask, onClose]);
 
   // Animated styles
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
@@ -392,22 +435,8 @@ export function SubtaskListScreen({
       entering={FadeIn.delay(100).duration(300)}
       style={styles.footer}
     >
-      {/* Add Step at End */}
-      <Pressable
-        onPress={() => handleAddStep('end')}
-        style={({ pressed }) => [
-          styles.addStepButton,
-          { 
-            backgroundColor:  'transparent',
-            borderColor: colors.border,
-          },
-        ]}
-      >
-        <Plus size={16} color={colors.textSecondary} />
-        <Text style={[styles.addStepText, { color: colors.textSecondary }]}>
-          Agregar paso final
-        </Text>
-      </Pressable>
+      
+     
 
       {/* Tip */}
       <View style={styles.tipContainer}>
@@ -449,17 +478,18 @@ export function SubtaskListScreen({
           activationDistance={10}
         />
 
-        {/* Start Button */}
+        {/* Buttons Container */}
         <Animated.View 
           entering={FadeIn.duration(300)}
-          style={styles.startButtonContainer}
+          style={styles.buttonsContainer}
         >
+          {/* Start Button - Inner Light Gradient */}
           <AnimatedPressable
             onPress={handleStart}
             style={[buttonAnimatedStyle]}
           >
             <LinearGradient
-              colors={['#7c3aed', '#8b5cf6', '#a78bfa']}
+              colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.startButton}
@@ -468,6 +498,30 @@ export function SubtaskListScreen({
               <Text style={styles.startButtonText}>Comenzar Tarea</Text>
             </LinearGradient>
           </AnimatedPressable>
+
+          {/* Add to List / Save Changes Button */}
+          {(onAddToList || isEditing) && (
+            <Pressable
+              onPress={handleAddToList}
+              style={styles.addToListButton}
+            >
+              <Plus size={18} color={colors.textSecondary} />
+              <Text style={styles.addToListButtonText}>
+                {isEditing ? 'Guardar Cambios' : 'Agregar a Lista de Tareas'}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Delete Task Button - Only shown when editing */}
+          {isEditing && onDeleteTask && (
+            <Pressable
+              onPress={handleDeleteTask}
+              style={styles.deleteTaskButton}
+            >
+              <Trash2 size={18} color={colors.danger} />
+              <Text style={styles.deleteTaskButtonText}>Eliminar Tarea</Text>
+            </Pressable>
+          )}
         </Animated.View>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -489,14 +543,16 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     width: 40,
-    height: 40,
-    borderRadius: 20,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 120,
+    paddingBottom: 240,
   },
   header: {
     paddingTop: 20,
@@ -510,13 +566,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   taskEmoji: {
-    fontSize: 36,
+    fontSize: 40,
   },
   taskTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '800',
     flex: 1,
     letterSpacing: -0.5,
+    color: '#f1f5f9',
   },
   statsContainer: {
     borderRadius: 20,
@@ -547,7 +604,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(124, 58, 237, 0.3)',
+    backgroundColor: 'rgba(203, 166, 247, 0.3)',
     marginHorizontal: 24,
   },
   addStepButton: {
@@ -555,9 +612,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderStyle: 'dashed',
   },
@@ -613,19 +670,19 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    backgroundColor: 'rgba(203, 166, 247, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
     borderWidth: 2,
-    borderColor: '#7c3aed',
+    borderColor: '#CBA6F7',
   },
   metroNodeCompleted: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    borderColor: '#22c55e',
+    backgroundColor: 'rgba(166, 227, 161, 0.15)',
+    borderColor: '#A6E3A1',
   },
   metroNodeActive: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#CBA6F7',
     transform: [{ scale: 1.2 }],
   },
   metroNodeText: {
@@ -636,7 +693,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardWrapperActive: {
-    shadowColor: '#7c3aed',
+    shadowColor: '#CBA6F7',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -645,10 +702,10 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 16,
     borderWidth: 1,
-    minHeight: 70,
+    minHeight: 74,
   },
   dragHandle: {
     paddingRight: 10,
@@ -694,10 +751,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(203, 166, 247, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(203, 166, 247, 0.2)',
   },
   editActions: {
     flexDirection: 'row',
@@ -720,11 +779,23 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(124, 58, 237, 0.08)',
+    backgroundColor: 'rgba(203, 166, 247, 0.08)',
   },
   insertStepButtonPressed: {
-    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    backgroundColor: 'rgba(203, 166, 247, 0.15)',
     transform: [{ scale: 0.92 }],
+  },
+  buttonsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    paddingTop: 12,
+    backgroundColor: 'rgba(26, 26, 46, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
   startButtonContainer: {
     position: 'absolute',
@@ -742,9 +813,9 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 18,
     borderRadius: 20,
-    shadowColor: '#7c3aed',
+    shadowColor: '#D4A5FF',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 8,
   },
@@ -753,6 +824,42 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: -0.3,
+  },
+  addToListButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  addToListButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#94a3b8',
+    letterSpacing: -0.2,
+  },
+  deleteTaskButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  deleteTaskButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#ef4444',
+    letterSpacing: -0.2,
   },
 });
 

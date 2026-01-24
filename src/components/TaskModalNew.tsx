@@ -45,11 +45,6 @@ interface TaskModalProps {
 }
 
 // Chips de sugerencia rápida
-const QUICK_CHIPS = [
-  { label: 'Hoy', icon: Calendar },
-  { label: 'Mañana', icon: Clock },
-  { label: 'Urgente', icon: Zap },
-];
 
 export function TaskModalNew({
   visible,
@@ -90,12 +85,10 @@ export function TaskModalNew({
   // Reset state when modal opens
   useEffect(() => {
     if (visible) {
-      // Focus input after a small delay to ensure modal is visible
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
     } else {
-      // Reset all states when modal closes
       setText('');
       setIsRecording(false);
       if (recordingTimeoutRef.current) {
@@ -125,7 +118,6 @@ export function TaskModalNew({
         false
       );
       
-      // Animar las barras de onda
       waveHeights.forEach((height, index) => {
         const randomHeight = 8 + Math.random() * 24;
         height.value = withRepeat(
@@ -146,7 +138,6 @@ export function TaskModalNew({
     }
   }, [isListening, isRecording]);
 
-  // Palpitación suave del micrófono (siempre activa)
   useEffect(() => {
     micPulse.value = withRepeat(
       withSequence(
@@ -158,7 +149,6 @@ export function TaskModalNew({
     );
   }, []);
 
-  // Animación de carga para el botón de generar
   useEffect(() => {
     if (isProcessing) {
       iconRotation.value = withRepeat(
@@ -171,7 +161,6 @@ export function TaskModalNew({
     }
   }, [isProcessing, iconRotation]);
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (recordingTimeoutRef.current) {
@@ -180,42 +169,31 @@ export function TaskModalNew({
     };
   }, []);
 
-  // Manejadores
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    // Stop recording if active
     if (isRecording || isListening) {
       onVoiceStop();
       setIsRecording(false);
     }
-    
     onClose();
   }, [isRecording, isListening, onVoiceStop, onClose]);
 
   const handleSubmit = useCallback(() => {
     if (!text.trim() && !isProcessing) return;
-    
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    // Animación de "apretar" botón
     buttonScale.value = withSequence(
       withTiming(0.95, { duration: 80 }),
       withTiming(1, { duration: 80 })
     );
-    
     onSubmit(text.trim());
   }, [text, isProcessing, onSubmit, buttonScale]);
 
   const handleMicPressIn = useCallback(() => {
     if (isProcessing) return;
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsRecording(true);
     onVoiceStart();
-    
-    // Auto-stop recording after 30 seconds max
     recordingTimeoutRef.current = setTimeout(() => {
       handleMicPressOut();
     }, 30000);
@@ -223,13 +201,10 @@ export function TaskModalNew({
 
   const handleMicPressOut = useCallback(() => {
     if (!isRecording && !isListening) return;
-    
-    // Clear the timeout
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
     }
-    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsRecording(false);
     onVoiceStop();
@@ -243,7 +218,6 @@ export function TaskModalNew({
     }
   }, [isRecording, isListening, handleMicPressIn, handleMicPressOut]);
 
-  // Estilos animados
   const micAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
       { scale: isListening || isRecording ? micScale.value : micPulse.value }
@@ -262,7 +236,6 @@ export function TaskModalNew({
     opacity: glowOpacity.value,
   }));
 
-  // Estilos para las barras de onda
   const waveBarStyles = waveHeights.map((height) =>
     useAnimatedStyle(() => ({
       height: height.value,
@@ -296,18 +269,16 @@ export function TaskModalNew({
                   exiting={SlideOutDown.duration(200)}
                   style={styles.animatedContainer}
                 >
-                  {/* Efecto Glassmorphism */}
                   <BlurView intensity={95} tint="light" style={styles.blurContainer}>
                     
-                    {/* Handle Bar */}
                     <View style={styles.handleBar} />
                     
-                    {/* Header: Título + Cerrar */}
+                    {/* --- CAMBIO: Título enfocado en romper parálisis --- */}
                     <View style={styles.header}>
                       <View style={styles.headerLeft}>
                         <View style={styles.headerLine} />
                         <Text style={styles.headerTitle}>
-                          Nueva Misión
+                          Rompe la Parálisis
                         </Text>
                       </View>
                       <TouchableOpacity 
@@ -319,7 +290,6 @@ export function TaskModalNew({
                       </TouchableOpacity>
                     </View>
 
-                    {/* Input Principal "Brain Dump" */}
                     <View style={styles.inputContainer}>
                       {isActive ? (
                         <View style={styles.listeningContainer}>
@@ -327,9 +297,8 @@ export function TaskModalNew({
                             style={[styles.listeningText, glowStyle]}
                             entering={FadeIn.duration(200)}
                           >
-                            {isProcessing ? 'Procesando...' : 'Escuchando...'}
+                            {isProcessing ? 'Analizando...' : 'Escuchando...'}
                           </Animated.Text>
-                          {/* Visualización de ondas animadas */}
                           <View style={styles.waveContainer}>
                             {waveBarStyles.map((style, i) => (
                               <Animated.View 
@@ -340,15 +309,16 @@ export function TaskModalNew({
                           </View>
                           {isProcessing && (
                             <Text style={styles.processingHint}>
-                              Convirtiendo voz a texto...
+                              La IA está desglosando tu tarea...
                             </Text>
                           )}
                         </View>
                       ) : (
+                        // --- CAMBIO: Placeholder educativo ---
                         <TextInput
                           ref={inputRef}
                           multiline
-                          placeholder="Sácalo de tu mente..."
+                          placeholder="¿Qué tarea te está abrumando hoy? Desglosémosla."
                           placeholderTextColor="#94a3b8"
                           value={text}
                           onChangeText={setText}
@@ -362,7 +332,6 @@ export function TaskModalNew({
                       )}
                     </View>
 
-                    {/* Chips de Sugerencia */}
                     {!isActive && (
                       <View style={styles.chipsContainer}>
                         <ScrollView 
@@ -370,32 +339,12 @@ export function TaskModalNew({
                           showsHorizontalScrollIndicator={false} 
                           contentContainerStyle={styles.chipsScrollContent}
                         >
-                          {QUICK_CHIPS.map((chip, index) => (
-                            <Pressable
-                              key={index}
-                              onPress={() => {
-                                Haptics.selectionAsync();
-                                setText((prev) => `${prev}${prev ? ' ' : ''}#${chip.label}`);
-                              }}
-                              style={({ pressed }) => [
-                                styles.chip,
-                                pressed && styles.chipPressed
-                              ]}
-                            >
-                              <chip.icon size={14} color="#64748b" style={{ marginRight: 6 }} />
-                              <Text style={styles.chipText}>
-                                {chip.label}
-                              </Text>
-                            </Pressable>
-                          ))}
+                          
                         </ScrollView>
                       </View>
                     )}
 
-                    {/* The Control Deck: Mic + Action Button */}
                     <View style={styles.controlDeck}>
-                      
-                      {/* Botón Micrófono (Con efecto breathing) */}
                       <Animated.View style={micAnimatedStyle}>
                         <Pressable
                           onPress={handleMicToggle}
@@ -417,7 +366,6 @@ export function TaskModalNew({
                         </Pressable>
                       </Animated.View>
 
-                      {/* Botón Principal: Generar */}
                       <Animated.View style={[buttonAnimatedStyle, { flex: 1 }]}>
                         <Pressable
                           onPress={handleSubmit}
@@ -429,6 +377,7 @@ export function TaskModalNew({
                         >
                           {canSubmit && !isActive ? (
                             <LinearGradient
+                              // --- CAMBIO: Gradiente mantenido, pero contexto Focus ---
                               colors={['#CBA6F7', '#FAB387']}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 1 }}
@@ -441,8 +390,9 @@ export function TaskModalNew({
                                   style={{ marginRight: 8 }}
                                 />
                               </Animated.View>
+                              {/* --- CAMBIO: Texto de Botón --- */}
                               <Text style={styles.submitButtonTextActive}>
-                                {isProcessing ? 'Generando...' : 'Generar Subtarea'}
+                                {isProcessing ? 'Generando...' : 'Crear Tarea Focus'}
                               </Text>
                             </LinearGradient>
                           ) : (
@@ -455,20 +405,18 @@ export function TaskModalNew({
                                 />
                               </Animated.View>
                               <Text style={styles.submitButtonTextDisabled}>
-                                {isProcessing ? 'Generando...' : 'Generar Subtarea'}
+                                {isProcessing ? 'Generando...' : 'Crear Tarea Focus'}
                               </Text>
                             </>
                           )}
                         </Pressable>
                       </Animated.View>
-
                     </View>
 
-                    {/* Hint Text */}
                     <Text style={styles.hintText}>
                       {isActive 
-                        ? 'Toca el micrófono para detener'
-                        : 'Mantén presionado el micrófono para grabar'
+                        ? 'Toca para detener'
+                        : 'Usa el micrófono para dictar tus pensamientos'
                       }
                     </Text>
 
@@ -533,7 +481,7 @@ const styles = StyleSheet.create({
   headerLine: {
     width: 4,
     height: 24,
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#7c3aed', // Morado (Focus)
     borderRadius: 2,
   },
   headerTitle: {
@@ -584,7 +532,7 @@ const styles = StyleSheet.create({
     minHeight: 8,
   },
   textInput: {
-    fontSize: 24,
+    fontSize: 24, // Letra grande para evitar fatiga visual
     fontWeight: '500',
     color: '#1e293b',
     lineHeight: 32,
@@ -677,10 +625,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.6,
-  },
-  submitButtonText: {
-    fontWeight: '700',
-    fontSize: 16,
   },
   submitButtonTextActive: {
     color: '#ffffff',

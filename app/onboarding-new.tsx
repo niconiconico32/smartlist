@@ -1,15 +1,20 @@
 import { colors } from "@/constants/theme";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
     AlertTriangle,
+    ArrowRight,
     Brain,
     Check,
     CloudFog,
+    CreditCard,
     Crown,
     Flame,
     Plus,
+    Shield,
     Sparkles,
+    Unlock,
     User,
     Zap,
 } from "lucide-react-native";
@@ -24,13 +29,17 @@ import {
     TextInput,
     View,
 } from "react-native";
-import Animated, {
+import Animated,
+{
     Easing,
     FadeInDown,
     FadeInUp,
     useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
     withSpring,
     withTiming,
 } from "react-native-reanimated";
@@ -53,8 +62,10 @@ const SatisfactionChart = () => {
   const [showTooltip3, setShowTooltip3] = useState(false);
 
   // Path for the curve (Bezier curve going up)
-  const pathD = `M 20 ${CHART_HEIGHT - 30} Q 80 ${CHART_HEIGHT - 50}, 140 ${CHART_HEIGHT - 80} T 260 ${CHART_HEIGHT - 160}`;
-  const pathLength = 400; // Approximate path length
+  // Formato: M startX startY Q controlX controlY endX endY T finalX finalY
+  // Ajusta los valores para cambiar la curvatura
+  const pathD = `M 20 ${CHART_HEIGHT - 30} Q 80 ${CHART_HEIGHT - 50}, 140 ${CHART_HEIGHT - 80} T 330 ${CHART_HEIGHT - 200}`;
+  const pathLength = 310; // Approximate path length
 
   useEffect(() => {
     // Start the animation
@@ -119,7 +130,7 @@ const SatisfactionChart = () => {
         {showTooltip1 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
-            style={[chartStyles.tooltipContainer, { left: 24 + 20 - 4, top: 24 + (CHART_HEIGHT - 30) - 6 }]}
+            style={[chartStyles.tooltipContainer, { left: 24 + 1 - 4, top: 24 + (CHART_HEIGHT - 30) - 6 }]}
           >
             <View style={[chartStyles.tooltipDot, { backgroundColor: '#F38BA8' }]} />
             <View style={[chartStyles.tooltip, { backgroundColor: '#F38BA8' }]}>
@@ -133,7 +144,7 @@ const SatisfactionChart = () => {
         {showTooltip2 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
-            style={[chartStyles.tooltipContainer, { left: 24 + 140 - 4, top: 24 + (CHART_HEIGHT - 80) - 6 }]}
+            style={[chartStyles.tooltipContainer, { left: 24 + 70 - 4, top: 24 + (CHART_HEIGHT - 80) - 6 }]}
           >
             <View style={[chartStyles.tooltipDot, { backgroundColor: '#FAB387' }]} />
             <View style={[chartStyles.tooltip, { backgroundColor: '#FAB387' }]}>
@@ -146,7 +157,7 @@ const SatisfactionChart = () => {
         {showTooltip3 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
-            style={[chartStyles.tooltipContainer, { left: 24 + 260 - 4, top: 24 + (CHART_HEIGHT - 160) - 6 }]}
+            style={[chartStyles.tooltipContainer, { left: 24 + 200 - 4, top: 24 + (CHART_HEIGHT - 160) - 6 }]}
           >
             <View style={[chartStyles.tooltipDot, { backgroundColor: '#CBA6F7' }]} />
             <View style={[chartStyles.tooltip, { backgroundColor: '#CBA6F7' }]}>
@@ -258,6 +269,1523 @@ const chartStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
+  },
+});
+
+// ============================================================================
+// HABIT DAYS ANIMATION COMPONENT
+// ============================================================================
+
+const HABIT_DAYS = [
+  { id: 0, label: "L" },
+  { id: 1, label: "M" },
+  { id: 2, label: "X" },
+  { id: 3, label: "J" },
+  { id: 4, label: "V" },
+  { id: 5, label: "S" },
+  { id: 6, label: "D" },
+];
+
+// ============================================
+// GROWTH POTENTIAL SCREEN COMPONENT
+// ============================================
+interface GrowthBarProps {
+  label: string;
+  value: number;
+  maxValue: number;
+  isPotential?: boolean;
+  delay: number;
+}
+
+const GrowthBar: React.FC<GrowthBarProps> = ({ label, value, maxValue, isPotential = false, delay }) => {
+  const barHeight = useSharedValue(0);
+  const glowOpacity = useSharedValue(0);
+  const targetHeight = (value / maxValue) * 160;
+
+  useEffect(() => {
+    barHeight.value = withDelay(
+      delay,
+      withSpring(targetHeight, { damping: 12, stiffness: 80 })
+    );
+    if (isPotential) {
+      glowOpacity.value = withDelay(
+        delay + 400,
+        withRepeat(
+          withSequence(
+            withTiming(0.8, { duration: 1500 }),
+            withTiming(0.3, { duration: 1500 })
+          ),
+          -1,
+          true
+        )
+      );
+    }
+  }, []);
+
+  const barStyle = useAnimatedStyle(() => ({
+    height: barHeight.value,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <View style={growthStyles.barWrapper}>
+      <View style={growthStyles.barContainer}>
+        {isPotential ? (
+          <>
+            {/* Glow effect behind */}
+            <Animated.View style={[growthStyles.barGlow, glowStyle, { height: targetHeight }]} />
+            <Animated.View style={[growthStyles.barAnimated, barStyle]}>
+              <LinearGradient
+                colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0, y: 0 }}
+                style={growthStyles.barGradient}
+              />
+            </Animated.View>
+          </>
+        ) : (
+          <Animated.View style={[growthStyles.barAnimated, barStyle]}>
+            <View style={growthStyles.barDimmed} />
+          </Animated.View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
+  const mascotY = useSharedValue(0);
+  const handRotate = useSharedValue(0);
+
+  useEffect(() => {
+    // Mascot floating animation
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    // Hand pointing animation
+    handRotate.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 800 }),
+        withTiming(5, { duration: 800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
+
+  return (
+    <ScrollView
+      style={styles.slideScroll}
+      contentContainerStyle={growthStyles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header */}
+      <Animated.Text
+        entering={FadeInDown.delay(100).duration(500)}
+        style={growthStyles.title}
+      >
+        Tu Potencial Desbloqueable
+      </Animated.Text>
+
+      <Animated.Text
+        entering={FadeInDown.delay(200).duration(500)}
+        style={growthStyles.subtitle}
+      >
+        Mira lo que puedes lograr con el sistema correcto
+      </Animated.Text>
+
+      {/* Comparison Bars Chart */}
+      <Animated.View
+        entering={FadeInDown.delay(300).duration(600)}
+        style={growthStyles.chartContainer}
+      >
+        {/* Columnas de barras con sus valores */}
+        <View style={growthStyles.barsRow}>
+          {/* Columna Actual */}
+          <View style={growthStyles.barColumnActual}>
+            <Text style={growthStyles.barValueActual}>35%</Text>
+            <GrowthBar label="Actual" value={35} maxValue={100} delay={400} />
+            <Text style={growthStyles.barLabel}>Actual</Text>
+          </View>
+
+          {/* Columna Con SmartList */}
+          <View style={growthStyles.barColumnPotential}>
+            <Text style={growthStyles.barValuePotentialTop}>+85%</Text>
+            <GrowthBar label="Con SmartList" value={100} maxValue={100} isPotential delay={700} />
+            <Text style={[growthStyles.barLabel, growthStyles.barLabelPotential]}>Con SmartList</Text>
+          </View>
+        </View>
+
+        {/* Mascot pointing up */}
+        <Animated.View style={[growthStyles.mascotContainer, mascotStyle]}>
+          <Image
+            source={require("@/assets/images/logomain.png")}
+            style={growthStyles.mascot}
+            resizeMode="contain"
+          />
+          <Text style={growthStyles.mascotSpeech}>¡Tu potencial es enorme!</Text>
+        </Animated.View>
+      </Animated.View>
+
+      {/* Reframed Stats Cards */}
+      <Animated.View
+        entering={FadeInDown.delay(500).duration(500)}
+        style={growthStyles.statsContainer}
+      >
+        {/* Card 1: Margen de Mejora */}
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={['rgba(166, 227, 161, 0.15)', 'rgba(166, 227, 161, 0.05)']}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.success}25` }]}>
+                <Sparkles size={18} color={colors.success} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Margen de Mejora</Text>
+              <View style={growthStyles.statBadge}>
+                <Text style={growthStyles.statBadgeText}>ALTO</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Tu mente creativa solo necesita la estructura correcta para brillar.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        {/* Card 2: Productividad Estimada */}
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={['rgba(243, 139, 168, 0.15)', 'rgba(243, 139, 168, 0.05)']}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.primary}25` }]}>
+                <Zap size={18} color={colors.primary} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Productividad Estimada</Text>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.primary}20` }]}>
+                <Text style={[growthStyles.statBadgeText, { color: colors.primary }]}>+3x</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Usuarios similares triplican su productividad en 4 semanas.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        {/* Card 3: Claridad Mental */}
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={['rgba(203, 166, 247, 0.15)', 'rgba(203, 166, 247, 0.05)']}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.accent}25` }]}>
+                <Brain size={18} color={colors.accent} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Claridad Mental</Text>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.accent}20` }]}>
+                <Text style={[growthStyles.statBadgeText, { color: colors.accent }]}>ALTA</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Reduce el ruido mental y enfócate en lo que realmente importa.
+            </Text>
+          </LinearGradient>
+        </View>
+      </Animated.View>
+
+      {/* CTA Button */}
+      <Animated.View
+        entering={FadeInDown.delay(700).duration(500)}
+        style={growthStyles.buttonContainer}
+      >
+        <Pressable onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          onContinue();
+        }}>
+          <LinearGradient
+            colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={growthStyles.ctaButton}
+          >
+            <Text style={growthStyles.ctaButtonText}>Empezar mi Transformación</Text>
+            <Sparkles size={20} color={'#ffffff'} strokeWidth={2.5} />
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
+    </ScrollView>
+  );
+};
+
+const growthStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  chartContainer: {
+    backgroundColor: 'rgba(49, 50, 68, 0.5)',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    position: 'relative',
+  },
+  barsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    gap: 40,
+  },
+  barColumn: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  barColumnActual: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 220,
+  },
+  barColumnPotential: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 220,
+  },
+  barWrapper: {
+    alignItems: 'center',
+    width: 70,
+  },
+  barContainer: {
+    width: 60,
+    height: 160,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  barAnimated: {
+    width: 60,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  barGradient: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  barDimmed: {
+    flex: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+  },
+  barGlow: {
+    position: 'absolute',
+    bottom: 0,
+    left: -5,
+    width: 70,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 154, 158, 0.3)',
+  },
+  barLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  barLabelPotential: {
+    color: colors.textPrimary,
+  },
+  barValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 0,
+  },
+  barValueActual: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: -95,
+  },
+  barValuePotentialTop: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FF9A9E',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  barValuePotential: {
+    color: '#FF9A9E',
+  },
+  mascotContainer: {
+    position: 'absolute',
+    right: 10,
+    top: 20,
+    alignItems: 'center',
+  },
+  mascot: {
+    width: 70,
+    height: 70,
+  },
+  mascotSpeech: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.warning,
+    maxWidth: 80,
+    justifyContent: 'center',
+    textAlign: 'center'
+  },
+  statsContainer: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  statCardGradient: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  statCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  statIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statCardTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  statBadge: {
+    backgroundColor: `${colors.success}20`,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.success,
+  },
+  statCardDescription: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginLeft: 42,
+  },
+  buttonContainer: {
+    marginTop: 8,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    gap: 10,
+  },
+  ctaButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+});
+
+// ============================================
+// SUCCESS TIMELINE SCREEN COMPONENT
+// ============================================
+interface TimelineNodeProps {
+  day: string;
+  title: string;
+  description: string;
+  color: string;
+  glowColor: string;
+  icon: React.ReactNode;
+  delay: number;
+  isFirst?: boolean;
+  isLast?: boolean;
+}
+
+const TimelineNode: React.FC<TimelineNodeProps> = ({
+  day,
+  title,
+  description,
+  color,
+  glowColor,
+  icon,
+  delay,
+  isFirst = false,
+  isLast = false,
+}) => {
+  const glowOpacity = useSharedValue(0.3);
+  const nodeScale = useSharedValue(0);
+
+  useEffect(() => {
+    nodeScale.value = withDelay(delay, withSpring(1, { damping: 12, stiffness: 100 }));
+    if (isFirst) {
+      glowOpacity.value = withDelay(
+        delay + 300,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 1200 }),
+            withTiming(0.4, { duration: 1200 })
+          ),
+          -1,
+          true
+        )
+      );
+    }
+  }, []);
+
+  const nodeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: nodeScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <Animated.View style={[timelineStyles.nodeContainer, nodeStyle]}>
+      {/* Glow effect for active node */}
+      {isFirst && (
+        <Animated.View
+          style={[
+            timelineStyles.nodeGlow,
+            { backgroundColor: glowColor },
+            glowStyle,
+          ]}
+        />
+      )}
+
+      {/* Node circle */}
+      <View style={[timelineStyles.nodeCircle, { borderColor: color }]}>
+        <LinearGradient
+          colors={[color, glowColor]}
+          style={timelineStyles.nodeGradient}
+        >
+          {icon}
+        </LinearGradient>
+      </View>
+
+      {/* Content */}
+      <View style={timelineStyles.nodeContent}>
+        <Text style={[timelineStyles.nodeDay, { color }]}>{day}</Text>
+        <Text style={timelineStyles.nodeTitle}>{title}</Text>
+        <Text style={timelineStyles.nodeDescription}>{description}</Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
+  const pathProgress = useSharedValue(0);
+  const mascotY = useSharedValue(0);
+
+  useEffect(() => {
+    // Animate path drawing
+    pathProgress.value = withDelay(
+      400,
+      withTiming(1, { duration: 2000, easing: Easing.out(Easing.cubic) })
+    );
+
+    // Mascot floating
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-6, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
+
+  return (
+    <LinearGradient
+      colors={['#1A1A2E', '#16213E']}
+      style={timelineStyles.container}
+    >
+      <ScrollView
+        contentContainerStyle={timelineStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={timelineStyles.title}
+        >
+          Tu Cronología de Éxito
+        </Animated.Text>
+
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={timelineStyles.subtitle}
+        >
+          No es magia. Es neurociencia aplicada a tus tiempos.
+        </Animated.Text>
+
+        {/* Timeline Container */}
+        <View style={timelineStyles.timelineContainer}>
+          {/* Glowing Path Line */}
+          <View style={timelineStyles.pathContainer}>
+            <LinearGradient
+              colors={['#FFFFFF', '#FAB387', '#CBA6F7']}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0 }}
+              style={timelineStyles.pathLine}
+            />
+            {/* Animated glow overlay */}
+            <Animated.View style={timelineStyles.pathGlow} />
+          </View>
+
+          {/* Mascot at top */}
+          <Animated.View style={[timelineStyles.mascotContainer, mascotStyle]}>
+            {/* Speech Bubble */}
+            <View style={timelineStyles.speechBubble}>
+              <Text style={timelineStyles.speechBubbleText}>
+                ¡Tu nuevo yo está más cerca de lo que crees!
+              </Text>
+              <View style={timelineStyles.speechBubbleArrow} />
+            </View>
+            <Image
+              source={require("@/assets/images/logomain.png")}
+              style={timelineStyles.mascot}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          {/* Nodes - From top to bottom visually, but conceptually bottom to top */}
+          <View style={timelineStyles.nodesContainer}>
+            {/* Node 3 - Day 30 (Top) */}
+            <TimelineNode
+              day="Día 30"
+              title="Control Total"
+              description="La procrastinación ya no es tu jefe. Tú mandas."
+              color="#CBA6F7"
+              glowColor="#9D4EDD"
+              icon={<Crown size={20} color="#FFFFFF" strokeWidth={2} />}
+              delay={1800}
+              isLast
+            />
+
+            {/* Node 2 - Day 7 (Middle) */}
+            <TimelineNode
+              day="Día 7"
+              title="Inercia Positiva"
+              description="Tus primeras rachas se sienten naturales, no forzadas."
+              color="#FAB387"
+              glowColor="#FF8C42"
+              icon={<Flame size={20} color="#FFFFFF" strokeWidth={2} />}
+              delay={1200}
+            />
+
+            {/* Node 1 - Day 1 (Bottom - Active) */}
+            <TimelineNode
+              day="Día 1 (Hoy)"
+              title="Alivio Mental"
+              description="Dejas de guardar todo en tu cabeza. Tu ansiedad baja hoy mismo."
+              color="#FFFFFF"
+              glowColor="#A6E3A1"
+              icon={<Sparkles size={20} color="#1A1A2E" strokeWidth={2} />}
+              delay={600}
+              isFirst
+            />
+          </View>
+        </View>
+
+        {/* CTA Button */}
+        <Animated.View
+          entering={FadeInDown.delay(2200).duration(500)}
+          style={timelineStyles.buttonContainer}
+        >
+          <Pressable onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onContinue();
+          }}>
+            <LinearGradient
+              colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={timelineStyles.ctaButton}
+            >
+              <Text style={timelineStyles.ctaButtonText}>Ver mi Regalo de Bienvenida</Text>
+              <Sparkles size={20} color="#ffffff" strokeWidth={2.5} />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      </ScrollView>
+    </LinearGradient>
+  );
+};
+
+const timelineStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  timelineContainer: {
+    position: 'relative',
+    minHeight: 450,
+    marginBottom: 24,
+  },
+  pathContainer: {
+    position: 'absolute',
+    left: 27,
+    top: 60,
+    bottom: 60,
+    width: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  pathLine: {
+    flex: 1,
+    borderRadius: 3,
+  },
+  pathGlow: {
+    position: 'absolute',
+    top: 0,
+    left: -4,
+    right: -4,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 8,
+  },
+  mascotContainer: {
+    position: 'absolute',
+    right: 0,
+    bottom: -10,
+    display: 'flex',
+    flexDirection: 'row'
+    
+  },
+  mascot: {
+    width: 60,
+    height: 60,
+  },
+  speechBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    maxWidth: 160,
+    marginRight: 8,
+    position: 'relative',
+    shadowColor: '#CBA6F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  speechBubbleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1A1A2E',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  speechBubbleArrow: {
+    position: 'absolute',
+    right: -8,
+    top: '50%',
+    marginTop: -6,
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderBottomWidth: 6,
+    borderLeftWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  mascotText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#CBA6F7',
+    marginTop: 4,
+  },
+  nodesContainer: {
+    paddingLeft: 0,
+    gap: 24,
+  },
+  nodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingLeft: 0,
+    position: 'relative',
+  },
+  nodeGlow: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  nodeCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(26, 26, 46, 0.8)',
+  },
+  nodeGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nodeContent: {
+    flex: 1,
+    marginLeft: 16,
+    paddingTop: 4,
+  },
+  nodeDay: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  nodeTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  nodeDescription: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 18,
+  },
+  buttonContainer: {
+    marginTop: 8,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    gap: 10,
+  },
+  ctaButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+});
+
+// ============================================
+// REVERSE TRIAL SCREEN COMPONENT
+// ============================================
+const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
+  const cardY = useSharedValue(0);
+  const badgePulse = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    // Card floating animation
+    cardY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+
+    // Badge pulse animation
+    badgePulse.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+
+    // Glow animation
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 2000 }),
+        withTiming(0.3, { duration: 2000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cardY.value }],
+  }));
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgePulse.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <LinearGradient
+      colors={['#1A1A2E', '#16213E']}
+      style={trialStyles.container}
+    >
+      <ScrollView
+        contentContainerStyle={trialStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={trialStyles.headerTitle}
+        >
+          Hagamos un trato honesto.
+        </Animated.Text>
+
+        {/* Radial Glow behind card */}
+        <Animated.View style={[trialStyles.cardGlow, glowStyle]} />
+
+        {/* Floating Golden Ticket Card */}
+        <Animated.View
+          entering={FadeInDown.delay(300).duration(600)}
+          style={[trialStyles.cardContainer, cardStyle]}
+        >
+          <LinearGradient
+            colors={['rgba(49, 50, 68, 0.9)', 'rgba(30, 32, 48, 0.95)']}
+            style={trialStyles.card}
+          >
+            {/* Mascot with Shield */}
+            <View style={trialStyles.iconContainer}>
+              <LinearGradient
+                colors={['#FFD700', '#FFA500']}
+                style={trialStyles.shieldGlow}
+              />
+              <View style={trialStyles.shieldIcon}>
+                <Shield size={75} color="#FFD700" strokeWidth={1.2} fill="rgba(255, 215, 0, 0.2)" />
+              </View>
+              <Image
+                source={require("@/assets/images/logomain.png")}
+                style={trialStyles.mascotSmall}
+                resizeMode="contain"
+              />
+            </View>
+
+            {/* Headline */}
+            <Text style={trialStyles.cardHeadline}>
+              Probablemente odias las pruebas gratuitas que piden tu tarjeta.
+            </Text>
+
+            {/* Body Text */}
+            <Text style={trialStyles.cardBody}>
+              Sabemos que algunas apps ofrecen una prueba gratis y esperan que sus usuarios olviden cancelarla. Aquí no hacemos eso.
+            </Text>
+
+            {/* The Offer */}
+            <View style={trialStyles.offerContainer}>
+              <LinearGradient
+                colors={['rgba(255, 215, 0, 0.15)', 'rgba(255, 165, 0, 0.1)']}
+                style={trialStyles.offerGradient}
+              >
+                <Text style={trialStyles.offerText}>
+                  3 Días Premium.{"\n"} 0 Riesgos.
+                </Text>
+                <Text style={trialStyles.offerHighlight}>
+                  No pedimos tarjeta.
+                </Text>
+              </LinearGradient>
+            </View>
+
+            {/* Trust Badges */}
+            <View style={trialStyles.trustBadges}>
+              <Animated.View style={[trialStyles.trustBadge, badgeStyle]}>
+                <View style={trialStyles.badgeIconContainer}>
+                  <CreditCard size={16} color="#F38BA8" strokeWidth={2} />
+                  <View style={trialStyles.crossLine} />
+                </View>
+                <Text style={trialStyles.trustBadgeText}>Sin Cobros Sorpresa</Text>
+              </Animated.View>
+
+              <View style={trialStyles.badgeDivider} />
+
+              <View style={trialStyles.trustBadge}>
+                <Unlock size={16} color="#A6E3A1" strokeWidth={2} />
+                <Text style={trialStyles.trustBadgeText}>Acceso Total</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        {/* CTA Button */}
+        <Animated.View
+          entering={FadeInDown.delay(700).duration(500)}
+          style={trialStyles.buttonContainer}
+        >
+          <Pressable onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onAccept();
+          }}>
+            <LinearGradient
+              colors={['#FF9A9E', '#FAB387', '#FFD700']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={trialStyles.ctaButton}
+            >
+              <Text style={trialStyles.ctaButtonText}>Acepto el Regalo (Empezar)</Text>
+              <Sparkles size={20} color="#FFFFFF" strokeWidth={2.5} />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+
+        {/* Secondary Text */}
+        <Animated.Text
+          entering={FadeInDown.delay(900).duration(500)}
+          style={trialStyles.secondaryText}
+        >
+          Después de 3 días, tú decides si vale la pena.
+        </Animated.Text>
+      </ScrollView>
+    </LinearGradient>
+  );
+};
+
+const trialStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 32,
+    letterSpacing: -0.5,
+  },
+  cardGlow: {
+    position: 'absolute',
+    top: 100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+  },
+  cardContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  card: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  shieldGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    opacity: 0.2,
+  },
+  shieldIcon: {
+    position: 'absolute',
+    top: 5,
+    zIndex: 1,
+  },
+  mascotSmall: {
+    width: 70,
+    height: 70,
+    marginTop: 15,
+  },
+  cardHeadline: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  cardBody: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  offerContainer: {
+    marginBottom: 20,
+  },
+  offerGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+  },
+  offerText: {
+    fontSize: 25,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  offerHighlight: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFD700',
+    textAlign: 'center',
+  },
+  trustBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeIconContainer: {
+    position: 'relative',
+  },
+  crossLine: {
+    position: 'absolute',
+    top: 7,
+    left: -2,
+    width: 20,
+    height: 2,
+    backgroundColor: '#F38BA8',
+    transform: [{ rotate: '45deg' }],
+  },
+  trustBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  badgeDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  buttonContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    gap: 10,
+  },
+  ctaButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  secondaryText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+  },
+});
+
+// ============================================
+// ANIMATED DAY CIRCLE COMPONENT
+// ============================================
+const AnimatedDayCircle = ({ 
+  label, 
+  delay, 
+  onFilled 
+}: { 
+  label: string; 
+  delay: number; 
+  onFilled?: () => void;
+}) => {
+  const fillProgress = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const checkOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Haptic feedback al llenar
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // Animación de llenado
+      fillProgress.value = withTiming(1, { 
+        duration: 400, 
+        easing: Easing.out(Easing.cubic) 
+      });
+      
+      // Pequeño bounce al llenar
+      scale.value = withSequence(
+        withTiming(1.15, { duration: 150 }),
+        withSpring(1, { damping: 10 })
+      );
+      
+      // Mostrar check
+      checkOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+      
+      // Callback después de la animación
+      if (onFilled) {
+        setTimeout(onFilled, 400);
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  const circleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: fillProgress.value > 0 
+      ? `rgba(166, 227, 161, ${fillProgress.value})` 
+      : colors.surface,
+    borderColor: fillProgress.value > 0 
+      ? colors.success 
+      : 'rgba(255, 255, 255, 0.1)',
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: 1 - checkOpacity.value,
+  }));
+
+  return (
+    <Animated.View style={[habitStyles.dayCircle, circleStyle]}>
+      <Animated.Text style={[habitStyles.dayLabel, labelStyle]}>
+        {label}
+      </Animated.Text>
+      <Animated.Text style={[habitStyles.checkMark, checkStyle]}>
+        ✓
+      </Animated.Text>
+    </Animated.View>
+  );
+};
+
+const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
+  const [filledCount, setFilledCount] = useState(0);
+  const [showButton, setShowButton] = useState(false);
+  const titleOpacity = useSharedValue(0);
+  const subtitleOpacity = useSharedValue(0);
+  const factOpacity = useSharedValue(0);
+  const buttonOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    // Animaciones de entrada del texto
+    titleOpacity.value = withDelay(100, withTiming(1, { duration: 500 }));
+    subtitleOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
+    factOpacity.value = withDelay(3500, withTiming(1, { duration: 500 }));
+    
+    // Mostrar botón después de que termine la animación (~4 segundos)
+    const buttonTimer = setTimeout(() => {
+      setShowButton(true);
+      buttonOpacity.value = withTiming(1, { duration: 400 });
+    }, 4000);
+    
+    return () => clearTimeout(buttonTimer);
+  }, []);
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: (1 - titleOpacity.value) * 20 }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+  }));
+
+  const factStyle = useAnimatedStyle(() => ({
+    opacity: factOpacity.value,
+    transform: [{ translateY: (1 - factOpacity.value) * 10 }],
+  }));
+
+  const buttonStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [{ translateY: (1 - buttonOpacity.value) * 20 }],
+  }));
+
+  // Calcular delay para cada círculo (4 segundos total / 7 días ≈ 570ms entre cada uno)
+  const getDelay = (index: number) => 500 + (index * 430);
+
+  return (
+    <View style={habitStyles.container}>
+      {/* Logo con breathing */}
+      <Animated.View
+        entering={FadeInDown.delay(0).duration(500)}
+        style={habitStyles.logoContainer}
+      >
+        <Image
+          source={require("@/assets/images/logomain.png")}
+          style={habitStyles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      {/* Título */}
+      <Animated.Text style={[habitStyles.title, titleStyle]}>
+        Construye tu hábito diario
+      </Animated.Text>
+
+      {/* Subtítulo */}
+      <Animated.Text style={[habitStyles.subtitle, subtitleStyle]}>
+        La consistencia es clave para el cambio duradero
+      </Animated.Text>
+
+      {/* Círculos de días */}
+      <View style={habitStyles.daysRow}>
+        {HABIT_DAYS.map((day, index) => (
+          <AnimatedDayCircle
+            key={day.id}
+            label={day.label}
+            delay={getDelay(index)}
+            onFilled={index === 6 ? undefined : () => setFilledCount(prev => prev + 1)}
+          />
+        ))}
+      </View>
+
+      {/* Texto de progreso */}
+      <Animated.Text style={habitStyles.progressText}>
+        Empieza pequeño y mantén la consistencia
+      </Animated.Text>
+
+      {/* Fact Card */}
+      <Animated.View style={[habitStyles.factCard, factStyle]}>
+        <View style={habitStyles.factIconContainer}>
+          <Flame
+            size={20}
+            color={colors.accent}
+            strokeWidth={2}
+            fill={colors.accent}
+          />
+        </View>
+        <Text style={habitStyles.factText}>
+          Las personas con rachas de 7 días tienen 3x más probabilidades
+          de formar hábitos duraderos
+        </Text>
+      </Animated.View>
+
+      {/* Botón Continuar */}
+      {showButton && (
+        <Animated.View style={[habitStyles.buttonContainer, buttonStyle]}>
+          <Pressable onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onComplete();
+          }}>
+            <LinearGradient
+              colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={habitStyles.continueButton}
+            >
+              <Text style={habitStyles.continueButtonText}>Continuar</Text>
+              <ArrowRight size={20} color="#ffffff" strokeWidth={2.5} />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+const habitStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 32,
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logo: {
+    width: 130,
+    height: 130,
+    marginBottom: -20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+    lineHeight: 40,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  dayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    position: 'relative',
+  },
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    position: 'absolute',
+  },
+  checkMark: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.background,
+    position: 'absolute',
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  factCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${colors.accent}15`,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginHorizontal: 20,
+  },
+  factIconContainer: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  factText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  buttonContainer: {
+    marginTop: 32,
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 20,
+    gap: 8,
+  },
+  continueButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
 });
 
@@ -389,6 +1917,7 @@ const SelectableButton: React.FC<SelectableButtonProps> = ({
   }));
 
   const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSpring(0.95, { damping: 10, stiffness: 300 });
   };
 
@@ -448,6 +1977,7 @@ const GoalPill: React.FC<GoalPillProps> = ({
   }));
 
   const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSpring(0.92, { damping: 8, stiffness: 400 });
   };
 
@@ -481,7 +2011,10 @@ const GoalPill: React.FC<GoalPillProps> = ({
 };
 
 export default function OnboardingScreen() {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const searchParams = useLocalSearchParams();
+  const initialSlide = searchParams.slide ? parseInt(searchParams.slide as string) : 0;
+  
+  const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [userName, setUserName] = useState("");
   const [selectedEnemies, setSelectedEnemies] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -493,20 +2026,43 @@ export default function OnboardingScreen() {
   const [statement4, setStatement4] = useState<string | null>(null);
   const [taskText, setTaskText] = useState("");
 
+  // Breathing animation for mascot
+  const breathingAnim = useSharedValue(0);
+  
+  useEffect(() => {
+    breathingAnim.value = withRepeat(
+      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  const mascotAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: breathingAnim.value * -12 },
+        { scale: 1 + breathingAnim.value * 0.03 },
+      ],
+    };
+  });
+
   const goToNextSlide = () => {
     if (currentSlide < 12) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide(currentSlide + 1);
     }
   };
 
   const goToPrevSlide = () => {
     if (currentSlide > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide(currentSlide - 1);
     }
   };
 
   const finishOnboarding = () => {
     // Guardar datos del onboarding si es necesario
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)");
   };
 
@@ -514,31 +2070,72 @@ export default function OnboardingScreen() {
     switch (currentSlide) {
       case 0:
         return (
-          <View style={styles.slide}>
+          <LinearGradient
+            colors={['#1A1A2E', '#16213E']}
+            style={styles.welcomeSlide}
+          >
+            {/* Mascot with breathing animation */}
             <Animated.View
-              entering={FadeInDown.delay(100).duration(500)}
-              style={styles.heroContainer}
+              entering={FadeInDown.delay(100).duration(700)}
+              style={[styles.welcomeHeroContainer, mascotAnimatedStyle]}
             >
-              <View style={styles.glowContainer}>
-                <View style={styles.glowCircle} />
-                <Sparkles size={80} color={colors.primary} strokeWidth={1.5} />
+              <View style={styles.welcomeGlowContainer}>
+                <View style={styles.welcomeGlowCircle} />
+                <Image
+                  source={require("@/assets/images/logoonboarding1.png")}
+                  style={styles.welcomeMascot}
+                  resizeMode="contain"
+                />
               </View>
             </Animated.View>
 
+            {/* Title */}
             <Animated.Text
-              entering={FadeInDown.delay(300).duration(500)}
-              style={styles.mainTitle}
+              entering={FadeInDown.delay(400).duration(600)}
+              style={styles.welcomeTitle}
             >
               Hola. Respira.
             </Animated.Text>
 
+            {/* Subtitle */}
             <Animated.Text
-              entering={FadeInDown.delay(400).duration(500)}
-              style={styles.subtitle}
+              entering={FadeInDown.delay(550).duration(600)}
+              style={styles.welcomeSubtitle}
             >
               Tu cerebro no está roto.{"\n"}Solo necesita un copiloto diferente.
             </Animated.Text>
-          </View>
+
+            {/* Spacer to push button to bottom third */}
+            <View style={styles.welcomeSpacer} />
+
+            {/* Inner Light Button */}
+            <Animated.View
+              entering={FadeInDown.delay(700).duration(500)}
+              style={styles.welcomeButtonContainer}
+            >
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  goToNextSlide();
+                }}
+                style={({ pressed }) => [
+                  styles.welcomeButton,
+                  pressed && styles.welcomeButtonPressed,
+                ]}
+              >
+                <LinearGradient
+                  colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.welcomeButtonGradient}
+                >
+                  <View style={styles.welcomeButtonInner}>
+                    <Text style={styles.welcomeButtonText}>Comenzar</Text>
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+          </LinearGradient>
         );
 
       case 1:
@@ -707,154 +2304,10 @@ export default function OnboardingScreen() {
 
       case 4:
         return (
-          <View style={styles.slide}>
-            {/* Logo */}
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(500)}
-              style={styles.streakIconContainer}
-            >
-              <Image
-                source={require("@/assets/images/logomain.png")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </Animated.View>
-
-            <Animated.Text
-              entering={FadeInDown.delay(200).duration(500)}
-              style={styles.slideTitle}
-            >
-              Construye tu hábito diario
-            </Animated.Text>
-
-            <Animated.Text
-              entering={FadeInDown.delay(250).duration(500)}
-              style={styles.slideSubtitle}
-            >
-              La consistencia es clave para el cambio duradero
-            </Animated.Text>
-
-            {/* Days Selector */}
-            <Animated.View
-              entering={FadeInDown.delay(300).duration(500)}
-              style={styles.daysContainer}
-            >
-              {DAYS_OF_WEEK.map((day, index) => (
-                <Pressable
-                  key={day.id}
-                  onPress={() => {
-                    if (selectedDays.includes(day.id)) {
-                      setSelectedDays(selectedDays.filter((d) => d !== day.id));
-                    } else {
-                      setSelectedDays([...selectedDays, day.id]);
-                    }
-                  }}
-                  style={[
-                    styles.dayButton,
-                    selectedDays.includes(day.id) && styles.dayButtonSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      selectedDays.includes(day.id) && styles.dayLabelSelected,
-                    ]}
-                  >
-                    {day.shortLabel}
-                  </Text>
-                </Pressable>
-              ))}
-            </Animated.View>
-
-            <Animated.Text
-              entering={FadeInDown.delay(350).duration(500)}
-              style={styles.streakSubtext}
-            >
-              Empieza pequeño y mantén la consistencia
-            </Animated.Text>
-
-            {/* Fact Card */}
-            <Animated.View
-              entering={FadeInDown.delay(400).duration(500)}
-              style={styles.factCard}
-            >
-              <View style={styles.factIconContainer}>
-                <Flame
-                  size={20}
-                  color={colors.accent}
-                  strokeWidth={2}
-                  fill={colors.accent}
-                />
-              </View>
-              <Text style={styles.factText}>
-                Las personas con rachas de 7 días tienen 3x más probabilidades
-                de formar hábitos duraderos
-              </Text>
-            </Animated.View>
-          </View>
+          <HabitDaysAnimation onComplete={goToNextSlide} />
         );
 
       case 5:
-        return (
-          <ScrollView
-            style={styles.slideScroll}
-            contentContainerStyle={styles.slideScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Logo */}
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(500)}
-              style={styles.overwhelmLogoContainer}
-            >
-              <Image
-                source={require("@/assets/images/logoonboarding4.png")}
-                style={styles.overwhelmLogo}
-                resizeMode="contain"
-              />
-            </Animated.View>
-
-            <Animated.Text
-              entering={FadeInDown.delay(200).duration(500)}
-              style={styles.overwhelmTitle}
-            >
-              ¿Las tareas complejas{"\n"}te abruman?
-            </Animated.Text>
-
-            {/* Options List */}
-            <Animated.View
-              entering={FadeInDown.delay(300).duration(500)}
-              style={styles.overwhelmOptions}
-            >
-              {OVERWHELM_OPTIONS.map((option, index) => (
-                <Animated.View
-                  key={option.id}
-                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
-                >
-                  <Pressable
-                    onPress={() => setOverwhelmLevel(option.value)}
-                    style={[
-                      styles.overwhelmOption,
-                      overwhelmLevel === option.value &&
-                        styles.overwhelmOptionSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.overwhelmOptionText,
-                        overwhelmLevel === option.value &&
-                          styles.overwhelmOptionTextSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                </Animated.View>
-              ))}
-            </Animated.View>
-          </ScrollView>
-        );
-
-      case 6:
         return (
           <ScrollView
             style={styles.slideScroll}
@@ -904,7 +2357,7 @@ export default function OnboardingScreen() {
           </ScrollView>
         );
 
-      case 7:
+      case 6:
         return (
           <ScrollView
             style={styles.slideScroll}
@@ -950,6 +2403,7 @@ export default function OnboardingScreen() {
                 >
                   <Pressable
                     onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStatement1(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
@@ -959,15 +2413,27 @@ export default function OnboardingScreen() {
                         styles.agreementOptionSelected,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.agreementOptionText,
-                        statement1 === option.value &&
-                          styles.agreementOptionTextSelected,
-                      ]}
+                    <LinearGradient
+                      colors={statement1 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
                     >
-                      {option.label}
-                    </Text>
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement1 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement1 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
               ))}
@@ -975,7 +2441,7 @@ export default function OnboardingScreen() {
           </ScrollView>
         );
 
-      case 8:
+      case 7:
         return (
           <ScrollView
             style={styles.slideScroll}
@@ -1021,6 +2487,7 @@ export default function OnboardingScreen() {
                 >
                   <Pressable
                     onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStatement2(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
@@ -1030,15 +2497,27 @@ export default function OnboardingScreen() {
                         styles.agreementOptionSelected,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.agreementOptionText,
-                        statement2 === option.value &&
-                          styles.agreementOptionTextSelected,
-                      ]}
+                    <LinearGradient
+                      colors={statement2 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
                     >
-                      {option.label}
-                    </Text>
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement2 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement2 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
               ))}
@@ -1046,7 +2525,7 @@ export default function OnboardingScreen() {
           </ScrollView>
         );
 
-      case 9:
+      case 8:
         return (
           <ScrollView
             style={styles.slideScroll}
@@ -1092,6 +2571,7 @@ export default function OnboardingScreen() {
                 >
                   <Pressable
                     onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStatement3(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
@@ -1101,15 +2581,27 @@ export default function OnboardingScreen() {
                         styles.agreementOptionSelected,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.agreementOptionText,
-                        statement3 === option.value &&
-                          styles.agreementOptionTextSelected,
-                      ]}
+                    <LinearGradient
+                      colors={statement3 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
                     >
-                      {option.label}
-                    </Text>
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement3 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement3 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
               ))}
@@ -1117,7 +2609,7 @@ export default function OnboardingScreen() {
           </ScrollView>
         );
 
-      case 10:
+      case 9:
         return (
           <ScrollView
             style={styles.slideScroll}
@@ -1163,6 +2655,7 @@ export default function OnboardingScreen() {
                 >
                   <Pressable
                     onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStatement4(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
@@ -1172,15 +2665,27 @@ export default function OnboardingScreen() {
                         styles.agreementOptionSelected,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.agreementOptionText,
-                        statement4 === option.value &&
-                          styles.agreementOptionTextSelected,
-                      ]}
+                    <LinearGradient
+                      colors={statement4 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
                     >
-                      {option.label}
-                    </Text>
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement4 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement4 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
                   </Pressable>
                 </Animated.View>
               ))}
@@ -1188,174 +2693,19 @@ export default function OnboardingScreen() {
           </ScrollView>
         );
 
+      case 10:
+        return (
+          <GrowthPotentialScreen onContinue={goToNextSlide} />
+        );
+
       case 11:
         return (
-          <ScrollView
-            style={styles.slideScroll}
-            contentContainerStyle={styles.resultsScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Title */}
-            <Animated.Text
-              entering={FadeInDown.delay(100).duration(500)}
-              style={styles.resultsTitle}
-            >
-              Tu Nivel de ADHD
-            </Animated.Text>
-
-            {/* Main Results Card */}
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(500)}
-              style={styles.resultsCard}
-            >
-              {/* Status Row */}
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Estado ADHD:</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>Normal - 9.3</Text>
-                </View>
-              </View>
-
-              {/* Progress Bar with Gradient */}
-              <View style={styles.progressSection}>
-                <View style={styles.tooltipContainer}>
-                  <View style={[styles.tooltip, { left: '75%' }]}>
-                    <Text style={styles.tooltipText}>Tú - 18.79</Text>
-                  </View>
-                </View>
-                <View style={styles.gradientBarContainer}>
-                  <LinearGradient
-                    colors={['#A6E3A1', '#F9E2AF', '#F38BA8']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.gradientBar}
-                  />
-                  <View style={[styles.progressThumb, { left: '75%' }]} />
-                </View>
-                <View style={styles.progressLabels}>
-                  <Text style={styles.progressLabelText}>BAJO</Text>
-                  <Text style={styles.progressLabelText}>PROMEDIO</Text>
-                  <Text style={styles.progressLabelText}>MEDIO</Text>
-                  <Text style={styles.progressLabelText}>ALTO</Text>
-                </View>
-              </View>
-
-              {/* Warning Box */}
-              <View style={styles.warningBox}>
-                <View style={styles.warningHeader}>
-                  <AlertTriangle size={20} color={colors.primary} strokeWidth={2} />
-                  <Text style={styles.warningTitle}>Nivel ALTO</Text>
-                </View>
-                <Text style={styles.warningText}>
-                  Los síntomas elevados de ADHD pueden resultar en más estrés, menos oportunidades, relaciones tensas y menor bienestar.
-                </Text>
-              </View>
-
-              {/* Stats Grid */}
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
-                    <User size={18} color={colors.primary} strokeWidth={2} />
-                  </View>
-                  <View style={styles.statTextContainer}>
-                    <Text style={styles.statLabel}>Tipo ADHD</Text>
-                    <Text style={styles.statValue}>Combinado</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: `${colors.accent}20` }]}>
-                    <Brain size={18} color={colors.accent} strokeWidth={2} />
-                  </View>
-                  <View style={styles.statTextContainer}>
-                    <Text style={styles.statLabel}>Satisfacción de Vida</Text>
-                    <Text style={styles.statValue}>Por debajo del promedio</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: `${colors.success}20` }]}>
-                    <Zap size={18} color={colors.success} strokeWidth={2} />
-                  </View>
-                  <View style={styles.statTextContainer}>
-                    <Text style={styles.statLabel}>Disparador</Text>
-                    <Text style={styles.statValue}>Autodesarrollo</Text>
-                  </View>
-                </View>
-
-                <View style={styles.statItem}>
-                  <View style={[styles.statIconContainer, { backgroundColor: `${colors.primary}20` }]}>
-                    <Crown size={18} color={colors.primary} strokeWidth={2} />
-                  </View>
-                  <View style={styles.statTextContainer}>
-                    <Text style={styles.statLabel}>Nivel de Autoconfianza</Text>
-                    <Text style={styles.statValue}>Por debajo del promedio</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Decorative Logo */}
-              <Image
-                source={require("@/assets/images/logomain.png")}
-                style={styles.resultsLogo}
-                resizeMode="contain"
-              />
-            </Animated.View>
-
-            {/* Action Button */}
-            <Animated.View
-              entering={FadeInDown.delay(400).duration(500)}
-              style={styles.resultsButtonContainer}
-            >
-              <Pressable
-                onPress={goToNextSlide}
-                style={({ pressed }) => [
-                  styles.resultsButton,
-                  pressed && styles.resultsButtonPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.resultsButtonGradient}
-                >
-                  <Text style={styles.resultsButtonText}>Ver mi Proyección ✨</Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
-          </ScrollView>
+          <SuccessTimelineScreen onContinue={goToNextSlide} />
         );
 
       case 12:
         return (
-          <View style={styles.projectionSlide}>
-            {/* Chart Component */}
-            <SatisfactionChart />
-
-            {/* Action Button */}
-            <Animated.View
-              entering={FadeInDown.delay(2500).duration(500)}
-              style={styles.projectionButtonContainer}
-            >
-              <Pressable
-                onPress={finishOnboarding}
-                style={({ pressed }) => [
-                  styles.resultsButton,
-                  pressed && styles.resultsButtonPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.resultsButtonGradient}
-                >
-                  <Text style={styles.resultsButtonText}>Ver mi Plan Personalizado ✨</Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
-          </View>
+          <ReverseTrialScreen onAccept={finishOnboarding} />
         );
 
       default:
@@ -1365,6 +2715,18 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Dev Close Button - Always visible */}
+      {__DEV__ && (
+        <Pressable
+          onPress={() => router.replace("/(tabs)")}
+          style={styles.devCloseButton}
+        >
+          <Text style={styles.devCloseButtonText}>×</Text>
+        </Pressable>
+      )}
+
+      {/* Header - Hidden for welcome slide */}
+      {currentSlide > 0 && (
       <View style={styles.headerContainer}>
         {/* Back Button */}
         <View style={styles.backButtonArea}>
@@ -1401,14 +2763,15 @@ export default function OnboardingScreen() {
         {/* Right Spacer */}
         <View style={styles.backButtonArea} />
       </View>
+      )}
 
       {/* Slide Content */}
       <View style={styles.slideContainer}>{renderSlide()}</View>
 
-      {/* Navigation Buttons - Hidden for slides 7-11 */}
-      {currentSlide < 7 && (
+      {/* Navigation Buttons - Hidden for slides 0, 4, and 6+ */}
+      {currentSlide > 0 && currentSlide < 6 && currentSlide !== 4 && (
         <View style={styles.navigationContainer}>
-          {currentSlide === 6 ? (
+          {currentSlide === 5 ? (
             <Pressable
               onPress={goToNextSlide}
               disabled={selectedGoals.length === 0}
@@ -1419,78 +2782,43 @@ export default function OnboardingScreen() {
               ]}
             >
               <LinearGradient
-                colors={[colors.primary, colors.accent]}
+                colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryButtonContent}
               >
-                <Text style={styles.primaryButtonText}>Continuar</Text>
+                <View style={styles.primaryButtonInner}>
+                  <Text style={styles.primaryButtonText}>Continuar</Text>
+                </View>
               </LinearGradient>
             </Pressable>
-        ) : currentSlide === 5 ? (
-          <Pressable
-            onPress={goToNextSlide}
-            disabled={!overwhelmLevel}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              (pressed || !overwhelmLevel) && styles.primaryButtonPressed,
-            ]}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryButtonContent}
-            >
-              <Text style={styles.primaryButtonText}>Continuar</Text>
-            </LinearGradient>
-          </Pressable>
-        ) : currentSlide === 4 ? (
-          <Pressable
-            onPress={goToNextSlide}
-            disabled={selectedDays.length === 0}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              (pressed || selectedDays.length === 0) &&
-                styles.primaryButtonPressed,
-            ]}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryButtonContent}
-            >
-              <Text style={styles.primaryButtonText}>Continuar</Text>
-            </LinearGradient>
-          </Pressable>
-        ) : (
-          <Pressable
-            onPress={goToNextSlide}
-            disabled={
-              (currentSlide === 1 && !userName.trim()) ||
-              (currentSlide === 2 && selectedEnemies.length === 0)
-            }
-            style={({ pressed }) => [
-              styles.primaryButton,
-              (pressed ||
+          ) : (
+            <Pressable
+              onPress={goToNextSlide}
+              disabled={
                 (currentSlide === 1 && !userName.trim()) ||
-                (currentSlide === 2 && selectedEnemies.length === 0)) &&
-                styles.primaryButtonPressed,
-            ]}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.primaryButtonContent}
+                (currentSlide === 2 && selectedEnemies.length === 0)
+              }
+              style={({ pressed }) => [
+                styles.primaryButton,
+                (pressed ||
+                  (currentSlide === 1 && !userName.trim()) ||
+                  (currentSlide === 2 && selectedEnemies.length === 0)) &&
+                  styles.primaryButtonPressed,
+              ]}
             >
-              <Text style={styles.primaryButtonText}>
-                {currentSlide === 0 ? "Comenzar" : "Continuar"}
-              </Text>
-            </LinearGradient>
-          </Pressable>
-        )}
+              <LinearGradient
+                colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryButtonContent}
+              >
+                <View style={styles.primaryButtonInner}>
+                  <Text style={styles.primaryButtonText}>Continuar</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -1501,6 +2829,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  devCloseButton: {
+    position: "absolute",
+    top: 50,
+    right: 16,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  devCloseButtonText: {
+    fontSize: 24,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "300",
+    marginTop: -2,
   },
   headerContainer: {
     flexDirection: "row",
@@ -1566,6 +2914,95 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 60,
     alignItems: "center",
+  },
+  // Welcome Slide (Case 0) - Deep Ambient Style 2026
+  welcomeSlide: {
+    flex: 1,
+    paddingHorizontal: 32,
+    paddingTop: 80,
+    alignItems: "center",
+  },
+  welcomeHeroContainer: {
+    alignItems: "center",
+    marginBottom: 48,
+  },
+  welcomeGlowContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeGlowCircle: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "rgba(203, 166, 247, 0.15)",
+    shadowColor: "#CBA6F7",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 40,
+  },
+  welcomeMascot: {
+    width: 120,
+    height: 120,
+  },
+  welcomeTitle: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.9)",
+    textAlign: "center",
+    marginBottom: 20,
+    letterSpacing: -0.5,
+    fontFamily: "System",
+  },
+  welcomeSubtitle: {
+    fontSize: 17,
+    fontWeight: "400",
+    color: "rgba(255, 255, 255, 0.65)",
+    textAlign: "center",
+    lineHeight: 26,
+    paddingHorizontal: 24,
+  },
+  welcomeSpacer: {
+    flex: 1,
+    minHeight: 60,
+  },
+  welcomeButtonContainer: {
+    width: "100%",
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  welcomeButton: {
+    borderRadius: 50,
+    overflow: "hidden",
+    shadowColor: "#FF9A9E",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  welcomeButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  welcomeButtonGradient: {
+    borderRadius: 50,
+    padding: 2,
+  },
+  welcomeButtonInner: {
+    backgroundColor: "rgba(26, 26, 46, 0.3)",
+    borderRadius: 48,
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  welcomeButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
   },
   heroContainer: {
     alignItems: "center",
@@ -1815,27 +3252,36 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   primaryButton: {
-    borderRadius: 16,
+    borderRadius: 50,
     overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: "#FF9A9E",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
   primaryButtonContent: {
-    paddingVertical: 14,
+    borderRadius: 50,
+    padding: 2,
+  },
+  primaryButtonInner: {
+    backgroundColor: "rgba(26, 26, 46, 0.3)",
+    borderRadius: 48,
+    paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   primaryButtonPressed: {
-    opacity: 0.85,
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   primaryButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.background,
-    letterSpacing: 0.3,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
   },
   finalButtonWrapper: {
     flex: 1,
@@ -2011,25 +3457,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   agreementOption: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: 50,
+    overflow: "hidden",
+    shadowColor: "#FF9A9E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  agreementOptionGradient: {
+    borderRadius: 50,
+    padding: 2,
+  },
+  agreementOptionInner: {
+    backgroundColor: "rgba(26, 26, 46, 0.6)",
+    borderRadius: 48,
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   agreementOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: `${colors.primary}10`,
+    shadowOpacity: 0.35,
+  },
+  agreementOptionInnerSelected: {
+    backgroundColor: "rgba(26, 26, 46, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
   agreementOptionText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "500",
-    color: colors.textSecondary,
+    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
   },
   agreementOptionTextSelected: {
-    color: colors.textPrimary,
+    color: "#FFFFFF",
     fontWeight: "600",
   },
   // Results Screen (Slide 11)
@@ -2206,27 +3670,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   resultsButton: {
-    borderRadius: 16,
+    borderRadius: 50,
     overflow: "hidden",
-    shadowColor: colors.primary,
+    shadowColor: "#FF9A9E",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 8,
   },
   resultsButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
   resultsButtonGradient: {
+    borderRadius: 50,
+    padding: 2,
+  },
+  resultsButtonInner: {
+    backgroundColor: "rgba(26, 26, 46, 0.3)",
+    borderRadius: 48,
     paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   resultsButtonText: {
     fontSize: 17,
-    fontWeight: "700",
-    color: colors.background,
+    fontWeight: "600",
+    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   // Projection Screen (Slide 12)

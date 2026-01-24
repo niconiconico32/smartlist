@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import { EditRoutineModal } from "@/src/components/EditRoutineModal";
 import { RoutineCard } from "@/src/components/RoutineCard";
+import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
 import {
     cancelRoutineReminders,
     requestNotificationPermissions,
@@ -11,13 +12,29 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
     FadeIn,
     FadeInDown,
     FadeInUp,
 } from "react-native-reanimated";
+
+// Map day number to abbreviation
+const DAY_NUMBER_TO_ABBREV: Record<number, string> = {
+  0: 'Dom',
+  1: 'Lun',
+  2: 'Mar',
+  3: 'Mié',
+  4: 'Jue',
+  5: 'Vie',
+  6: 'Sáb',
+};
+
+interface RoutinesScreenProps {
+  selectedDate?: Date;
+  onRoutineCompleted?: () => void;
+}
 
 interface Routine {
   id: string;
@@ -59,10 +76,31 @@ const DEFAULT_ROUTINES: Routine[] = [
   },
 ];
 
-export default function RoutinesScreen() {
+export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: RoutinesScreenProps) {
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
+  const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
+
+  // Get current day abbreviation from selected date
+  const currentDayAbbrev = useMemo(() => {
+    const date = selectedDate || new Date();
+    const abbrev = DAY_NUMBER_TO_ABBREV[date.getDay()];
+    console.log('Selected date:', date, 'Day abbrev:', abbrev);
+    return abbrev;
+  }, [selectedDate]);
+
+  // Filter routines for the selected day
+  const filteredRoutines = useMemo(() => {
+    console.log('All routines:', routines.map(r => ({ name: r.name, days: r.days })));
+    console.log('Current day abbrev:', currentDayAbbrev);
+    const filtered = routines.filter(routine => 
+      routine.days.includes(currentDayAbbrev)
+    );
+    console.log('Filtered routines:', filtered.map(r => r.name));
+    return filtered;
+  }, [routines, currentDayAbbrev]);
 
   // Solicitar permisos de notificación al montar
   useEffect(() => {
@@ -79,10 +117,34 @@ export default function RoutinesScreen() {
   const loadRoutines = async () => {
     try {
       const stored = await AsyncStorage.getItem("@smartlist_routines");
+      const lastResetDate = await AsyncStorage.getItem("@smartlist_routines_last_reset");
+      const today = new Date().toISOString().split("T")[0];
+      
       if (stored) {
-        const parsedRoutines = JSON.parse(stored);
-        // Si hay rutinas guardadas (y no está vacío), usarlas
+        let parsedRoutines = JSON.parse(stored);
+        
+        // Si hay rutinas guardadas (y no está vacío)
         if (parsedRoutines && parsedRoutines.length > 0) {
+          // Verificar si necesitamos resetear las tareas (nuevo día)
+          if (lastResetDate !== today) {
+            // Resetear todas las tareas completadas
+            parsedRoutines = parsedRoutines.map((routine: any) => ({
+              ...routine,
+              tasks: routine.tasks?.map((task: any) => ({
+                ...task,
+                completed: false,
+              })) || [],
+            }));
+            
+            // Guardar rutinas reseteadas y fecha
+            await AsyncStorage.setItem(
+              "@smartlist_routines",
+              JSON.stringify(parsedRoutines),
+            );
+            await AsyncStorage.setItem("@smartlist_routines_last_reset", today);
+            console.log("Rutinas reseteadas para nuevo día:", today);
+          }
+          
           setRoutines(parsedRoutines);
           return;
         }
@@ -94,6 +156,7 @@ export default function RoutinesScreen() {
         "@smartlist_routines",
         JSON.stringify(DEFAULT_ROUTINES),
       );
+      await AsyncStorage.setItem("@smartlist_routines_last_reset", today);
       // Programar notificaciones para las rutinas de ejemplo
       await rescheduleAllReminders(DEFAULT_ROUTINES);
     } catch (error) {
@@ -187,6 +250,17 @@ export default function RoutinesScreen() {
         JSON.stringify(updatedRoutines),
       );
       setRoutines(updatedRoutines);
+      
+      // Check if ENTIRE routine is now complete - only then update streak
+      if (completed && onRoutineCompleted) {
+        const updatedRoutine = updatedRoutines.find(r => r.id === routineId);
+        if (updatedRoutine) {
+          const allTasksComplete = updatedRoutine.tasks.every(t => t.completed);
+          if (allTasksComplete) {
+            onRoutineCompleted();
+          }
+        }
+      }
     } catch (error) {
       console.error("Error al actualizar tarea:", error);
     }
@@ -200,9 +274,11 @@ export default function RoutinesScreen() {
       >
         <Text style={styles.title}>Rutinas</Text>
         <Text style={styles.subtitle}>
-          {routines.length > 0
-            ? `${routines.length} rutina${routines.length > 1 ? "s" : ""} activa${routines.length > 1 ? "s" : ""}`
-            : "Crea tu primera rutina"}
+          {filteredRoutines.length > 0
+            ? `${filteredRoutines.length} rutina${filteredRoutines.length > 1 ? "s" : ""} para ${currentDayAbbrev}`
+            : routines.length > 0 
+              ? `Sin rutinas para ${currentDayAbbrev}`
+              : "Crea tu primera rutina"}
         </Text>
       </Animated.View>
 
@@ -211,7 +287,7 @@ export default function RoutinesScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {routines.length === 0 ? (
+        {filteredRoutines.length === 0 ? (
           <Animated.View
             entering={FadeIn.delay(200).duration(500)}
             style={styles.emptyState}
@@ -226,18 +302,19 @@ export default function RoutinesScreen() {
               entering={FadeInUp.delay(400).springify()}
               style={styles.emptyTitle}
             >
-              Sin rutinas aún
+              {routines.length > 0 ? `Sin rutinas para ${currentDayAbbrev}` : "Sin rutinas aún"}
             </Animated.Text>
             <Animated.Text
               entering={FadeInUp.delay(500).springify()}
               style={styles.emptySubtitle}
             >
-              Toca el botón + para crear tu primera rutina y organizar tus
-              hábitos diarios
+              {routines.length > 0 
+                ? "Selecciona otro día o crea una nueva rutina para este día"
+                : "Toca el botón + para crear tu primera rutina y organizar tus hábitos diarios"}
             </Animated.Text>
           </Animated.View>
         ) : (
-          routines.map((routine, index) => (
+          filteredRoutines.map((routine, index) => (
             <RoutineCard
               key={routine.id}
               id={routine.id}
@@ -247,6 +324,10 @@ export default function RoutinesScreen() {
               reminderEnabled={routine.reminderEnabled}
               reminderTime={routine.reminderTime}
               colorIndex={index}
+              onPress={() => {
+                setSelectedRoutine(routine);
+                setSelectedRoutineIndex(index);
+              }}
               onEdit={handleEditRoutine}
               onDelete={handleDeleteRoutine}
               onTaskToggle={handleTaskToggle}
@@ -264,6 +345,17 @@ export default function RoutinesScreen() {
           setEditingRoutine(null);
         }}
         onSave={handleSaveEdit}
+      />
+
+      {/* Modal de Detalle de Rutina */}
+      <RoutineDetailModal
+        visible={selectedRoutine !== null}
+        routine={selectedRoutine}
+        colorIndex={selectedRoutineIndex}
+        onClose={() => setSelectedRoutine(null)}
+        onTaskToggle={handleTaskToggle}
+        onDelete={handleDeleteRoutine}
+        onEdit={handleEditRoutine}
       />
     </View>
   );
