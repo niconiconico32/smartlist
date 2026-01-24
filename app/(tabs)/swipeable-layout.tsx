@@ -12,7 +12,14 @@ import React, { createRef, useCallback, useEffect, useRef, useState } from 'reac
 import { Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
-import { format, subDays, isToday, isYesterday, parseISO, startOfDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
+import { 
+  getLocalTodayDateKey, 
+  getLocalDateKey,
+  isLocalToday, 
+  isLocalYesterday, 
+  hasCountedToday 
+} from '@/src/utils/dateHelpers';
 import IndexScreen from './index';
 import TwoScreen from './two';
 
@@ -70,16 +77,12 @@ export default function SwipeableLayout() {
         const { count, lastCompletedDate } = JSON.parse(streakData);
         
         if (lastCompletedDate) {
-          const lastDate = parseISO(lastCompletedDate);
-          const todayDate = startOfDay(new Date());
-          const lastCompleted = startOfDay(lastDate);
-          
-          // Check if streak is still active
-          if (isToday(lastCompleted)) {
+          // ✅ TIMEZONE SAFE: Check if streak is still valid
+          if (isLocalToday(lastCompletedDate)) {
             // Completed today - streak active
             setCurrentStreak(count);
             setIsStreakActiveToday(true);
-          } else if (isYesterday(lastCompleted)) {
+          } else if (isLocalYesterday(lastCompletedDate)) {
             // Completed yesterday - streak still valid but not active today yet
             setCurrentStreak(count);
             setIsStreakActiveToday(false);
@@ -106,33 +109,25 @@ export default function SwipeableLayout() {
   const updateStreakOnTaskComplete = useCallback(async () => {
     try {
       const streakData = await AsyncStorage.getItem('@smartlist_streak');
-      const today = new Date().toISOString();
+      const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE: Use local date
       
       if (streakData) {
         const { count, lastCompletedDate } = JSON.parse(streakData);
         
-        // Only increment if not already counted today
-        if (lastCompletedDate) {
-          const lastDate = startOfDay(parseISO(lastCompletedDate));
-          const todayDate = startOfDay(new Date());
-          
-          if (lastDate.getTime() === todayDate.getTime()) {
-            // Already counted today - just ensure UI is updated
-            setIsStreakActiveToday(true);
-            return;
-          }
+        // ✅ TIMEZONE SAFE: Check if already counted today
+        if (hasCountedToday(lastCompletedDate)) {
+          // Already counted today - just ensure UI is updated
+          setIsStreakActiveToday(true);
+          return;
         }
         
         // Check if streak should continue or reset
         let newCount = 1;
-        if (lastCompletedDate) {
-          const lastDate = startOfDay(parseISO(lastCompletedDate));
-          if (isYesterday(lastDate)) {
-            // Continue streak
-            newCount = count + 1;
-          }
-          // If more than 1 day ago, streak resets to 1
+        if (lastCompletedDate && isLocalYesterday(lastCompletedDate)) {
+          // Continue streak - they completed yesterday
+          newCount = count + 1;
         }
+        // If more than 1 day ago or null, streak resets to 1
         
         setCurrentStreak(newCount);
         setIsStreakActiveToday(true);

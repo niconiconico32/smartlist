@@ -1,5 +1,6 @@
 import { colors } from '@/constants/theme';
 import { addDays, format, isToday, isSameDay, subDays } from 'date-fns';
+import { getLocalDateKey } from '@/src/utils/dateHelpers'; // ✅ TIMEZONE SAFE
 import { es } from 'date-fns/locale';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -86,7 +87,7 @@ export function WeeklyCalendar({
         {allDays.map((day, index) => {
           const isCurrentDay = isToday(day);
           const isSelected = isSameDay(day, selectedDate);
-          const dateKey = format(day, 'yyyy-MM-dd');
+          const dateKey = getLocalDateKey(day); // ✅ TIMEZONE SAFE
           const dayActivity = completedTasksHistory[dateKey];
           const scheduledActivity = scheduledTasksHistory[dateKey];
           

@@ -56,6 +56,11 @@ import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
 import { supabase } from "@/src/lib/supabase";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { 
+  getLocalTodayDateKey, 
+  getLocalDateKey, 
+  isLocalToday 
+} from "@/src/utils/dateHelpers";
 import {
     ONBOARDING_BUTTONS,
     ONBOARDING_COLORS,
@@ -259,7 +264,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     const checkAndCleanCompletedTasks = async () => {
       try {
         const lastCheckDate = await AsyncStorage.getItem('lastCleanupDate');
-        const today = new Date().toISOString().split("T")[0];
+        const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
         
         // Si es un nuevo día, limpiar tareas "once" completadas
         if (lastCheckDate !== today) {
@@ -425,7 +430,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       const stored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
       if (stored) {
         const storedActivities = JSON.parse(stored);
-        const realToday = new Date().toISOString().split("T")[0];
+        const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
         // Migrar tareas antiguas sin recurrence o scheduledDate
         const migratedActivities = storedActivities.map((activity: Activity) => ({
           ...activity,
@@ -581,7 +586,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           }
         : undefined,
       completedDates: [],
-      scheduledDate: (selectedDate || new Date()).toISOString().split("T")[0],
+      scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
     };
 
     setActivities((prev) => [newActivity, ...prev]);
@@ -609,7 +614,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const handleActivityPress = (activity: Activity) => {
     // Verificar si está completada
     const targetDateForCheck = selectedDate || new Date();
-    const todayStr = targetDateForCheck.toISOString().split("T")[0];
+    const todayStr = getLocalDateKey(targetDateForCheck); // ✅ TIMEZONE SAFE
     const isCompleted =
       activity.recurrence?.type !== "once"
         ? activity.completedDates?.includes(todayStr)
@@ -709,7 +714,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const toggleActivityStatus = (id: string) => {
     const targetDateForToggle = selectedDate || new Date();
-    const todayStr = targetDateForToggle.toISOString().split("T")[0];
+    const todayStr = getLocalDateKey(targetDateForToggle); // ✅ TIMEZONE SAFE
 
     setActivities((prevActivities) => {
       const updatedActivities = prevActivities.map((activity) => {
@@ -750,7 +755,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   // Filtrar actividades considerando recurrencia y día de la semana
   // Usar selectedDate si se proporciona, sino usar la fecha actual
   const targetDate = selectedDate || new Date();
-  const today = targetDate.toISOString().split("T")[0];
+  const today = getLocalDateKey(targetDate); // ✅ TIMEZONE SAFE
   const todayDayOfWeek = targetDate.getDay(); // 0 = Domingo, 1 = Lunes, etc.
   const adjustedDayOfWeek = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1; // Ajustar para que 0 = Lunes, 6 = Domingo
   
@@ -764,7 +769,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         return a.scheduledDate === today && !a.completed;
       }
       // Tareas antiguas sin scheduledDate: solo mostrar en el día actual (hoy real)
-      const realToday = new Date().toISOString().split("T")[0];
+      const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
       return today === realToday && !a.completed;
     }
     
@@ -793,7 +798,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         return a.scheduledDate === today && a.completed;
       }
       // Tareas antiguas sin scheduledDate: solo mostrar en el día actual (hoy real)
-      const realToday = new Date().toISOString().split("T")[0];
+      const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
       return today === realToday && a.completed;
     }
     
@@ -1197,7 +1202,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 subtasks: finalSubtasks,
                 recurrence: { type: "once" },
                 completedDates: [],
-                scheduledDate: (selectedDate || new Date()).toISOString().split("T")[0],
+                scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
               };
               setActivities((prev) => [newActivity, ...prev]);
               setShowSubtasksModal(false);
