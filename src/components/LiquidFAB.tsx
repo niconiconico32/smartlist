@@ -20,6 +20,7 @@ interface LiquidFABProps {
   onCreateRoutinePress: () => void;
   onOpenChange?: (isOpen: boolean) => void;
   isOpen?: boolean;
+  onLongPress?: () => void;
 }
 
 export const LiquidFAB: React.FC<LiquidFABProps> = ({
@@ -29,6 +30,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
   onCreateRoutinePress,
   onOpenChange,
   isOpen: externalIsOpen,
+  onLongPress,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -287,6 +289,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
             console.log('FAB pressed, isOpen:', isOpen);
             toggleFAB();
           }}
+          onLongPress={onLongPress}
         >
           <LinearGradient
             colors={['#CBA6F7', '#FAB387']} // Lavender Haze to Peach Fuzz

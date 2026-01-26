@@ -3,6 +3,8 @@ import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
 import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
+import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
+import { NotificationPermissionModal } from '@/src/components/NotificationPermissionModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -20,6 +22,7 @@ import {
   isLocalYesterday, 
   hasCountedToday 
 } from '@/src/utils/dateHelpers';
+import { sendStreakNotification } from '@/src/utils/notifications';
 import IndexScreen from './index';
 import TwoScreen from './two';
 
@@ -61,6 +64,8 @@ export default function SwipeableLayout() {
   const [isFABOpen, setIsFABOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
   const [routines, setRoutines] = useState<Array<{ id: string; name: string; days: string[]; tasks?: Array<{ id: string; completed?: boolean }> }>>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -109,6 +114,7 @@ export default function SwipeableLayout() {
   const updateStreakOnTaskComplete = useCallback(async () => {
     try {
       const streakData = await AsyncStorage.getItem('@smartlist_streak');
+      const hasAskedForNotifications = await AsyncStorage.getItem('@notification_permission_asked');
       const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE: Use local date
       
       if (streakData) {
@@ -136,18 +142,28 @@ export default function SwipeableLayout() {
           lastCompletedDate: today,
         }));
         
+        // 🔔 Send streak milestone notification
+        await sendStreakNotification(newCount);
+        
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
       } else {
-        // First time ever
+        // First time ever - show notification permission modal
+        if (!hasAskedForNotifications) {
+          setShowNotificationPermissionModal(true);
+          await AsyncStorage.setItem('@notification_permission_asked', 'true');
+        }
         setCurrentStreak(1);
         setIsStreakActiveToday(true);
         await AsyncStorage.setItem('@smartlist_streak', JSON.stringify({
           count: 1,
           lastCompletedDate: today,
         }));
+        
+        // 🔔 Send first streak notification
+        await sendStreakNotification(1);
         
         // Celebration haptic
         try {
@@ -490,6 +506,7 @@ export default function SwipeableLayout() {
             onCreateRoutinePress={handleCreateRoutinePress}
             onOpenChange={handleFABOpenChange}
             isOpen={isFABOpen}
+            onLongPress={() => setShowNotificationPanel(true)}
           />
         </View>
 
@@ -550,6 +567,21 @@ export default function SwipeableLayout() {
           setIsFABOpen(false);
         }}
         onCreateRoutine={handleCreateRoutine}
+      />
+
+      {/* Notification Test Panel */}
+      <NotificationTestPanel 
+        visible={showNotificationPanel}
+        onClose={() => setShowNotificationPanel(false)}
+      />
+
+      {/* Notification Permission Modal - First Task */}
+      <NotificationPermissionModal 
+        visible={showNotificationPermissionModal}
+        onClose={() => setShowNotificationPermissionModal(false)}
+        onPermissionGranted={() => {
+          console.log('Notification permission granted');
+        }}
       />
     </View>
   );

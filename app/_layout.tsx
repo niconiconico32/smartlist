@@ -8,6 +8,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/src/contexts/AuthContext';
+import { scheduleDailyNotifications } from '@/src/utils/notifications';
 
 export {
     // Catch any errors thrown by the Layout component.
@@ -48,6 +49,20 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+
+  // 🔔 Schedule daily motivational notifications on app launch
+  useEffect(() => {
+    const setupNotifications = async () => {
+      try {
+        await scheduleDailyNotifications();
+        console.log('✅ Daily notifications setup complete');
+      } catch (error) {
+        console.error('❌ Error setting up notifications:', error);
+      }
+    };
+    
+    setupNotifications();
+  }, []);
 
   return (
     <AuthProvider>
