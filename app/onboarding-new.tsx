@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-    AlertTriangle,
     ArrowRight,
     Brain,
     Check,
@@ -15,8 +14,7 @@ import {
     Shield,
     Sparkles,
     Unlock,
-    User,
-    Zap,
+    Zap
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
@@ -29,8 +27,7 @@ import {
     TextInput,
     View,
 } from "react-native";
-import Animated,
-{
+import Animated, {
     Easing,
     FadeInDown,
     FadeInUp,
@@ -44,7 +41,7 @@ import Animated,
     withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from "react-native-svg";
+import Svg, { Defs, Path, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -420,11 +417,11 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
             <Text style={growthStyles.barLabel}>Actual</Text>
           </View>
 
-          {/* Columna Con SmartList */}
+          {/* Columna Con Brainy */}
           <View style={growthStyles.barColumnPotential}>
             <Text style={growthStyles.barValuePotentialTop}>+85%</Text>
-            <GrowthBar label="Con SmartList" value={100} maxValue={100} isPotential delay={700} />
-            <Text style={[growthStyles.barLabel, growthStyles.barLabelPotential]}>Con SmartList</Text>
+            <GrowthBar label="Con Brainy" value={100} maxValue={100} isPotential delay={700} />
+            <Text style={[growthStyles.barLabel, growthStyles.barLabelPotential]}>Con Brainy</Text>
           </View>
         </View>
 
@@ -1895,6 +1892,44 @@ const ENEMY_OPTIONS = [
   },
 ];
 
+const ADHD_SYMPTOMS = [
+  {
+    id: "paralysis",
+    label: "😫 Me cuesta empezar tareas (Parálisis)",
+  },
+  {
+    id: "time",
+    label: "⏰ Pierdo la noción del tiempo",
+  },
+  {
+    id: "overwhelm",
+    label: "🤯 Me siento abrumado/a fácilmente",
+  },
+  {
+    id: "forget",
+    label: "💨 Olvido cosas importantes al instante",
+  },
+  {
+    id: "racing_mind",
+    label: "🌪️ Mi mente no para nunca",
+  },
+];
+
+const LIFE_AREAS = [
+  {
+    id: "home",
+    label: "🏠 Caos Doméstico",
+  },
+  {
+    id: "work",
+    label: "💼 Trabajo y Estudios",
+  },
+  {
+    id: "health",
+    label: "🧘 Salud y Autocuidado",
+  },
+];
+
 interface SelectableButtonProps {
   icon: any;
   label: string;
@@ -2017,6 +2052,8 @@ export default function OnboardingScreen() {
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [userName, setUserName] = useState("");
   const [selectedEnemies, setSelectedEnemies] = useState<string[]>([]);
+  const [selectedAdhdSymptoms, setSelectedAdhdSymptoms] = useState<string[]>([]);
+  const [selectedLifeArea, setSelectedLifeArea] = useState<string | null>(null);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
   const [overwhelmLevel, setOverwhelmLevel] = useState<string | null>(null);
@@ -2047,7 +2084,7 @@ export default function OnboardingScreen() {
   });
 
   const goToNextSlide = () => {
-    if (currentSlide < 12) {
+    if (currentSlide < 13) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide(currentSlide + 1);
     }
@@ -2070,72 +2107,94 @@ export default function OnboardingScreen() {
     switch (currentSlide) {
       case 0:
         return (
-          <LinearGradient
-            colors={['#1A1A2E', '#16213E']}
-            style={styles.welcomeSlide}
-          >
-            {/* Mascot with breathing animation */}
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(700)}
-              style={[styles.welcomeHeroContainer, mascotAnimatedStyle]}
+          <View style={styles.welcomeSlide}>
+            {/* Dark gradient top section */}
+            <LinearGradient
+              colors={['#16213E', '#1E1E2E', '#2C3E50']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.welcomeTopSection}
             >
-              <View style={styles.welcomeGlowContainer}>
-                <View style={styles.welcomeGlowCircle} />
+              {/* Abstract brainwave patterns */}
+              <Svg width="100%" height="100%" style={styles.welcomePatterns}>
+                <Path
+                  d="M 0 80 Q 50 60, 100 80 T 200 80 T 300 80 T 400 80"
+                  stroke="rgba(203, 166, 247, 0.15)"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <Path
+                  d="M 0 120 Q 60 100, 120 120 T 240 120 T 360 120"
+                  stroke="rgba(166, 227, 161, 0.1)"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <Path
+                  d="M 20 150 Q 80 130, 140 150 T 260 150 T 380 150"
+                  stroke="rgba(250, 179, 135, 0.12)"
+                  strokeWidth="2"
+                  fill="none"
+                />
+              </Svg>
+
+              {/* Mascot with breathing animation */}
+              <Animated.View
+                entering={FadeInDown.delay(100).duration(700)}
+                style={[styles.welcomeHeroContainer, mascotAnimatedStyle]}
+              >
                 <Image
                   source={require("@/assets/images/logoonboarding1.png")}
                   style={styles.welcomeMascot}
                   resizeMode="contain"
                 />
-              </View>
-            </Animated.View>
+              </Animated.View>
+            </LinearGradient>
 
-            {/* Title */}
-            <Animated.Text
-              entering={FadeInDown.delay(400).duration(600)}
-              style={styles.welcomeTitle}
-            >
-              Hola. Respira.
-            </Animated.Text>
-
-            {/* Subtitle */}
-            <Animated.Text
-              entering={FadeInDown.delay(550).duration(600)}
-              style={styles.welcomeSubtitle}
-            >
-              Tu cerebro no está roto.{"\n"}Solo necesita un copiloto diferente.
-            </Animated.Text>
-
-            {/* Spacer to push button to bottom third */}
-            <View style={styles.welcomeSpacer} />
-
-            {/* Inner Light Button */}
-            <Animated.View
-              entering={FadeInDown.delay(700).duration(500)}
-              style={styles.welcomeButtonContainer}
-            >
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  goToNextSlide();
-                }}
-                style={({ pressed }) => [
-                  styles.welcomeButton,
-                  pressed && styles.welcomeButtonPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.welcomeButtonGradient}
+            {/* White wave curved bottom section */}
+            <View style={styles.welcomeCurvedBottom}>
+              <View style={styles.welcomeContentWrapper}>
+                {/* Title */}
+                <Animated.Text
+                  entering={FadeInDown.delay(400).duration(600)}
+                  style={styles.welcomeTitle}
                 >
-                  <View style={styles.welcomeButtonInner}>
-                    <Text style={styles.welcomeButtonText}>Comenzar</Text>
-                  </View>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
-          </LinearGradient>
+                  ¡Bienvenid@ a Brainy!
+                </Animated.Text>
+
+                {/* Subtitle */}
+                <Animated.Text
+                  entering={FadeInDown.delay(550).duration(600)}
+                  style={styles.welcomeSubtitle}
+                >
+                  Tu cerebro no está roto.{"\n"}Solo necesita un copiloto.
+                </Animated.Text>
+
+                {/* Spacer */}
+                <View style={styles.welcomeSpacer} />
+
+                {/* CTA Button */}
+                <Animated.View
+                  entering={FadeInDown.delay(700).duration(500)}
+                  style={styles.welcomeButtonContainer}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      goToNextSlide();
+                    }}
+                    style={({ pressed }) => [
+                      styles.welcomeButton,
+                      pressed && styles.welcomeButtonPressed,
+                    ]}
+                  >
+                    <View style={styles.welcomeButtonSolid}>
+                      <Text style={styles.welcomeButtonText}>Empecemos</Text>
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              </View>
+            </View>
+          </View>
         );
 
       case 1:
@@ -2184,122 +2243,128 @@ export default function OnboardingScreen() {
 
       case 2:
         return (
-          <View style={styles.slide}>
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Título */}
             <Animated.Text
-              entering={FadeInDown.delay(100).duration(500)}
+              entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
             >
-              ¿Cuál es tu mayor{"\n"}enemigo hoy?
+              ¿Cómo te afecta el TDAH hoy?
             </Animated.Text>
 
+            {/* Subtítulo */}
             <Animated.Text
-              entering={FadeInDown.delay(150).duration(500)}
+              entering={FadeInDown.delay(250).duration(500)}
               style={styles.slideSubtitle}
             >
-              Selecciona todas las pertinentes
+              Selecciona los síntomas que experimentas frecuentemente.
             </Animated.Text>
 
+            {/* Grid de síntomas TDAH */}
             <Animated.View
-              entering={FadeInDown.delay(200).duration(500)}
-              style={styles.optionsContainer}
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.adhdSymptomsGrid}
             >
-              {ENEMY_OPTIONS.map((option, index) => (
+              {ADHD_SYMPTOMS.map((symptom, index) => (
                 <Animated.View
-                  key={option.id}
-                  entering={FadeInDown.delay(300 + index * 100).duration(500)}
+                  key={symptom.id}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
-                  <SelectableButton
-                    icon={option.icon}
-                    label={option.label}
-                    color={option.color}
-                    selected={selectedEnemies.includes(option.id)}
+                  <Pressable
                     onPress={() => {
-                      if (selectedEnemies.includes(option.id)) {
-                        setSelectedEnemies(
-                          selectedEnemies.filter((id) => id !== option.id),
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (selectedAdhdSymptoms.includes(symptom.id)) {
+                        setSelectedAdhdSymptoms(
+                          selectedAdhdSymptoms.filter((id) => id !== symptom.id)
                         );
                       } else {
-                        setSelectedEnemies([...selectedEnemies, option.id]);
+                        setSelectedAdhdSymptoms([...selectedAdhdSymptoms, symptom.id]);
                       }
                     }}
-                  />
+                    style={({ pressed }) => [
+                      styles.adhdSymptomPill,
+                      selectedAdhdSymptoms.includes(symptom.id) &&
+                        styles.adhdSymptomPillSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.adhdSymptomLabel}>
+                      {symptom.label}
+                    </Text>
+                    {selectedAdhdSymptoms.includes(symptom.id) ? (
+                      <Check size={16} color={colors.primary} strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </Pressable>
                 </Animated.View>
               ))}
             </Animated.View>
-          </View>
+          </ScrollView>
         );
 
       case 3:
         return (
-          <View style={styles.slide}>
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Título */}
             <Animated.Text
-              entering={FadeInDown.delay(100).duration(500)}
+              entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
             >
-              Divide y Vencerás.
+              ¿Qué área de tu día a día es con la que más te cuesta lidiar?
             </Animated.Text>
 
-            <Animated.View
-              entering={FadeInDown.delay(200).duration(500)}
-              style={styles.graphContainer}
-            >
-              {/* Big Circle */}
-              <View
-                style={[
-                  styles.bigCircle,
-                  { backgroundColor: `${colors.accent}30` },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.innerCircle,
-                    { backgroundColor: colors.accent },
-                  ]}
-                />
-              </View>
-
-              {/* Connection Lines */}
-              <View style={styles.linesContainer}>
-                <View style={styles.connectionLine} />
-                <View
-                  style={[styles.connectionLine, styles.connectionLineLeft]}
-                />
-                <View
-                  style={[styles.connectionLine, styles.connectionLineRight]}
-                />
-              </View>
-
-              {/* Small Circles */}
-              <View style={styles.smallCirclesContainer}>
-                <View
-                  style={[
-                    styles.smallCircle,
-                    { backgroundColor: colors.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.smallCircle,
-                    { backgroundColor: colors.success },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.smallCircle,
-                    { backgroundColor: colors.accent },
-                  ]}
-                />
-              </View>
-            </Animated.View>
-
+            {/* Subtítulo */}
             <Animated.Text
-              entering={FadeInDown.delay(400).duration(500)}
-              style={styles.description}
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
             >
-              Hackeamos tu dopamina convirtiendo{"\n"}tareas grandes en
-              victorias rápidas.
+              Deja que Brainy te ayude con esto. Crearemos un par de tareas por ti.
             </Animated.Text>
-          </View>
+
+            {/* Grid de áreas de vida */}
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.adhdSymptomsGrid}
+            >
+              {LIFE_AREAS.map((area, index) => (
+                <Animated.View
+                  key={area.id}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedLifeArea(area.id);
+                    }}
+                    style={({ pressed }) => [
+                      styles.adhdSymptomPill,
+                      selectedLifeArea === area.id &&
+                        styles.adhdSymptomPillSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.adhdSymptomLabel}>
+                      {area.label}
+                    </Text>
+                    {selectedLifeArea === area.id ? (
+                      <Check size={16} color={colors.primary} strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
         );
 
       case 4:
@@ -2320,7 +2385,7 @@ export default function OnboardingScreen() {
               entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
             >
-              ¿Qué quieres lograr con SmartList?
+              ¿Qué quieres lograr con Brainy?
             </Animated.Text>
 
             <Animated.Text
@@ -2708,6 +2773,30 @@ export default function OnboardingScreen() {
           <ReverseTrialScreen onAccept={finishOnboarding} />
         );
 
+      case 13:
+        return (
+          <View style={styles.slide}>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.neuroscienceContent}
+            >
+              <Animated.Text
+                entering={FadeInDown.delay(200).duration(500)}
+                style={styles.neuroscienceTitle}
+              >
+                La neurociencia confirma que lograr 'micro-victorias' libera la dopamina necesaria para mantener tu motivación.
+              </Animated.Text>
+            </Animated.View>
+
+            <Animated.Text
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.neuroscienceSubtitle}
+            >
+              Respaldado por investigaciones enfocadas en la Terapia Cognitivo-Conductual (TCC)
+            </Animated.Text>
+          </View>
+        );
+
       default:
         return null;
     }
@@ -2754,7 +2843,7 @@ export default function OnboardingScreen() {
               entering={FadeInDown.duration(400)}
               style={[
                 styles.progressBarFill,
-                { width: `${((currentSlide + 1) / 13) * 100}%` },
+                { width: `${((currentSlide + 1) / 14) * 100}%` },
               ]}
             />
           </View>
@@ -2797,13 +2886,15 @@ export default function OnboardingScreen() {
               onPress={goToNextSlide}
               disabled={
                 (currentSlide === 1 && !userName.trim()) ||
-                (currentSlide === 2 && selectedEnemies.length === 0)
+                (currentSlide === 2 && selectedAdhdSymptoms.length === 0) ||
+                (currentSlide === 3 && !selectedLifeArea)
               }
               style={({ pressed }) => [
                 styles.primaryButton,
                 (pressed ||
                   (currentSlide === 1 && !userName.trim()) ||
-                  (currentSlide === 2 && selectedEnemies.length === 0)) &&
+                  (currentSlide === 2 && selectedAdhdSymptoms.length === 0) ||
+                  (currentSlide === 3 && !selectedLifeArea)) &&
                   styles.primaryButtonPressed,
               ]}
             >
@@ -2918,89 +3009,106 @@ const styles = StyleSheet.create({
   // Welcome Slide (Case 0) - Deep Ambient Style 2026
   welcomeSlide: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 80,
-    alignItems: "center",
+    backgroundColor: '#16213E',
+  },
+  welcomeTopSection: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomePatterns: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0.6,
+  },
+  welcomeCurvedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    width: '200%', // 1. Hacemos la caja mucho más ancha que la pantalla
+    left: '-50%',  // 2. La centramos (el exceso es 40%, así que movemos -20% a la izq)
+    borderTopLeftRadius: 700, // 3. Un radio exageradamente grande
+    borderTopRightRadius: 700, // 4. Para crear un arco suave
+    height: '50%',
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+
+    alignItems: 'center', 
+    paddingTop: 50,
+    paddingHorizontal: 60, // Aumentamos
   },
   welcomeHeroContainer: {
     alignItems: "center",
-    marginBottom: 48,
-  },
-  welcomeGlowContainer: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  welcomeGlowCircle: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(203, 166, 247, 0.15)",
-    shadowColor: "#CBA6F7",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 40,
+    justifyContent: 'center',
+    zIndex: 10,
   },
   welcomeMascot: {
-    width: 120,
-    height: 120,
+    width: 270,
+    height: 270,
+    bottom: 150,
+  },
+  welcomeContentWrapper: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 20,
   },
   welcomeTitle: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 36,
+    fontWeight: "900",
+    color: '#2C3E50',
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 16,
     letterSpacing: -0.5,
-    fontFamily: "System",
   },
   welcomeSubtitle: {
-    fontSize: 17,
-    fontWeight: "400",
-    color: "rgba(255, 255, 255, 0.65)",
+    fontSize: 16,
+    fontWeight: "500",
+    color: '#6C7086',
     textAlign: "center",
-    lineHeight: 26,
-    paddingHorizontal: 24,
+    lineHeight: 24,
+    marginBottom: 24,
   },
   welcomeSpacer: {
     flex: 1,
-    minHeight: 60,
+    minHeight: 10,
   },
   welcomeButtonContainer: {
     width: "100%",
+    maxWidth: 350,
     paddingHorizontal: 20,
-    paddingBottom: 40,
   },
   welcomeButton: {
     borderRadius: 50,
     overflow: "hidden",
-    shadowColor: "#FF9A9E",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
+    shadowColor: "#2C3E50",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 8,
   },
   welcomeButtonPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
-  welcomeButtonGradient: {
+  welcomeButtonSolid: {
+    backgroundColor: "#2C3E50",
     borderRadius: 50,
-    padding: 2,
-  },
-  welcomeButtonInner: {
-    backgroundColor: "rgba(26, 26, 46, 0.3)",
-    borderRadius: 48,
-    paddingVertical: 18,
+    paddingVertical: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   welcomeButtonText: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0.5,
   },
@@ -3173,6 +3281,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   selectableLabelSelected: {
+    color: colors.textPrimary,
+  },
+  adhdSymptomsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  adhdSymptomPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    gap: 8,
+  },
+  adhdSymptomPillSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}05`,
+  },
+  adhdSymptomLabel: {
+    fontSize: 14,
+    fontWeight: "500",
     color: colors.textPrimary,
   },
   graphContainer: {
@@ -3710,5 +3845,29 @@ const styles = StyleSheet.create({
   projectionButtonContainer: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  // Neuroscience Screen (Slide 13)
+  neuroscienceContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  neuroscienceTitle: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
+    lineHeight: 36,
+    letterSpacing: 0.3,
+  },
+  neuroscienceSubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+    marginBottom: 30,
+    paddingHorizontal: 40,
+    lineHeight: 20,
   },
 });

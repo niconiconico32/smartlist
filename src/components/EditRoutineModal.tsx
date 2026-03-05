@@ -3,8 +3,9 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, GripVertical, Plus, Trash2, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -61,17 +62,36 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const [routineName, setRoutineName] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const taskListRef = useRef<any>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
 
   // Cargar datos de la rutina cuando cambia
   useEffect(() => {
     if (routine && visible) {
       setRoutineName(routine.name);
       setSelectedDays(routine.days || []);
-      setTasks(routine.tasks || []);
+      
+      // Initialize with tasks or one empty task
+      const initialTasks = routine.tasks && routine.tasks.length > 0 
+        ? routine.tasks.map(t => ({ id: t.id, title: t.title, completed: t.completed }))
+        : [{
+            id: Date.now().toString(),
+            title: '',
+            completed: false,
+          }];
+      
+      setTasks(initialTasks);
+      
+      // Set first task as editing if it's empty
+      if (initialTasks.length > 0 && !initialTasks[0].title) {
+        setEditingTaskId(initialTasks[0].id);
+      }
+      
       setReminderEnabled(routine.reminderEnabled);
       if (routine.reminderTime) {
         const [hours, minutes] = routine.reminderTime.split(':');
@@ -91,16 +111,34 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   };
 
   const handleAddTask = () => {
-    if (newTaskTitle.trim()) {
-      const newTask: Task = {
-        id: Date.now().toString(),
-        title: newTaskTitle.trim(),
-        completed: false,
-      };
-      setTasks(prev => [...prev, newTask]);
-      setNewTaskTitle('');
-      triggerHaptic('light');
-    }
+    const newTask: Task = {
+      id: Date.now().toString(),
+      title: '',
+      completed: false,
+    };
+    
+    setTasks(prev => [...prev, newTask]);
+    setEditingTaskId(newTask.id);
+    triggerHaptic('light');
+    
+    // Focus the new input
+    setTimeout(() => {
+      if (taskInputRefs.current[newTask.id]) {
+        taskInputRefs.current[newTask.id]?.focus();
+      }
+      // Scroll
+      setTimeout(() => {
+        if (scrollViewRef.current) {
+          scrollViewRef.current.scrollToEnd({ animated: true });
+        }
+      }, 100);
+    }, 10);
+  };
+
+  const handleUpdateTask = (taskId: string, newTitle: string) => {
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, title: newTitle } : task
+    ));
   };
 
   const handleToggleDay = (day: string) => {
@@ -117,7 +155,12 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
   const handleRemoveTask = (taskId: string) => {
     setTasks(prev => prev.filter((t) => t.id !== taskId));
+    delete taskInputRefs.current[taskId];
     triggerHaptic('medium');
+  };
+
+  const dismissKeyboard = () => {
+    setEditingTaskId(null);
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
@@ -128,7 +171,10 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   };
 
   const handleSaveRoutine = () => {
-    if (routineName.trim() && tasks.length > 0 && selectedDays.length > 0 && routine) {
+    // Filter out empty tasks
+    const validTasks = tasks.filter(task => task.title.trim() !== '');
+    
+    if (routineName.trim() && validTasks.length > 0 && selectedDays.length > 0 && routine) {
       const timeString = reminderTime.toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
@@ -138,14 +184,21 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
         id: routine.id,
         name: routineName.trim(),
         days: selectedDays,
-        tasks: tasks.map(t => ({ ...t, completed: t.completed ?? false })),
+        tasks: validTasks.map(t => ({ ...t, completed: t.completed ?? false })),
         reminderEnabled,
         reminderTime: reminderEnabled ? timeString : undefined,
       };
 
       onSave(updatedRoutine);
+      setEditingTaskId(null);
+      taskInputRefs.current = {};
       onClose();
     }
+  };
+
+  const handleClose = () => {
+    setEditingTaskId(null);
+    onClose();
   };
 
   const formatTime = (date: Date) => {
@@ -158,12 +211,17 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const renderTaskItem = useCallback(
     ({ item, drag, isActive, getIndex }: RenderItemParams<Task>) => {
       const index = getIndex() ?? 0;
+      const isEditing = editingTaskId === item.id;
+      const isLastItem = index === tasks.length - 1;
+      
       return (
         <ScaleDecorator>
           <Pressable
             onLongPress={() => {
-              triggerHaptic('medium');
-              drag();
+              if (!isEditing) {
+                triggerHaptic('medium');
+                drag();
+              }
             }}
             disabled={isActive}
             style={[
@@ -171,53 +229,95 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               isActive && styles.taskItemDragging,
             ]}
           >
-            <Pressable onPressIn={drag} style={styles.dragHandle}>
+            <Pressable 
+              onPressIn={drag} 
+              style={styles.dragHandle}
+              disabled={isEditing}
+            >
               <GripVertical size={18} color={colors.textSecondary} />
             </Pressable>
             <View style={styles.taskNumber}>
               <Text style={styles.taskNumberText}>{index + 1}</Text>
             </View>
-            <Text style={styles.taskItemText}>{item.title}</Text>
-            <Pressable
-              onPress={() => handleRemoveTask(item.id)}
-              style={styles.actionIcon}
-              hitSlop={10}
-            >
-              <Trash2 size={18} color={colors.textSecondary} />
-            </Pressable>
+            
+            <TextInput
+              ref={(ref) => {
+                if (ref) {
+                  taskInputRefs.current[item.id] = ref;
+                } else {
+                  delete taskInputRefs.current[item.id];
+                }
+              }}
+              style={[
+                styles.taskItemText,
+                !item.title && styles.taskItemTextEmpty
+              ]}
+              value={item.title}
+              onChangeText={(text) => handleUpdateTask(item.id, text)}
+              placeholder="Tarea Vacía"
+              placeholderTextColor={colors.textSecondary + '80'}
+              onFocus={() => setEditingTaskId(item.id)}
+              autoFocus={isEditing}
+              multiline={false}
+              blurOnSubmit={false}
+            />
+            
+            {isLastItem ? (
+              <Pressable
+                onPress={handleAddTask}
+                style={styles.addTaskButtonInline}
+              >
+                <Plus size={24} color={colors.primary} strokeWidth={3} />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => handleRemoveTask(item.id)}
+                style={styles.actionIcon}
+                hitSlop={10}
+              >
+                <Trash2 size={18} color={colors.textSecondary} />
+              </Pressable>
+            )}
           </Pressable>
         </ScaleDecorator>
       );
     },
-    [tasks]
+    [tasks, editingTaskId]
   );
 
-  const isValid = routineName.trim().length > 0 && tasks.length > 0 && selectedDays.length > 0;
+  const isValid = routineName.trim().length > 0 && tasks.filter(t => t.title.trim()).length > 0 && selectedDays.length > 0;
 
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          behavior="padding"
+          style={styles.keyboardAvoidingView}
+          keyboardVerticalOffset={40}
+        >
+          <View style={styles.overlay}>
           <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Editar Rutina</Text>
-              <Pressable onPress={onClose} style={styles.closeButton}>
+              <Pressable onPress={handleClose} style={styles.closeButton}>
                 <X size={24} color={colors.textPrimary} />
               </Pressable>
             </View>
 
+            
             {/* Content */}
-            <ScrollView 
+            <ScrollView
+              ref={scrollViewRef}
               style={styles.scrollContent}
               contentContainerStyle={styles.scrollContentContainer}
               showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               nestedScrollEnabled={true}
             >
               <View>
@@ -231,18 +331,23 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                   placeholderTextColor={colors.textSecondary}
                   value={routineName}
                   onChangeText={setRoutineName}
+                  onFocus={dismissKeyboard}
                 />
               </View>
 
               {/* Day Selection */}
+              <Pressable onPress={dismissKeyboard}>
               <View style={styles.section}>
-                <Text style={styles.label}>Día de la semana</Text>
+                <Text style={styles.label}>¿Qué días quieres hacerla?</Text>
                 <View style={{ height: 12 }} />
                 <View style={styles.daysContainer}>
                   {DAYS_OF_WEEK.map((day) => (
                     <Pressable
                       key={day.short}
-                      onPress={() => handleToggleDay(day.short)}
+                      onPress={() => {
+                        handleToggleDay(day.short);
+                        dismissKeyboard();
+                      }}
                       style={[
                         styles.dayButton,
                         selectedDays.includes(day.short) && styles.dayButtonActive,
@@ -260,63 +365,45 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                   ))}
                 </View>
               </View>
+              </Pressable>
 
               {/* Tasks Section */}
               <View style={styles.tasksSection}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.label}>Tareas</Text>
+                  <Text style={styles.label}>Tareas de la rutina</Text>
                   {tasks.length > 0 && (
                     <Text style={styles.helperText}>Mantén presionado para ordenar</Text>
                   )}
                 </View>
                 <View style={{ height: 12 }} />
 
-                {/* Task Input */}
-                <View style={styles.taskInputContainer}>
-                  <TextInput
-                    style={styles.taskInput}
-                    placeholder="Escribir siguiente paso..."
-                    placeholderTextColor={colors.textSecondary}
-                    value={newTaskTitle}
-                    onChangeText={setNewTaskTitle}
-                    onSubmitEditing={handleAddTask}
-                    returnKeyType="done"
-                  />
-                  <Pressable onPress={handleAddTask} style={styles.addTaskButton}>
-                    <Plus size={24} color="#FFFFFF" strokeWidth={3} />
-                  </Pressable>
-                </View>
-
-                <View style={{ height: 12 }} />
-
                 {/* Task List - Draggable */}
-                {tasks.length > 0 ? (
-                  <View style={styles.taskListWrapper}>
-                    <DraggableFlatList
-                      data={tasks}
-                      onDragEnd={({ data }) => {
-                        setTasks(data);
-                        triggerHaptic('medium');
-                      }}
-                      keyExtractor={(item) => item.id}
-                      renderItem={renderTaskItem}
-                      scrollEnabled={false}
-                      containerStyle={{ overflow: 'visible' }}
-                    />
-                  </View>
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <Text style={styles.emptyTasksText}>
-                      Aún no hay tareas. Agrega la primera arriba.
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.taskListWrapper}>
+                  <DraggableFlatList
+                    ref={taskListRef}
+                    data={tasks}
+                    onDragEnd={({ data }) => {
+                      setTasks(data);
+                      triggerHaptic('medium');
+                    }}
+                    keyExtractor={(item) => item.id}
+                    renderItem={renderTaskItem}
+                    scrollEnabled={false}
+                    containerStyle={{ overflow: 'visible' }}
+                    activationDistance={10}
+                  />
+                </View>
               </View>
 
               {/* Reminder Section */}
               <View style={styles.section}>
+                <Text style={styles.label}>¿Quieres un recordatorio?</Text>
+                <View style={{ height: 12 }} />
                 <Pressable 
-                  onPress={() => setReminderEnabled(!reminderEnabled)}
+                  onPress={() => {
+                    setReminderEnabled(!reminderEnabled);
+                    dismissKeyboard();
+                  }}
                   style={[
                     styles.reminderCard, 
                     reminderEnabled && styles.reminderCardActive
@@ -345,7 +432,10 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                   {reminderEnabled && (
                     <Pressable 
                       style={styles.timeDisplay}
-                      onPress={() => setShowTimePicker(true)}
+                      onPress={() => {
+                        setShowTimePicker(true);
+                        dismissKeyboard();
+                      }}
                     >
                       <Text style={styles.timeDisplayText}>{formatTime(reminderTime)}</Text>
                     </Pressable>
@@ -387,43 +477,49 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
           </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   container: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '92%',
-    minHeight: '70%',
+    borderRadius: 0,
+    flex: 1,
     flexDirection: 'column',
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(203, 166, 247, 0.1)',
+    paddingVertical: 13,
+    margin: 'auto',
   },
   title: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.textPrimary,
+    textAlign: 'center',
+    alignItems: 'center',
   },
   closeButton: {
-    padding: 8,
-    backgroundColor: colors.surface,
-    borderRadius: 50,
+    padding: 3,
+    position: 'absolute',
+    right: -110,
+    top: 13,
   },
   scrollContent: {
     flex: 1,
@@ -447,7 +543,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -458,10 +554,10 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 15,
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    fontSize: 13,
     color: colors.textPrimary,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
@@ -472,13 +568,13 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   dayButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     backgroundColor: colors.surface,
-    minWidth: 45,
+    minWidth: 40,
     alignItems: 'center',
     margin: 4,
   },
@@ -487,7 +583,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   dayButtonText: {
-    fontSize: 13,
+    fontSize: 12.3,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -519,13 +615,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.surfaceHighlight,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 28,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.primary + '20',
-    minHeight: 56,
   },
   taskItemDragging: {
     backgroundColor: colors.surfaceHighlight,
@@ -538,9 +633,13 @@ const styles = StyleSheet.create({
   },
   taskItemText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.textPrimary,
+    padding: 0,
+  },
+  taskItemTextEmpty: {
+    fontStyle: 'italic',
   },
   dragHandle: {
     padding: 4,
@@ -563,34 +662,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
-  taskInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  taskInput: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: colors.primary + '40',
-  },
-  addTaskButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary,
+  addTaskButtonInline: {
+    padding: 4,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
 
   // Reminder
@@ -654,12 +731,10 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
     backgroundColor: colors.background,
   },
   createButton: {
-    borderRadius: 20,
+    borderRadius: 32,
     overflow: 'hidden',
   },
   createButtonDisabled: {

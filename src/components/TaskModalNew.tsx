@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Calendar, Clock, Mic, MicOff, Sparkles, X, Zap } from 'lucide-react-native';
+import { Mic, MicOff, Sparkles, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -255,23 +255,19 @@ export function TaskModalNew({
       onRequestClose={handleClose}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={handleClose}>
+      <KeyboardAvoidingView 
+        behavior="padding"
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={0}
+      >
         <View style={styles.overlay}>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              style={styles.keyboardAvoid}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-            >
-              <TouchableWithoutFeedback>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
                 <Animated.View 
                   entering={SlideInDown.springify().damping(20).mass(0.5).stiffness(100)}
                   exiting={SlideOutDown.duration(200)}
                   style={styles.animatedContainer}
                 >
                   <BlurView intensity={95} tint="light" style={styles.blurContainer}>
-                    
-                    <View style={styles.handleBar} />
                     
                     {/* --- CAMBIO: Título enfocado en romper parálisis --- */}
                     <View style={styles.header}>
@@ -318,7 +314,7 @@ export function TaskModalNew({
                         <TextInput
                           ref={inputRef}
                           multiline
-                          placeholder="¿Qué tarea te está abrumando hoy? Desglosémosla."
+                          placeholder="¿Qué tarea te está abrumando hoy? Funciona mejor si incluyes más detalles..."
                           placeholderTextColor="#94a3b8"
                           value={text}
                           onChangeText={setText}
@@ -422,60 +418,49 @@ export function TaskModalNew({
 
                   </BlurView>
                 </Animated.View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
           </TouchableWithoutFeedback>
         </View>
-      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoidingContainer: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  keyboardAvoid: {
-    width: '100%',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   animatedContainer: {
     width: '100%',
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    flex: 1,
+    borderRadius: 0,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
   },
   blurContainer: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)',
   },
-  handleBar: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#cbd5e1',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 13,
     marginBottom: 20,
   },
   headerLeft: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
   headerLine: {
@@ -485,19 +470,21 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: '#1e293b',
+    textAlign: 'center',
   },
   closeButton: {
-    padding: 10,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 50,
+    padding: 3,
+    position: 'absolute',
+    right: -4,
+    top: 10,
   },
   inputContainer: {
-    minHeight: 100,
-    maxHeight: 180,
+    flex: 1,
     marginBottom: 20,
+    marginTop: 20,
     justifyContent: 'flex-start',
   },
   listeningContainer: {
@@ -532,12 +519,11 @@ const styles = StyleSheet.create({
     minHeight: 8,
   },
   textInput: {
-    fontSize: 24, // Letra grande para evitar fatiga visual
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '400',
     color: '#1e293b',
-    lineHeight: 32,
-    minHeight: 80,
-    maxHeight: 160,
+    lineHeight: 28,
+    flex: 1,
     paddingTop: 0,
   },
   chipsContainer: {
@@ -575,6 +561,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    marginTop: 'auto',
   },
   micButton: {
     width: 56,
@@ -641,5 +628,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     marginTop: 16,
+    marginBottom: 8,
   },
 });

@@ -4,11 +4,18 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/src/contexts/AuthContext';
 import { scheduleDailyNotifications } from '@/src/utils/notifications';
+
+// Suprimir warning de expo-notifications - las notificaciones funcionan en development build
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  'remote notifications',
+]);
 
 export {
     // Catch any errors thrown by the Layout component.

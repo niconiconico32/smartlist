@@ -1,33 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  X
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    X
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Dimensions,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
+    AppState,
+    Dimensions,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
-  interpolate,
-  interpolateColor,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming
+    Easing,
+    interpolate,
+    interpolateColor,
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SuccessScreen } from './SuccessScreen';
@@ -48,7 +50,7 @@ interface FocusModeScreenProps {
   taskEmoji: string;
   subtasks: FocusSubtask[];
   onComplete: () => void;
-  onClose: () => void;
+  onClose: (updatedSubtasks?: FocusSubtask[]) => void;
 }
 
 // Slider constants
@@ -330,6 +332,9 @@ export function FocusModeScreen({
   onComplete,
   onClose,
 }: FocusModeScreenProps) {
+  // Mantener la pantalla activa durante el modo focus
+  useKeepAwake();
+
   const [subtasks, setSubtasks] = useState(initialSubtasks);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -339,6 +344,10 @@ export function FocusModeScreen({
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [showExitModal, setShowExitModal] = useState(false);
+  
+  // Timestamps para calcular el tiempo en background
+  const startTimeRef = useRef<number>(Date.now());
+  const backgroundTimeRef = useRef<number>(0);
 
   // Load saved progress on mount
   useEffect(() => {
@@ -347,10 +356,13 @@ export function FocusModeScreen({
         const saved = await AsyncStorage.getItem(`focus_progress_${activityId}`);
         if (saved) {
           const progress = JSON.parse(saved);
-          setSubtasks(progress.subtasks);
+          // Solo restaurar el índice y tiempos, NO las subtasks
+          // Las subtasks actuales vienen de initialSubtasks que reflejan el estado real
           setCurrentIndex(progress.currentIndex);
           setTotalElapsedTime(progress.totalElapsedTime);
           setElapsedTime(progress.elapsedTime);
+          // Adjust startTimeRef to account for already-elapsed time
+          startTimeRef.current = Date.now() - (progress.elapsedTime * 1000);
         }
       } catch (error) {
         console.error('Error loading progress:', error);
@@ -359,12 +371,11 @@ export function FocusModeScreen({
     loadProgress();
   }, [activityId]);
 
-  // Save progress whenever state changes
+  // Save progress whenever state changes (position and time only, not subtasks state)
   useEffect(() => {
     const saveProgress = async () => {
       try {
         const progress = {
-          subtasks,
           currentIndex,
           totalElapsedTime,
           elapsedTime,
@@ -375,7 +386,7 @@ export function FocusModeScreen({
       }
     };
     saveProgress();
-  }, [subtasks, currentIndex, totalElapsedTime, elapsedTime, activityId]);
+  }, [currentIndex, totalElapsedTime, elapsedTime, activityId]);
 
   // Background gradient animation
   const gradientPosition = useSharedValue(0);
@@ -388,19 +399,48 @@ export function FocusModeScreen({
     );
   }, []);
 
-  // Timer
+  // Timer basado en timestamps para funcionar en background
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (isTimerRunning && !isClosing) {
-      interval = setInterval(() => {
-        setElapsedTime((prev) => prev + 1);
-        setTotalElapsedTime((prev) => prev + 1);
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    if (!isTimerRunning || isClosing) return;
+
+    startTimeRef.current = Date.now() - (elapsedTime * 1000);
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = Math.floor((now - startTimeRef.current) / 1000);
+      setElapsedTime(elapsed);
+      setTotalElapsedTime((prev) => {
+        const currentTaskElapsed = elapsed;
+        const previousTasksTime = prev - (elapsedTime || 0);
+        return previousTasksTime + currentTaskElapsed;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [isTimerRunning, isClosing]);
+
+  // AppState listener para manejar background/foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // Guardar el tiempo cuando la app va a background
+        backgroundTimeRef.current = Date.now();
+      } else if (nextAppState === 'active' && backgroundTimeRef.current > 0) {
+        // Recalcular el tiempo cuando la app vuelve a foreground
+        if (isTimerRunning && !isClosing) {
+          const timeInBackground = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
+          setElapsedTime((prev) => prev + timeInBackground);
+          setTotalElapsedTime((prev) => prev + timeInBackground);
+          startTimeRef.current = Date.now() - ((elapsedTime + timeInBackground) * 1000);
+        }
+        backgroundTimeRef.current = 0;
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isTimerRunning, isClosing, elapsedTime]);
 
   const currentSubtask = subtasks[currentIndex];
   const isLastTask = currentIndex === subtasks.length - 1;
@@ -441,6 +481,7 @@ export function FocusModeScreen({
           // Next task
           setCurrentIndex((prev) => prev + 1);
           setElapsedTime(0);
+          startTimeRef.current = Date.now();
           setIsTimerRunning(true);
         }
       }
@@ -454,6 +495,7 @@ export function FocusModeScreen({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentIndex((prev) => prev - 1);
       setElapsedTime(0);
+      startTimeRef.current = Date.now();
     }
   }, [currentIndex]);
 
@@ -462,6 +504,7 @@ export function FocusModeScreen({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentIndex((prev) => prev + 1);
       setElapsedTime(0);
+      startTimeRef.current = Date.now();
     }
   }, [currentIndex, subtasks.length]);
 
@@ -477,10 +520,9 @@ export function FocusModeScreen({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     } catch (error) {}
     
-    // Save progress before closing
+    // Save progress for resuming later (but subtasks state is managed by parent)
     try {
       const progress = {
-        subtasks,
         currentIndex,
         totalElapsedTime,
         elapsedTime,
@@ -491,7 +533,7 @@ export function FocusModeScreen({
     }
     
     setTimeout(() => {
-      onClose();
+      onClose(subtasks); // Pass updated subtasks to parent
     }, 50);
   }, [subtasks, currentIndex, totalElapsedTime, elapsedTime, activityId, onClose]);
 
@@ -509,8 +551,9 @@ export function FocusModeScreen({
     } catch (error) {
       console.error('Error clearing progress:', error);
     }
-    onComplete();
-  }, [activityId, onComplete]);
+    // Pass subtasks to parent before calling onComplete
+    onClose(subtasks);
+  }, [activityId, subtasks, onClose]);
 
   // Show success screen if all tasks completed
   if (showSuccessScreen) {

@@ -3,23 +3,23 @@ import { Flame } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  Easing,
-  FadeInDown,
-  FadeOutUp,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  withSequence,
-  withDelay
+    Easing,
+    FadeInDown,
+    FadeOutUp,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withTiming
 } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PHRASES = [
   'La parálisis por análisis es vencible. Divide y vencerás.',
-  'Tu cerebro es para crear, no para almacenar. Deja que SmartList guarde el plan.',
+  'Tu cerebro es para crear, no para almacenar. Deja que Brainy guarde el plan.',
   'Recupera tu ancho de banda mental. Saca el caos de tu cabeza y ponlo aquí.',
   'No es falta de capacidad, es falta de claridad. Nosotros ponemos el foco.',
   'La inercia se rompe con micro-pasos. Te decimos exactamente por dónde empezar.',

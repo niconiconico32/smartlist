@@ -16,6 +16,7 @@ type Activity = {
   action: "add" | "play";
   completed: boolean;
   subtasks: Subtask[];
+  difficulty?: "easy" | "moderate" | "hard";
   recurrence?: {
     type: "once" | "daily" | "weekly";
     days?: number[];
@@ -46,8 +47,10 @@ function getRandomIconColor() {
 
 // Dummy fallback for ConfettiCannon if not imported
 const ConfettiCannon = (props: any) => null;
+import { DEV_MODE, SHOW_TEST_BUTTONS } from "@/constants/config";
 import { colors } from "@/constants/theme";
 import { ActivityButton } from "@/src/components/ActivityButton";
+import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
 import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
 import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
@@ -55,38 +58,36 @@ import { TaskModalNew } from "@/src/components/TaskModalNew";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
 import { supabase } from "@/src/lib/supabase";
-import { useAuth } from "@/src/contexts/AuthContext";
-import { 
-  getLocalTodayDateKey, 
-  getLocalDateKey, 
-  isLocalToday 
-} from "@/src/utils/dateHelpers";
 import {
-    ONBOARDING_BUTTONS,
-    ONBOARDING_COLORS,
-    ONBOARDING_DIMENSIONS,
-    ONBOARDING_DOTS,
-    ONBOARDING_SHADOWS,
-    ONBOARDING_TYPOGRAPHY,
+  ONBOARDING_BUTTONS,
+  ONBOARDING_COLORS,
+  ONBOARDING_DIMENSIONS,
+  ONBOARDING_DOTS,
+  ONBOARDING_SHADOWS,
+  ONBOARDING_TYPOGRAPHY,
 } from "@/src/styles/onboardingStyles";
+import {
+  getLocalDateKey,
+  getLocalTodayDateKey
+} from "@/src/utils/dateHelpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Check, Clock, X, Sparkles } from "lucide-react-native";
+import { Check, CheckCircle, Clock, FileText, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    Pressable,
-    Animated as RNAnimated,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  Pressable,
+  Animated as RNAnimated,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -175,6 +176,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   // Focus Mode States
   const [showFocusMode, setShowFocusMode] = useState(false);
   const [focusModeSubtasks, setFocusModeSubtasks] = useState<Subtask[]>([]);
+  const [currentFocusModeActivityId, setCurrentFocusModeActivityId] = useState<string | null>(null);
   
   // Streak Success Screen State (Dev Testing)
   const [showStreakSuccess, setShowStreakSuccess] = useState(false);
@@ -212,6 +214,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const confettiRef = useRef<any>(null);
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [selectedTab, setSelectedTab] = useState<'progress' | 'completed'>('progress');
 
   // Función para avanzar al siguiente paso del onboarding
   const goToNextStep = () => {
@@ -551,7 +554,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const addTaskToList = (finalSubtasks?: Subtask[]) => {
+  const addTaskToList = (finalSubtasks?: Subtask[], difficulty?: "easy" | "moderate" | "hard") => {
     const tasksToUse = finalSubtasks || subtasks;
 
     if (!generatedTaskTitle || tasksToUse.length === 0) {
@@ -569,6 +572,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       action: "play",
       completed: false,
       subtasks: tasksToUse,
+      difficulty: difficulty || "easy",
       recurrence: isScheduled
         ? {
             type: recurrenceType,
@@ -590,25 +594,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     };
 
     setActivities((prev) => [newActivity, ...prev]);
+    
+    // Return the new activity ID so it can be used in Focus Mode
+    return newActivity.id;
 
-    // Reset modal
-    setShowSubtasksModal(false);
-    setShowTaskModal(false);
-    setTaskInput("");
-    setSubtasks([]);
-    setGeneratedTaskTitle("");
-    setGeneratedEmoji("✨");
-    setIsScheduled(false);
-    setRecurrenceType("once");
-    setSelectedDays([]);
-    setScheduledTime(null);
-    setReminderEnabled(false);
-    setReminderTime(15);
-
-    Alert.alert(
-      "✅ Tarea agregada",
-      `"${generatedTaskTitle}" fue agregada a tu lista`,
-    );
   };
 
   const handleActivityPress = (activity: Activity) => {
@@ -645,22 +634,81 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const handleUpdateTask = (activityId: string, newSubtasks: Subtask[]) => {
+  const handleUpdateTask = (activityId: string, newSubtasks: Subtask[], difficulty: "easy" | "moderate" | "hard") => {
+    const allCompleted = areAllSubtasksCompleted(newSubtasks);
+    const targetDate = selectedDate || new Date();
+    const todayStr = getLocalDateKey(targetDate);
+    
     setActivities((prev) =>
-      prev.map((activity) =>
-        activity.id === activityId
-          ? {
-              ...activity,
-              subtasks: newSubtasks,
-              metric: `${newSubtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
+      prev.map((activity) => {
+        if (activity.id !== activityId) return activity;
+        
+        const updatedActivity = {
+          ...activity,
+          subtasks: newSubtasks,
+          difficulty: difficulty,
+          metric: `${newSubtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
+        };
+        
+        // Si todas las subtareas están completadas, marcar la actividad como completada
+        if (allCompleted) {
+          const isRecurrent = activity.recurrence?.type !== "once";
+          
+          if (isRecurrent) {
+            const alreadyCompletedToday = activity.completedDates?.includes(todayStr);
+            if (!alreadyCompletedToday && onTaskCompleted) {
+              onTaskCompleted();
             }
-          : activity
-      )
+            return {
+              ...updatedActivity,
+              completedDates: alreadyCompletedToday
+                ? activity.completedDates
+                : [...(activity.completedDates || []), todayStr],
+            };
+          } else {
+            if (!activity.completed && onTaskCompleted) {
+              onTaskCompleted();
+            }
+            return { ...updatedActivity, completed: true };
+          }
+        }
+        
+        return updatedActivity;
+      })
     );
   };
 
   const handleDeleteTaskFromList = (activityId: string) => {
     setActivities((prev) => prev.filter((activity) => activity.id !== activityId));
+  };
+
+  const handleResetTask = (activityId: string) => {
+    const targetDate = selectedDate || new Date();
+    const todayStr = getLocalDateKey(targetDate);
+
+    setActivities((prevActivities) =>
+      prevActivities.map((activity) => {
+        if (activity.id !== activityId) return activity;
+
+        const isRecurrent = activity.recurrence?.type !== "once";
+
+        if (isRecurrent) {
+          // Para tareas recurrentes, remover la fecha de completedDates
+          return {
+            ...activity,
+            completedDates: activity.completedDates?.filter((d) => d !== todayStr) || [],
+            subtasks: activity.subtasks.map(subtask => ({ ...subtask, isCompleted: false })),
+          };
+        } else {
+          // Para tareas de una vez, marcar como no completada y resetear subtareas
+          return {
+            ...activity,
+            completed: false,
+            subtasks: activity.subtasks.map(subtask => ({ ...subtask, isCompleted: false })),
+          };
+        }
+      })
+    );
   };
 
   // Stopwatch effect (counts up)
@@ -752,6 +800,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     });
   };
 
+  // Función helper para verificar si todas las subtareas están completadas
+  const areAllSubtasksCompleted = (subtasks: Subtask[]): boolean => {
+    if (!subtasks || subtasks.length === 0) return false;
+    return subtasks.every(subtask => subtask.isCompleted);
+  };
+
   // Filtrar actividades considerando recurrencia y día de la semana
   // Usar selectedDate si se proporciona, sino usar la fecha actual
   const targetDate = selectedDate || new Date();
@@ -830,62 +884,126 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Tus tareas de hoy</Text>
+          {/* Tabs */}
+          <View style={styles.tabsContainer}>
+            <Pressable
+              style={[
+                styles.tab,
+                selectedTab === 'progress' && styles.tabActive,
+              ]}
+              onPress={() => setSelectedTab('progress')}
+            >
+              <FileText
+                size={16}
+                color={selectedTab === 'progress' ? colors.textPrimary : colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  selectedTab === 'progress' && styles.tabTextActive,
+                ]}
+              >
+                Tus Tareas de Hoy 
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.tab,
+                selectedTab === 'completed' && styles.tabActive,
+              ]}
+              onPress={() => setSelectedTab('completed')}
+            >
+              <CheckCircle
+                size={16}
+                color={selectedTab === 'completed' ? colors.textPrimary : colors.textSecondary}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.tabText,
+                  selectedTab === 'completed' && styles.tabTextActive,
+                ]}
+              >
+                Completadas
+              </Text>
+            </Pressable>
           </View>
 
+          {/* Activities Container */}
           <View style={styles.activitiesContainer}>
-            {pendingActivities.length === 0 ? (
-              <Text style={styles.emptyPlaceholder}>
-                No tienes tareas para hoy. Agrega una pinchando +
-              </Text>
+            {selectedTab === 'progress' ? (
+              pendingActivities.length === 0 ? (
+                <Text style={styles.emptyPlaceholder}>
+                  No tienes tareas para hoy. Agrega una pinchando +
+                </Text>
+              ) : (
+                pendingActivities.map((activity, index) => (
+                  <View key={activity.id} style={styles.activityCardWrapper}>
+                    <ActivityButton
+                      title={activity.title}
+                      emoji={activity.emoji}
+                      metric={activity.metric}
+                      color={activity.color}
+                      iconColor={activity.iconColor}
+                      action={activity.action}
+                      completed={false}
+                      difficulty={activity.difficulty}
+                      hasSubtasks={
+                        activity.subtasks ? activity.subtasks.length > 0 : false
+                      }
+                      subtasksProgress={
+                        activity.subtasks && activity.subtasks.length > 0
+                          ? {
+                              completed: activity.subtasks.filter(s => s.isCompleted).length,
+                              total: activity.subtasks.length,
+                            }
+                          : undefined
+                      }
+                      onPress={() => handleActivityPress(activity)}
+                      onEditPress={() => handleEditSubtasks(activity)}
+                      onDeletePress={() => handleDeleteTaskFromList(activity.id)}
+                      index={index}
+                    />
+                  </View>
+                ))
+              )
             ) : (
-              pendingActivities.map((activity, index) => (
-                <ActivityButton
-                  key={activity.id}
-                  title={activity.title}
-                  emoji={activity.emoji}
-                  metric={activity.metric}
-                  color={activity.color}
-                  iconColor={activity.iconColor}
-                  action={activity.action}
-                  completed={false}
-                  hasSubtasks={
-                    activity.subtasks ? activity.subtasks.length > 0 : false
-                  }
-                  onPress={() => handleActivityPress(activity)}
-                  onEditPress={() => handleEditSubtasks(activity)}
-                  index={index}
-                />
+              completedActivities.map((activity, index) => (
+                <View key={activity.id} style={styles.activityCardWrapper}>
+                  <ActivityButton
+                    title={activity.title}
+                    emoji={activity.emoji}
+                    metric={activity.metric}
+                    color={activity.color}
+                    iconColor={activity.iconColor}
+                    action={activity.action}
+                    completed={true}
+                    difficulty={activity.difficulty}
+                    hasSubtasks={
+                      activity.subtasks ? activity.subtasks.length > 0 : false
+                    }
+                    subtasksProgress={
+                      activity.subtasks && activity.subtasks.length > 0
+                        ? {
+                            completed: activity.subtasks.filter(s => s.isCompleted).length,
+                            total: activity.subtasks.length,
+                          }
+                        : undefined
+                    }
+                    onPress={() => handleActivityPress(activity)}
+                    onResetPress={() => handleResetTask(activity.id)}
+                    onDeletePress={() => handleDeleteTaskFromList(activity.id)}
+                    index={index}
+                  />
+                </View>
               ))
             )}
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Completadas</Text>
-          </View>
-
-          <View style={styles.activitiesContainer}>
-            {completedActivities.map((activity) => (
-              <ActivityButton
-                key={activity.id}
-                title={activity.title}
-                emoji={activity.emoji}
-                metric={activity.metric}
-                color={activity.color}
-                iconColor={activity.iconColor}
-                action={activity.action}
-                completed={true}
-                hasSubtasks={
-                  activity.subtasks ? activity.subtasks.length > 0 : false
-                }
-                onPress={() => handleActivityPress(activity)}
-                onEditPress={() => handleEditSubtasks(activity)}
-              />
-            ))}
-          </View>
-
-          {/* Test Buttons */}
+          {/* Test Buttons - Solo en modo developer */}
+          {SHOW_TEST_BUTTONS && (
           <View style={{ gap: 12 }}>
             <Pressable
               style={({ pressed }) => [
@@ -982,6 +1100,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               </LinearGradient>
             </Pressable>
           </View>
+          )}
         </ScrollView>
 
         {/* Onboarding Modal */}
@@ -1135,6 +1254,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             setSubtasks([]);
             setGeneratedTaskTitle("");
             setGeneratedEmoji("✨");
+            setPendingActivityToStart(null);
           }}
           onSubmit={generateSubtasks}
           onVoiceStart={handleMicPressIn}
@@ -1155,28 +1275,39 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             setGeneratedTaskTitle("");
             setGeneratedEmoji("✨");
             setEditingActivityId(null);
+            setPendingActivityToStart(null);
           }}
         >
           <SubtaskListScreen
             taskTitle={generatedTaskTitle}
             taskEmoji={generatedEmoji}
             initialSubtasks={subtasks}
+            initialDifficulty={editingActivityId ? activities.find(a => a.id === editingActivityId)?.difficulty : "easy"}
             isEditing={!!editingActivityId}
             activityId={editingActivityId || undefined}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTaskFromList}
-            onStart={(finalSubtasks) => {
+            onStart={(finalSubtasks, difficulty) => {
+              let activityId: string;
+              
               // Si estamos editando, actualizar primero y luego abrir Focus Mode
               if (editingActivityId) {
-                handleUpdateTask(editingActivityId, finalSubtasks);
+                handleUpdateTask(editingActivityId, finalSubtasks, difficulty);
+                activityId = editingActivityId;
               } else {
                 // Si es nueva, agregar a la lista
-                addTaskToList(finalSubtasks);
+                const newId = addTaskToList(finalSubtasks, difficulty);
+                activityId = newId!;
               }
+              
+              // Establecer el ID de la actividad en Focus Mode
+              setCurrentFocusModeActivityId(activityId);
+              
               // Then open Focus Mode
               setFocusModeSubtasks(finalSubtasks);
               setShowSubtasksModal(false);
               setEditingActivityId(null);
+              setPendingActivityToStart(null);
               setTimeout(() => {
                 setShowFocusMode(true);
               }, 300);
@@ -1187,8 +1318,9 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               setGeneratedTaskTitle("");
               setGeneratedEmoji("✨");
               setEditingActivityId(null);
+              setPendingActivityToStart(null);
             }}
-            onAddToList={(taskTitle, finalSubtasks) => {
+            onAddToList={(taskTitle, finalSubtasks, difficulty) => {
               // Solo agregar a la lista sin abrir Focus Mode (solo para nuevas tareas)
               const newActivity: Activity = {
                 id: Date.now().toString(),
@@ -1200,6 +1332,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 action: "play",
                 completed: false,
                 subtasks: finalSubtasks,
+                difficulty: difficulty,
                 recurrence: { type: "once" },
                 completedDates: [],
                 scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
@@ -1223,25 +1356,65 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           statusBarTranslucent
         >
           <FocusModeScreen
-            activityId={pendingActivityToStart?.id || generatedTaskTitle}
+            activityId={currentFocusModeActivityId || generatedTaskTitle}
             taskTitle={generatedTaskTitle}
             taskEmoji={generatedEmoji}
             subtasks={focusModeSubtasks}
             onComplete={() => {
-              // Marcar la tarea como completada si fue iniciada desde una actividad existente
-              if (pendingActivityToStart) {
-                toggleActivityStatus(pendingActivityToStart.id);
-                setPendingActivityToStart(null);
-              }
+              // Ya no marcamos la tarea como completada automáticamente
+              // Solo cerramos el modal - la verificación se hará en onClose
               setShowFocusMode(false);
               setFocusModeSubtasks([]);
               setSubtasks([]);
               setGeneratedTaskTitle("");
               setGeneratedEmoji("✨");
-              
             }}
-            onClose={() => {
+            onClose={(updatedSubtasks) => {
+              // Update activity with progress if it exists
+              if (currentFocusModeActivityId && updatedSubtasks) {
+                const allCompleted = areAllSubtasksCompleted(updatedSubtasks);
+                const targetDate = selectedDate || new Date();
+                const todayStr = getLocalDateKey(targetDate);
+                
+                setActivities((prevActivities) =>
+                  prevActivities.map((activity) => {
+                    if (activity.id !== currentFocusModeActivityId) return activity;
+                    
+                    const updatedActivity = { ...activity, subtasks: updatedSubtasks };
+                    
+                    // Si todas las subtareas están completadas, marcar la actividad como completada
+                    if (allCompleted) {
+                      const isRecurrent = activity.recurrence?.type !== "once";
+                      
+                      if (isRecurrent) {
+                        const alreadyCompletedToday = activity.completedDates?.includes(todayStr);
+                        if (!alreadyCompletedToday && onTaskCompleted) {
+                          onTaskCompleted();
+                        }
+                        return {
+                          ...updatedActivity,
+                          completedDates: alreadyCompletedToday
+                            ? activity.completedDates
+                            : [...(activity.completedDates || []), todayStr],
+                        };
+                      } else {
+                        if (!activity.completed && onTaskCompleted) {
+                          onTaskCompleted();
+                        }
+                        return { ...updatedActivity, completed: true };
+                      }
+                    }
+                    
+                    return updatedActivity;
+                  })
+                );
+              }
               setShowFocusMode(false);
+              setPendingActivityToStart(null);
+              setCurrentFocusModeActivityId(null);
+              setFocusModeSubtasks([]);
+              setGeneratedTaskTitle("");
+              setGeneratedEmoji("✨");
             }}
           />
         </Modal>
@@ -1642,7 +1815,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           visible={showStartTaskModal}
           transparent
           animationType="fade"
-          onRequestClose={() => setShowStartTaskModal(false)}
+          onRequestClose={() => {
+            setShowStartTaskModal(false);
+            setPendingActivityToStart(null);
+          }}
         >
           <View style={styles.startTaskModalOverlay}>
             <View style={styles.startTaskModalContent}>
@@ -1657,7 +1833,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               <View style={styles.startTaskModalInner}>
                 {/* Close Button */}
                 <Pressable
-                  onPress={() => setShowStartTaskModal(false)}
+                  onPress={() => {
+                    setShowStartTaskModal(false);
+                    setPendingActivityToStart(null);
+                  }}
                   style={styles.startTaskCloseButton}
                 >
                   <X size={24} color="rgba(59, 66, 97, 0.6)" />
@@ -1680,7 +1859,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 <View style={styles.startTaskButtonsContainer}>
                   {/* Cancel Button */}
                   <Pressable
-                    onPress={() => setShowStartTaskModal(false)}
+                    onPress={() => {
+                      setShowStartTaskModal(false);
+                      setPendingActivityToStart(null);
+                    }}
                     style={styles.startTaskCancelButton}
                   >
                     <Text style={styles.startTaskCancelButtonText}>
@@ -1697,8 +1879,11 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                         setFocusModeSubtasks(
                           pendingActivityToStart.subtasks || [],
                         );
-                        setShowFocusMode(true);
+                        setCurrentFocusModeActivityId(pendingActivityToStart.id);
                         setShowStartTaskModal(false);
+                        setTimeout(() => {
+                          setShowFocusMode(true);
+                        }, 100);
                       }
                     }}
                     style={styles.startTaskStartButton}
@@ -1720,6 +1905,16 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           </View>
         </Modal>
       </SafeAreaView>
+      
+      {/* Debug Panel - Solo en modo developer */}
+      {DEV_MODE && (
+        <DebugPanel 
+          onTriggerStreak={(days) => {
+            setTestStreakDays(days);
+            setShowStreakSuccess(true);
+          }}
+        />
+      )}
     </>
   );
 });
@@ -1737,6 +1932,31 @@ const styles = StyleSheet.create({
   } as any,
   notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
   sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 12,
+  } as any,
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: 'transparent',
+  } as any,
+  tabActive: {
+    backgroundColor: colors.surface,
+  } as any,
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  } as any,
+  tabTextActive: {
+    color: colors.textPrimary,
+  } as any,
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
@@ -1746,7 +1966,16 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     paddingHorizontal: 0,
   } as any,
-  activitiesContainer: { paddingHorizontal: 20 } as any,
+  activitiesContainer: { 
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  } as any,
+  activityCardWrapper: {
+    width: '48%',
+  } as any,
   testOnboardingButton: {
     marginHorizontal: 20,
     marginTop: 24,

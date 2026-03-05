@@ -63,13 +63,13 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
       Animated.parallel([
         Animated.spring(scaleAnim, {
           toValue,
-          friction: 6,
-          tension: 40,
+          friction: 10,
+          tension: 200,
           useNativeDriver: true,
         }),
         Animated.timing(rotateAnim, {
           toValue,
-          duration: 300,
+          duration: 150,
           useNativeDriver: true,
         }),
       ]).start();
@@ -85,13 +85,13 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     Animated.parallel([
       Animated.spring(scaleAnim, {
         toValue,
-        friction: 6,
-        tension: 40,
+        friction: 10,
+        tension: 200,
         useNativeDriver: true,
       }),
       Animated.timing(rotateAnim, {
         toValue,
-        duration: 300,
+        duration: 150,
         useNativeDriver: true,
       }),
     ]).start();
@@ -147,13 +147,15 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
   });
 
   const voiceOpacity = scaleAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 0, 1],
+    inputRange: [0, 0.1],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
 
   const attachmentOpacity = scaleAnim.interpolate({
-    inputRange: [0, 0.75, 1],
-    outputRange: [0, 0, 1],
+    inputRange: [0, 0.15],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
 
   // Para la página de rutinas, mostrar solo crear rutina
@@ -311,7 +313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mainButtonContainer: {
-    zIndex: 10,
+    zIndex: 1,
     width: 70,
     height: 70,
     justifyContent: 'center',
@@ -341,7 +343,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    zIndex: 5,
+    zIndex: 100,
     flexDirection: 'row',
     gap: 12,
   },

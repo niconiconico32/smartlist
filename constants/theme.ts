@@ -1,5 +1,5 @@
 /**
- * Smartlist Theme
+ * Brainy Theme
  * 🎨 Soft Focus (Pastel Dark)
  * Inspirado en Catppuccin - Velvet backgrounds, pastel energy, frosted glass
  */

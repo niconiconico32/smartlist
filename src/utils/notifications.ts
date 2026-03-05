@@ -1,5 +1,5 @@
 /**
- * 🔔 SmartList Notification System
+ * 🔔 Brainy Notification System
  * 
  * Sistema de notificaciones motivacionales diseñado para ADHD.
  * Estrategia: "Compañero de Bolsillo" - La mascota envía mensajes como un amigo.
@@ -12,7 +12,6 @@
  */
 
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 
 // ============================================================================
 // CONFIGURATION
@@ -95,7 +94,7 @@ const AFTERNOON_MESSAGES: NotificationMessage[] = [
   },
   {
     title: '🔄 Reset mental',
-    body: 'Cierra los ojos 10 segundos. Ahora abre SmartList y conquista UNA cosa.',
+    body: 'Cierra los ojos 10 segundos. Ahora abre Brainy y conquista UNA cosa.',
   },
   {
     title: '⚡ Micro-acción',
@@ -122,7 +121,7 @@ const EVENING_MESSAGES: NotificationMessage[] = [
   },
   {
     title: '😴 Antes de desconectar...',
-    body: 'Descarga tu mente en SmartList. Dormirás mejor sin pendientes en la cabeza.',
+    body: 'Descarga tu mente en Brainy. Dormirás mejor sin pendientes en la cabeza.',
   },
   {
     title: '🏅 Recuento final',
