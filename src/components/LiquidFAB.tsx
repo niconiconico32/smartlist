@@ -1,4 +1,5 @@
 import { colors } from '@/constants/theme';
+import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -294,12 +295,12 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
           onLongPress={onLongPress}
         >
           <LinearGradient
-            colors={['#CBA6F7', '#FAB387']} // Lavender Haze to Peach Fuzz
+            colors={PRIMARY_GRADIENT_COLORS}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientButton}
           >
-            <MaterialCommunityIcons name="plus" size={32} color="#FFFFFF" />
+            <MaterialCommunityIcons name="plus" size={32} color={colors.background} />
           </LinearGradient>
         </Pressable>
       </Animated.View>
@@ -326,7 +327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#CBA6F7',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,

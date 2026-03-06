@@ -2,27 +2,28 @@ import { colors } from '@/constants/theme';
 import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
 import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
-import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
-import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
 import { NotificationPermissionModal } from '@/src/components/NotificationPermissionModal';
+import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
+import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
+import { useAuth } from '@/src/contexts/AuthContext';
+import * as routineService from '@/src/lib/routineService';
+import {
+  getLocalTodayDateKey,
+  hasCountedToday,
+  isLocalToday,
+  isLocalYesterday
+} from '@/src/utils/dateHelpers';
+import { sendStreakNotification } from '@/src/utils/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { format } from 'date-fns';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
-import React, { createRef, useCallback, useEffect, useRef, useState } from 'react';
+import React, { createRef, useCallback, useRef, useState } from 'react';
 import { Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
-import { format, subDays } from 'date-fns';
-import { 
-  getLocalTodayDateKey, 
-  getLocalDateKey,
-  isLocalToday, 
-  isLocalYesterday, 
-  hasCountedToday 
-} from '@/src/utils/dateHelpers';
-import { sendStreakNotification } from '@/src/utils/notifications';
 import IndexScreen from './index';
 import TwoScreen from './two';
 
@@ -59,6 +60,7 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
 };
 
 export default function SwipeableLayout() {
+  const { user } = useAuth();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -175,20 +177,17 @@ export default function SwipeableLayout() {
     }
   }, []);
 
-  // Load routines from AsyncStorage
+  // Load routines from Supabase
   const loadRoutines = useCallback(async () => {
+    if (!user) return;
+    
     try {
-      const stored = await AsyncStorage.getItem('@smartlist_routines');
-      if (stored) {
-        const parsedRoutines = JSON.parse(stored);
-        if (parsedRoutines && parsedRoutines.length > 0) {
-          setRoutines(parsedRoutines);
-        }
-      }
+      const fetchedRoutines = await routineService.fetchRoutines(user.id);
+      setRoutines(fetchedRoutines as any);
     } catch (error) {
       console.error('Error loading routines:', error);
     }
-  }, []);
+  }, [user]);
 
   // Load routines and streak when screen focuses
   useFocusEffect(
@@ -363,36 +362,36 @@ export default function SwipeableLayout() {
     tasks: any[];
     reminderEnabled: boolean;
     reminderTime?: string;
+    icon?: string;
   }) => {
+    if (!user) {
+      Alert.alert('Error', 'Debes iniciar sesión para crear rutinas');
+      return;
+    }
+
     try {
-      // Guardar la rutina en AsyncStorage
-      const existingRoutines = await AsyncStorage.getItem('@smartlist_routines');
-      const currentRoutines = existingRoutines ? JSON.parse(existingRoutines) : [];
+      // Crear rutina en Supabase
+      const newRoutine = await routineService.createRoutine(user.id, {
+        name: routine.name,
+        days: routine.days,
+        tasks: routine.tasks.map((t, i) => ({ title: t.title, position: i })),
+        icon: routine.icon,
+        reminderEnabled: routine.reminderEnabled,
+        reminderTime: routine.reminderTime,
+      });
       
-      // Asegurarnos de que cada tarea tenga completed: false
-      const tasksWithCompleted = routine.tasks.map(task => ({
-        ...task,
-        completed: task.completed ?? false,
-      }));
-      
-      const newRoutine = {
-        id: Date.now().toString(),
-        ...routine,
-        tasks: tasksWithCompleted,
-        createdAt: new Date().toISOString(),
-      };
-      
-      currentRoutines.push(newRoutine);
-      await AsyncStorage.setItem('@smartlist_routines', JSON.stringify(currentRoutines));
-      
-      // Reload routines to update the calendar
-      await loadRoutines();
-      
-      const daysText = routine.days.join(', ');
-      Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
+      if (newRoutine) {
+        // Recargar rutinas para actualizar calendario
+        await loadRoutines();
+        
+        const daysText = routine.days.join(', ');
+        Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
+      } else {
+        Alert.alert('Error', 'No se pudo crear la rutina');
+      }
     } catch (error) {
       console.error('Error al crear rutina:', error);
-      Alert.alert('Error', 'No se pudo crear la rutina');
+      Alert.alert('Error', 'Ocurrió un error al crear la rutina');
     }
   };
 

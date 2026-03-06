@@ -2,9 +2,29 @@ import { colors } from "@/constants/theme";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import {
+  Activity,
   Bell,
+  Bike,
+  Book,
+  Brain,
+  Briefcase,
   Calendar,
-  Edit3,
+  Circle,
+  Coffee,
+  Dumbbell,
+  Flower2,
+  GraduationCap,
+  Heart,
+  Home,
+  Laptop,
+  Lightbulb,
+  Moon,
+  ShoppingBag,
+  Smile,
+  Sparkles,
+  Sun,
+  Target,
+  Utensils,
 } from "lucide-react-native";
 import React, { useEffect } from "react";
 import {
@@ -25,7 +45,37 @@ import Animated, {
 } from "react-native-reanimated";
 
 // Colores para las rutinas (se asignan de forma rotativa)
-const ROUTINE_COLORS = ["#FAB387", "#CBA6F7", "#A6E3A1", "#89B4FA", "#F5C2E7"];
+const ROUTINE_COLORS = ["#B2E6FB", "#F4F853", "#C9FD5A", "#F8CBDF", "#F5C2E7"];
+const BACKGROUND_COLORS = ["rgba(178, 230, 251, 0.1)", "rgba(244, 248, 83, 0.1)", "rgba(201, 253, 90, 0.1)", "rgba(248, 203, 223, 0.1)", "rgba(245, 194, 231, 0.1)"];
+
+const AVAILABLE_ICONS: Record<string, any> = {
+  Dumbbell,
+  Activity,
+  Bike,
+  Heart,
+  Book,
+  GraduationCap,
+  Lightbulb,
+  Brain,
+  Briefcase,
+  Coffee,
+  Laptop,
+  Target,
+  Home,
+  ShoppingBag,
+  Utensils,
+  Sparkles,
+  Moon,
+  Sun,
+  Flower2,
+  Smile,
+  Calendar,
+  Circle,
+};
+
+const getIconComponent = (iconName?: string) => {
+  return AVAILABLE_ICONS[iconName || 'Calendar'] || Calendar;
+};
 
 interface Task {
   id: string;
@@ -41,8 +91,8 @@ interface RoutineCardProps {
   reminderEnabled?: boolean;
   reminderTime?: string;
   colorIndex?: number;
+  icon?: string;
   onPress?: () => void;
-  onEdit?: (id: string) => void;
 }
 
 export const RoutineCard: React.FC<RoutineCardProps> = ({
@@ -53,10 +103,12 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   reminderEnabled,
   reminderTime,
   colorIndex = 0,
+  icon,
   onPress,
-  onEdit,
 }) => {
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
+  const backgroundColor = BACKGROUND_COLORS[colorIndex % BACKGROUND_COLORS.length];
+  const IconComponent = getIconComponent(icon);
 
   // Cálculo de progreso
   const completedCount = initialTasks.filter((t) => t.completed).length;
@@ -67,7 +119,6 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   const cardScale = useSharedValue(1);
   const progressWidth = useSharedValue(progressPercent);
   const headerPressScale = useSharedValue(1);
-  const editButtonScale = useSharedValue(1);
 
   // Actualizar barra de progreso con animación suave
   useEffect(() => {
@@ -98,19 +149,6 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     headerPressScale.value = withSpring(1, { damping: 15, stiffness: 200 });
   };
 
-  const handleEdit = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
-
-    editButtonScale.value = withSequence(
-      withTiming(0.85, { duration: 80 }),
-      withSpring(1, { damping: 15, stiffness: 300 }),
-    );
-
-    onEdit?.(id);
-  };
-
   // Estilos animados
 
   const cardAnimatedStyle = useAnimatedStyle(() => ({
@@ -119,10 +157,6 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
 
   const headerAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: headerPressScale.value }],
-  }));
-
-  const editButtonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: editButtonScale.value }],
   }));
 
   const progressAnimatedStyle = useAnimatedStyle(() => ({
@@ -139,7 +173,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     <Animated.View
       entering={FadeIn.duration(300)}
       layout={Layout.duration(250)}
-      style={[styles.container, cardAnimatedStyle]}
+      style={[styles.container, { backgroundColor }, cardAnimatedStyle]}
     >
       {/* Borde superior con gradiente */}
       <LinearGradient
@@ -162,7 +196,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
             <Animated.View
               style={[styles.iconContainer, { backgroundColor: `${color}20` }]}
             >
-              <Calendar size={18} color={color} />
+              <IconComponent size={18} color={color} />
             </Animated.View>
 
             {/* Información */}
@@ -171,29 +205,13 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
                 {name}
               </Text>
               <View style={styles.metaRow}>
-                {reminderEnabled && reminderTime && (
+                {reminderEnabled && reminderTime  && (
                   <View style={styles.reminderBadge}>
-                    <Bell size={10} color={colors.textSecondary} />
+                    <Bell size={10} color={colors.textRoutineCard} />
                     <Text style={styles.reminderText}>{reminderTime}</Text>
                   </View>
                 )}
               </View>
-            </View>
-
-            {/* Acciones */}
-            <View style={styles.actionsRow}>
-              <Animated.View style={editButtonAnimatedStyle}>
-                <Pressable
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleEdit();
-                  }}
-                  style={styles.actionButton}
-                  hitSlop={12}
-                >
-                  <Edit3 size={16} color={colors.textSecondary} />
-                </Pressable>
-              </Animated.View>
             </View>
           </View>
 
@@ -225,7 +243,6 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
     borderRadius: 16,
     overflow: "hidden",
     marginBottom: 12,
@@ -255,7 +272,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: "700",
-    color: colors.textPrimary,
+    color: colors.textRoutineCard,
     marginBottom: 2,
     letterSpacing: -0.3,
   },
@@ -265,14 +282,14 @@ const styles = StyleSheet.create({
   },
   daysText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.textRoutineCard,
     fontWeight: "500",
   },
   reminderBadge: {
     flexDirection: "row",
     alignItems: "center",
     marginLeft: 10,
-    backgroundColor: "rgba(203, 166, 247, 0.1)",
+    backgroundColor: "rgba(71, 69, 73, 0.1)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
@@ -282,14 +299,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 3,
     fontWeight: "600",
-  },
-  actionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  actionButton: {
-    padding: 8,
   },
   progressSection: {
     marginTop: 10,
@@ -311,7 +320,7 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: colors.background,
+    backgroundColor: colors.textSecondary,
     borderRadius: 2,
     overflow: "hidden",
   },

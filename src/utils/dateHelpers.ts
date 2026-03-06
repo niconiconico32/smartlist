@@ -16,7 +16,7 @@
  * - Store completion dates as YYYY-MM-DD strings (no timezone)
  */
 
-import { format, startOfDay, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 
 /**
  * Get the current date in the user's local timezone as YYYY-MM-DD string.
@@ -218,4 +218,51 @@ export function isStreakValid(lastCompletionDateString: string | null): boolean 
 export function hasCountedToday(lastCompletionDateString: string | null): boolean {
   if (!lastCompletionDateString) return false;
   return isLocalToday(lastCompletionDateString);
+}
+
+/**
+ * Get the start of the current week (Monday 00:00) in local timezone.
+ * 
+ * @returns {string} Monday of current week as "YYYY-MM-DD"
+ * 
+ * @example
+ * // Today is Wednesday, March 6, 2026
+ * getLocalWeekStart() // "2026-03-02" (Monday)
+ */
+export function getLocalWeekStart(): string {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // If Sunday, go back 6 days
+  
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - daysToMonday);
+  
+  return getLocalDateKey(monday);
+}
+
+/**
+ * Check if a date string is in the current week (Monday - Sunday).
+ * 
+ * @param {string} dateString - Date to check (ISO or YYYY-MM-DD)
+ * @returns {boolean} True if date is in current week
+ * 
+ * @example
+ * // Today is Wednesday, March 6, 2026
+ * isInCurrentWeek("2026-03-02") // true (Monday of this week)
+ * isInCurrentWeek("2026-03-06") // true (today)
+ * isInCurrentWeek("2026-02-24") // false (previous week)
+ */
+export function isInCurrentWeek(dateString: string): boolean {
+  const normalized = normalizeDate(dateString);
+  const weekStart = getLocalWeekStart();
+  
+  // Get week end (Sunday)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() + daysToSunday);
+  const weekEnd = getLocalDateKey(sunday);
+  
+  return normalized >= weekStart && normalized <= weekEnd;
 }

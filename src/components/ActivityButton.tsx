@@ -1,6 +1,6 @@
 import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
-import { Edit2, MoreVertical, RotateCcw, Trash2 } from 'lucide-react-native';
+import { Edit2, RotateCcw, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -26,8 +26,8 @@ interface ActivityButtonProps {
   };
 }
 
-const BORDER_COLORS = ['#FAB387', '#CBA6F7', '#A6E3A1']; // Peach, Lavender, Matcha
-const CARD_COLORS = ['#2E3440', '#3B4252', '#434C5E']; // Dark backgrounds
+const BORDER_COLORS = ['#C9FD5A', '#CBA6F7', '#A6E3A1']; // Peach, Lavender, Matcha
+const CARD_COLORS = [colors.surface]; // Dark backgrounds
 
 // Difficulty colors
 const difficultyColors = {
@@ -52,7 +52,7 @@ const CircularProgress = ({ percentage, color }: { percentage: number; color: st
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="rgba(255, 255, 255, 0.1)"
+          stroke="rgba(255, 255, 255, 0.4)"
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -141,20 +141,23 @@ export function ActivityButton({ title, emoji, metric, color, iconColor, action,
 completed && {
   // 1. CRÍTICO: Un fondo sólido. 
   // Usa el color gris oscuro de tu app mezclado con un mínimo de verde para que no se cuele la sombra por detrás.
-  backgroundColor: '#2A2D35', // Ajusta este hexadecimal al color base oscuro de tus tarjetas
+  backgroundColor: colors.background, // Ajusta este hexadecimal al color base oscuro de tus tarjetas
   
   // 2. Borde de luz (El tubo de neón)
   borderWidth: 1.5,
-  borderColor: '#A6E3A1', // Verde brillante puro
+  borderColor: colors.primary, // Verde brillante puro
 
   // 3. El resplandor (Glow hacia afuera)
-  shadowColor: '#A6E3A1',
+  shadowColor: colors.primary,
   shadowOffset: { width: 0, height: 0 },
   shadowOpacity: 0.9,     // Sube la opacidad para que brille más
   shadowRadius: 20,       // Difuminado más amplio y suave
 
   // 4. Glow para Android
   elevation: 15,
+  
+  // 5. Opacidad 50% para tareas completadas
+  opacity: 0.5,
 
           },
           pressed && styles.pressed,
@@ -163,36 +166,35 @@ completed && {
         onLongPress={handleLongPress}
         delayLongPress={500}
       >
-        {/* Menu button (3 dots) */}
-        <Pressable
-          style={styles.menuButton}
-          onPress={handleMenuPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MoreVertical size={16} color={completed ? "rgba(255, 255, 255, 0.8)" : "rgba(255, 255, 255, 0.6)"} />
-        </Pressable>
+ 
 
-        {/* Circular Progress */}
-        <View style={styles.progressContainer}>
-          <CircularProgress 
-            percentage={progressPercentage} 
-            color={borderColor}
-          />
-        </View>
+        {/* Horizontal Layout Container */}
+        <View style={styles.horizontalContainer}>
+          {/* Circular Progress */}
+          <View style={styles.progressContainer}>
+            <CircularProgress 
+              percentage={progressPercentage} 
+              color={borderColor}
+            />
+          </View>
 
-        {/* Category/Emoji */}
-        <View style={styles.categoryContainer}>
-          <Text style={[styles.categoryText, completed && styles.completedText]}>{emoji}</Text>
-        </View>
+          {/* Content Container */}
+          <View style={styles.contentContainer}>
+            {/* Category/Emoji */}
+            <View style={styles.categoryContainer}>
+              <Text style={[styles.categoryText, completed && styles.completedText]}>{emoji}</Text>
+            </View>
 
-        {/* Title */}
-        <Text style={[styles.cardTitle, completed && styles.completedText]} numberOfLines={2}>
-          {title}
-        </Text>
+            {/* Title */}
+            <Text style={[styles.cardTitle, completed && styles.completedText]} numberOfLines={2}>
+              {title}
+            </Text>
 
-        {/* Badge */}
-        <View style={[styles.badge, { backgroundColor: completed ? completedBorderColor : borderColor }]}>
-          <Text style={[styles.badgeText, completed && styles.completedBadgeText]}>{difficultyLabels[difficulty]}</Text>
+            {/* Badge */}
+            <View style={[styles.badge, { backgroundColor: completed ? completedBorderColor : borderColor }]}>
+              <Text style={[styles.badgeText, completed && styles.completedBadgeText]}>{difficultyLabels[difficulty]}</Text>
+            </View>
+          </View>
         </View>
       </Pressable>
 
@@ -260,15 +262,17 @@ completed && {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 24,
-    padding: 20,
-    minHeight: 200,
+    borderRadius: 50,
+    padding: 10,
+    minHeight: 70,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
     position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.textRoutineCard ,
   },
   pressed: {
     transform: [{ scale: 0.97 }],
@@ -281,14 +285,24 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 4,
   },
+  horizontalContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
   progressContainer: {
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   categoryDot: {
     width: 6,
@@ -298,24 +312,23 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   categoryText: {
-    fontSize: 13,
+    fontSize: 20,
     color: '#FFFFFF',
   },
   cardTitle: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 16,
-    lineHeight: 26,
+    lineHeight: 20,
   },
   badge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   badgeText: {
-    fontSize: 13,
+    fontSize:9,
     fontWeight: '600',
     color: '#2E3440',
   },

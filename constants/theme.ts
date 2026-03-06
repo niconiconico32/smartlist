@@ -4,38 +4,40 @@
  * Inspirado en Catppuccin - Velvet backgrounds, pastel energy, frosted glass
  */
 
+
 export const colors = {
   // 1️⃣ EL LIENZO (Backgrounds - Velvet)
-  background: '#1E1E2E',      // Deep Dream - Violeta-gris mate
-  surface: '#313244',         // Soft Layer - Grafito suave para cards/modals
+  background: '#280D8C',      // Deep Dream - Violeta-gris mate
+  surface: '#7663F2',         // Soft Layer - Grafito suave para cards/modals
   surfaceHighlight: '#45475A', // Highlight layer
   surfaceElevated: '#45475A', // Hover/pressed states
   
   // 4️⃣ TEXTO (Lectura Cómoda)
-  textPrimary: '#CDD6F4',     // Cloud White - Blanco hueso/nube
-  textSecondary: '#A6ADC8',   // Mist Grey - Gris niebla
+  textPrimary: '#FAF9F6',     // Cloud White - Blanco hueso/nube
+  textSecondary: '#f3f3f3',   // Mist Grey - Gris niebla
   textTertiary: '#6C7086',    // Overlay Grey - Texto terciario
-  disabled: '#585B70',        // Low emphasis
+  disabled: '#585B70',
+  textRoutineCard: '#FAF9F6',        // Low emphasis
   
   // 2️⃣ LA ENERGÍA (Pastel Dopamine)
-  primary: '#CBA6F7',         // Lavender Haze - Creatividad, calma, magia
+  primary: '#ECF230',         // Lavender Haze - Creatividad, calma, magia
   primaryDim: '#8966C2',      // Versión oscura para fondos
   primaryContent: '#1E1E2E',  // Texto sobre el color primario
   primaryDark: '#8966C2',     // Alias para compatibilidad
   primaryLight: '#DFC0FF',    // Lighter lavender for highlights
   
   // STATUS COLORS
-  success: '#A6E3A1',         // Matcha Latte - Crecimiento orgánico, frescura
+  success: '#C9FD5A',         // Matcha Latte - Crecimiento orgánico, frescura
   warning: '#F9E2AF',         // Cream Yellow - Advertencias suaves
-  danger: '#F38BA8',          // Soft Coral - Corrige sin regañar
-  accent: '#FAB387',          // Peach Fuzz - Calidez, cercanía
+  danger: '#FE564C',          // Soft Coral - Corrige sin regañar
+  accent: '#FEF400',          // Peach Fuzz - Calidez, cercanía
   
   // UI States (Frosted glass - más opaco/esmerilado)
   border: 'rgba(203, 166, 247, 0.12)',  // Subtle lavender tint
   borderActive: 'rgba(203, 166, 247, 0.35)',
   
   // Glass effect colors - Frosted, no brillante
-  glass: 'rgba(49, 50, 68, 0.8)',      // Frosted surface más opaco
+  glass: 'rgba(40, 13, 140, 0.9)',      // Frosted surface más opaco
   glassBorder: 'rgba(203, 166, 247, 0.2)',
   glassStrong: 'rgba(49, 50, 68, 0.95)', // Para modals importantes
 };

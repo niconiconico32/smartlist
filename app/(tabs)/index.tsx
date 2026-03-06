@@ -68,13 +68,15 @@ import {
 } from "@/src/styles/onboardingStyles";
 import {
   getLocalDateKey,
-  getLocalTodayDateKey
+  getLocalTodayDateKey,
+  getLocalWeekStart,
+  isInCurrentWeek
 } from "@/src/utils/dateHelpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Check, CheckCircle, Clock, FileText, Sparkles, X } from "lucide-react-native";
+import { Check, Clock, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   Alert,
@@ -89,6 +91,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const ACTIVITIES_STORAGE_KEY = "@smartlist_activities";
@@ -214,7 +217,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const confettiRef = useRef<any>(null);
 
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'progress' | 'completed'>('progress');
 
   // Función para avanzar al siguiente paso del onboarding
   const goToNextStep = () => {
@@ -262,35 +264,46 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   }, [activities]);
 
-  // Clean up completed "once" tasks at the start of each day
+  // Clean up tasks at the start of each week (Monday 00:00)
   useEffect(() => {
-    const checkAndCleanCompletedTasks = async () => {
+    const checkAndCleanWeeklyTasks = async () => {
       try {
-        const lastCheckDate = await AsyncStorage.getItem('lastCleanupDate');
-        const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
+        const lastWeeklyCleanup = await AsyncStorage.getItem('lastWeeklyCleanup');
+        const currentWeekStart = getLocalWeekStart(); // Monday of current week
         
-        // Si es un nuevo día, limpiar tareas "once" completadas
-        if (lastCheckDate !== today) {
-          setActivities((prev) => 
-            prev.filter((activity) => {
-              // Mantener tareas recurrentes siempre
-              if (activity.recurrence?.type !== "once") return true;
-              // Mantener tareas "once" no completadas
-              return !activity.completed;
-            })
-          );
-          await AsyncStorage.setItem('lastCleanupDate', today);
+        // Si es una nueva semana (lunes), limpiar según tipo de tarea
+        if (lastWeeklyCleanup !== currentWeekStart) {
+          setActivities((prev) => {
+            // Mantener tareas recurrentes, eliminar tareas "once" completadas
+            return prev
+              .filter((activity) => {
+                const recurrenceType = activity.recurrence?.type || "once";
+                // Mantener tareas recurrentes (daily, weekly)
+                if (recurrenceType !== "once") return true;
+                // Mantener tareas "once" no completadas
+                return !activity.completed;
+              })
+              .map((activity) => {
+                // Resetear completedDates de tareas recurrentes para la nueva semana
+                const recurrenceType = activity.recurrence?.type || "once";
+                if (recurrenceType !== "once") {
+                  return { ...activity, completedDates: [] };
+                }
+                return activity;
+              });
+          });
+          await AsyncStorage.setItem('lastWeeklyCleanup', currentWeekStart);
         }
       } catch (error) {
-        console.error('Error cleaning completed tasks:', error);
+        console.error('Error cleaning weekly tasks:', error);
       }
     };
     
     // Check on mount
-    checkAndCleanCompletedTasks();
+    checkAndCleanWeeklyTasks();
     
     // Check every minute (in case app stays open overnight)
-    const interval = setInterval(checkAndCleanCompletedTasks, 60000);
+    const interval = setInterval(checkAndCleanWeeklyTasks, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -806,200 +819,153 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     return subtasks.every(subtask => subtask.isCompleted);
   };
 
-  // Filtrar actividades considerando recurrencia y día de la semana
+  // Filtrar actividades de la semana actual (todas juntas)
   // Usar selectedDate si se proporciona, sino usar la fecha actual
   const targetDate = selectedDate || new Date();
   const today = getLocalDateKey(targetDate); // ✅ TIMEZONE SAFE
   const todayDayOfWeek = targetDate.getDay(); // 0 = Domingo, 1 = Lunes, etc.
   const adjustedDayOfWeek = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1; // Ajustar para que 0 = Lunes, 6 = Domingo
   
-  const pendingActivities = activities.filter((a) => {
+  // Filtrar todas las actividades de la semana actual (completadas y pendientes)
+  const weekActivities = activities.filter((a) => {
     const recurrenceType = a.recurrence?.type || "once";
     
-    // Tareas de una vez (o sin recurrence): solo mostrar en su fecha programada y si no están completadas
-    if (recurrenceType === "once" || !a.recurrence) {
-      // Si tiene scheduledDate, solo mostrar en esa fecha
-      if (a.scheduledDate) {
-        return a.scheduledDate === today && !a.completed;
-      }
-      // Tareas antiguas sin scheduledDate: solo mostrar en el día actual (hoy real)
-      const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
-      return today === realToday && !a.completed;
-    }
-    
-    // Tareas diarias: mostrar si no están completadas en la fecha seleccionada
+    // Tareas diarias: mostrar siempre
     if (recurrenceType === "daily") {
-      return !a.completedDates?.includes(today);
+      return true;
     }
     
-    // Tareas semanales: mostrar solo si la fecha seleccionada es uno de los días programados y no está completada
+    // Tareas semanales: mostrar si hoy es uno de los días programados
     if (recurrenceType === "weekly") {
-      const isScheduledForToday = a.recurrence?.days?.includes(adjustedDayOfWeek);
-      const isCompletedToday = a.completedDates?.includes(today);
-      return isScheduledForToday && !isCompletedToday;
+      return a.recurrence?.days?.includes(adjustedDayOfWeek);
     }
     
+    // Tareas de una vez: verificar que scheduledDate sea de esta semana
+    if (a.scheduledDate) {
+      return isInCurrentWeek(a.scheduledDate);
+    }
+    
+    // Tareas sin scheduledDate (caso edge): no mostrar
     return false;
+  }).sort((a, b) => {
+    // Determinar si están completadas
+    const aRecurrence = a.recurrence?.type || "once";
+    const bRecurrence = b.recurrence?.type || "once";
+    const aCompleted = aRecurrence !== "once" ? a.completedDates?.includes(today) : a.completed;
+    const bCompleted = bRecurrence !== "once" ? b.completedDates?.includes(today) : b.completed;
+    
+    // Pendientes primero (false < true)
+    if (aCompleted !== bCompleted) {
+      return aCompleted ? 1 : -1;
+    }
+    
+    // Entre pendientes: más reciente primero (ID mayor primero)
+    // Entre completadas: primera completada al fondo (ID menor primero)
+    if (aCompleted) {
+      // Ambas completadas: orden ascendente (primera completada abajo)
+      return parseInt(a.id) - parseInt(b.id);
+    } else {
+      // Ambas pendientes: orden descendente (más reciente arriba)
+      return parseInt(b.id) - parseInt(a.id);
+    }
   });
 
-  const completedActivities = activities.filter((a) => {
+  const totalCompleted = weekActivities.filter(a => {
     const recurrenceType = a.recurrence?.type || "once";
-    
-    // Tareas de una vez (o sin recurrence): mostrar si están completadas y es su fecha programada
-    if (recurrenceType === "once" || !a.recurrence) {
-      // Si tiene scheduledDate, solo mostrar en esa fecha
-      if (a.scheduledDate) {
-        return a.scheduledDate === today && a.completed;
-      }
-      // Tareas antiguas sin scheduledDate: solo mostrar en el día actual (hoy real)
-      const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
-      return today === realToday && a.completed;
+    if (recurrenceType === "once") {
+      return a.completed;
     }
-    
-    // Tareas diarias: mostrar si están completadas en la fecha seleccionada
-    if (recurrenceType === "daily") {
-      return a.completedDates?.includes(today);
-    }
-    
-    // Tareas semanales: mostrar solo si la fecha seleccionada es uno de los días programados y está completada
-    if (recurrenceType === "weekly") {
-      const isScheduledForToday = a.recurrence?.days?.includes(adjustedDayOfWeek);
-      const isCompletedToday = a.completedDates?.includes(today);
-      return isScheduledForToday && isCompletedToday;
-    }
-    
-    return false;
-  });
-
-  const totalCompleted = completedActivities.length;
+    return a.completedDates?.includes(today);
+  }).length;
 
   return (
     <>
       <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <Animated.View
+          entering={FadeInDown.duration(400).springify()}
+          style={styles.header}
+        >
+          <Text style={styles.title}>¡Tú puedes!</Text>
+          <Text style={styles.subtitle}>
+            {weekActivities.length > 0
+              ? `${weekActivities.length} tarea${weekActivities.length > 1 ? "s" : ""} esta semana`
+              : "Sin tareas esta semana"}
+          </Text>
+        </Animated.View>
+
         <ScrollView
-          style={styles.container}
-          contentContainerStyle={[
-            styles.contentContainer,
-            { paddingBottom: bottomInset + 130 },
-          ]}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            <Pressable
-              style={[
-                styles.tab,
-                selectedTab === 'progress' && styles.tabActive,
-              ]}
-              onPress={() => setSelectedTab('progress')}
-            >
-              <FileText
-                size={16}
-                color={selectedTab === 'progress' ? colors.textPrimary : colors.textSecondary}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedTab === 'progress' && styles.tabTextActive,
-                ]}
-              >
-                Tus Tareas de Hoy 
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[
-                styles.tab,
-                selectedTab === 'completed' && styles.tabActive,
-              ]}
-              onPress={() => setSelectedTab('completed')}
-            >
-              <CheckCircle
-                size={16}
-                color={selectedTab === 'completed' ? colors.textPrimary : colors.textSecondary}
-                style={{ marginRight: 6 }}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedTab === 'completed' && styles.tabTextActive,
-                ]}
-              >
-                Completadas
-              </Text>
-            </Pressable>
-          </View>
-
           {/* Activities Container */}
           <View style={styles.activitiesContainer}>
-            {selectedTab === 'progress' ? (
-              pendingActivities.length === 0 ? (
-                <Text style={styles.emptyPlaceholder}>
-                  No tienes tareas para hoy. Agrega una pinchando +
-                </Text>
+            {weekActivities.length === 0 ? (
+                <Animated.View
+                  entering={FadeIn.delay(200).duration(500)}
+                  style={styles.emptyState}
+                >
+                  <Animated.View
+                    entering={FadeInUp.delay(300).springify()}
+                    style={styles.emptyIconContainer}
+                  >
+                    <Sparkles size={48} color={colors.primary} />
+                  </Animated.View>
+                  <Animated.Text
+                    entering={FadeInUp.delay(400).springify()}
+                    style={styles.emptyTitle}
+                  >
+                    Sin tareas esta semana
+                  </Animated.Text>
+                  <Animated.Text
+                    entering={FadeInUp.delay(500).springify()}
+                    style={styles.emptySubtitle}
+                  >
+                    Toca el botón + para agregar tu primera tarea de la semana
+                  </Animated.Text>
+                </Animated.View>
               ) : (
-                pendingActivities.map((activity, index) => (
-                  <View key={activity.id} style={styles.activityCardWrapper}>
+                weekActivities.map((activity, index) => {
+                  // Determinar si está completada
+                  const recurrenceType = activity.recurrence?.type || "once";
+                  const isCompleted =
+                    recurrenceType !== "once"
+                      ? activity.completedDates?.includes(today)
+                      : activity.completed;
+                  
+                  return (
                     <ActivityButton
-                      title={activity.title}
-                      emoji={activity.emoji}
-                      metric={activity.metric}
-                      color={activity.color}
-                      iconColor={activity.iconColor}
-                      action={activity.action}
-                      completed={false}
-                      difficulty={activity.difficulty}
-                      hasSubtasks={
-                        activity.subtasks ? activity.subtasks.length > 0 : false
-                      }
-                      subtasksProgress={
-                        activity.subtasks && activity.subtasks.length > 0
-                          ? {
-                              completed: activity.subtasks.filter(s => s.isCompleted).length,
-                              total: activity.subtasks.length,
-                            }
-                          : undefined
-                      }
-                      onPress={() => handleActivityPress(activity)}
-                      onEditPress={() => handleEditSubtasks(activity)}
-                      onDeletePress={() => handleDeleteTaskFromList(activity.id)}
-                      index={index}
-                    />
-                  </View>
-                ))
+                      key={activity.id}
+                        title={activity.title}
+                        emoji={activity.emoji}
+                        metric={activity.metric}
+                        color={activity.color}
+                        iconColor={activity.iconColor}
+                        action={activity.action}
+                        completed={isCompleted || false}
+                        difficulty={activity.difficulty}
+                        hasSubtasks={
+                          activity.subtasks ? activity.subtasks.length > 0 : false
+                        }
+                        subtasksProgress={
+                          activity.subtasks && activity.subtasks.length > 0
+                            ? {
+                                completed: activity.subtasks.filter(s => s.isCompleted).length,
+                                total: activity.subtasks.length,
+                              }
+                            : undefined
+                        }
+                        onPress={() => handleActivityPress(activity)}
+                        onEditPress={() => handleEditSubtasks(activity)}
+                        onDeletePress={() => handleDeleteTaskFromList(activity.id)}
+                        onResetPress={isCompleted ? () => handleResetTask(activity.id) : undefined}
+                        index={index}
+                      />
+                  );
+                })
               )
-            ) : (
-              completedActivities.map((activity, index) => (
-                <View key={activity.id} style={styles.activityCardWrapper}>
-                  <ActivityButton
-                    title={activity.title}
-                    emoji={activity.emoji}
-                    metric={activity.metric}
-                    color={activity.color}
-                    iconColor={activity.iconColor}
-                    action={activity.action}
-                    completed={true}
-                    difficulty={activity.difficulty}
-                    hasSubtasks={
-                      activity.subtasks ? activity.subtasks.length > 0 : false
-                    }
-                    subtasksProgress={
-                      activity.subtasks && activity.subtasks.length > 0
-                        ? {
-                            completed: activity.subtasks.filter(s => s.isCompleted).length,
-                            total: activity.subtasks.length,
-                          }
-                        : undefined
-                    }
-                    onPress={() => handleActivityPress(activity)}
-                    onResetPress={() => handleResetTask(activity.id)}
-                    onDeletePress={() => handleDeleteTaskFromList(activity.id)}
-                    index={index}
-                  />
-                </View>
-              ))
-            )}
+            }
           </View>
 
           {/* Test Buttons - Solo en modo developer */}
@@ -1924,39 +1890,34 @@ export default PlanScreen;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background } as any,
-  container: { flex: 1, backgroundColor: colors.background } as any,
-  contentContainer: {
+  header: {
+    paddingHorizontal: 24,
     paddingTop: 16,
-    marginBottom: 24,
+    paddingBottom: 20,
     backgroundColor: colors.background,
+  } as any,
+  title: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  } as any,
+  subtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontWeight: "500",
+  } as any,
+  scrollView: {
+    flex: 1,
+    backgroundColor: colors.background,
+  } as any,
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 150,
   } as any,
   notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
   sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
-  tabsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-    gap: 12,
-  } as any,
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: 'transparent',
-  } as any,
-  tabActive: {
-    backgroundColor: colors.surface,
-  } as any,
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  } as any,
-  tabTextActive: {
-    color: colors.textPrimary,
-  } as any,
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
@@ -1967,14 +1928,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   } as any,
   activitiesContainer: { 
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
     gap: 12,
-  } as any,
-  activityCardWrapper: {
-    width: '48%',
   } as any,
   testOnboardingButton: {
     marginHorizontal: 20,
@@ -2266,12 +2220,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
   } as any,
-  emptyPlaceholder: {
-    fontSize: 16,
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  } as any,
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(203, 166, 247, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  } as any,
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "700",
     color: colors.textPrimary,
-    opacity: 0.4,
+    marginBottom: 12,
+  } as any,
+  emptySubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
     textAlign: "center",
-    paddingVertical: 32,
+    lineHeight: 22,
   } as any,
   taskModalOverlay: {
     flex: 1,

@@ -2,18 +2,20 @@ import { colors } from "@/constants/theme";
 import { EditRoutineModal } from "@/src/components/EditRoutineModal";
 import { RoutineCard } from "@/src/components/RoutineCard";
 import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
+import { useAuth } from "@/src/contexts/AuthContext";
 import {
     cancelRoutineReminders,
     requestNotificationPermissions,
     rescheduleAllReminders,
     scheduleRoutineReminders,
 } from "@/src/lib/notificationService";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as routineService from "@/src/lib/routineService";
+import type { Routine } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -36,48 +38,10 @@ interface RoutinesScreenProps {
   onRoutineCompleted?: () => void;
 }
 
-interface Routine {
-  id: string;
-  name: string;
-  days: string[];
-  tasks: Array<{ id: string; title: string; completed?: boolean }>;
-  reminderEnabled: boolean;
-  reminderTime?: string;
-}
-
-// Rutinas de ejemplo hardcodeadas
-const DEFAULT_ROUTINES: Routine[] = [
-  {
-    id: "default-morning",
-    name: "Rutina Matutina",
-    days: ["Lun", "Mar", "Mié", "Jue", "Vie"],
-    tasks: [
-      { id: "m1", title: "Beber un vaso de agua", completed: false },
-      { id: "m2", title: "Hacer la cama", completed: false },
-      { id: "m3", title: "10 min de estiramiento", completed: false },
-      { id: "m4", title: "Desayunar saludable", completed: false },
-      { id: "m5", title: "Revisar agenda del día", completed: false },
-    ],
-    reminderEnabled: true,
-    reminderTime: "07:00",
-  },
-  {
-    id: "default-night",
-    name: "Rutina Nocturna",
-    days: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
-    tasks: [
-      { id: "n1", title: "Preparar ropa de mañana", completed: false },
-      { id: "n2", title: "Lavarse los dientes", completed: false },
-      { id: "n3", title: "Leer 15 minutos", completed: false },
-      { id: "n4", title: "Apagar pantallas", completed: false },
-    ],
-    reminderEnabled: true,
-    reminderTime: "22:00",
-  },
-];
-
 export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: RoutinesScreenProps) {
+  const { user, isLoading: authLoading } = useAuth();
   const [routines, setRoutines] = useState<Routine[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
@@ -86,20 +50,14 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
   // Get current day abbreviation from selected date
   const currentDayAbbrev = useMemo(() => {
     const date = selectedDate || new Date();
-    const abbrev = DAY_NUMBER_TO_ABBREV[date.getDay()];
-    console.log('Selected date:', date, 'Day abbrev:', abbrev);
-    return abbrev;
+    return DAY_NUMBER_TO_ABBREV[date.getDay()];
   }, [selectedDate]);
 
   // Filter routines for the selected day
   const filteredRoutines = useMemo(() => {
-    console.log('All routines:', routines.map(r => ({ name: r.name, days: r.days })));
-    console.log('Current day abbrev:', currentDayAbbrev);
-    const filtered = routines.filter(routine => 
+    return routines.filter(routine => 
       routine.days.includes(currentDayAbbrev)
     );
-    console.log('Filtered routines:', filtered.map(r => r.name));
-    return filtered;
   }, [routines, currentDayAbbrev]);
 
   // Solicitar permisos de notificación al montar
@@ -110,84 +68,89 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
   // Cargar rutinas cuando la pantalla se enfoca
   useFocusEffect(
     useCallback(() => {
-      loadRoutines();
-    }, []),
+      if (!authLoading && user) {
+        loadRoutines();
+      }
+    }, [user, authLoading]),
   );
 
   const loadRoutines = async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const stored = await AsyncStorage.getItem("@smartlist_routines");
-      const lastResetDate = await AsyncStorage.getItem("@smartlist_routines_last_reset");
-      const today = new Date().toISOString().split("T")[0];
+      setIsLoading(true);
+
+      // Cargar rutinas desde Supabase
+      let fetchedRoutines = await routineService.fetchRoutines(user.id);
       
-      if (stored) {
-        let parsedRoutines = JSON.parse(stored);
-        
-        // Si hay rutinas guardadas (y no está vacío)
-        if (parsedRoutines && parsedRoutines.length > 0) {
-          // Verificar si necesitamos resetear las tareas (nuevo día)
-          if (lastResetDate !== today) {
-            // Resetear todas las tareas completadas
-            parsedRoutines = parsedRoutines.map((routine: any) => ({
-              ...routine,
-              tasks: routine.tasks?.map((task: any) => ({
-                ...task,
-                completed: false,
-              })) || [],
-            }));
-            
-            // Guardar rutinas reseteadas y fecha
-            await AsyncStorage.setItem(
-              "@smartlist_routines",
-              JSON.stringify(parsedRoutines),
-            );
-            await AsyncStorage.setItem("@smartlist_routines_last_reset", today);
-            console.log("Rutinas reseteadas para nuevo día:", today);
-          }
-          
-          setRoutines(parsedRoutines);
-          return;
+      // Limpiar duplicados
+      const uniqueNames = new Map<string, Routine>();
+      const toDelete: string[] = [];
+      
+      const sorted = [...fetchedRoutines].sort((a, b) => {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      });
+      
+      for (const routine of sorted) {
+        if (!uniqueNames.has(routine.name)) {
+          uniqueNames.set(routine.name, routine);
+        } else {
+          toDelete.push(routine.id);
         }
       }
-      // Si no hay rutinas guardadas o está vacío, usar las de ejemplo
-      setRoutines(DEFAULT_ROUTINES);
-      // Guardarlas para que persistan
-      await AsyncStorage.setItem(
-        "@smartlist_routines",
-        JSON.stringify(DEFAULT_ROUTINES),
-      );
-      await AsyncStorage.setItem("@smartlist_routines_last_reset", today);
-      // Programar notificaciones para las rutinas de ejemplo
-      await rescheduleAllReminders(DEFAULT_ROUTINES);
+      
+      if (toDelete.length > 0) {
+        await Promise.all(toDelete.map(id => routineService.deleteRoutine(id, user.id)));
+        fetchedRoutines = await routineService.fetchRoutines(user.id);
+      }
+      
+      // Si no hay rutinas, crear una de prueba
+      if (fetchedRoutines.length === 0) {
+        await routineService.createRoutine(user.id, {
+          name: "Rutina de Prueba",
+          days: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+          tasks: [
+            { title: "Tarea 1", position: 0 },
+            { title: "Tarea 2", position: 1 },
+            { title: "Tarea 3", position: 2 },
+          ],
+          icon: "Star",
+          reminderEnabled: false,
+        });
+        fetchedRoutines = await routineService.fetchRoutines(user.id);
+      }
+      
+      setRoutines(fetchedRoutines);
+      await rescheduleAllReminders(fetchedRoutines as any);
     } catch (error) {
       console.error("Error al cargar rutinas:", error);
-      // En caso de error, mostrar las de ejemplo
-      setRoutines(DEFAULT_ROUTINES);
+      Alert.alert('Error', 'No se pudieron cargar las rutinas. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Función para resetear a rutinas de ejemplo (útil para debug)
-  const resetToDefaultRoutines = async () => {
-    await AsyncStorage.setItem(
-      "@smartlist_routines",
-      JSON.stringify(DEFAULT_ROUTINES),
-    );
-    setRoutines(DEFAULT_ROUTINES);
-  };
-
   const handleDeleteRoutine = async (id: string) => {
+    if (!user) return;
+
     try {
       // Cancelar las notificaciones de esta rutina
       await cancelRoutineReminders(id);
 
-      const updatedRoutines = routines.filter((r) => r.id !== id);
-      await AsyncStorage.setItem(
-        "@smartlist_routines",
-        JSON.stringify(updatedRoutines),
-      );
-      setRoutines(updatedRoutines);
+      // Borrar de Supabase
+      const success = await routineService.deleteRoutine(id, user.id);
+      
+      if (success) {
+        setRoutines(routines.filter((r) => r.id !== id));
+      } else {
+        Alert.alert('Error', 'No se pudo eliminar la rutina');
+      }
     } catch (error) {
       console.error("Error al eliminar rutina:", error);
+      Alert.alert('Error', 'Ocurrió un error al eliminar la rutina');
     }
   };
 
@@ -204,27 +167,42 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
   };
 
   const handleSaveEdit = async (updatedRoutine: Routine) => {
+    if (!user) return;
+
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {}
 
     try {
-      const updatedRoutines = routines.map((r) =>
-        r.id === updatedRoutine.id ? updatedRoutine : r,
+      // Actualizar en Supabase
+      const result = await routineService.updateRoutine(
+        updatedRoutine.id,
+        user.id,
+        {
+          name: updatedRoutine.name,
+          days: updatedRoutine.days,
+          tasks: updatedRoutine.tasks,
+          icon: updatedRoutine.icon,
+          reminderEnabled: updatedRoutine.reminderEnabled,
+          reminderTime: updatedRoutine.reminderTime,
+        }
       );
-      await AsyncStorage.setItem(
-        "@smartlist_routines",
-        JSON.stringify(updatedRoutines),
-      );
-      setRoutines(updatedRoutines);
 
-      // Reprogramar notificaciones para esta rutina
-      await scheduleRoutineReminders(updatedRoutine);
+      if (result) {
+        // Actualizar estado local
+        setRoutines(routines.map((r) => (r.id === result.id ? result : r)));
+        
+        // Reprogramar notificaciones
+        await scheduleRoutineReminders(result as any);
 
-      setShowEditModal(false);
-      setEditingRoutine(null);
+        setShowEditModal(false);
+        setEditingRoutine(null);
+      } else {
+        Alert.alert('Error', 'No se pudo actualizar la rutina');
+      }
     } catch (error) {
       console.error("Error al guardar rutina:", error);
+      Alert.alert('Error', 'Ocurrió un error al guardar la rutina');
     }
   };
 
@@ -233,7 +211,23 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
     taskId: string,
     completed: boolean,
   ) => {
+    if (!user) return;
+
     try {
+      // Actualizar en Supabase
+      const success = await routineService.updateTaskCompletion(
+        taskId,
+        routineId,
+        user.id,
+        completed
+      );
+
+      if (!success) {
+        Alert.alert('Error', 'No se pudo actualizar la tarea');
+        return;
+      }
+
+      // Actualizar estado local
       const updatedRoutines = routines.map((r) => {
         if (r.id === routineId) {
           return {
@@ -245,24 +239,29 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
         }
         return r;
       });
-      await AsyncStorage.setItem(
-        "@smartlist_routines",
-        JSON.stringify(updatedRoutines),
-      );
       setRoutines(updatedRoutines);
       
-      // Check if ENTIRE routine is now complete - only then update streak
-      if (completed && onRoutineCompleted) {
-        const updatedRoutine = updatedRoutines.find(r => r.id === routineId);
-        if (updatedRoutine) {
-          const allTasksComplete = updatedRoutine.tasks.every(t => t.completed);
-          if (allTasksComplete) {
+      // Verificar si la rutina está completa
+      const updatedRoutine = updatedRoutines.find(r => r.id === routineId);
+      if (updatedRoutine) {
+        const allTasksComplete = updatedRoutine.tasks.every(t => t.completed);
+        
+        if (allTasksComplete && completed) {
+          // Marcar rutina como completa
+          await routineService.markRoutineComplete(routineId, user.id);
+          
+          // Notificar al componente padre
+          if (onRoutineCompleted) {
             onRoutineCompleted();
           }
+        } else if (!allTasksComplete) {
+          // Desmarcar si ya no está completa
+          await routineService.unmarkRoutineComplete(routineId, user.id);
         }
       }
     } catch (error) {
       console.error("Error al actualizar tarea:", error);
+      Alert.alert('Error', 'Ocurrió un error al actualizar la tarea');
     }
   };
 
@@ -324,13 +323,11 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
               reminderEnabled={routine.reminderEnabled}
               reminderTime={routine.reminderTime}
               colorIndex={index}
+              icon={routine.icon}
               onPress={() => {
                 setSelectedRoutine(routine);
                 setSelectedRoutineIndex(index);
               }}
-              onEdit={handleEditRoutine}
-              onDelete={handleDeleteRoutine}
-              onTaskToggle={handleTaskToggle}
             />
           ))
         )}

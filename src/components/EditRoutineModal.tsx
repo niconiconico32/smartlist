@@ -2,7 +2,34 @@ import { colors } from '@/constants/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bell, GripVertical, Plus, Trash2, X } from 'lucide-react-native';
+import {
+  Activity,
+  Bell,
+  Bike,
+  Book,
+  Brain,
+  Briefcase,
+  Circle,
+  Coffee,
+  Dumbbell,
+  Flower2,
+  GraduationCap,
+  GripVertical,
+  Heart,
+  Home,
+  Laptop,
+  Lightbulb,
+  Moon,
+  Plus,
+  ShoppingBag,
+  Smile,
+  Sparkles,
+  Sun,
+  Target,
+  Trash2,
+  Utensils,
+  X,
+} from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -34,6 +61,7 @@ interface Routine {
   tasks: Task[];
   reminderEnabled: boolean;
   reminderTime?: string;
+  icon?: string;
 }
 
 interface EditRoutineModalProps {
@@ -53,6 +81,40 @@ const DAYS_OF_WEEK = [
   { short: 'Dom', full: 'Domingo' },
 ];
 
+const AVAILABLE_ICONS = [
+  { name: 'Dumbbell', component: Dumbbell, label: 'Ejercicio' },
+  { name: 'Activity', component: Activity, label: 'Actividad' },
+  { name: 'Bike', component: Bike, label: 'Ciclismo' },
+  { name: 'Heart', component: Heart, label: 'Salud' },
+  { name: 'Book', component: Book, label: 'Lectura' },
+  { name: 'GraduationCap', component: GraduationCap, label: 'Estudio' },
+  { name: 'Lightbulb', component: Lightbulb, label: 'Ideas' },
+  { name: 'Brain', component: Brain, label: 'Mental' },
+  { name: 'Briefcase', component: Briefcase, label: 'Trabajo' },
+  { name: 'Coffee', component: Coffee, label: 'Café' },
+  { name: 'Laptop', component: Laptop, label: 'Computador' },
+  { name: 'Target', component: Target, label: 'Meta' },
+  { name: 'Home', component: Home, label: 'Hogar' },
+  { name: 'ShoppingBag', component: ShoppingBag, label: 'Compras' },
+  { name: 'Utensils', component: Utensils, label: 'Comida' },
+  { name: 'Sparkles', component: Sparkles, label: 'Brillo' },
+  { name: 'Moon', component: Moon, label: 'Noche' },
+  { name: 'Sun', component: Sun, label: 'Día' },
+  { name: 'Flower2', component: Flower2, label: 'Naturaleza' },
+  { name: 'Smile', component: Smile, label: 'Bienestar' },
+];
+
+const PLACEHOLDER_TEXTS = [
+  'Mi Rutina de cardio...',
+  'Practicar Piano...',
+  'Estudiar Japonés...',
+];
+
+const getIconComponent = (iconName?: string) => {
+  const icon = AVAILABLE_ICONS.find(i => i.name === iconName);
+  return icon?.component || Circle;
+};
+
 export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   visible,
   routine,
@@ -66,6 +128,11 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [selectedIcon, setSelectedIcon] = useState<string>('Circle');
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
   const taskListRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
@@ -75,6 +142,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
     if (routine && visible) {
       setRoutineName(routine.name);
       setSelectedDays(routine.days || []);
+      setSelectedIcon(routine.icon || 'Circle');
       
       // Initialize with tasks or one empty task
       const initialTasks = routine.tasks && routine.tasks.length > 0 
@@ -101,6 +169,36 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       }
     }
   }, [routine, visible]);
+
+  // Typewriter effect for placeholder
+  useEffect(() => {
+    const targetText = PLACEHOLDER_TEXTS[currentPlaceholder];
+    let currentIndex = 0;
+    setDisplayedText('');
+    setIsTyping(true);
+
+    const typingInterval = setInterval(() => {
+      if (currentIndex < targetText.length) {
+        setDisplayedText(targetText.slice(0, currentIndex + 1));
+        currentIndex++;
+      } else {
+        setIsTyping(false);
+        clearInterval(typingInterval);
+      }
+    }, 50);
+
+    return () => clearInterval(typingInterval);
+  }, [currentPlaceholder]);
+
+  // Change placeholder text after typing finishes
+  useEffect(() => {
+    if (!isTyping) {
+      const timeout = setTimeout(() => {
+        setCurrentPlaceholder((prev) => (prev + 1) % PLACEHOLDER_TEXTS.length);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [isTyping]);
 
   const triggerHaptic = (style: 'light' | 'medium' | 'selection' = 'light') => {
     if (Platform.OS === 'ios') {
@@ -187,6 +285,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
         tasks: validTasks.map(t => ({ ...t, completed: t.completed ?? false })),
         reminderEnabled,
         reminderTime: reminderEnabled ? timeString : undefined,
+        icon: selectedIcon,
       };
 
       onSave(updatedRoutine);
@@ -325,14 +424,28 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               <View style={styles.section}>
                 <Text style={styles.label}>Nombre de la rutina</Text>
                 <View style={{ height: 12 }} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ej: Rutina Matutina"
-                  placeholderTextColor={colors.textSecondary}
-                  value={routineName}
-                  onChangeText={setRoutineName}
-                  onFocus={dismissKeyboard}
-                />
+                <View style={styles.nameInputContainer}>
+                  <Pressable 
+                    style={styles.iconButton}
+                    onPress={() => {
+                      setShowIconPicker(true);
+                      dismissKeyboard();
+                    }}
+                  >
+                    {React.createElement(getIconComponent(selectedIcon), { 
+                      size: 24, 
+                      color: colors.primary 
+                    })}
+                  </Pressable>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={displayedText}
+                    placeholderTextColor={colors.textSecondary}
+                    value={routineName}
+                    onChangeText={setRoutineName}
+                    onFocus={dismissKeyboard}
+                  />
+                </View>
               </View>
 
               {/* Day Selection */}
@@ -477,6 +590,59 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
           </View>
           </View>
         </View>
+        
+        {/* Icon Picker Modal */}
+        <Modal
+          visible={showIconPicker}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowIconPicker(false)}
+        >
+          <Pressable 
+            style={styles.iconPickerOverlay}
+            onPress={() => setShowIconPicker(false)}
+          >
+            <View style={styles.iconPickerContainer}>
+              <View style={styles.iconPickerHeader}>
+                <Text style={styles.iconPickerTitle}>Elige un ícono</Text>
+                <Pressable onPress={() => setShowIconPicker(false)}>
+                  <X size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+              <ScrollView style={styles.iconPickerScroll}>
+                <View style={styles.iconGrid}>
+                  {AVAILABLE_ICONS.map((icon) => (
+                    <Pressable
+                      key={icon.name}
+                      style={[
+                        styles.iconOption,
+                        selectedIcon === icon.name && styles.iconOptionSelected,
+                      ]}
+                      onPress={() => {
+                        setSelectedIcon(icon.name);
+                        setShowIconPicker(false);
+                        triggerHaptic('selection');
+                      }}
+                    >
+                      <View style={{ gap: 8, alignItems: 'center' }}>
+                        {React.createElement(icon.component, { 
+                          size: 28, 
+                          color: selectedIcon === icon.name ? colors.primary : colors.textSecondary 
+                        })}
+                        <Text style={[
+                          styles.iconLabel,
+                          selectedIcon === icon.name && styles.iconLabelSelected,
+                        ]}>
+                          {icon.label}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </Pressable>
+        </Modal>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
@@ -553,6 +719,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   input: {
+    flex: 1,
     backgroundColor: colors.surface,
     borderRadius: 22,
     paddingHorizontal: 14,
@@ -748,5 +915,86 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1E1E2E',
+  },
+  
+  // Icon Selector
+  nameInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  iconPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  iconPickerContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    height: 500,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  iconPickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  iconPickerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  iconPickerScroll: {
+    flex: 1,
+    minHeight: 300,
+  },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+  iconOption: {
+    width: '31%',
+    height: 100,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    marginBottom: 12,
+  },
+  iconOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '10',
+  },
+  iconLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    width: '100%',
+  },
+  iconLabelSelected: {
+    color: colors.primary,
   },
 });

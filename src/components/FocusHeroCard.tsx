@@ -3,16 +3,16 @@ import { Flame } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    Easing,
-    FadeInDown,
-    FadeOutUp,
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withRepeat,
-    withSequence,
-    withTiming
+  Easing,
+  FadeInDown,
+  FadeOutUp,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -212,7 +212,6 @@ export function FocusHeroCard({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
     marginHorizontal: 4,
     height: 160,
     borderRadius: 32,
@@ -259,7 +258,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 20,
   },
   textWrapper: {
     flex: 1,

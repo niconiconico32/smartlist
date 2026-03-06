@@ -1,4 +1,5 @@
 import { colors } from '@/constants/theme';
+import { PRIMARY_GRADIENT_COLORS, primaryButtonStyles, primaryButtonGradient, primaryButtonText } from '@/constants/buttons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -533,7 +534,7 @@ export function SubtaskListScreen({
       >
         <AnimatedPressable onPress={handleStart} style={[buttonAnimatedStyle, styles.createButton]}>
           <LinearGradient
-            colors={['#CBA6F7', '#FAB387']}
+            colors={PRIMARY_GRADIENT_COLORS}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.createButtonGradient}
@@ -751,19 +752,13 @@ const styles = StyleSheet.create({
   
   // Botones principales
   createButton: {
-    borderRadius: 32,
-    overflow: 'hidden',
+    ...primaryButtonStyles,
   },
   createButtonGradient: {
-    flexDirection: 'row',
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    ...primaryButtonGradient,
   },
   createButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E1E2E',
+    ...primaryButtonText,
   },
   addToListButton: {
     flexDirection: 'row',

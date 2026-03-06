@@ -1,38 +1,39 @@
+import { colors } from '@/constants/theme';
+import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-    ChevronLeft,
-    ChevronRight,
-    Clock,
-    X
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  X
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    AppState,
-    Dimensions,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  AppState,
+  Dimensions,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
-    Easing,
-    interpolate,
-    interpolateColor,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming
+  Easing,
+  interpolate,
+  interpolateColor,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SuccessScreen } from './SuccessScreen';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -255,12 +256,12 @@ const SwipeToCompleteSlider = ({
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[thumbStyle, styles.sliderThumbWrapper]}>
             <LinearGradient
-              colors={['#CBA6F7', '#FAB387']} // Lavender Haze to Peach Fuzz
+              colors={PRIMARY_GRADIENT_COLORS}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.sliderThumbGradient}
             >
-              <ChevronRight size={22} color="#ffffff" strokeWidth={3} />
+              <ChevronRight size={22} color={colors.background} strokeWidth={3} />
             </LinearGradient>
           </Animated.View>
         </GestureDetector>
@@ -341,13 +342,27 @@ export function FocusModeScreen({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
-  const [showSuccessScreen, setShowSuccessScreen] = useState(false);
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [showExitModal, setShowExitModal] = useState(false);
   
   // Timestamps para calcular el tiempo en background
   const startTimeRef = useRef<number>(Date.now());
   const backgroundTimeRef = useRef<number>(0);
+  const subtasksRef = useRef<FocusSubtask[]>(subtasks);
+
+  // Mantener ref actualizado con las subtasks más recientes
+  useEffect(() => {
+    subtasksRef.current = subtasks;
+  }, [subtasks]);
+
+  // Guardar subtasks actualizadas cuando el componente se desmonte
+  useEffect(() => {
+    return () => {
+      // Cleanup: Pasar subtasks actualizadas al parent cuando se desmonte
+      // Usar ref para obtener el valor más reciente
+      onClose(subtasksRef.current);
+    };
+  }, [onClose]);
 
   // Load saved progress on mount
   useEffect(() => {
@@ -464,19 +479,21 @@ export function FocusModeScreen({
       )
     );
 
-    // Wait for celebration, then move to next or finish
-    const timeout1 = setTimeout(() => {
+    // Wait for celebration, then move to next or close
+    const timeout1 = setTimeout(async () => {
       if (!isClosing) {
         setShowConfetti(false);
         
         if (isLastTask) {
-          // Show success screen after celebration
-          const timeout2 = setTimeout(() => {
-            if (!isClosing) {
-              setShowSuccessScreen(true);
-            }
-          }, 500);
-          return () => clearTimeout(timeout2);
+          // Limpiar progreso guardado
+          try {
+            await AsyncStorage.removeItem(`focus_progress_${activityId}`);
+          } catch (error) {
+            console.error('Error clearing progress:', error);
+          }
+          
+          // Cerrar la pantalla (el cleanup se encargará de pasar las subtasks)
+          onClose(subtasksRef.current);
         } else {
           // Next task
           setCurrentIndex((prev) => prev + 1);
@@ -488,7 +505,7 @@ export function FocusModeScreen({
     }, 2800);
     
     return () => clearTimeout(timeout1);
-  }, [currentIndex, isLastTask, onComplete, isClosing]);
+  }, [currentIndex, isLastTask, activityId, isClosing, onClose]);
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -520,22 +537,17 @@ export function FocusModeScreen({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     } catch (error) {}
     
-    // Save progress for resuming later (but subtasks state is managed by parent)
+    // Clear saved progress when exiting
     try {
-      const progress = {
-        currentIndex,
-        totalElapsedTime,
-        elapsedTime,
-      };
-      await AsyncStorage.setItem(`focus_progress_${activityId}`, JSON.stringify(progress));
+      await AsyncStorage.removeItem(`focus_progress_${activityId}`);
     } catch (error) {
-      console.error('Error saving progress:', error);
+      console.error('Error clearing progress:', error);
     }
     
     setTimeout(() => {
       onClose(subtasks); // Pass updated subtasks to parent
     }, 50);
-  }, [subtasks, currentIndex, totalElapsedTime, elapsedTime, activityId, onClose]);
+  }, [subtasks, activityId, onClose]);
 
   const handleCancelExit = useCallback(() => {
     setShowExitModal(false);
@@ -544,34 +556,13 @@ export function FocusModeScreen({
     } catch (error) {}
   }, []);
 
-  const handleSuccessComplete = useCallback(async () => {
-    // Clear saved progress when completing successfully
-    try {
-      await AsyncStorage.removeItem(`focus_progress_${activityId}`);
-    } catch (error) {
-      console.error('Error clearing progress:', error);
-    }
-    // Pass subtasks to parent before calling onComplete
-    onClose(subtasks);
-  }, [activityId, subtasks, onClose]);
 
-  // Show success screen if all tasks completed
-  if (showSuccessScreen) {
-    return (
-      <SuccessScreen
-        taskTitle={taskTitle}
-        timeSpent={totalElapsedTime}
-        streakCount={subtasks.length}
-        onGoHome={handleSuccessComplete}
-      />
-    );
-  }
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* Animated Background Gradient - Velvet Dark */}
+      {/* Animated Background Gradient */}
       <LinearGradient
-        colors={['#1E1E2E', '#252536', '#1E1E2E', '#1a1a28']}
+        colors={[colors.background, colors.surface, colors.background, colors.surface]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -593,10 +584,10 @@ export function FocusModeScreen({
         />
       </View>
 
-      {/* Ambient glow behind current task - Lavender Haze */}
+      {/* Ambient glow behind current task */}
       <View style={styles.ambientGlow}>
         <LinearGradient
-          colors={['transparent', 'rgba(203, 166, 247, 0.12)', 'transparent']}
+          colors={['transparent', 'rgba(236, 242, 48, 0.12)', 'transparent']}
           style={StyleSheet.absoluteFill}
           start={{ x: 0.5, y: 0.3 }}
           end={{ x: 0.5, y: 0.7 }}
@@ -608,7 +599,7 @@ export function FocusModeScreen({
         <View style={styles.header}>
           {/* Close Button */}
           <Pressable onPress={handleClose} style={styles.closeButton}>
-            <X size={24} color="rgba(166, 173, 200, 0.6)" />
+            <X size={24} color={colors.textSecondary} />
           </Pressable>
 
           {/* Task Title */}
@@ -646,7 +637,7 @@ export function FocusModeScreen({
           >
             <ChevronLeft 
               size={24} 
-              color={currentIndex === 0 ? 'rgba(108, 112, 134, 0.3)' : 'rgba(166, 173, 200, 0.5)'} 
+              color={currentIndex === 0 ? colors.disabled : colors.textSecondary} 
             />
           </Pressable>
 
@@ -659,7 +650,7 @@ export function FocusModeScreen({
               >
                 {/* Timer / Duration */}
                 <View style={styles.timerContainer}>
-                  <Clock size={18} color="rgba(166, 173, 200, 0.5)" />
+                  <Clock size={18} color={colors.textSecondary} />
                   <Text style={styles.timerText}>
                     {formatTime(elapsedTime)}
                   </Text>
@@ -684,7 +675,7 @@ export function FocusModeScreen({
           >
             <ChevronRight 
               size={14} 
-              color={currentIndex === subtasks.length - 1 ? 'rgba(108, 112, 134, 0.3)' : 'rgba(166, 173, 200, 0.5)'} 
+              color={currentIndex === subtasks.length - 1 ? colors.disabled : colors.textSecondary} 
             />
           </Pressable>
         </View>
@@ -723,7 +714,7 @@ export function FocusModeScreen({
               <View style={styles.modalButtons}>
                 <Pressable onPress={handleConfirmExit} style={styles.modalButton}>
                   <LinearGradient
-                    colors={['#CBA6F7', '#B491E0']}
+                    colors={PRIMARY_GRADIENT_COLORS}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.modalButtonGradient}
@@ -747,7 +738,7 @@ export function FocusModeScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E2E', // Deep Dream
+    backgroundColor: colors.background,
   },
   vignetteOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -788,7 +779,7 @@ const styles = StyleSheet.create({
   taskTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(205, 214, 244, 0.7)', // Cloud White
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   progressBarsContainer: {
@@ -803,15 +794,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressBarCompleted: {
-    backgroundColor: '#A6E3A1', // Matcha Latte
+    backgroundColor: colors.success,
   },
   progressBarActive: {
-    backgroundColor: '#CBA6F7', // Lavender Haze
+    backgroundColor: colors.primary,
     height: 4,
   },
   progressText: {
     fontSize: 12,
-    color: 'rgba(166, 173, 200, 0.7)', // Mist Grey
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 
@@ -826,7 +817,7 @@ const styles = StyleSheet.create({
   navButton: {
     padding: 12,
     borderRadius: 50,
-    backgroundColor: 'rgba(49, 50, 68, 0.5)', // Soft Layer glass
+    backgroundColor: colors.surface + '80',
   },
   navButtonLeft: {
     marginRight: 8,
@@ -850,21 +841,21 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: 'rgba(203, 166, 247, 0.12)', // Lavender glass
-    borderRadius: 24, // More squishy
+    backgroundColor: colors.primary + '1F',
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(203, 166, 247, 0.2)',
+    borderColor: colors.primary + '33',
   },
   stepText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#CBA6F7', // Lavender Haze
+    color: colors.primary,
     letterSpacing: -0.2,
   },
   subtaskTitle: {
     fontSize: 42,
     fontWeight: '800',
-    color: '#CDD6F4', // Cloud White
+    color: colors.textPrimary,
     textAlign: 'center',
     letterSpacing: -1,
     lineHeight: 50,
@@ -878,12 +869,12 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 24,
     fontWeight: '700',
-    color: 'rgba(205, 214, 244, 0.85)', // Cloud White
+    color: colors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
   estimatedTime: {
     fontSize: 14,
-    color: 'rgba(166, 173, 200, 0.6)', // Mist Grey
+    color: colors.textSecondary,
   },
 
   // Footer
@@ -894,7 +885,7 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 13,
-    color: 'rgba(166, 173, 200, 0.6)', // Mist Grey
+    color: colors.textSecondary,
     textAlign: 'center',
   },
 
@@ -905,25 +896,25 @@ const styles = StyleSheet.create({
   sliderTrack: {
     width: SLIDER_WIDTH,
     height: SLIDER_HEIGHT,
-    backgroundColor: 'rgba(49, 50, 68, 0.8)', // Soft Layer glass
+    backgroundColor: colors.surface + 'CC',
     borderRadius: SLIDER_HEIGHT / 2,
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(203, 166, 247, 0.15)', // Lavender glass border
+    borderColor: colors.primary + '26',
   },
   sliderFill: {
     position: 'absolute',
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(203, 166, 247, 0.25)', // Lavender glass fill
+    backgroundColor: colors.primary + '40',
     borderRadius: SLIDER_HEIGHT / 2,
   },
   sliderText: {
     fontSize: 15,
     fontWeight: '600',
-    color: 'rgba(205, 214, 244, 0.6)', // Cloud White muted
+    color: colors.textPrimary,
     textAlign: 'center',
     marginLeft: THUMB_SIZE + 16,
     letterSpacing: -0.3,
@@ -938,7 +929,7 @@ const styles = StyleSheet.create({
     borderRadius: THUMB_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#CBA6F7',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
@@ -950,10 +941,10 @@ const styles = StyleSheet.create({
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
-    backgroundColor: '#CBA6F7', // Lavender Haze
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#CBA6F7',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 12,
@@ -1017,7 +1008,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.background,
   },
   modalSecondaryButton: {
     paddingVertical: 16,

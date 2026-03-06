@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/src/lib/supabase';
+import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 
 interface AuthContextType {
@@ -32,17 +32,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // If no session exists, sign in anonymously
       if (!session) {
-        console.log('📝 No session found, signing in anonymously...');
         signInAnonymously();
       } else {
-        console.log('✅ Session restored:', session.user.id);
         setIsLoading(false);
       }
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('🔄 Auth state changed:', _event);
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -61,8 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         Alert.alert('Error', 'No se pudo iniciar sesión. Intenta de nuevo.');
         return;
       }
-
-      console.log('✅ Anonymous user created:', data.user?.id);
     } catch (error) {
       console.error('❌ Unexpected error during anonymous sign in:', error);
     } finally {
@@ -75,8 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Error signing out:', error.message);
-      } else {
-        console.log('✅ User signed out');
       }
     } catch (error) {
       console.error('❌ Unexpected error during sign out:', error);
