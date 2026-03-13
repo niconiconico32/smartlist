@@ -12,6 +12,7 @@ import type {
     RoutineWithTasks,
     UpdateRoutine
 } from '../types/routine';
+import { getLocalDateKey } from '../utils/dateHelpers';
 import { supabase } from './supabase';
 
 // =====================================================
@@ -26,10 +27,10 @@ const LEGACY_ROUTINES_KEY = '@smartlist_routines';
 // =====================================================
 
 /**
- * Get current date in YYYY-MM-DD format
+ * Get current date in YYYY-MM-DD format (timezone-safe)
  */
 function getCurrentDate(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateKey(new Date());
 }
 
 /**
@@ -466,9 +467,9 @@ export async function fetchCompletionHistory(
   month: number // 0-indexed (0 = January)
 ): Promise<CompletionHistory> {
   try {
-    // Get first and last day of month
-    const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
-    const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
+    // Get first and last day of month (timezone-safe)
+    const firstDay = getLocalDateKey(new Date(year, month, 1));
+    const lastDay = getLocalDateKey(new Date(year, month + 1, 0));
 
     const { data: completions, error } = await supabase
       .from('routine_completions')

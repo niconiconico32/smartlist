@@ -57,7 +57,14 @@ import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
 import { TaskModalNew } from "@/src/components/TaskModalNew";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
+import {
+  cancelTaskReminders,
+  rescheduleAllTaskReminders,
+  scheduleTaskReminders,
+} from "@/src/lib/notificationService";
 import { supabase } from "@/src/lib/supabase";
+import { calculateStreak, useAchievementsStore } from "@/src/store/achievementsStore";
+import { useAppStreakStore } from "@/src/store/appStreakStore";
 import {
   ONBOARDING_BUTTONS,
   ONBOARDING_COLORS,
@@ -76,7 +83,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Check, Clock, Sparkles, X } from "lucide-react-native";
+import { CalendarClock, Check, Clock, Sparkles, X } from "lucide-react-native";
+import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   Alert,
@@ -118,6 +126,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 ) {
   const bottomInset = useBottomTabInset();
   const router = useRouter();
+  const { initializeAppOpened, checkAndUpdateAchievements } = useAchievementsStore();
 
   // Local state for isFirstTime if not passed from parent
   const [taskInput, setTaskInput] = useState("");
@@ -244,7 +253,17 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   // Load activities from AsyncStorage
   useEffect(() => {
     loadActivities();
+    // Initialize app opened achievement on first load
+    initializeAppOpened();
   }, []);
+
+  // Update achievements when activities change
+  useEffect(() => {
+    if (activities.length > 0) {
+      const streak = calculateStreak(activities);
+      checkAndUpdateAchievements(activities, streak);
+    }
+  }, [activities]);
 
   // Notify parent when activities change
   useEffect(() => {
@@ -455,6 +474,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           scheduledDate: activity.scheduledDate || realToday, // Asignar fecha actual a tareas sin scheduledDate
         }));
         setActivities(migratedActivities);
+        
+        // Reprogramar notificaciones de tareas que tengan reminder habilitado
+        try {
+          await rescheduleAllTaskReminders(migratedActivities as any);
+        } catch (error) {
+          console.error('Error rescheduling task notifications:', error);
+        }
+        
         if (migratedActivities.length > 0) {
           setLocalIsFirstTime(false);
           if (setIsFirstTime) {
@@ -567,7 +594,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const addTaskToList = (finalSubtasks?: Subtask[], difficulty?: "easy" | "moderate" | "hard") => {
+  const addTaskToList = async (finalSubtasks?: Subtask[], difficulty?: "easy" | "moderate" | "hard") => {
     const tasksToUse = finalSubtasks || subtasks;
 
     if (!generatedTaskTitle || tasksToUse.length === 0) {
@@ -590,23 +617,48 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         ? {
             type: recurrenceType,
             days: recurrenceType === "weekly" ? selectedDays : undefined,
-            time: scheduledTime?.toLocaleTimeString("es-ES", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
+            time: scheduledTime
+              ? `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`
+              : undefined,
           }
         : { type: "once" },
-      reminder: reminderEnabled
+      reminder: (reminderEnabled && scheduledTime)
         ? {
             enabled: true,
             minutesBefore: reminderTime,
           }
         : undefined,
       completedDates: [],
-      scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
+      scheduledDate: (() => {
+        // For "once" tasks with a time, create a proper ISO date with the time
+        if (isScheduled && recurrenceType === 'once' && scheduledTime) {
+          const baseDate = selectedDate || new Date();
+          const dateWithTime = new Date(baseDate);
+          dateWithTime.setHours(scheduledTime.getHours(), scheduledTime.getMinutes(), 0, 0);
+          return dateWithTime.toISOString();
+        }
+        return getLocalDateKey(selectedDate || new Date());
+      })(),
     };
 
     setActivities((prev) => [newActivity, ...prev]);
+    
+    // Programar notificación si está habilitada
+    if (newActivity.reminder?.enabled) {
+      try {
+        await scheduleTaskReminders(newActivity as any);
+      } catch (error) {
+        console.error('Error scheduling task notification:', error);
+      }
+    }
+    
+    // Reset scheduling state for next task
+    setIsScheduled(false);
+    setRecurrenceType('once');
+    setSelectedDays([]);
+    setScheduledTime(null);
+    setReminderEnabled(true);
+    setReminderTime(15);
     
     // Return the new activity ID so it can be used in Focus Mode
     return newActivity.id;
@@ -682,6 +734,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             if (!activity.completed && onTaskCompleted) {
               onTaskCompleted();
             }
+            
+            // Cancelar notificaciones de tareas "once" cuando se completan
+            if (activity.recurrence?.type === "once" && activity.reminder?.enabled) {
+              cancelTaskReminders(activity.id).catch((error) => {
+                console.error('Error canceling task notification:', error);
+              });
+            }
+            
             return { ...updatedActivity, completed: true };
           }
         }
@@ -692,6 +752,11 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   };
 
   const handleDeleteTaskFromList = (activityId: string) => {
+    // Cancelar notificaciones antes de eliminar
+    cancelTaskReminders(activityId).catch((error) => {
+      console.error('Error canceling task notifications:', error);
+    });
+    
     setActivities((prev) => prev.filter((activity) => activity.id !== activityId));
   };
 
@@ -1065,6 +1130,25 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 <Text style={styles.testOnboardingText}>🔥 Racha Día 5</Text>
               </LinearGradient>
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.testOnboardingButton,
+                pressed && styles.testOnboardingButtonPressed,
+              ]}
+              onPress={() =>
+                useAppStreakStore.setState({ shouldShowStreakScreen: true })
+              }
+            >
+              <LinearGradient
+                colors={["#7C6BC4", "#9688D8"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.testOnboardingGradient}
+              >
+                <Text style={styles.testOnboardingText}>✦ Pantalla de Racha Diaria</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
           )}
         </ScrollView>
@@ -1253,7 +1337,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             activityId={editingActivityId || undefined}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTaskFromList}
-            onStart={(finalSubtasks, difficulty) => {
+            onStart={async (finalSubtasks, difficulty) => {
               let activityId: string;
               
               // Si estamos editando, actualizar primero y luego abrir Focus Mode
@@ -1262,7 +1346,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 activityId = editingActivityId;
               } else {
                 // Si es nueva, agregar a la lista
-                const newId = addTaskToList(finalSubtasks, difficulty);
+                const newId = await addTaskToList(finalSubtasks, difficulty);
                 activityId = newId!;
               }
               
@@ -1304,6 +1388,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
               };
               setActivities((prev) => [newActivity, ...prev]);
+              
+              // Programar notificación si está habilitada (aunque para tareas rápidas sin reminder normalmente)
+              if (newActivity.reminder?.enabled) {
+                scheduleTaskReminders(newActivity as any).catch((error) => {
+                  console.error('Error scheduling task notification:', error);
+                });
+              }
+              
               setShowSubtasksModal(false);
               setSubtasks([]);
               setGeneratedTaskTitle("");
@@ -1402,25 +1494,23 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         {/* Schedule Modal - Copy from add.tsx */}
         <Modal
           visible={showScheduleModal}
-          animationType="slide"
+          animationType="fade"
           transparent={true}
           onRequestClose={() => setShowScheduleModal(false)}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              {/* Handle Bar */}
-              <View style={styles.modalHandleBar} />
-              
+              {/* Header */}
               <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>
-                  <View style={styles.modalHeaderLine} />
+                  <CalendarClock size={22} color={colors.primary} />
                   <Text style={styles.modalTitle}>Programar Tarea</Text>
                 </View>
                 <Pressable 
                   style={styles.modalCloseButton}
                   onPress={() => setShowScheduleModal(false)}
                 >
-                  <X size={20} color="#64748b" />
+                  <X size={20} color={colors.textSecondary} />
                 </Pressable>
               </View>
 
@@ -1536,11 +1626,11 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                     <Pressable
                       onPress={() => {
                         setScheduledTime(null);
-                        setReminderEnabled(false); // Reset reminder when time is cleared
+                        setReminderEnabled(false);
                       }}
                       hitSlop={8}
                     >
-                      <X size={16} color="#9CA3AF" />
+                      <X size={16} color={colors.textSecondary} />
                     </Pressable>
                   )}
                 </Pressable>
@@ -1550,6 +1640,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                     value={scheduledTime || new Date()}
                     mode="time"
                     is24Hour={true}
+                    themeVariant="dark"
                     onChange={(event, selectedDate) => {
                       setShowTimePicker(false);
                       if (selectedDate) {
@@ -1559,7 +1650,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                   />
                 )}
 
-                {/* Reminder Toggle - Solo aparece si hay hora seleccionada */}
+                {/* Reminder Toggle */}
                 {scheduledTime && (
                   <View style={styles.reminderSection}>
                     <View style={styles.reminderToggle}>
@@ -1567,7 +1658,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                       <Switch
                         value={reminderEnabled}
                         onValueChange={setReminderEnabled}
-                        trackColor={{ false: "#E0E0E0", true: colors.primary }}
+                        trackColor={{ false: 'rgba(255,255,255,0.15)', true: colors.primary }}
                         thumbColor={"#FFFFFF"}
                       />
                     </View>
@@ -1598,27 +1689,28 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 )}
               </ScrollView>
 
-              <Pressable
-                style={styles.modalButton}
-                onPress={() => {
-                  setShowScheduleModal(false);
-                  // Si se abrió desde "Programar Tarea", abre el modal de tarea
-                  if (shouldShowTaskModalAfterSchedule) {
-                    setShowTaskModal(true);
-                    setShouldShowTaskModalAfterSchedule(false);
-                  }
-                }}
-              >
-                <LinearGradient
-                  colors={['#CBA6F7', '#FAB387']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.modalButtonGradient}
+              <View style={styles.modalFooter}>
+                <Pressable
+                  style={styles.modalButton}
+                  onPress={() => {
+                    setIsScheduled(true);
+                    setShowScheduleModal(false);
+                    if (shouldShowTaskModalAfterSchedule) {
+                      setShowTaskModal(true);
+                      setShouldShowTaskModalAfterSchedule(false);
+                    }
+                  }}
                 >
-                  <Sparkles size={20} color="#ffffff" style={{ marginRight: 8 }} />
-                  <Text style={styles.modalButtonText}>Confirmar</Text>
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={PRIMARY_GRADIENT_COLORS}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.modalButtonGradient}
+                  >
+                    <Text style={styles.modalButtonText}>Confirmar</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
             </View>
           </View>
         </Modal>
@@ -2632,196 +2724,160 @@ const styles = StyleSheet.create({
   } as any,
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   } as any,
   modalContent: {
-    backgroundColor: "rgba(255, 255, 255, 0.98)",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 12,
-    maxHeight: "85%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    width: '100%',
+    maxHeight: '80%',
+    overflow: 'hidden',
   } as any,
   modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 24,
-    paddingTop: 4,
-    paddingBottom: 20,
-    borderBottomWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   } as any,
   modalHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   } as any,
-  modalHeaderLine: {
-    width: 4,
-    height: 24,
-    backgroundColor: "#7c3aed",
-    borderRadius: 2,
-  } as any,
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1e293b",
-  } as any,
-  modalHandleBar: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#cbd5e1",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 16,
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
   } as any,
   modalCloseButton: {
-    padding: 10,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 50,
+    padding: 3,
   } as any,
   modalBody: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  } as any,
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   } as any,
   modalButton: {
-    marginHorizontal: 24,
-    marginVertical: 20,
-    height: 56,
-    borderRadius: 28,
-    overflow: "hidden",
+    borderRadius: 32,
+    overflow: 'hidden',
   } as any,
   modalButtonGradient: {
-    height: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#CBA6F7",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   } as any,
   modalButtonText: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#ffffff",
+    fontWeight: '700',
+    color: colors.background,
     letterSpacing: 0.3,
   } as any,
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#1e293b",
-    marginBottom: 12,
-    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 10,
+    marginTop: 4,
   } as any,
   frequencyChips: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 10,
-    flexWrap: "wrap",
-    marginBottom: 16,
+    flexWrap: 'wrap',
+    marginBottom: 20,
   } as any,
   chip: {
     flex: 1,
     minWidth: 70,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 50,
-    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
   } as any,
   chipActive: {
-    backgroundColor: "#CBA6F7",
-    borderColor: "#CBA6F7",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   } as any,
   chipText: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#64748b",
+    fontWeight: '600',
+    color: colors.textSecondary,
   } as any,
   chipTextActive: {
-    color: "#ffffff",
+    color: '#1E1E2E',
+    fontWeight: '700',
   } as any,
   daySelector: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
-    justifyContent: "space-between",
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: 20,
   } as any,
   dayChip: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   } as any,
   dayChipActive: {
-    backgroundColor: "#CBA6F7",
-    borderColor: "#CBA6F7",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   } as any,
   dayChipText: {
     fontSize: 14,
-    fontWeight: "600",
-    color: "#64748b",
+    fontWeight: '600',
+    color: colors.textSecondary,
   } as any,
   dayChipTextActive: {
-    color: "#ffffff",
+    color: '#1E1E2E',
+    fontWeight: '700',
   } as any,
   timePickerButton: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    backgroundColor: "#ffffff",
-    borderRadius: 50,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    padding: 16,
+    borderColor: 'rgba(255,255,255,0.1)',
+    padding: 14,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   } as any,
   timePickerText: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#1e293b",
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textPrimary,
   } as any,
   reminderSection: {
-    marginTop: 8,
+    marginTop: 4,
   } as any,
   reminderToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   } as any,
   reminderOptions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 8,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   } as any,
   executionContainer: {
     flex: 1,

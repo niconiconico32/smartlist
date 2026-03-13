@@ -1,38 +1,32 @@
 import { BlurView } from 'expo-blur';
 import { Flame } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
-  FadeInDown,
-  FadeOutUp,
-  interpolate,
+  FadeIn,
+  FadeOut,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
   withRepeat,
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { useAchievementsStore } from '../store/achievementsStore';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// Static background image map (require() must be static)
+const BG_IMAGES: Record<string, any> = {
+  bg_spring: require('../../assets/images/pixelbgs/spring.png'),
+  bg_beach: require('../../assets/images/pixelbgs/beach.png'),
+  bg_autumn: require('../../assets/images/pixelbgs/autumm.png'),
+  bg_winter: require('../../assets/images/pixelbgs/winter.png'),
+  bg_woods: require('../../assets/images/pixelbgs/woods.png'),
+};
 
-const PHRASES = [
-  'La parálisis por análisis es vencible. Divide y vencerás.',
-  'Tu cerebro es para crear, no para almacenar. Deja que Brainy guarde el plan.',
-  'Recupera tu ancho de banda mental. Saca el caos de tu cabeza y ponlo aquí.',
-  'No es falta de capacidad, es falta de claridad. Nosotros ponemos el foco.',
-  'La inercia se rompe con micro-pasos. Te decimos exactamente por dónde empezar.',
-  'Cambia la culpa por consistencia. Un paso a la vez es suficiente.',
-  'Hackea tu dopamina: tachar tareas pequeñas crea el impulso para las grandes.',
-];
+const DEFAULT_BG = require('../../assets/images/pixelbgs/spring.png');
 
-// Colores de tu paleta
-const COLOR_PRIMARY = '#CBA6F7'; // Lavender
-const COLOR_ACCENT = '#FAB387';  // Peach
-const TEXT_COLOR = '#1E1E2E';    // Dark
-const FLAME_ACTIVE_COLOR = '#FF6B6B'; // Orange Fire
-const FLAME_INACTIVE_COLOR = '#94A3B8'; // Gray
+const FLAME_ACTIVE_COLOR = '#FF6B6B';
+const FLAME_INACTIVE_COLOR = '#94A3B8';
 
 interface FocusHeroCardProps {
   currentStreak?: number;
@@ -43,48 +37,19 @@ export function FocusHeroCard({
   currentStreak = 0, 
   isStreakActiveToday = false 
 }: FocusHeroCardProps) {
-  const [index, setIndex] = useState(0);
-  
-  // Valores compartidos para animaciones
-  const breathingScale = useSharedValue(1);
-  const blob1Position = useSharedValue(0);
-  const blob2Position = useSharedValue(0);
   const flameScale = useSharedValue(1);
+  const mascotY = useSharedValue(0);
+  const [showBubble, setShowBubble] = useState(false);
+  const activeBackground = useAchievementsStore((s) => s.activeBackground);
 
-  // 1. Efecto de "Respiración" del contenedor (Breathing)
-  useEffect(() => {
-    breathingScale.value = withRepeat(
-      withTiming(1.02, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-  }, []);
+  // Resolve background image source
+  const bgSource = activeBackground && BG_IMAGES[activeBackground]
+    ? BG_IMAGES[activeBackground]
+    : DEFAULT_BG;
 
-  // 2. Animación de "Líquido" en el fondo (Blobs moviéndose)
-  useEffect(() => {
-    blob1Position.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 4000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-
-    blob2Position.value = withRepeat(
-      withSequence(
-        withDelay(1000, withTiming(1, { duration: 5000, easing: Easing.inOut(Easing.ease) })),
-        withDelay(1000, withTiming(0, { duration: 5000, easing: Easing.inOut(Easing.ease) }))
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  // 3. Animación de "Fuego Vivo" para el streak badge
+  // Animación de "Fuego Vivo" para el streak badge
   useEffect(() => {
     if (isStreakActiveToday) {
-      // Palpitar cuando está activo
       flameScale.value = withRepeat(
         withSequence(
           withTiming(1.2, { duration: 600, easing: Easing.inOut(Easing.ease) }),
@@ -94,42 +59,38 @@ export function FocusHeroCard({
         true
       );
     } else {
-      // Estático cuando no está activo
       flameScale.value = withTiming(1, { duration: 300 });
     }
   }, [isStreakActiveToday]);
 
-  // 4. Rotación automática de frases
+  // Floating mascot animation
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIndex((prev) => (prev + 1) % PHRASES.length);
-    }, 6000); // Cambio cada 6 segundos
-    return () => clearInterval(interval);
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-6, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  // Estilos animados
-  const containerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: breathingScale.value }],
-  }));
-
-  const blob1Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(blob1Position.value, [0, 1], [-20, 20]) },
-      { translateY: interpolate(blob1Position.value, [0, 1], [-10, 30]) },
-      { scale: interpolate(blob1Position.value, [0, 1], [1, 1.2]) },
-    ],
-  }));
-
-  const blob2Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(blob2Position.value, [0, 1], [20, -30]) },
-      { translateY: interpolate(blob2Position.value, [0, 1], [20, -20]) },
-      { scale: interpolate(blob2Position.value, [0, 1], [1, 1.3]) },
-    ],
-  }));
+  // Speech bubble: show after 5s, hide after 8s
+  useEffect(() => {
+    const showTimer = setTimeout(() => setShowBubble(true), 5000);
+    const hideTimer = setTimeout(() => setShowBubble(false), 13000);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
 
   const flameAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: flameScale.value }],
+  }));
+
+  const mascotAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
   }));
 
   // Streak Badge Component
@@ -160,53 +121,51 @@ export function FocusHeroCard({
   };
 
   return (
-    <Animated.View style={[styles.container, containerAnimatedStyle]}>
-      
-      {/* --- CAPA 1: FONDO LÍQUIDO (ORBES) --- */}
-      <View style={styles.backgroundLayer}>
-        <Animated.View style={[styles.blob, styles.blobPrimary, blob1Style]} />
-        <Animated.View style={[styles.blob, styles.blobAccent, blob2Style]} />
-      </View>
+    <View style={styles.container}>
+      {/* --- FONDO: Imagen pixel art --- */}
+      <Image
+        source={bgSource}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
 
-      {/* --- CAPA 2: EFECTO VIDRIO (GLASSMORPHISM) --- */}
-      <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill} />
-      
-      {/* Capa sutil blanca para unificar el tinte */}
-      <View style={styles.glassTint} />
-
-      {/* --- CAPA 3: CONTENIDO --- */}
+      {/* --- CONTENIDO: Mascota centrada + Burbuja arriba --- */}
       <View style={styles.contentContainer}>
-        
-        {/* TEXTO ANIMADO */}
-        <View style={styles.textWrapper}>
-          <Animated.Text
-            key={index} // La clave reinicia la animación al cambiar el texto
-            entering={FadeInDown.duration(600).springify()}
-            exiting={FadeOutUp.duration(400)}
-            style={styles.text}
+        {/* Speech Bubble - positioned above mascot */}
+        {showBubble && (
+          <Animated.View
+            entering={FadeIn.duration(400).springify()}
+            exiting={FadeOut.duration(300)}
+            style={styles.bubbleWrapper}
           >
-            {PHRASES[index]}
-          </Animated.Text>
-        </View>
+            <Pressable
+              style={styles.speechBubble}
+              onPress={() => {
+                // TODO: abrir tip diario
+              }}
+            >
+              <Text style={styles.speechBubbleText}>
+                ¡Hey! Tócame para leer tu tip diario  {'\n'}  para  ayudarte a lidiar con el TDAH.
+              </Text>
+              <View style={styles.speechBubbleTail} />
+            </Pressable>
+          </Animated.View>
+        )}
 
-        {/* LOGO */}
-        <View style={styles.logoWrapper}>
+        <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
           <Image
             source={require('../../assets/images/logomain.png')}
-            style={styles.logo}
+            style={styles.mascot}
             resizeMode="contain"
           />
-          {/* Sombra suave para el logo */}
-          <View style={styles.logoShadow} />
-          {/* Streak Badge */}
+          <View style={styles.mascotShadow} />
           <StreakBadge />
-        </View>
-
+        </Animated.View>
       </View>
       
-      {/* Borde brillante sutil (Overlay) */}
+      {/* Borde sutil */}
       <View style={styles.borderOverlay} />
-    </Animated.View>
+    </View>
   );
 }
 
@@ -215,92 +174,94 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     height: 160,
     borderRadius: 32,
-    overflow: 'hidden', // Crucial para que el blur no se salga
-    backgroundColor: '#fff', // Fallback color
-    // Sombras complejas para efecto flotante
-    shadowColor: COLOR_PRIMARY,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
+    overflow: 'hidden',
+    backgroundColor: '#4A7C59',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 10,
   },
-  backgroundLayer: {
+  backgroundImage: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#FFF5F0', // Fondo base muy suave
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  blob: {
-    position: 'absolute',
-    borderRadius: 999,
-    opacity: 0.6,
-  },
-  blobPrimary: {
-    width: 200,
-    height: 200,
-    backgroundColor: COLOR_PRIMARY,
-    top: -50,
-    left: -20,
-  },
-  blobAccent: {
-    width: 180,
-    height: 180,
-    backgroundColor: COLOR_ACCENT,
-    bottom: -40,
-    right: -20,
-  },
-  glassTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', // Tinte lechoso
+    width: '100%',
+    height: '100%',
   },
   contentContainer: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  textWrapper: {
-    flex: 1,
-    paddingRight: 16,
     justifyContent: 'center',
-    height: '100%', 
   },
-  text: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: TEXT_COLOR,
-    lineHeight: 24,
-    letterSpacing: -0.3,
-  },
-  logoWrapper: {
-    justifyContent: 'center',
+  mascotWrapper: {
     alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
-  logo: {
-    width: 90,
-    height: 90,
+  mascot: {
+    width: 110,
+    height: 110,
     zIndex: 10,
   },
-  logoShadow: {
+  mascotShadow: {
     position: 'absolute',
     width: 60,
-    height: 20,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    bottom: 5,
-    borderRadius: 20,
+    height: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    bottom: -2,
+    borderRadius: 30,
     transform: [{ scaleX: 1.5 }],
     zIndex: 0,
   },
-  // Streak Badge Styles
+  // Speech Bubble - positioned absolutely above the mascot
+  bubbleWrapper: {
+    position: 'absolute',
+    top: 8,
+    right: 16,
+    left: 16,
+    zIndex: 30,
+  },
+  speechBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  speechBubbleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E1E2E',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  speechBubbleTail: {
+    position: 'absolute',
+    bottom: -7,
+    alignSelf: 'center',
+    left: '50%',
+    marginLeft: -6,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 7,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(255, 255, 255, 0.72)',
+  },
+  // Streak Badge
   streakBadgeContainer: {
     position: 'absolute',
-    top: -8,
+    top: -4,
     right: -12,
     zIndex: 20,
     borderRadius: 20,
     overflow: 'hidden',
-    // Sombra sutil
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -327,7 +288,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     borderRadius: 32,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.4)', // Borde de cristal
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     zIndex: 20,
   },
 });

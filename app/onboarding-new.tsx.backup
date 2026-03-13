@@ -64,15 +64,19 @@ const SatisfactionChart = () => {
   const [showTooltip3, setShowTooltip3] = useState(false);
 
   // Path for the curve (Bezier curve going up)
+  // Formato: M startX startY Q controlX controlY endX endY T finalX finalY
+  // Ajusta los valores para cambiar la curvatura
   const pathD = `M 20 ${CHART_HEIGHT - 30} Q 80 ${CHART_HEIGHT - 50}, 140 ${CHART_HEIGHT - 80} T 330 ${CHART_HEIGHT - 200}`;
-  const pathLength = 310;
+  const pathLength = 310; // Approximate path length
 
   useEffect(() => {
+    // Start the animation
     progress.value = withTiming(1, {
       duration: 2000,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
 
+    // Show tooltips sequentially
     const timer1 = setTimeout(() => setShowTooltip1(true), 400);
     const timer2 = setTimeout(() => setShowTooltip2(true), 1200);
     const timer3 = setTimeout(() => setShowTooltip3(true), 2000);
@@ -92,13 +96,19 @@ const SatisfactionChart = () => {
 
   return (
     <View style={chartStyles.container}>
+      {/* Chart Title */}
       <Text style={chartStyles.title}>TU NIVEL DE SATISFACCIÓN</Text>
+
+      {/* Chart Card */}
       <View style={chartStyles.chartCard}>
+        {/* Grid Lines (dashed) */}
         <View style={chartStyles.gridContainer}>
           <View style={chartStyles.gridLine} />
           <View style={chartStyles.gridLine} />
           <View style={chartStyles.gridLine} />
         </View>
+
+        {/* SVG Chart */}
         <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={chartStyles.svg}>
           <Defs>
             <SvgLinearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -117,6 +127,8 @@ const SatisfactionChart = () => {
             animatedProps={animatedProps}
           />
         </Svg>
+
+        {/* Tooltip 1 - BAJO (Bottom Left) */}
         {showTooltip1 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
@@ -129,6 +141,8 @@ const SatisfactionChart = () => {
             <Text style={chartStyles.tooltipLabelBelow}>AHORA</Text>
           </Animated.View>
         )}
+
+        {/* Tooltip 2 - Primeros Cambios (Middle) */}
         {showTooltip2 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
@@ -140,6 +154,8 @@ const SatisfactionChart = () => {
             </View>
           </Animated.View>
         )}
+
+        {/* Tooltip 3 - La vida que quieres (Top Right) */}
         {showTooltip3 && (
           <Animated.View
             entering={FadeInUp.duration(400)}
@@ -152,6 +168,8 @@ const SatisfactionChart = () => {
             <Text style={chartStyles.tooltipLabelBelow}>PRONTO</Text>
           </Animated.View>
         )}
+
+        {/* X Axis Labels */}
         <View style={chartStyles.xAxisLabels}>
           <Text style={chartStyles.xAxisLabel}>Día 1</Text>
           <Text style={chartStyles.xAxisLabel}>Pronto</Text>
@@ -181,8 +199,8 @@ const chartStyles = StyleSheet.create({
     padding: 24,
     width: SCREEN_WIDTH - 40,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}0D`,
-    shadowColor: colors.background,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -201,7 +219,7 @@ const chartStyles = StyleSheet.create({
   },
   gridLine: {
     height: 1,
-    backgroundColor: `${colors.textPrimary}0D`,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderStyle: 'dashed',
   },
   svg: {
@@ -210,7 +228,7 @@ const chartStyles = StyleSheet.create({
   tooltipContainer: {
     position: 'absolute',
     alignItems: 'center',
-    transform: [{ translateX: -6 }],
+    transform: [{ translateX: -6 }], // Center the dot (dot is 12px wide)
   },
   tooltipLabel: {
     fontSize: 10,
@@ -235,14 +253,14 @@ const chartStyles = StyleSheet.create({
   tooltipText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.background,
+    color: '#1E1E2E',
   },
   tooltipDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: colors.textPrimary,
+    borderColor: '#FFFFFF',
   },
   xAxisLabels: {
     flexDirection: 'row',
@@ -319,6 +337,7 @@ const GrowthBar: React.FC<GrowthBarProps> = ({ label, value, maxValue, isPotenti
       <View style={growthStyles.barContainer}>
         {isPotential ? (
           <>
+            {/* Glow effect behind */}
             <Animated.View style={[growthStyles.barGlow, glowStyle, { height: targetHeight }]} />
             <Animated.View style={[growthStyles.barAnimated, barStyle]}>
               <LinearGradient
@@ -341,13 +360,23 @@ const GrowthBar: React.FC<GrowthBarProps> = ({ label, value, maxValue, isPotenti
 
 const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
   const mascotY = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
+  const handRotate = useSharedValue(0);
 
   useEffect(() => {
+    // Mascot floating animation
     mascotY.value = withRepeat(
       withSequence(
         withTiming(-8, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
         withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    // Hand pointing animation
+    handRotate.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 800 }),
+        withTiming(5, { duration: 800 })
       ),
       -1,
       true
@@ -358,24 +387,13 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
     transform: [{ translateY: mascotY.value }],
   }));
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   return (
     <ScrollView
       style={styles.slideScroll}
       contentContainerStyle={growthStyles.container}
       showsVerticalScrollIndicator={false}
     >
+      {/* Header */}
       <Animated.Text
         entering={FadeInDown.delay(100).duration(500)}
         style={growthStyles.title}
@@ -390,22 +408,29 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
         Mira lo que puedes lograr con el sistema correcto
       </Animated.Text>
 
+      {/* Comparison Bars Chart */}
       <Animated.View
         entering={FadeInDown.delay(300).duration(600)}
         style={growthStyles.chartContainer}
       >
+        {/* Columnas de barras con sus valores */}
         <View style={growthStyles.barsRow}>
+          {/* Columna Actual */}
           <View style={growthStyles.barColumnActual}>
             <Text style={growthStyles.barValueActual}>35%</Text>
             <GrowthBar label="Actual" value={35} maxValue={100} delay={400} />
             <Text style={growthStyles.barLabel}>Actual</Text>
           </View>
+
+          {/* Columna Con Brainy */}
           <View style={growthStyles.barColumnPotential}>
             <Text style={growthStyles.barValuePotentialTop}>+85%</Text>
             <GrowthBar label="Con Brainy" value={100} maxValue={100} isPotential delay={700} />
             <Text style={[growthStyles.barLabel, growthStyles.barLabelPotential]}>Con Brainy</Text>
           </View>
         </View>
+
+        {/* Mascot pointing up */}
         <Animated.View style={[growthStyles.mascotContainer, mascotStyle]}>
           <Image
             source={require("@/assets/images/logomain.png")}
@@ -416,17 +441,19 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
         </Animated.View>
       </Animated.View>
 
+      {/* Reframed Stats Cards */}
       <Animated.View
         entering={FadeInDown.delay(500).duration(500)}
         style={growthStyles.statsContainer}
       >
+        {/* Card 1: Margen de Mejora */}
         <View style={growthStyles.statCard}>
           <LinearGradient
-            colors={[`${colors.success}26`, `${colors.success}0D`]}
+            colors={['rgba(166, 227, 161, 0.15)', 'rgba(166, 227, 161, 0.05)']}
             style={growthStyles.statCardGradient}
           >
             <View style={growthStyles.statCardHeader}>
-              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.success}40` }]}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.success}25` }]}>
                 <Sparkles size={18} color={colors.success} strokeWidth={2} />
               </View>
               <Text style={growthStyles.statCardTitle}>Margen de Mejora</Text>
@@ -440,17 +467,18 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
           </LinearGradient>
         </View>
 
+        {/* Card 2: Productividad Estimada */}
         <View style={growthStyles.statCard}>
           <LinearGradient
-            colors={[`${colors.primary}26`, `${colors.primary}0D`]}
+            colors={['rgba(243, 139, 168, 0.15)', 'rgba(243, 139, 168, 0.05)']}
             style={growthStyles.statCardGradient}
           >
             <View style={growthStyles.statCardHeader}>
-              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.primary}40` }]}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.primary}25` }]}>
                 <Zap size={18} color={colors.primary} strokeWidth={2} />
               </View>
               <Text style={growthStyles.statCardTitle}>Productividad Estimada</Text>
-              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.primary}33` }]}>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.primary}20` }]}>
                 <Text style={[growthStyles.statBadgeText, { color: colors.primary }]}>+3x</Text>
               </View>
             </View>
@@ -460,17 +488,18 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
           </LinearGradient>
         </View>
 
+        {/* Card 3: Claridad Mental */}
         <View style={growthStyles.statCard}>
           <LinearGradient
-            colors={[`${colors.accent}26`, `${colors.accent}0D`]}
+            colors={['rgba(203, 166, 247, 0.15)', 'rgba(203, 166, 247, 0.05)']}
             style={growthStyles.statCardGradient}
           >
             <View style={growthStyles.statCardHeader}>
-              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.accent}40` }]}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.accent}25` }]}>
                 <Brain size={18} color={colors.accent} strokeWidth={2} />
               </View>
               <Text style={growthStyles.statCardTitle}>Claridad Mental</Text>
-              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.accent}33` }]}>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.accent}20` }]}>
                 <Text style={[growthStyles.statBadgeText, { color: colors.accent }]}>ALTA</Text>
               </View>
             </View>
@@ -481,30 +510,27 @@ const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
         </View>
       </Animated.View>
 
+      {/* CTA Button */}
       <Animated.View
         entering={FadeInDown.delay(700).duration(500)}
         style={growthStyles.buttonContainer}
       >
-        <Animated.View style={buttonAnimatedStyle}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onContinue();
-            }}
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
-            style={primaryButtonStyles}
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onContinue();
+          }}
+          style={primaryButtonStyles}
+        >
+          <LinearGradient
+            colors={PRIMARY_GRADIENT_COLORS}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={primaryButtonGradient}
           >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={primaryButtonGradient}
-            >
-              <Text style={primaryButtonText}>Empezar mi Transformación</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+            <Text style={primaryButtonText}>Empezar mi Transformación</Text>
+          </LinearGradient>
+        </Pressable>
       </Animated.View>
     </ScrollView>
   );
@@ -517,7 +543,7 @@ const growthStyles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
     color: colors.textPrimary,
     textAlign: 'center',
@@ -532,7 +558,7 @@ const growthStyles = StyleSheet.create({
     marginBottom: 32,
   },
   chartContainer: {
-    backgroundColor: `${colors.surface}80`,
+    backgroundColor: 'rgba(49, 50, 68, 0.5)',
     borderRadius: 24,
     padding: 24,
     marginBottom: 24,
@@ -543,6 +569,10 @@ const growthStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
     gap: 40,
+  },
+  barColumn: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   barColumnActual: {
     alignItems: 'center',
@@ -576,7 +606,7 @@ const growthStyles = StyleSheet.create({
   },
   barDimmed: {
     flex: 1,
-    backgroundColor: `${colors.textPrimary}26`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 12,
   },
   barGlow: {
@@ -597,6 +627,13 @@ const growthStyles = StyleSheet.create({
   barLabelPotential: {
     color: colors.textPrimary,
   },
+  barValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 0,
+  },
   barValueActual: {
     fontSize: 22,
     fontWeight: '800',
@@ -610,6 +647,9 @@ const growthStyles = StyleSheet.create({
     color: '#FF9A9E',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  barValuePotential: {
+    color: '#FF9A9E',
   },
   mascotContainer: {
     position: 'absolute',
@@ -641,7 +681,7 @@ const growthStyles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}14`,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   statCardHeader: {
     flexDirection: 'row',
@@ -663,7 +703,7 @@ const growthStyles = StyleSheet.create({
     color: colors.textPrimary,
   },
   statBadge: {
-    backgroundColor: `${colors.success}33`,
+    backgroundColor: `${colors.success}20`,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -741,6 +781,7 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
 
   return (
     <Animated.View style={[timelineStyles.nodeContainer, nodeStyle]}>
+      {/* Glow effect for active node */}
       {isFirst && (
         <Animated.View
           style={[
@@ -750,6 +791,8 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
           ]}
         />
       )}
+
+      {/* Node circle */}
       <View style={[timelineStyles.nodeCircle, { borderColor: color }]}>
         <LinearGradient
           colors={[color, glowColor]}
@@ -758,6 +801,8 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
           {icon}
         </LinearGradient>
       </View>
+
+      {/* Content */}
       <View style={timelineStyles.nodeContent}>
         <Text style={[timelineStyles.nodeDay, { color }]}>{day}</Text>
         <Text style={timelineStyles.nodeTitle}>{title}</Text>
@@ -770,13 +815,15 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
 const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
   const pathProgress = useSharedValue(0);
   const mascotY = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
+    // Animate path drawing
     pathProgress.value = withDelay(
       400,
       withTiming(1, { duration: 2000, easing: Easing.out(Easing.cubic) })
     );
+
+    // Mascot floating
     mascotY.value = withRepeat(
       withSequence(
         withTiming(-6, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
@@ -791,27 +838,16 @@ const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
     transform: [{ translateY: mascotY.value }],
   }));
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   return (
     <LinearGradient
-      colors={[colors.background, '#16213E']}
+      colors={['#1A1A2E', '#16213E']}
       style={timelineStyles.container}
     >
       <ScrollView
         contentContainerStyle={timelineStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
           style={timelineStyles.title}
@@ -826,18 +862,23 @@ const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
           No es magia. Es neurociencia aplicada a tus tiempos.
         </Animated.Text>
 
+        {/* Timeline Container */}
         <View style={timelineStyles.timelineContainer}>
+          {/* Glowing Path Line */}
           <View style={timelineStyles.pathContainer}>
             <LinearGradient
-              colors={[colors.textPrimary, '#FAB387', '#CBA6F7']}
+              colors={['#FFFFFF', '#FAB387', '#CBA6F7']}
               start={{ x: 0, y: 1 }}
               end={{ x: 0, y: 0 }}
               style={timelineStyles.pathLine}
             />
+            {/* Animated glow overlay */}
             <Animated.View style={timelineStyles.pathGlow} />
           </View>
 
+          {/* Mascot at top */}
           <Animated.View style={[timelineStyles.mascotContainer, mascotStyle]}>
+            {/* Speech Bubble */}
             <View style={timelineStyles.speechBubble}>
               <Text style={timelineStyles.speechBubbleText}>
                 ¡Tu nuevo yo está más cerca de lo que crees!
@@ -851,63 +892,66 @@ const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
             />
           </Animated.View>
 
+          {/* Nodes - From top to bottom visually, but conceptually bottom to top */}
           <View style={timelineStyles.nodesContainer}>
+            {/* Node 3 - Day 30 (Top) */}
             <TimelineNode
               day="Día 30"
               title="Control Total"
               description="La procrastinación ya no es tu jefe. Tú mandas."
               color="#CBA6F7"
               glowColor="#9D4EDD"
-              icon={<Crown size={20} color={colors.textPrimary} strokeWidth={2} />}
+              icon={<Crown size={20} color="#FFFFFF" strokeWidth={2} />}
               delay={1800}
               isLast
             />
+
+            {/* Node 2 - Day 7 (Middle) */}
             <TimelineNode
               day="Día 7"
               title="Inercia Positiva"
               description="Tus primeras rachas se sienten naturales, no forzadas."
               color="#FAB387"
               glowColor="#FF8C42"
-              icon={<Flame size={20} color={colors.textPrimary} strokeWidth={2} />}
+              icon={<Flame size={20} color="#FFFFFF" strokeWidth={2} />}
               delay={1200}
             />
+
+            {/* Node 1 - Day 1 (Bottom - Active) */}
             <TimelineNode
               day="Día 1 (Hoy)"
               title="Alivio Mental"
               description="Dejas de guardar todo en tu cabeza. Tu ansiedad baja hoy mismo."
-              color={colors.textPrimary}
+              color="#FFFFFF"
               glowColor="#A6E3A1"
-              icon={<Sparkles size={20} color={colors.background} strokeWidth={2} />}
+              icon={<Sparkles size={20} color="#1A1A2E" strokeWidth={2} />}
               delay={600}
               isFirst
             />
           </View>
         </View>
 
+        {/* CTA Button */}
         <Animated.View
           entering={FadeInDown.delay(2200).duration(500)}
           style={timelineStyles.buttonContainer}
         >
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onContinue();
-              }}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              style={primaryButtonStyles}
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onContinue();
+            }}
+            style={primaryButtonStyles}
+          >
+            <LinearGradient
+              colors={PRIMARY_GRADIENT_COLORS}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={primaryButtonGradient}
             >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>Ver mi Regalo de Bienvenida</Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+              <Text style={primaryButtonText}>Ver mi Regalo de Bienvenida</Text>
+            </LinearGradient>
+          </Pressable>
         </Animated.View>
       </ScrollView>
     </LinearGradient>
@@ -924,17 +968,17 @@ const timelineStyles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -962,7 +1006,7 @@ const timelineStyles = StyleSheet.create({
     left: -4,
     right: -4,
     bottom: 0,
-    backgroundColor: `${colors.textPrimary}26`,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 8,
   },
   mascotContainer: {
@@ -971,13 +1015,14 @@ const timelineStyles = StyleSheet.create({
     bottom: -10,
     display: 'flex',
     flexDirection: 'row'
+    
   },
   mascot: {
     width: 60,
     height: 60,
   },
   speechBubble: {
-    backgroundColor: `${colors.textPrimary}F2`,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
@@ -993,7 +1038,7 @@ const timelineStyles = StyleSheet.create({
   speechBubbleText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.background,
+    color: '#1A1A2E',
     textAlign: 'center',
     lineHeight: 16,
   },
@@ -1009,7 +1054,13 @@ const timelineStyles = StyleSheet.create({
     borderLeftWidth: 8,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
-    borderLeftColor: `${colors.textPrimary}F2`,
+    borderLeftColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  mascotText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#CBA6F7',
+    marginTop: 4,
   },
   nodesContainer: {
     paddingLeft: 0,
@@ -1035,7 +1086,7 @@ const timelineStyles = StyleSheet.create({
     borderRadius: 30,
     borderWidth: 3,
     overflow: 'hidden',
-    backgroundColor: `${colors.background}CC`,
+    backgroundColor: 'rgba(26, 26, 46, 0.8)',
   },
   nodeGradient: {
     flex: 1,
@@ -1056,13 +1107,13 @@ const timelineStyles = StyleSheet.create({
   nodeTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   nodeDescription: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     lineHeight: 18,
   },
   buttonContainer: {
@@ -1077,9 +1128,9 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
   const cardY = useSharedValue(0);
   const badgePulse = useSharedValue(1);
   const glowOpacity = useSharedValue(0.3);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
+    // Card floating animation
     cardY.value = withRepeat(
       withSequence(
         withTiming(-8, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
@@ -1088,6 +1139,8 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
       -1,
       true
     );
+
+    // Badge pulse animation
     badgePulse.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1000 }),
@@ -1096,6 +1149,8 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
       -1,
       true
     );
+
+    // Glow animation
     glowOpacity.value = withRepeat(
       withSequence(
         withTiming(0.6, { duration: 2000 }),
@@ -1118,27 +1173,16 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
     opacity: glowOpacity.value,
   }));
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   return (
     <LinearGradient
-      colors={[colors.background, '#16213E']}
+      colors={['#1A1A2E', '#16213E']}
       style={trialStyles.container}
     >
       <ScrollView
         contentContainerStyle={trialStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
           style={trialStyles.headerTitle}
@@ -1146,16 +1190,19 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
           Hagamos un trato honesto.
         </Animated.Text>
 
+        {/* Radial Glow behind card */}
         <Animated.View style={[trialStyles.cardGlow, glowStyle]} />
 
+        {/* Floating Golden Ticket Card */}
         <Animated.View
           entering={FadeInDown.delay(300).duration(600)}
           style={[trialStyles.cardContainer, cardStyle]}
         >
           <LinearGradient
-            colors={[`${colors.surface}E6`, `${colors.background}F2`]}
+            colors={['rgba(49, 50, 68, 0.9)', 'rgba(30, 32, 48, 0.95)']}
             style={trialStyles.card}
           >
+            {/* Mascot with Shield */}
             <View style={trialStyles.iconContainer}>
               <LinearGradient
                 colors={['#FFD700', '#FFA500']}
@@ -1171,14 +1218,17 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
               />
             </View>
 
+            {/* Headline */}
             <Text style={trialStyles.cardHeadline}>
               Probablemente odias las pruebas gratuitas que piden tu tarjeta.
             </Text>
 
+            {/* Body Text */}
             <Text style={trialStyles.cardBody}>
               Sabemos que algunas apps ofrecen una prueba gratis y esperan que sus usuarios olviden cancelarla. Aquí no hacemos eso.
             </Text>
 
+            {/* The Offer */}
             <View style={trialStyles.offerContainer}>
               <LinearGradient
                 colors={['rgba(255, 215, 0, 0.15)', 'rgba(255, 165, 0, 0.1)']}
@@ -1193,6 +1243,7 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
               </LinearGradient>
             </View>
 
+            {/* Trust Badges */}
             <View style={trialStyles.trustBadges}>
               <Animated.View style={[trialStyles.trustBadge, badgeStyle]}>
                 <View style={trialStyles.badgeIconContainer}>
@@ -1201,7 +1252,9 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
                 </View>
                 <Text style={trialStyles.trustBadgeText}>Sin Cobros Sorpresa</Text>
               </Animated.View>
+
               <View style={trialStyles.badgeDivider} />
+
               <View style={trialStyles.trustBadge}>
                 <Unlock size={16} color="#A6E3A1" strokeWidth={2} />
                 <Text style={trialStyles.trustBadgeText}>Acceso Total</Text>
@@ -1210,32 +1263,30 @@ const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
           </LinearGradient>
         </Animated.View>
 
+        {/* CTA Button */}
         <Animated.View
           entering={FadeInDown.delay(700).duration(500)}
           style={trialStyles.buttonContainer}
         >
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={() => {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                onAccept();
-              }}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              style={primaryButtonStyles}
+          <Pressable
+            onPress={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onAccept();
+            }}
+            style={primaryButtonStyles}
+          >
+            <LinearGradient
+              colors={PRIMARY_GRADIENT_COLORS}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={primaryButtonGradient}
             >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>Acepto el Regalo (Empezar)</Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+              <Text style={primaryButtonText}>Acepto el Regalo (Empezar)</Text>
+            </LinearGradient>
+          </Pressable>
         </Animated.View>
 
+        {/* Secondary Text */}
         <Animated.Text
           entering={FadeInDown.delay(900).duration(500)}
           style={trialStyles.secondaryText}
@@ -1258,9 +1309,9 @@ const trialStyles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '900',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 32,
     letterSpacing: -0.5,
@@ -1313,7 +1364,7 @@ const trialStyles = StyleSheet.create({
   cardHeadline: {
     fontSize: 18,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 12,
     lineHeight: 24,
@@ -1321,7 +1372,7 @@ const trialStyles = StyleSheet.create({
   cardBody: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
@@ -1339,7 +1390,7 @@ const trialStyles = StyleSheet.create({
   offerText: {
     fontSize: 25,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 4,
   },
@@ -1375,12 +1426,12 @@ const trialStyles = StyleSheet.create({
   trustBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   badgeDivider: {
     width: 1,
     height: 20,
-    backgroundColor: `${colors.textPrimary}33`,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   buttonContainer: {
     width: '100%',
@@ -1389,7 +1440,7 @@ const trialStyles = StyleSheet.create({
   secondaryText: {
     fontSize: 13,
     fontWeight: '400',
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
   },
 });
@@ -1412,16 +1463,25 @@ const AnimatedDayCircle = ({
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      // Haptic feedback al llenar
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // Animación de llenado
       fillProgress.value = withTiming(1, { 
         duration: 400, 
         easing: Easing.out(Easing.cubic) 
       });
+      
+      // Pequeño bounce al llenar
       scale.value = withSequence(
         withTiming(1.15, { duration: 150 }),
         withSpring(1, { damping: 10 })
       );
+      
+      // Mostrar check
       checkOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+      
+      // Callback después de la animación
       if (onFilled) {
         setTimeout(onFilled, 400);
       }
@@ -1433,11 +1493,11 @@ const AnimatedDayCircle = ({
   const circleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
     backgroundColor: fillProgress.value > 0 
-      ? `${colors.success}${Math.round(fillProgress.value * 255).toString(16).padStart(2, '0')}` 
+      ? `rgba(166, 227, 161, ${fillProgress.value})` 
       : colors.surface,
     borderColor: fillProgress.value > 0 
       ? colors.success 
-      : `${colors.textPrimary}1A`,
+      : 'rgba(255, 255, 255, 0.1)',
   }));
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -1467,13 +1527,14 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
   const subtitleOpacity = useSharedValue(0);
   const factOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
+    // Animaciones de entrada del texto
     titleOpacity.value = withDelay(100, withTiming(1, { duration: 500 }));
     subtitleOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
     factOpacity.value = withDelay(3500, withTiming(1, { duration: 500 }));
     
+    // Mostrar botón después de que termine la animación (~4 segundos)
     const buttonTimer = setTimeout(() => {
       setShowButton(true);
       buttonOpacity.value = withTiming(1, { duration: 400 });
@@ -1498,24 +1559,15 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
 
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
-    transform: [
-      { translateY: (1 - buttonOpacity.value) * 20 },
-      { scale: buttonScale.value }
-    ],
+    transform: [{ translateY: (1 - buttonOpacity.value) * 20 }],
   }));
 
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
+  // Calcular delay para cada círculo (4 segundos total / 7 días ≈ 570ms entre cada uno)
   const getDelay = (index: number) => 500 + (index * 430);
 
   return (
     <View style={habitStyles.container}>
+      {/* Logo con breathing */}
       <Animated.View
         entering={FadeInDown.delay(0).duration(500)}
         style={habitStyles.logoContainer}
@@ -1527,14 +1579,17 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
         />
       </Animated.View>
 
+      {/* Título */}
       <Animated.Text style={[habitStyles.title, titleStyle]}>
         Construye tu hábito diario
       </Animated.Text>
 
+      {/* Subtítulo */}
       <Animated.Text style={[habitStyles.subtitle, subtitleStyle]}>
         La consistencia es clave para el cambio duradero
       </Animated.Text>
 
+      {/* Círculos de días */}
       <View style={habitStyles.daysRow}>
         {HABIT_DAYS.map((day, index) => (
           <AnimatedDayCircle
@@ -1546,10 +1601,12 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
         ))}
       </View>
 
+      {/* Texto de progreso */}
       <Animated.Text style={habitStyles.progressText}>
         Empieza pequeño y mantén la consistencia
       </Animated.Text>
 
+      {/* Fact Card */}
       <Animated.View style={[habitStyles.factCard, factStyle]}>
         <View style={habitStyles.factIconContainer}>
           <Flame
@@ -1565,6 +1622,7 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
         </Text>
       </Animated.View>
 
+      {/* Botón Continuar */}
       {showButton && (
         <Animated.View style={[habitStyles.buttonContainer, buttonStyle]}>
           <Pressable
@@ -1572,8 +1630,6 @@ const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onComplete();
             }}
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
             style={primaryButtonStyles}
           >
             <LinearGradient
@@ -1617,11 +1673,11 @@ const habitStyles = StyleSheet.create({
     lineHeight: 40,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
   },
   daysRow: {
     flexDirection: 'row',
@@ -1636,7 +1692,7 @@ const habitStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}1A`,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     position: 'relative',
   },
   dayLabel: {
@@ -1661,7 +1717,7 @@ const habitStyles = StyleSheet.create({
   factCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${colors.accent}26`,
+    backgroundColor: `${colors.accent}15`,
     borderRadius: 16,
     padding: 16,
     gap: 12,
@@ -1893,7 +1949,7 @@ const SelectableButton: React.FC<SelectableButtonProps> = ({
         <View
           style={[
             styles.selectableIconContainer,
-            { backgroundColor: `${color}26` },
+            { backgroundColor: `${color}15` },
           ]}
         >
           <Icon size={24} color={color} strokeWidth={2} />
@@ -1982,8 +2038,8 @@ export default function OnboardingScreen() {
   const [statement4, setStatement4] = useState<string | null>(null);
   const [taskText, setTaskText] = useState("");
 
+  // Breathing animation for mascot
   const breathingAnim = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
   
   useEffect(() => {
     breathingAnim.value = withRepeat(
@@ -2002,18 +2058,6 @@ export default function OnboardingScreen() {
     };
   });
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   const goToNextSlide = () => {
     if (currentSlide < 14) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2029,6 +2073,7 @@ export default function OnboardingScreen() {
   };
 
   const finishOnboarding = () => {
+    // Guardar datos del onboarding si es necesario
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.replace("/(tabs)");
   };
@@ -2038,7 +2083,9 @@ export default function OnboardingScreen() {
       case 0:
         return (
           <View style={styles.welcomeSlideSimple}>
+            {/* Content Container - takes remaining space */}
             <View style={styles.welcomeContentArea}>
+              {/* Mascot with breathing animation */}
               <Animated.View
                 entering={FadeInDown.delay(100).duration(700)}
                 style={[styles.welcomeMascotCenter, mascotAnimatedStyle]}
@@ -2050,6 +2097,7 @@ export default function OnboardingScreen() {
                 />
               </Animated.View>
 
+              {/* Title */}
               <Animated.Text
                 entering={FadeInDown.delay(400).duration(600)}
                 style={styles.welcomeTitleCenter}
@@ -2057,6 +2105,7 @@ export default function OnboardingScreen() {
                 ¡Bienvenid@ a Brainy!
               </Animated.Text>
 
+              {/* Subtitle */}
               <Animated.Text
                 entering={FadeInDown.delay(550).duration(600)}
                 style={styles.welcomeSubtitleCenter}
@@ -2065,34 +2114,39 @@ export default function OnboardingScreen() {
               </Animated.Text>
             </View>
 
+            {/* Buttons Container - Fixed at bottom */}
             <Animated.View
               entering={FadeInDown.delay(700).duration(500)}
               style={styles.welcomeButtonsContainer}
             >
-              <Animated.View style={buttonAnimatedStyle}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    goToNextSlide();
-                  }}
-                  onPressIn={handleButtonPressIn}
-                  onPressOut={handleButtonPressOut}
-                  style={primaryButtonStyles}
-                >
-                  <LinearGradient
-                    colors={PRIMARY_GRADIENT_COLORS}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={primaryButtonGradient}
-                  >
-                    <Text style={primaryButtonText}>Empezar</Text> 
-                  </LinearGradient>
-                </Pressable>
-              </Animated.View>
+              {/* Primary Button - Empezar */}
+                          {/* Primary Button - Empezar */}
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                goToNextSlide();
+              }}
+              style={({ pressed }) => [
+                primaryButtonStyles,  // <- Usa el estilo global
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}  // <- Usa el gradiente global
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}  // <- Usa el layout global
+              >
+                <Text style={primaryButtonText}>Empezar</Text> 
+              </LinearGradient>
+            </Pressable>
 
+
+              {/* Secondary Button - Ya Tengo cuenta */}
               <Pressable
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  // TODO: Navigate to login screen
                   router.replace("/(tabs)");
                 }}
                 style={({ pressed }) => [
@@ -2109,7 +2163,9 @@ export default function OnboardingScreen() {
       case 1:
         return (
           <View style={styles.welcomeSlideSimple}>
+            {/* Content Container */}
             <View style={styles.welcomeContentArea}>
+              {/* Mascot with breathing animation */}
               <Animated.View
                 entering={FadeInDown.delay(100).duration(700)}
                 style={[styles.welcomeMascotCenter, mascotAnimatedStyle]}
@@ -2122,30 +2178,30 @@ export default function OnboardingScreen() {
               </Animated.View>
             </View>
 
+            {/* Button Container - Fixed at bottom */}
             <Animated.View
               entering={FadeInDown.delay(400).duration(500)}
               style={styles.welcomeButtonsContainer}
             >
-              <Animated.View style={buttonAnimatedStyle}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    goToNextSlide();
-                  }}
-                  onPressIn={handleButtonPressIn}
-                  onPressOut={handleButtonPressOut}
-                  style={primaryButtonStyles}
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  goToNextSlide();
+                }}
+                style={({ pressed }) => [
+                  primaryButtonStyles,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <LinearGradient
+                  colors={PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={primaryButtonGradient}
                 >
-                  <LinearGradient
-                    colors={PRIMARY_GRADIENT_COLORS}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={primaryButtonGradient}
-                  >
-                    <Text style={primaryButtonText}>Continuar</Text>
-                  </LinearGradient>
-                </Pressable>
-              </Animated.View>
+                  <Text style={primaryButtonText}>Continuar</Text>
+                </LinearGradient>
+              </Pressable>
             </Animated.View>
           </View>
         );
@@ -2201,6 +2257,7 @@ export default function OnboardingScreen() {
             contentContainerStyle={styles.slideScrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* Título */}
             <Animated.Text
               entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
@@ -2208,6 +2265,7 @@ export default function OnboardingScreen() {
               ¿Cómo te afecta el TDAH hoy?
             </Animated.Text>
 
+            {/* Subtítulo */}
             <Animated.Text
               entering={FadeInDown.delay(250).duration(500)}
               style={styles.slideSubtitle}
@@ -2215,6 +2273,7 @@ export default function OnboardingScreen() {
               Selecciona los síntomas que experimentas frecuentemente.
             </Animated.Text>
 
+            {/* Grid de síntomas TDAH */}
             <Animated.View
               entering={FadeInDown.delay(300).duration(500)}
               style={styles.adhdSymptomsGrid}
@@ -2222,7 +2281,7 @@ export default function OnboardingScreen() {
               {ADHD_SYMPTOMS.map((symptom, index) => (
                 <Animated.View
                   key={symptom.id}
-                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
                   <Pressable
                     onPress={() => {
@@ -2264,6 +2323,7 @@ export default function OnboardingScreen() {
             contentContainerStyle={styles.slideScrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* Título */}
             <Animated.Text
               entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
@@ -2271,6 +2331,7 @@ export default function OnboardingScreen() {
               ¿Qué área de tu día a día es con la que más te cuesta lidiar?
             </Animated.Text>
 
+            {/* Subtítulo */}
             <Animated.Text
               entering={FadeInDown.delay(250).duration(500)}
               style={styles.slideSubtitle}
@@ -2278,6 +2339,7 @@ export default function OnboardingScreen() {
               Deja que Brainy te ayude con esto. Crearemos un par de tareas por ti.
             </Animated.Text>
 
+            {/* Grid de áreas de vida */}
             <Animated.View
               entering={FadeInDown.delay(300).duration(500)}
               style={styles.adhdSymptomsGrid}
@@ -2285,7 +2347,7 @@ export default function OnboardingScreen() {
               {LIFE_AREAS.map((area, index) => (
                 <Animated.View
                   key={area.id}
-                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
                   <Pressable
                     onPress={() => {
@@ -2326,6 +2388,8 @@ export default function OnboardingScreen() {
             contentContainerStyle={styles.slideScrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* Logo con glow */}
+
             <Animated.Text
               entering={FadeInDown.delay(200).duration(500)}
               style={styles.slideTitle}
@@ -2341,6 +2405,7 @@ export default function OnboardingScreen() {
               experiencia.
             </Animated.Text>
 
+            {/* Goals Grid */}
             <Animated.View
               entering={FadeInDown.delay(300).duration(500)}
               style={styles.goalsGrid}
@@ -2359,7 +2424,7 @@ export default function OnboardingScreen() {
                       setSelectedGoals([...selectedGoals, goal.id]);
                     }
                   }}
-                  delay={400 + index * 50}
+                  delay={350 + index * 50}
                 />
               ))}
             </Animated.View>
@@ -2408,11 +2473,11 @@ export default function OnboardingScreen() {
               {AGREEMENT_OPTIONS.map((option, index) => (
                 <Animated.View
                   key={option.id}
-                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
                   <Pressable
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       setStatement1(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
@@ -2422,12 +2487,7 @@ export default function OnboardingScreen() {
                         styles.agreementOptionSelected,
                     ]}
                   >
-                    <LinearGradient
-                      colors={statement1 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.agreementOptionGradient}
-                    >
+                    
                       <View style={[
                         styles.agreementOptionInner,
                         statement1 === option.value && styles.agreementOptionInnerSelected,
@@ -2436,6 +2496,89 @@ export default function OnboardingScreen() {
                           style={[
                             styles.agreementOptionText,
                             statement1 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 7:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.statementSubtitle}
+            >
+              ¿Qué tan de acuerdo estás con esta afirmación?
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.statementWrapper}
+            >
+              <Image
+                source={require("@/assets/images/logoonboarding5.png")}
+                style={styles.statementOwl}
+                resizeMode="contain"
+              />
+              <View style={styles.speechCard}>
+                <Text style={styles.quoteOpen}>“</Text>
+                <Text style={styles.speechCardText}>
+                  {STATEMENTS[1].textMain}
+                  <Text style={styles.speechCardHighlight}>
+                    {STATEMENTS[1].textHighlight}
+                  </Text>
+                </Text>
+                <Text style={styles.quoteClose}>”</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.agreementOptions}
+            >
+              {AGREEMENT_OPTIONS.map((option, index) => (
+                <Animated.View
+                  key={option.id}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setStatement2(option.value);
+                      setTimeout(() => goToNextSlide(), 300);
+                    }}
+                    style={[
+                      styles.agreementOption,
+                      statement2 === option.value &&
+                        styles.agreementOptionSelected,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={statement2 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
+                    >
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement2 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement2 === option.value &&
                               styles.agreementOptionTextSelected,
                           ]}
                         >
@@ -2474,14 +2617,14 @@ export default function OnboardingScreen() {
                 resizeMode="contain"
               />
               <View style={styles.speechCard}>
-                <Text style={styles.quoteOpen}>"</Text>
+                <Text style={styles.quoteOpen}>“</Text>
                 <Text style={styles.speechCardText}>
-                  {STATEMENTS[1].textMain}
+                  {STATEMENTS[2].textMain}
                   <Text style={styles.speechCardHighlight}>
-                    {STATEMENTS[1].textHighlight}
+                    {STATEMENTS[2].textHighlight}
                   </Text>
                 </Text>
-                <Text style={styles.quoteClose}>"</Text>
+                <Text style={styles.quoteClose}>”</Text>
               </View>
             </Animated.View>
 
@@ -2492,34 +2635,34 @@ export default function OnboardingScreen() {
               {AGREEMENT_OPTIONS.map((option, index) => (
                 <Animated.View
                   key={option.id}
-                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
                   <Pressable
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setStatement2(option.value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setStatement3(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
                     style={[
                       styles.agreementOption,
-                      statement2 === option.value &&
+                      statement3 === option.value &&
                         styles.agreementOptionSelected,
                     ]}
                   >
                     <LinearGradient
-                      colors={statement2 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
+                      colors={statement3 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.agreementOptionGradient}
                     >
                       <View style={[
                         styles.agreementOptionInner,
-                        statement2 === option.value && styles.agreementOptionInnerSelected,
+                        statement3 === option.value && styles.agreementOptionInnerSelected,
                       ]}>
                         <Text
                           style={[
                             styles.agreementOptionText,
-                            statement2 === option.value &&
+                            statement3 === option.value &&
                               styles.agreementOptionTextSelected,
                           ]}
                         >
@@ -2558,14 +2701,14 @@ export default function OnboardingScreen() {
                 resizeMode="contain"
               />
               <View style={styles.speechCard}>
-                <Text style={styles.quoteOpen}>"</Text>
+                <Text style={styles.quoteOpen}>“</Text>
                 <Text style={styles.speechCardText}>
-                  {STATEMENTS[2].textMain}
+                  {STATEMENTS[3].textMain}
                   <Text style={styles.speechCardHighlight}>
-                    {STATEMENTS[2].textHighlight}
+                    {STATEMENTS[3].textHighlight}
                   </Text>
                 </Text>
-                <Text style={styles.quoteClose}>"</Text>
+                <Text style={styles.quoteClose}>”</Text>
               </View>
             </Animated.View>
 
@@ -2576,34 +2719,34 @@ export default function OnboardingScreen() {
               {AGREEMENT_OPTIONS.map((option, index) => (
                 <Animated.View
                   key={option.id}
-                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                  entering={FadeInDown.delay(350 + index * 50).duration(400)}
                 >
                   <Pressable
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      setStatement3(option.value);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setStatement4(option.value);
                       setTimeout(() => goToNextSlide(), 300);
                     }}
                     style={[
                       styles.agreementOption,
-                      statement3 === option.value &&
+                      statement4 === option.value &&
                         styles.agreementOptionSelected,
                     ]}
                   >
                     <LinearGradient
-                      colors={statement3 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
+                      colors={statement4 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : ['rgba(49, 50, 68, 0.8)', 'rgba(49, 50, 68, 0.8)']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.agreementOptionGradient}
                     >
                       <View style={[
                         styles.agreementOptionInner,
-                        statement3 === option.value && styles.agreementOptionInnerSelected,
+                        statement4 === option.value && styles.agreementOptionInnerSelected,
                       ]}>
                         <Text
                           style={[
                             styles.agreementOptionText,
-                            statement3 === option.value &&
+                            statement4 === option.value &&
                               styles.agreementOptionTextSelected,
                           ]}
                         >
@@ -2626,8 +2769,9 @@ export default function OnboardingScreen() {
               contentContainerStyle={styles.slideScrollContent}
               showsVerticalScrollIndicator={false}
             >
+              {/* Mascota con nube de texto */}
               <Animated.View
-                entering={FadeInDown.delay(100).duration(500)}
+                entering={FadeInDown.delay(200).duration(500)}
                 style={styles.taskMascotRow}
               >
                 <Image
@@ -2643,33 +2787,34 @@ export default function OnboardingScreen() {
               </Animated.View>
 
               <Animated.Text
-                entering={FadeInDown.delay(250).duration(500)}
+                            entering={FadeInDown.delay(200).duration(500)}
                 style={styles.subtitle}
-              >
-                ¿Con qué tarea necesitas ayuda? 
+              >¿Con qué tarea necesitas ayuda? 
               </Animated.Text>
-
+              {/* Input de texto */}
               <Animated.View
-                entering={FadeInDown.delay(400).duration(500)}
+                entering={FadeInDown.delay(300).duration(500)}
                 style={styles.taskInputContainer}
               >
                 <TextInput
                   style={styles.taskInput}
                   placeholder="Escribe tu tarea aquí..."
-                  placeholderTextColor={`${colors.textSecondary}CC`}
+                  placeholderTextColor={colors.textSecondary + "80"}
                   value={taskText}
                   onChangeText={setTaskText}
                   multiline
                   numberOfLines={4}
                 />
                 
+                {/* Botón Generate dentro del input */}
                 <Animated.View
                   entering={FadeInDown.delay(600).duration(500).springify()}
                   style={styles.generateButtonContainer}
                 >
                   <Pressable
                     onPress={() => {
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                      // No hace nada por ahora
                     }}
                     style={({ pressed }) => [
                       styles.generateButton,
@@ -2689,8 +2834,9 @@ export default function OnboardingScreen() {
                 </Animated.View>
               </Animated.View>
 
+              {/* Separador */}
               <Animated.View
-                entering={FadeInDown.delay(550).duration(500)}
+                entering={FadeInDown.delay(350).duration(500)}
                 style={styles.orDivider}
               >
                 <View style={styles.dividerLine} />
@@ -2698,14 +2844,15 @@ export default function OnboardingScreen() {
                 <View style={styles.dividerLine} />
               </Animated.View>
 
+              {/* Grid de sugerencias */}
               <Animated.View
-                entering={FadeInDown.delay(600).duration(500)}
+                entering={FadeInDown.delay(400).duration(500)}
                 style={styles.adhdSymptomsGrid}
               >
                 {TASK_SUGGESTIONS.map((task, index) => (
                   <Animated.View
                     key={task.id}
-                    entering={FadeInDown.delay(700 + index * 50).duration(400)}
+                    entering={FadeInDown.delay(450 + index * 50).duration(400)}
                   >
                     <Pressable
                       onPress={() => {
@@ -2775,6 +2922,7 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Dev Close Button - Always visible */}
       {__DEV__ && (
         <Pressable
           onPress={() => router.replace("/(tabs)")}
@@ -2784,8 +2932,10 @@ export default function OnboardingScreen() {
         </Pressable>
       )}
 
+      {/* Header - Hidden for welcome slide */}
       {currentSlide > 0 && (
       <View style={styles.headerContainer}>
+        {/* Back Button */}
         <View style={styles.backButtonArea}>
           {currentSlide > 0 ? (
             <Animated.View entering={FadeInDown.duration(300)}>
@@ -2804,6 +2954,7 @@ export default function OnboardingScreen() {
           )}
         </View>
 
+        {/* Progress Bar */}
         <View style={styles.progressBarWrapper}>
           <View style={styles.progressBarBackground}>
             <Animated.View
@@ -2816,86 +2967,80 @@ export default function OnboardingScreen() {
           </View>
         </View>
 
+        {/* Right Spacer */}
         <View style={styles.backButtonArea} />
       </View>
       )}
 
+      {/* Slide Content */}
       <View style={styles.slideContainer}>{renderSlide()}</View>
 
+      {/* Navigation Buttons - Hidden for slides 0, 1, 5, and 7-9, 11+ */}
       {((currentSlide > 1 && currentSlide < 7 && currentSlide !== 5)) && (
         <View style={styles.navigationContainer}>
           {currentSlide === 6 ? (
-            <Animated.View style={buttonAnimatedStyle}>
-              <Pressable
-                onPress={goToNextSlide}
-                onPressIn={handleButtonPressIn}
-                onPressOut={handleButtonPressOut}
-                disabled={selectedGoals.length === 0}
-                style={[
-                  primaryButtonStyles,
-                  selectedGoals.length === 0 && { opacity: 0.5 },
-                ]}
+            <Pressable
+              onPress={goToNextSlide}
+              disabled={selectedGoals.length === 0}
+              style={({ pressed }) => [
+                primaryButtonStyles,
+                pressed && { opacity: 0.8 },
+                selectedGoals.length === 0 && { opacity: 0.5 },
+              ]}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}
               >
-                <LinearGradient
-                  colors={PRIMARY_GRADIENT_COLORS}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={primaryButtonGradient}
-                >
-                  <Text style={primaryButtonText}>Continuar</Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
+                <Text style={primaryButtonText}>Continuar</Text>
+              </LinearGradient>
+            </Pressable>
           ) : currentSlide === 10 ? (
-            <Animated.View style={buttonAnimatedStyle}>
-              <Pressable
-                onPress={goToNextSlide}
-                onPressIn={handleButtonPressIn}
-                onPressOut={handleButtonPressOut}
-                disabled={!taskText.trim()}
-                style={[
-                  primaryButtonStyles,
-                  !taskText.trim() && { opacity: 0.5 },
-                ]}
+            <Pressable
+              onPress={goToNextSlide}
+              disabled={!taskText.trim()}
+              style={({ pressed }) => [
+                primaryButtonStyles,
+                pressed && { opacity: 0.8 },
+                !taskText.trim() && { opacity: 0.5 },
+              ]}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}
               >
-                <LinearGradient
-                  colors={PRIMARY_GRADIENT_COLORS}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={primaryButtonGradient}
-                >
-                  <Text style={primaryButtonText}>Ayúdame con esto</Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
+                <Text style={primaryButtonText}>Ayúdame con esto</Text>
+              </LinearGradient>
+            </Pressable>
           ) : (
-            <Animated.View style={buttonAnimatedStyle}>
-              <Pressable
-                onPress={goToNextSlide}
-                onPressIn={handleButtonPressIn}
-                onPressOut={handleButtonPressOut}
-                disabled={
-                  (currentSlide === 2 && !userName.trim()) ||
+            <Pressable
+              onPress={goToNextSlide}
+              disabled={
+                (currentSlide === 2 && !userName.trim()) ||
+                (currentSlide === 3 && selectedAdhdSymptoms.length === 0) ||
+                (currentSlide === 4 && !selectedLifeArea)
+              }
+              style={({ pressed }) => [
+                primaryButtonStyles,
+                pressed && { opacity: 0.8 },
+                ((currentSlide === 2 && !userName.trim()) ||
                   (currentSlide === 3 && selectedAdhdSymptoms.length === 0) ||
-                  (currentSlide === 4 && !selectedLifeArea)
-                }
-                style={[
-                  primaryButtonStyles,
-                  ((currentSlide === 2 && !userName.trim()) ||
-                    (currentSlide === 3 && selectedAdhdSymptoms.length === 0) ||
-                    (currentSlide === 4 && !selectedLifeArea)) && { opacity: 0.5 },
-                ]}
+                  (currentSlide === 4 && !selectedLifeArea)) && { opacity: 0.5 },
+              ]}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}
               >
-                <LinearGradient
-                  colors={PRIMARY_GRADIENT_COLORS}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={primaryButtonGradient}
-                >
-                  <Text style={primaryButtonText}>Continuar</Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
+                <Text style={primaryButtonText}>Continuar</Text>
+              </LinearGradient>
+            </Pressable>
           )}
         </View>
       )}
@@ -2916,15 +3061,15 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: `${colors.textPrimary}1A`,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}33`,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   devCloseButtonText: {
     fontSize: 24,
-    color: colors.textSecondary,
+    color: "rgba(255, 255, 255, 0.7)",
     fontWeight: "300",
     marginTop: -2,
   },
@@ -2957,6 +3102,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 1,
   },
+  backButtonContainer: {},
   backButtonPlaceholder: {
     width: 40,
     height: 40,
@@ -2973,7 +3119,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 30,
-    color: colors.textPrimary,
+    color: "#F2F3F4",
   },
   slideContainer: {
     flex: 1,
@@ -2992,6 +3138,12 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     alignItems: "center",
   },
+  // Welcome Slide (Case 0) - Deep Ambient Style 2026
+  welcomeSlide: {
+    flex: 1,
+    backgroundColor: '#16213E',
+  },
+  // Welcome Slide Simple (New Case 0)
   welcomeSlideSimple: {
     flex: 1,
     backgroundColor: colors.background,
@@ -3013,7 +3165,7 @@ const styles = StyleSheet.create({
     height: 190,
   },
   welcomeTitleCenter: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
@@ -3021,15 +3173,36 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   welcomeSubtitleCenter: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "500",
     color: colors.textSecondary,
     textAlign: "center",
-    lineHeight: 18,
+    lineHeight: 16,
   },
   welcomeButtonsContainer: {
     width: "100%",
     gap: 16,
+  },
+  welcomeButtonPrimary: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+
+  },
+  welcomeButtonGradient: {
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 20,
+  },
+  welcomeButtonPrimaryText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
   welcomeButtonSecondary: {
     paddingVertical: 12,
@@ -3038,7 +3211,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}33`,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   welcomeButtonSecondaryText: {
     fontSize: 16,
@@ -3046,12 +3219,139 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.3,
   },
-  subtitle: {
-    fontSize: 15,
+  welcomeTopSection: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomePatterns: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0.6,
+  },
+  welcomeCurvedBottom: {
+    position: 'absolute',
+    bottom: 0,
+    width: '200%', // 1. Hacemos la caja mucho más ancha que la pantalla
+    left: '-50%',  // 2. La centramos (el exceso es 40%, así que movemos -20% a la izq)
+    borderTopLeftRadius: 700, // 3. Un radio exageradamente grande
+    borderTopRightRadius: 700, // 4. Para crear un arco suave
+    height: '50%',
+    backgroundColor: '#FFFFFF',
+    paddingBottom: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
+
+    alignItems: 'center', 
+    paddingTop: 50,
+    paddingHorizontal: 60, // Aumentamos
+  },
+  welcomeHeroContainer: {
+    alignItems: "center",
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  welcomeMascot: {
+    width: 270,
+    height: 270,
+    bottom: 150,
+  },
+  welcomeContentWrapper: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 20,
+  },
+  welcomeTitle: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: '#2C3E50',
+    textAlign: "center",
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
     fontWeight: "500",
+    color: '#6C7086',
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  welcomeSpacer: {
+    flex: 1,
+    minHeight: 10,
+  },
+  welcomeButtonContainer: {
+    width: "100%",
+    maxWidth: 350,
+    paddingHorizontal: 20,
+  },
+  welcomeButton: {
+    borderRadius: 50,
+    overflow: "hidden",
+    shadowColor: "#2C3E50",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  welcomeButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  welcomeButtonSolid: {
+    backgroundColor: "#2C3E50",
+    borderRadius: 50,
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  heroContainer: {
+    alignItems: "center",
+    marginBottom: 40,
+  },
+  glowContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  glowCircle: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: `${colors.primary}10`,
+    opacity: 0.6,
+  },
+  mainTitle: {
+    fontSize: 42,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 24,
+    letterSpacing: -1,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: "400",
     color: colors.textSecondary,
     textAlign: "center",
-    marginBottom: 12,
+    lineHeight: 28,
+    paddingHorizontal: 20,
   },
   slideTitle: {
     fontSize: 32,
@@ -3063,7 +3363,7 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   slideSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "500",
     color: colors.textSecondary,
     textAlign: "center",
@@ -3088,7 +3388,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}0D`,
+    borderColor: "rgba(255, 255, 255, 0.05)",
     textAlign: "center",
   },
   taskMascotRow: {
@@ -3108,7 +3408,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     padding: 16,
     position: "relative",
   },
@@ -3153,7 +3453,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   taskInput: {
-    backgroundColor: `${colors.textRoutineCard}33`,
+    backgroundColor: colors.textRoutineCard + "20",
     borderRadius: 20,
     padding: 18,
     fontSize: 14,
@@ -3174,12 +3474,82 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: `${colors.textPrimary}1A`,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   dividerText: {
     fontSize: 13,
     fontWeight: "500",
     color: colors.textSecondary,
+  },
+  streakIconContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  logoImage: {
+    width: 130,
+    height: 130,
+    marginBottom: -20,
+  },
+  daysContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  dayButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  dayButtonSelected: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  dayLabelSelected: {
+    color: colors.background,
+  },
+  streakSubtext: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 32,
+  },
+  factCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: `${colors.accent}15`,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginHorizontal: 20,
+  },
+  factIconContainer: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  factText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  optionsContainer: {
+    width: "100%",
+    gap: 16,
   },
   selectableButton: {
     flexDirection: "row",
@@ -3188,10 +3558,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}0D`,
+    borderColor: "rgba(255, 255, 255, 0.05)",
   },
   selectableButtonSelected: {
-    backgroundColor: `${colors.primary}33`,
+    backgroundColor: `${colors.primary}20`,
     borderColor: colors.primary,
   },
   selectableIconContainer: {
@@ -3221,27 +3591,131 @@ const styles = StyleSheet.create({
   adhdSymptomPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}0D`,
+    borderColor: colors.primary,
     gap: 8,
   },
   adhdSymptomPillSelected: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}0D`,
+    backgroundColor: `${colors.primary}05`,
   },
   adhdSymptomLabel: {
-    fontSize: 14,
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: "400",
     color: colors.textPrimary,
+  },
+  graphContainer: {
+    alignItems: "center",
+    marginBottom: 48,
+    height: 280,
+    justifyContent: "center",
+  },
+  bigCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 60,
+  },
+  innerCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  linesContainer: {
+    position: "absolute",
+    top: 100,
+    width: 200,
+    height: 80,
+    alignItems: "center",
+  },
+  connectionLine: {
+    width: 2,
+    height: 80,
+    backgroundColor: `${colors.primary}30`,
+    position: "absolute",
+  },
+  connectionLineLeft: {
+    transform: [{ translateX: -60 }, { rotate: "20deg" }],
+  },
+  connectionLineRight: {
+    transform: [{ translateX: 60 }, { rotate: "-20deg" }],
+  },
+  smallCirclesContainer: {
+    flexDirection: "row",
+    gap: 40,
+    marginTop: 20,
+  },
+  smallCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  description: {
+    fontSize: 16,
+    fontWeight: "400",
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  inputContainer: {
+    width: "100%",
+    marginBottom: 32,
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    fontSize: 16,
+    color: colors.textPrimary,
+    minHeight: 140,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    textAlignVertical: "top",
   },
   navigationContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
+  },
+  finalButtonWrapper: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  finalButton: {
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  finalButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
+  },
+  finalButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.background,
+    letterSpacing: 0.5,
+  },
+  goalHeroContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  goalLogo: {
+    width: 100,
+    height: 100,
   },
   goalsGrid: {
     flexDirection: "row",
@@ -3258,12 +3732,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}0D`,
+    borderColor: "rgba(255, 255, 255, 0.05)",
     gap: 8,
   },
   goalPillSelected: {
     borderColor: colors.primary,
-    backgroundColor: `${colors.primary}0D`,
+    backgroundColor: `${colors.primary}05`,
   },
   goalEmoji: {
     fontSize: 18,
@@ -3276,8 +3750,53 @@ const styles = StyleSheet.create({
   goalLabelSelected: {
     color: colors.textPrimary,
   },
+  overwhelmLogoContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  overwhelmLogo: {
+    width: 100,
+    height: 100,
+  },
+  overwhelmTitle: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 32,
+    letterSpacing: -0.5,
+    lineHeight: 34,
+  },
+  overwhelmOptions: {
+    width: "100%",
+    gap: 10,
+    paddingHorizontal: 20,
+  },
+  overwhelmOption: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+  },
+  overwhelmOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}10`,
+  },
+  overwhelmOptionText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "left",
+  },
+  overwhelmOptionTextSelected: {
+    color: colors.textPrimary,
+    fontWeight: "600",
+  },
+  // Statement screens
   statementSubtitle: {
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "600",
     color: colors.textSecondary,
     textAlign: "center",
@@ -3303,7 +3822,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     padding: 24,
     marginLeft: 40,
     marginTop: 16,
@@ -3359,25 +3878,241 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}33`,
+    borderColor: "rgba(255, 255, 255, 0.88)",
   },
   agreementOptionSelected: {
     shadowOpacity: 0.35,
   },
   agreementOptionInnerSelected: {
     backgroundColor: '#F2E852',
-    borderColor: `${colors.textPrimary}26`,
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
   agreementOptionText: {
     fontSize: 14,
     fontWeight: "500",
-    color: colors.textSecondary,
+    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
   },
   agreementOptionTextSelected: {
     color: colors.textTertiary,
     fontWeight: "600",
   },
+  // Results Screen (Slide 11)
+  resultsScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  resultsTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 24,
+    letterSpacing: -0.5,
+  },
+  resultsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.05)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    marginBottom: 24,
+  },
+  statusRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  statusBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.textSecondary,
+  },
+  statusBadgeText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
+  progressSection: {
+    marginBottom: 24,
+  },
+  tooltipContainer: {
+    position: "relative",
+    height: 32,
+    marginBottom: 8,
+  },
+  tooltip: {
+    position: "absolute",
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    transform: [{ translateX: -40 }],
+  },
+  tooltipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  gradientBarContainer: {
+    position: "relative",
+    height: 12,
+    marginBottom: 12,
+  },
+  gradientBar: {
+    height: 12,
+    borderRadius: 6,
+    width: "100%",
+  },
+  progressThumb: {
+    position: "absolute",
+    top: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#F38BA8",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    transform: [{ translateX: -10 }],
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  progressLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  progressLabelText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  warningBox: {
+    backgroundColor: `${colors.primary}10`,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: `${colors.primary}30`,
+    marginBottom: 24,
+  },
+  warningHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  warningText: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  statsGrid: {
+    gap: 16,
+  },
+  statItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statTextContainer: {
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  resultsLogo: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    width: 80,
+    height: 80,
+    opacity: 0.3,
+  },
+  resultsButtonContainer: {
+    paddingHorizontal: 20,
+  },
+  resultsButton: {
+    borderRadius: 50,
+    overflow: "hidden",
+    shadowColor: "#FF9A9E",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  resultsButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  resultsButtonGradient: {
+    borderRadius: 50,
+    padding: 2,
+  },
+  resultsButtonInner: {
+    backgroundColor: "rgba(26, 26, 46, 0.3)",
+    borderRadius: 48,
+    paddingVertical: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  resultsButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  // Projection Screen (Slide 12)
+  projectionSlide: {
+    flex: 1,
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
+  },
+  projectionButtonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  // Neuroscience Screen (Slide 13)
   neuroscienceContent: {
     flex: 1,
     justifyContent: "center",
@@ -3385,19 +4120,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   neuroscienceTitle: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: colors.textPrimary,
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#FFFFFF",
     textAlign: "center",
-    lineHeight: 40,
-    letterSpacing: -0.5,
+    lineHeight: 36,
+    letterSpacing: 0.3,
   },
   neuroscienceSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "500",
-    color: colors.textSecondary,
+    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
-    marginBottom: 32,
+    marginBottom: 30,
     paddingHorizontal: 40,
     lineHeight: 20,
   },

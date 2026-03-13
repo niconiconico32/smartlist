@@ -1,7 +1,12 @@
 import { colors } from '@/constants/theme';
-import { addDays, format, isToday, isSameDay, subDays } from 'date-fns';
+import { CoinsCounter } from '@/src/components/CoinsCounter';
+import { useAchievementsStore } from '@/src/store/achievementsStore';
+import { useAppStreakStore } from '@/src/store/appStreakStore';
 import { getLocalDateKey } from '@/src/utils/dateHelpers'; // ✅ TIMEZONE SAFE
+import { addDays, format, isSameDay, isToday, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useRouter } from 'expo-router';
+import { Crown } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -38,9 +43,16 @@ export function WeeklyCalendar({
   scheduledRoutines = [],
   scheduledTasksHistory = {},
 }: WeeklyCalendarProps) {
+  const router = useRouter();
+  const { totalCoins, loadAchievements } = useAchievementsStore();
+  const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    loadAchievements();
+  }, []);
   
   // Generate 15 days back and 30 days forward from today (total 46 days)
   const startDate = subDays(today, 15);
@@ -72,8 +84,20 @@ export function WeeklyCalendar({
           <Text style={styles.dayName}>{format(selectedDate, 'EEE', { locale: es })}</Text>
           <View style={styles.redDot} />
         </View>
-        <Text style={styles.fullDate}>{format(selectedDate, 'MMMM d', { locale: es })}</Text>
-        <Text style={styles.year}>{format(selectedDate, 'yyyy')}</Text>
+        <View style={styles.rightSection}>
+          <CoinsCounter coins={totalCoins} size="small" />
+          {appStreak > 0 && (
+            <View style={styles.multiplierBadge}>
+              <Text style={styles.multiplierBadgeText}>x{getMultiplier().toFixed(2)}</Text>
+            </View>
+          )}
+          <Pressable 
+            style={styles.crownButton}
+            onPress={() => router.push('/achievements')}
+          >
+            <Crown size={24} color={colors.primary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
       </View>
 
       {/* Scrollable Week Days Row */}
@@ -226,16 +250,29 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.primary,
   },
-  fullDate: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.textSecondary,
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginLeft: 'auto',
+    marginTop: 14,
+    marginRight: -14,
   },
-  year: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.textSecondary,
+  crownButton: {
+    padding: 8,
+  },
+  multiplierBadge: {
+    backgroundColor: `${colors.primary}25`,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: `${colors.primary}50`,
+  },
+  multiplierBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
   },
   weekScroll: {
     borderTopWidth: 1,

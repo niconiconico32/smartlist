@@ -9,7 +9,6 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider } from '@/src/contexts/AuthContext';
-import { scheduleDailyNotifications } from '@/src/utils/notifications';
 
 // Suprimir warning de expo-notifications - las notificaciones funcionan en development build
 LogBox.ignoreLogs([
@@ -18,8 +17,8 @@ LogBox.ignoreLogs([
 ]);
 
 export {
-    // Catch any errors thrown by the Layout component.
-    ErrorBoundary
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary
 } from 'expo-router';
 
 export const unstable_settings = {
@@ -56,20 +55,6 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-
-  // 🔔 Schedule daily motivational notifications on app launch
-  useEffect(() => {
-    const setupNotifications = async () => {
-      try {
-        await scheduleDailyNotifications();
-        console.log('✅ Daily notifications setup complete');
-      } catch (error) {
-        console.error('❌ Error setting up notifications:', error);
-      }
-    };
-    
-    setupNotifications();
-  }, []);
 
   return (
     <AuthProvider>

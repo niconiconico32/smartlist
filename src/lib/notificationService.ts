@@ -242,3 +242,247 @@ export async function rescheduleAllReminders(
     console.error("Error reprogramando notificaciones:", error);
   }
 }
+
+// ============================================================================
+// TASK NOTIFICATIONS
+// ============================================================================
+
+interface Task {
+  id: string;
+  title: string;
+  emoji?: string;
+  scheduledDate?: string; // ISO date string for "once" tasks
+  recurrence?: {
+    type: "once" | "daily" | "weekly";
+    days?: number[]; // 0=Sunday, 1=Monday, etc.
+    time?: string; // HH:mm format
+  };
+  reminder?: {
+    enabled: boolean;
+    minutesBefore: number;
+  };
+}
+
+/**
+ * Genera un identificador único para notificaciones de tareas
+ */
+function getTaskNotificationId(taskId: string, day?: string): string {
+  return day ? `task_${taskId}_${day}` : `task_${taskId}`;
+}
+
+/**
+ * Programa recordatorios para una tarea individual
+ */
+export async function scheduleTaskReminders(task: Task): Promise<void> {
+  try {
+    // Si no tiene recordatorio habilitado, no hacer nada
+    if (!task.reminder?.enabled) {
+      return;
+    }
+
+    // Cancelar notificaciones anteriores de esta tarea
+    await cancelTaskReminders(task.id);
+
+    const minutesBefore = task.reminder.minutesBefore || 15;
+    const taskEmoji = task.emoji || "📝";
+    const notificationTitle = `${taskEmoji} ${task.title}`;
+    const notificationBody = `Tu tarea comienza en ${minutesBefore} minuto${minutesBefore !== 1 ? "s" : ""}`;
+
+    // CASO 1: Tarea de una vez (once) con fecha específica
+    if (task.recurrence?.type === "once" && task.scheduledDate) {
+      const scheduledDate = new Date(task.scheduledDate);
+      const reminderDate = new Date(
+        scheduledDate.getTime() - minutesBefore * 60 * 1000,
+      );
+
+      // Solo programar si la fecha es futura
+      if (reminderDate > new Date()) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: getTaskNotificationId(task.id),
+          content: {
+            title: notificationTitle,
+            body: notificationBody,
+            data: {
+              taskId: task.id,
+              type: "task_reminder",
+            },
+            sound: "default",
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: reminderDate,
+          },
+        });
+
+        console.log(
+          `Notificación programada para tarea: ${task.title} - ${reminderDate.toLocaleString()}`,
+        );
+      }
+      return;
+    }
+
+    // CASO 2: Tarea diaria con hora específica
+    if (task.recurrence?.type === "daily" && task.recurrence.time) {
+      const [hours, minutes] = task.recurrence.time.split(":").map(Number);
+      const reminderMinute = minutes - minutesBefore;
+      let reminderHour = hours;
+      let calculatedMinute = reminderMinute;
+
+      // Ajustar si los minutos son negativos
+      if (reminderMinute < 0) {
+        reminderHour = hours - 1;
+        calculatedMinute = 60 + reminderMinute;
+        if (reminderHour < 0) {
+          reminderHour = 23;
+        }
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        identifier: getTaskNotificationId(task.id),
+        content: {
+          title: notificationTitle,
+          body: notificationBody,
+          data: {
+            taskId: task.id,
+            type: "task_reminder",
+          },
+          sound: "default",
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
+          hour: reminderHour,
+          minute: calculatedMinute,
+        },
+      });
+
+      console.log(
+        `Notificación diaria programada para tarea: ${task.title} - ${reminderHour}:${calculatedMinute.toString().padStart(2, "0")}`,
+      );
+      return;
+    }
+
+    // CASO 3: Tarea semanal con días y hora específicos
+    if (
+      task.recurrence?.type === "weekly" &&
+      task.recurrence.days &&
+      task.recurrence.time
+    ) {
+      const [hours, minutes] = task.recurrence.time.split(":").map(Number);
+      const reminderMinute = minutes - minutesBefore;
+      let reminderHour = hours;
+      let calculatedMinute = reminderMinute;
+
+      if (reminderMinute < 0) {
+        reminderHour = hours - 1;
+        calculatedMinute = 60 + reminderMinute;
+        if (reminderHour < 0) {
+          reminderHour = 23;
+        }
+      }
+
+      // Convertir de 0=Dom, 1=Lun... a 1=Dom, 2=Lun... (formato expo-notifications)
+      const weekdays = task.recurrence.days.map((day) => day + 1);
+
+      for (const weekday of weekdays) {
+        const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+        const dayName = dayNames[(weekday - 1) % 7];
+
+        await Notifications.scheduleNotificationAsync({
+          identifier: getTaskNotificationId(task.id, dayName),
+          content: {
+            title: notificationTitle,
+            body: notificationBody,
+            data: {
+              taskId: task.id,
+              type: "task_reminder",
+            },
+            sound: "default",
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+            weekday: weekday,
+            hour: reminderHour,
+            minute: calculatedMinute,
+          },
+        });
+
+        console.log(
+          `Notificación semanal programada para tarea: ${task.title} - ${dayName} a las ${reminderHour}:${calculatedMinute.toString().padStart(2, "0")}`,
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error programando notificaciones de tarea:", error);
+  }
+}
+
+/**
+ * Cancela todos los recordatorios de una tarea específica
+ */
+export async function cancelTaskReminders(taskId: string): Promise<void> {
+  try {
+    const scheduledNotifications =
+      await Notifications.getAllScheduledNotificationsAsync();
+
+    const taskNotifications = scheduledNotifications.filter((notification) =>
+      notification.identifier.startsWith(`task_${taskId}`),
+    );
+
+    for (const notification of taskNotifications) {
+      await Notifications.cancelScheduledNotificationAsync(
+        notification.identifier,
+      );
+      console.log(`Notificación de tarea cancelada: ${notification.identifier}`);
+    }
+  } catch (error) {
+    console.error("Error cancelando notificaciones de tarea:", error);
+  }
+}
+
+/**
+ * Cancela todas las notificaciones de tareas
+ */
+export async function cancelAllTaskReminders(): Promise<void> {
+  try {
+    const scheduledNotifications =
+      await Notifications.getAllScheduledNotificationsAsync();
+
+    const taskNotifications = scheduledNotifications.filter((notification) =>
+      notification.identifier.startsWith("task_"),
+    );
+
+    for (const notification of taskNotifications) {
+      await Notifications.cancelScheduledNotificationAsync(
+        notification.identifier,
+      );
+    }
+
+    console.log(
+      `${taskNotifications.length} notificaciones de tareas canceladas`,
+    );
+  } catch (error) {
+    console.error("Error cancelando todas las notificaciones de tareas:", error);
+  }
+}
+
+/**
+ * Reprograma todas las notificaciones para una lista de tareas
+ */
+export async function rescheduleAllTaskReminders(tasks: Task[]): Promise<void> {
+  try {
+    await cancelAllTaskReminders();
+
+    for (const task of tasks) {
+      if (task.reminder?.enabled) {
+        await scheduleTaskReminders(task);
+      }
+    }
+
+    console.log("Todas las notificaciones de tareas reprogramadas");
+  } catch (error) {
+    console.error("Error reprogramando notificaciones de tareas:", error);
+  }
+}

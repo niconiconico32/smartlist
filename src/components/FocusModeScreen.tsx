@@ -1,5 +1,5 @@
-import { colors } from '@/constants/theme';
 import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
+import { colors } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';

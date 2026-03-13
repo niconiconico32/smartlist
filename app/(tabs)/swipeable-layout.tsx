@@ -1,5 +1,6 @@
 import { colors } from '@/constants/theme';
 import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
+import { DailyStreakScreen } from '@/src/components/DailyStreakScreen';
 import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
 import { NotificationPermissionModal } from '@/src/components/NotificationPermissionModal';
@@ -7,6 +8,8 @@ import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
 import { useAuth } from '@/src/contexts/AuthContext';
 import * as routineService from '@/src/lib/routineService';
+import { useAchievementsStore } from '@/src/store/achievementsStore';
+import { useAppStreakStore } from '@/src/store/appStreakStore';
 import {
   getLocalTodayDateKey,
   hasCountedToday,
@@ -61,6 +64,8 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
 
 export default function SwipeableLayout() {
   const { user } = useAuth();
+  const { onStreakChanged, onRoutinesCountChanged, loadAchievements, trackWeeklyUsage, onReminderActivated } = useAchievementsStore();
+  const { streak: appStreak, history: appStreakHistory, shouldShowStreakScreen, initializeAppStreak, dismissStreakScreen } = useAppStreakStore();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -70,6 +75,7 @@ export default function SwipeableLayout() {
   const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
   const [routines, setRoutines] = useState<Array<{ id: string; name: string; days: string[]; tasks?: Array<{ id: string; completed?: boolean }> }>>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [routinesRefreshKey, setRoutinesRefreshKey] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [isStreakActiveToday, setIsStreakActiveToday] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -89,10 +95,12 @@ export default function SwipeableLayout() {
             // Completed today - streak active
             setCurrentStreak(count);
             setIsStreakActiveToday(true);
+            onStreakChanged(count);
           } else if (isLocalYesterday(lastCompletedDate)) {
             // Completed yesterday - streak still valid but not active today yet
             setCurrentStreak(count);
             setIsStreakActiveToday(false);
+            onStreakChanged(count);
           } else {
             // Streak lost - reset
             setCurrentStreak(0);
@@ -144,6 +152,9 @@ export default function SwipeableLayout() {
           lastCompletedDate: today,
         }));
         
+        // Actualizar logro de racha
+        onStreakChanged(newCount);
+        
         // 🔔 Send streak milestone notification
         await sendStreakNotification(newCount);
         
@@ -163,6 +174,9 @@ export default function SwipeableLayout() {
           count: 1,
           lastCompletedDate: today,
         }));
+        
+        // Actualizar logro de racha
+        onStreakChanged(1);
         
         // 🔔 Send first streak notification
         await sendStreakNotification(1);
@@ -184,6 +198,8 @@ export default function SwipeableLayout() {
     try {
       const fetchedRoutines = await routineService.fetchRoutines(user.id);
       setRoutines(fetchedRoutines as any);
+      // Actualizar logro de cantidad de rutinas
+      onRoutinesCountChanged(fetchedRoutines.length);
     } catch (error) {
       console.error('Error loading routines:', error);
     }
@@ -194,6 +210,9 @@ export default function SwipeableLayout() {
     useCallback(() => {
       loadRoutines();
       loadStreak();
+      loadAchievements();
+      initializeAppStreak();
+      trackWeeklyUsage();
     }, [loadRoutines, loadStreak])
   );
 
@@ -384,6 +403,14 @@ export default function SwipeableLayout() {
         // Recargar rutinas para actualizar calendario
         await loadRoutines();
         
+        // Forzar recarga de TwoScreen incrementando el refresh key
+        setRoutinesRefreshKey(prev => prev + 1);
+
+        // Achievement: reminder activated on creation
+        if (routine.reminderEnabled) {
+          onReminderActivated();
+        }
+        
         const daysText = routine.days.join(', ');
         Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
       } else {
@@ -477,7 +504,7 @@ export default function SwipeableLayout() {
           />
         </View>
         <View key="2" style={styles.page}>
-          <TwoScreen selectedDate={selectedDate} key={selectedDate.toISOString()} onRoutineCompleted={updateStreakOnTaskComplete} />
+          <TwoScreen selectedDate={selectedDate} key={`${selectedDate.toISOString()}-${routinesRefreshKey}`} onRoutineCompleted={updateStreakOnTaskComplete} />
         </View>
       </PagerView>
 
@@ -582,6 +609,14 @@ export default function SwipeableLayout() {
           console.log('Notification permission granted');
         }}
       />
+
+      {/* Daily App-Open Streak Screen */}
+      <DailyStreakScreen
+        visible={shouldShowStreakScreen}
+        streak={appStreak}
+        history={appStreakHistory}
+        onDismiss={dismissStreakScreen}
+      />
     </View>
   );
 }
@@ -640,6 +675,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
     color: colors.textSecondary,
+    opacity: 0.5,
   },
   tabLabelActive: {
     color: colors.textPrimary,

@@ -1,4 +1,5 @@
-import { BlurView } from 'expo-blur';
+import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
+import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mic, MicOff, Sparkles, X } from 'lucide-react-native';
@@ -267,12 +268,12 @@ export function TaskModalNew({
                   exiting={SlideOutDown.duration(200)}
                   style={styles.animatedContainer}
                 >
-                  <BlurView intensity={95} tint="light" style={styles.blurContainer}>
+                  <View style={styles.innerContainer}>
                     
-                    {/* --- CAMBIO: Título enfocado en romper parálisis --- */}
+                    {/* Header */}
                     <View style={styles.header}>
                       <View style={styles.headerLeft}>
-                        <View style={styles.headerLine} />
+                        <Sparkles size={20} color={colors.primary} />
                         <Text style={styles.headerTitle}>
                           Rompe la Parálisis
                         </Text>
@@ -282,7 +283,7 @@ export function TaskModalNew({
                         style={styles.closeButton}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <X size={20} color="#64748b" />
+                        <X size={20} color={colors.textSecondary} />
                       </TouchableOpacity>
                     </View>
 
@@ -310,16 +311,15 @@ export function TaskModalNew({
                           )}
                         </View>
                       ) : (
-                        // --- CAMBIO: Placeholder educativo ---
                         <TextInput
                           ref={inputRef}
                           multiline
                           placeholder="¿Qué tarea te está abrumando hoy? Funciona mejor si incluyes más detalles..."
-                          placeholderTextColor="#94a3b8"
+                          placeholderTextColor={colors.textTertiary}
                           value={text}
                           onChangeText={setText}
                           style={styles.textInput}
-                          selectionColor="#7c3aed"
+                          selectionColor={colors.primary}
                           maxLength={500}
                           textAlignVertical="top"
                           returnKeyType="default"
@@ -373,8 +373,7 @@ export function TaskModalNew({
                         >
                           {canSubmit && !isActive ? (
                             <LinearGradient
-                              // --- CAMBIO: Gradiente mantenido, pero contexto Focus ---
-                              colors={['#CBA6F7', '#FAB387']}
+                              colors={PRIMARY_GRADIENT_COLORS as any}
                               start={{ x: 0, y: 0 }}
                               end={{ x: 1, y: 1 }}
                               style={styles.submitButtonGradient}
@@ -382,11 +381,10 @@ export function TaskModalNew({
                               <Animated.View style={iconAnimatedStyle}>
                                 <Sparkles 
                                   size={20} 
-                                  color="#ffffff"
+                                  color={colors.background}
                                   style={{ marginRight: 8 }}
                                 />
                               </Animated.View>
-                              {/* --- CAMBIO: Texto de Botón --- */}
                               <Text style={styles.submitButtonTextActive}>
                                 {isProcessing ? 'Generando...' : 'Crear Tarea Focus'}
                               </Text>
@@ -396,7 +394,7 @@ export function TaskModalNew({
                               <Animated.View style={iconAnimatedStyle}>
                                 <Sparkles 
                                   size={20} 
-                                  color="#94a3b8" 
+                                  color={colors.textTertiary} 
                                   style={{ marginRight: 8 }}
                                 />
                               </Animated.View>
@@ -416,7 +414,7 @@ export function TaskModalNew({
                       }
                     </Text>
 
-                  </BlurView>
+                  </View>
                 </Animated.View>
           </TouchableWithoutFeedback>
         </View>
@@ -442,49 +440,37 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     overflow: 'hidden',
   },
-  blurContainer: {
+  innerContainer: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    backgroundColor: Platform.OS === 'android' ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 0,
+    justifyContent: 'space-between',
     paddingVertical: 13,
     marginBottom: 20,
   },
   headerLeft: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
-  },
-  headerLine: {
-    width: 4,
-    height: 24,
-    backgroundColor: '#7c3aed', // Morado (Focus)
-    borderRadius: 2,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1e293b',
-    textAlign: 'center',
+    color: colors.textPrimary,
   },
   closeButton: {
     padding: 3,
-    position: 'absolute',
-    right: -4,
-    top: 10,
   },
   inputContainer: {
     flex: 1,
     marginBottom: 20,
-    marginTop: 20,
+    marginTop: 10,
     justifyContent: 'flex-start',
   },
   listeningContainer: {
@@ -497,13 +483,14 @@ const styles = StyleSheet.create({
   listeningText: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#7c3aed',
+    color: colors.primary,
     textAlign: 'center',
   },
   processingHint: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     marginTop: 8,
+    opacity: 0.7,
   },
   waveContainer: {
     flexDirection: 'row',
@@ -514,14 +501,14 @@ const styles = StyleSheet.create({
   },
   waveBar: {
     width: 6,
-    backgroundColor: '#a78bfa',
+    backgroundColor: colors.primary,
     borderRadius: 3,
     minHeight: 8,
   },
   textInput: {
     fontSize: 18,
     fontWeight: '400',
-    color: '#1e293b',
+    color: colors.textPrimary,
     lineHeight: 28,
     flex: 1,
     paddingTop: 0,
@@ -536,24 +523,19 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: 14,
   },
   chipPressed: {
-    backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
+    backgroundColor: colors.surfaceHighlight,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   chipText: {
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '500',
     fontSize: 14,
   },
@@ -567,12 +549,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    shadowColor: '#EF4444',
+    borderColor: 'rgba(254, 86, 76, 0.3)',
+    shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -600,34 +582,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#CBA6F7',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 6,
   },
   submitButtonDisabled: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.6,
+    opacity: 0.5,
   },
   submitButtonTextActive: {
-    color: '#ffffff',
+    color: colors.background,
     fontWeight: '700',
     fontSize: 16,
   },
   submitButtonTextDisabled: {
-    color: '#94a3b8',
+    color: colors.textTertiary,
     fontWeight: '700',
     fontSize: 16,
   },
   hintText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 8,
+    opacity: 0.5,
   },
 });

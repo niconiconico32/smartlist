@@ -10,6 +10,7 @@ import {
     scheduleRoutineReminders,
 } from "@/src/lib/notificationService";
 import * as routineService from "@/src/lib/routineService";
+import { useAchievementsStore } from "@/src/store/achievementsStore";
 import type { Routine } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
@@ -40,6 +41,12 @@ interface RoutinesScreenProps {
 
 export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: RoutinesScreenProps) {
   const { user, isLoading: authLoading } = useAuth();
+  const { 
+    onRoutineCompleted: achievementRoutineCompleted, 
+    onRoutinesCountChanged, 
+    onRoutineEdited, 
+    onReminderActivated 
+  } = useAchievementsStore();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -124,6 +131,8 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
       }
       
       setRoutines(fetchedRoutines);
+      // Actualizar logro de cantidad de rutinas creadas
+      onRoutinesCountChanged(fetchedRoutines.length);
       await rescheduleAllReminders(fetchedRoutines as any);
     } catch (error) {
       console.error("Error al cargar rutinas:", error);
@@ -173,6 +182,11 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {}
 
+    // Detect changes for achievements
+    const originalRoutine = editingRoutine;
+    const nameChanged = originalRoutine ? originalRoutine.name !== updatedRoutine.name : false;
+    const iconChanged = originalRoutine ? originalRoutine.icon !== updatedRoutine.icon : false;
+
     try {
       // Actualizar en Supabase
       const result = await routineService.updateRoutine(
@@ -190,10 +204,18 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
 
       if (result) {
         // Actualizar estado local
-        setRoutines(routines.map((r) => (r.id === result.id ? result : r)));
+        setRoutines((prev) => prev.map((r) => (r.id === result.id ? result : r)));
         
         // Reprogramar notificaciones
         await scheduleRoutineReminders(result as any);
+
+        // Achievement: edited routine (name/icon change + old routine check)
+        onRoutineEdited(originalRoutine?.created_at, nameChanged, iconChanged);
+
+        // Achievement: reminder activated
+        if (updatedRoutine.reminderEnabled && originalRoutine && !originalRoutine.reminderEnabled) {
+          onReminderActivated();
+        }
 
         setShowEditModal(false);
         setEditingRoutine(null);
@@ -214,7 +236,24 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
     if (!user) return;
 
     try {
-      // Actualizar en Supabase
+      // Actualizar estado local INMEDIATAMENTE con functional update
+      // para evitar race conditions cuando se marcan varias tareas rápido
+      let allTasksComplete = false;
+      setRoutines((prev) => {
+        const updated = prev.map((r) => {
+          if (r.id === routineId) {
+            const newTasks = r.tasks.map((t) =>
+              t.id === taskId ? { ...t, completed } : t,
+            );
+            allTasksComplete = newTasks.every((t) => t.completed);
+            return { ...r, tasks: newTasks };
+          }
+          return r;
+        });
+        return updated;
+      });
+
+      // Actualizar en Supabase (en background, no bloquea UI)
       const success = await routineService.updateTaskCompletion(
         taskId,
         routineId,
@@ -223,41 +262,34 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
       );
 
       if (!success) {
+        // Revertir cambio local si falla
+        setRoutines((prev) =>
+          prev.map((r) => {
+            if (r.id === routineId) {
+              return {
+                ...r,
+                tasks: r.tasks.map((t) =>
+                  t.id === taskId ? { ...t, completed: !completed } : t,
+                ),
+              };
+            }
+            return r;
+          })
+        );
         Alert.alert('Error', 'No se pudo actualizar la tarea');
         return;
       }
 
-      // Actualizar estado local
-      const updatedRoutines = routines.map((r) => {
-        if (r.id === routineId) {
-          return {
-            ...r,
-            tasks: r.tasks.map((t) =>
-              t.id === taskId ? { ...t, completed } : t,
-            ),
-          };
-        }
-        return r;
-      });
-      setRoutines(updatedRoutines);
-      
       // Verificar si la rutina está completa
-      const updatedRoutine = updatedRoutines.find(r => r.id === routineId);
-      if (updatedRoutine) {
-        const allTasksComplete = updatedRoutine.tasks.every(t => t.completed);
-        
-        if (allTasksComplete && completed) {
-          // Marcar rutina como completa
-          await routineService.markRoutineComplete(routineId, user.id);
-          
-          // Notificar al componente padre
-          if (onRoutineCompleted) {
-            onRoutineCompleted();
-          }
-        } else if (!allTasksComplete) {
-          // Desmarcar si ya no está completa
-          await routineService.unmarkRoutineComplete(routineId, user.id);
+      if (allTasksComplete && completed) {
+        await routineService.markRoutineComplete(routineId, user.id);
+        // Actualizar logro de primera rutina completada
+        achievementRoutineCompleted();
+        if (onRoutineCompleted) {
+          onRoutineCompleted();
         }
+      } else if (!allTasksComplete) {
+        await routineService.unmarkRoutineComplete(routineId, user.id);
       }
     } catch (error) {
       console.error("Error al actualizar tarea:", error);

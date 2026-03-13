@@ -4,32 +4,32 @@ import * as routineService from "@/src/lib/routineService";
 import type { CompletionHistory } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
 import {
-  Bell,
-  Calendar,
-  Check,
-  ChevronLeft,
-  Edit3,
-  Trash2
+    Bell,
+    Calendar,
+    Check,
+    ChevronLeft,
+    Edit3,
+    Trash2
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withSpring,
-  withTiming
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withSpring,
+    withTiming
 } from "react-native-reanimated";
 
 // Colores para las rutinas (se asignan de forma rotativa)
@@ -39,8 +39,9 @@ const DAYS_OF_WEEK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 // Función para obtener los días del mes en formato de calendario
 const getCalendarDays = (year: number, month: number) => {
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
+  // Usar hora del mediodía para evitar problemas de zona horaria
+  const firstDay = new Date(year, month, 1, 12, 0, 0);
+  const lastDay = new Date(year, month + 1, 0, 12, 0, 0);
   
   // Día de la semana del primer día (0 = domingo, ajustamos a lunes = 0)
   let startDayOfWeek = firstDay.getDay() - 1;
@@ -64,7 +65,9 @@ const getCalendarDays = (year: number, month: number) => {
 
 // Función para verificar si una fecha corresponde a un día de la rutina
 const isRoutineDay = (date: Date, routineDays: string[]) => {
-  const dayOfWeek = date.getDay(); // 0 = domingo, 1 = lunes, ...
+  // Crear fecha al mediodía para evitar problemas de zona horaria
+  const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+  const dayOfWeek = normalizedDate.getDay(); // 0 = domingo, 1 = lunes, ...
   // Ajustar índice: DAYS_OF_WEEK es [Lun, Mar, Mié, Jue, Vie, Sáb, Dom]
   const dayIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
   const dayName = DAYS_OF_WEEK[dayIndex];
@@ -73,8 +76,9 @@ const isRoutineDay = (date: Date, routineDays: string[]) => {
 
 // Función para verificar si una fecha ya pasó
 const isPastDay = (year: number, month: number, day: number, currentDate: Date) => {
-  const date = new Date(year, month, day);
-  const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+  // Usar hora del mediodía para comparaciones consistentes
+  const date = new Date(year, month, day, 12, 0, 0);
+  const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 12, 0, 0);
   return date < today;
 };
 
@@ -96,20 +100,21 @@ const CalendarDay = ({
   completedToday: boolean;
   completionHistory: CompletionHistory;
 }) => {
-  const dayDate = new Date(currentYear, currentMonth, day);
+  // Usar hora del mediodía para evitar problemas de zona horaria
+  const dayDate = new Date(currentYear, currentMonth, day, 12, 0, 0);
   const isPast = isPastDay(currentYear, currentMonth, day, now);
   const isScheduled = isRoutineDay(dayDate, routine.days);
-  const isToday = day === now.getDate();
+  const isToday = day === now.getDate() && currentMonth === now.getMonth() && currentYear === now.getFullYear();
   const isCompleted = isToday && completedToday;
   
   // Verificar si este día fue completado en el historial
   const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   const wasCompletedInPast = completionHistory[dateKey] === true;
   
-  // Obtener fecha de creación de la rutina (solo la fecha, sin hora)
+  // Obtener fecha de creación de la rutina (solo la fecha, sin hora, usar mediodía)
   const createdDate = routine.created_at ? new Date(routine.created_at) : null;
-  const createdDateOnly = createdDate ? new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate()) : null;
-  const dayDateOnly = new Date(currentYear, currentMonth, day);
+  const createdDateOnly = createdDate ? new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate(), 12, 0, 0) : null;
+  const dayDateOnly = new Date(currentYear, currentMonth, day, 12, 0, 0);
   
   // Solo mostrar emoji de fracaso si el día es DESPUÉS de la fecha de creación
   const isAfterCreation = !createdDateOnly || dayDateOnly >= createdDateOnly;

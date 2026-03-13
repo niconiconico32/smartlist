@@ -1,5 +1,5 @@
+import { PRIMARY_GRADIENT_COLORS, primaryButtonGradient, primaryButtonStyles, primaryButtonText } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
-import { PRIMARY_GRADIENT_COLORS, primaryButtonStyles, primaryButtonGradient, primaryButtonText } from '@/constants/buttons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -768,9 +768,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 10,
     borderRadius: 32,
-    backgroundColor: colors.surfaceHighlight,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: colors.textRoutineCard + '30',
   },
   addToListButtonText: {
     fontSize: 14,

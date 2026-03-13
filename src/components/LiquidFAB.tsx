@@ -1,13 +1,13 @@
-import { colors } from '@/constants/theme';
 import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
+import { colors } from '@/constants/theme';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Clock, Play } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import { Clock, Play, Plus } from 'lucide-react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Platform,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -34,107 +34,105 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
   onLongPress,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(0)).current;
+  // Track whether options should render at all (avoids ghost shadows)
+  const [shouldRenderOptions, setShouldRenderOptions] = useState(false);
+  const expandAnim = useRef(new Animated.Value(0)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Pulsación sutil y continua en reposo
+  // Gentle breathing pulse when idle
   useEffect(() => {
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1200,
+          toValue: 1.06,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    pulse.start();
+    return () => pulse.stop();
   }, []);
 
-  // Sincronizar estado interno con el prop externo
-  useEffect(() => {
-    if (externalIsOpen !== undefined && externalIsOpen !== isOpen) {
-      const toValue = externalIsOpen ? 1 : 0;
-
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue,
-          friction: 10,
-          tension: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(rotateAnim, {
-          toValue,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      setIsOpen(externalIsOpen);
-    }
-  }, [externalIsOpen, isOpen]);
-
-  const toggleFAB = () => {
-    const newOpenState = !isOpen;
-    const toValue = newOpenState ? 1 : 0;
-
+  const animateOpen = useCallback(() => {
+    setShouldRenderOptions(true);
     Animated.parallel([
-      Animated.spring(scaleAnim, {
-        toValue,
-        friction: 10,
-        tension: 200,
+      Animated.spring(expandAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 120,
         useNativeDriver: true,
       }),
-      Animated.timing(rotateAnim, {
-        toValue,
-        duration: 150,
+      Animated.spring(rotateAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 140,
         useNativeDriver: true,
       }),
     ]).start();
+  }, []);
 
+  const animateClose = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(expandAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(rotateAnim, {
+        toValue: 0,
+        duration: 200,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Only hide option DOM after animation fully completes → no ghost shadows
+      setShouldRenderOptions(false);
+    });
+  }, []);
+
+  // Sync with external isOpen prop
+  useEffect(() => {
+    if (externalIsOpen !== undefined && externalIsOpen !== isOpen) {
+      if (externalIsOpen) {
+        animateOpen();
+      } else {
+        animateClose();
+      }
+      setIsOpen(externalIsOpen);
+    }
+  }, [externalIsOpen]);
+
+  const toggleFAB = () => {
+    const newOpenState = !isOpen;
+    if (newOpenState) {
+      animateOpen();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      animateClose();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     setIsOpen(newOpenState);
     onOpenChange?.(newOpenState);
-
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
   };
 
-  const handleHacerTareaPress = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    onHacerTareaPress();
-    toggleFAB();
-  };
-
-  const handleProgramarTareaPress = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    onProgramarTareaPress();
-    toggleFAB();
-  };
-
-  const handleCreateRoutinePress = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.selectionAsync();
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    onCreateRoutinePress();
-    toggleFAB();
+  const handleOptionPress = (callback: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    callback();
+    // Close after a tiny delay so the haptic registers before animation
+    const newOpenState = false;
+    animateClose();
+    setIsOpen(newOpenState);
+    onOpenChange?.(newOpenState);
   };
 
   const rotate = rotateAnim.interpolate({
@@ -142,156 +140,151 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     outputRange: ['0deg', '45deg'],
   });
 
-  const buttonScale = scaleAnim.interpolate({
+  // Clamped interpolations — prevent spring overshoot from causing negative opacity/scale
+  const option1Translate = expandAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, 1],
+    outputRange: [0, -140],
+    extrapolate: 'clamp',
   });
-
-  const voiceOpacity = scaleAnim.interpolate({
-    inputRange: [0, 0.1],
-    outputRange: [0, 1],
+  const option2Translate = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -80],
+    extrapolate: 'clamp',
+  });
+  const routineOptionTranslate = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -110],
+    extrapolate: 'clamp',
+  });
+  const optionXShift = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
     extrapolate: 'clamp',
   });
 
-  const attachmentOpacity = scaleAnim.interpolate({
-    inputRange: [0, 0.15],
-    outputRange: [0, 1],
+  // Faster opacity — visible almost immediately
+  const option1Opacity = expandAnim.interpolate({
+    inputRange: [0, 0.15, 1],
+    outputRange: [0, 0.8, 1],
+    extrapolate: 'clamp',
+  });
+  const option2Opacity = expandAnim.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0, 0.7, 1],
     extrapolate: 'clamp',
   });
 
-  // Para la página de rutinas, mostrar solo crear rutina
-  const isRoutinesPage = currentPage === 1;
+  // Scale for option buttons (pop-in effect — starts bigger for faster feel)
+  const option1Scale = expandAnim.interpolate({
+    inputRange: [0, 0.15, 1],
+    outputRange: [0.5, 0.9, 1],
+    extrapolate: 'clamp',
+  });
+  const option2Scale = expandAnim.interpolate({
+    inputRange: [0, 0.2, 1],
+    outputRange: [0.5, 0.85, 1],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.container}>
-      {currentPage === 0 && (
+      {shouldRenderOptions && currentPage === 0 && (
         <>
-          {/* Hacer Tarea Option - Solo en Tareas */}
+          {/* Nueva Tarea Option */}
           <Animated.View
-            pointerEvents={isOpen ? 'auto' : 'none'}
             style={[
               styles.optionButton,
               {
                 transform: [
-                  {
-                    translateY: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -140],
-                    }),
-                  },
-                  {
-                    translateX: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -10],
-                    }),
-                  },
+                  { translateY: option1Translate },
+                  { translateX: optionXShift },
+                  { scale: option1Scale },
                 ],
-                opacity: voiceOpacity,
+                opacity: option1Opacity,
               },
             ]}
           >
-            <Text style={styles.optionLabel}>Nueva Tarea</Text>
             <Pressable
-              hitSlop={20}
-              style={styles.optionButtonInner}
-              onPress={handleHacerTareaPress}
+              style={styles.optionHitArea}
+              onPress={() => handleOptionPress(onHacerTareaPress)}
             >
-              <Play size={20} color="#F5F5F5" strokeWidth={2} fill="#F5F5F5" />
+              <Text style={styles.optionLabel}>Nueva Tarea</Text>
+              <View style={styles.optionButtonInner}>
+                <Play size={20} color={colors.background} strokeWidth={2} fill={colors.background} />
+              </View>
             </Pressable>
           </Animated.View>
 
-          {/* Programar Tarea Option - Solo en Tareas */}
+          {/* Programar Tarea Option */}
           <Animated.View
-            pointerEvents={isOpen ? 'auto' : 'none'}
             style={[
               styles.optionButton,
               {
                 transform: [
-                  {
-                    translateY: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -80],
-                    }),
-                  },
-                  {
-                    translateX: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -10],
-                    }),
-                  },
+                  { translateY: option2Translate },
+                  { translateX: optionXShift },
+                  { scale: option2Scale },
                 ],
-                opacity: attachmentOpacity,
+                opacity: option2Opacity,
               },
             ]}
           >
-            <Text style={styles.optionLabel}>Programar Tarea</Text>
             <Pressable
-              hitSlop={20}
-              style={styles.optionButtonInner}
-              onPress={handleProgramarTareaPress}
+              style={styles.optionHitArea}
+              onPress={() => handleOptionPress(onProgramarTareaPress)}
             >
-              <Clock size={20} color="#F5F5F5" strokeWidth={2} />
+              <Text style={styles.optionLabel}>Programar Tarea</Text>
+              <View style={styles.optionButtonInner}>
+                <Clock size={20} color={colors.background} strokeWidth={2} />
+              </View>
             </Pressable>
           </Animated.View>
         </>
       )}
 
-      {currentPage === 1 && (
+      {shouldRenderOptions && currentPage === 1 && (
         <>
-          {/* Nueva Rutina Option - Solo en Rutinas */}
+          {/* Nueva Rutina Option */}
           <Animated.View
-            pointerEvents={isOpen ? 'auto' : 'none'}
             style={[
               styles.optionButton,
               {
                 transform: [
-                  {
-                    translateY: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -110],
-                    }),
-                  },
-                  {
-                    translateX: scaleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -10],
-                    }),
-                  },
+                  { translateY: routineOptionTranslate },
+                  { translateX: optionXShift },
+                  { scale: option1Scale },
                 ],
-                opacity: voiceOpacity,
+                opacity: option1Opacity,
               },
             ]}
           >
-            <Text style={styles.optionLabel}>Nueva Rutina</Text>
             <Pressable
-              hitSlop={20}
-              style={styles.optionButtonInner}
-              onPress={handleCreateRoutinePress}
+              style={styles.optionHitArea}
+              onPress={() => handleOptionPress(onCreateRoutinePress)}
             >
-              <MaterialCommunityIcons name="calendar-plus" size={20} color="#F5F5F5" />
+              <Text style={styles.optionLabel}>Nueva Rutina</Text>
+              <View style={styles.optionButtonInner}>
+                <MaterialCommunityIcons name="calendar-plus" size={20} color={colors.background} />
+              </View>
             </Pressable>
           </Animated.View>
         </>
       )}
 
-      {/* Main FAB Button - Con Gradiente Digital Sunset */}
+      {/* Main FAB Button */}
       <Animated.View
         style={[
           styles.mainButtonContainer,
           {
             transform: [
-              { rotate },
-              { scale: pulseAnim }
+              { scale: isOpen ? 1 : pulseAnim },
             ],
           },
         ]}
       >
         <Pressable
-          style={[styles.mainButton]}
-          onPress={() => {
-            console.log('FAB pressed, isOpen:', isOpen);
-            toggleFAB();
-          }}
+          style={styles.mainButton}
+          onPress={toggleFAB}
           onLongPress={onLongPress}
         >
           <LinearGradient
@@ -300,7 +293,15 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
             end={{ x: 1, y: 1 }}
             style={styles.gradientButton}
           >
-            <MaterialCommunityIcons name="plus" size={32} color={colors.background} />
+            <Animated.View style={{ transform: [{ rotate }] }}>
+              <Plus
+                size={30}
+                color={colors.background}
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Animated.View>
           </LinearGradient>
         </Pressable>
       </Animated.View>
@@ -328,9 +329,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 10,
   },
   gradientButton: {
@@ -342,11 +343,17 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     position: 'absolute',
+    zIndex: 100,
+  },
+  optionHitArea: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    zIndex: 100,
-    flexDirection: 'row',
     gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginVertical: -10,
+    marginHorizontal: -14,
   },
   optionButtonInner: {
     width: 50,
@@ -356,13 +363,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
     elevation: 6,
   },
   optionLabel: {
-    color: colors.textPrimary,
+    color: colors.textRoutineCard,
     fontSize: 12,
     fontWeight: '600',
     minWidth: 90,
