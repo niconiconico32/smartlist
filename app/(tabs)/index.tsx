@@ -47,6 +47,7 @@ function getRandomIconColor() {
 
 // Dummy fallback for ConfettiCannon if not imported
 const ConfettiCannon = (props: any) => null;
+import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
 import { DEV_MODE, SHOW_TEST_BUTTONS } from "@/constants/config";
 import { colors } from "@/constants/theme";
 import { ActivityButton } from "@/src/components/ActivityButton";
@@ -84,9 +85,9 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { CalendarClock, Check, Clock, Sparkles, X } from "lucide-react-native";
-import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -226,6 +227,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const confettiRef = useRef<any>(null);
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(true);
 
   // Función para avanzar al siguiente paso del onboarding
   const goToNextStep = () => {
@@ -462,6 +464,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const loadActivities = async () => {
     try {
+      setIsLoadingActivities(true);
       const stored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
       if (stored) {
         const storedActivities = JSON.parse(stored);
@@ -491,6 +494,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       }
     } catch (error) {
       console.error("Error loading activities:", error);
+    } finally {
+      setIsLoadingActivities(false);
     }
   };
 
@@ -966,7 +971,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         >
           {/* Activities Container */}
           <View style={styles.activitiesContainer}>
-            {weekActivities.length === 0 ? (
+            {isLoadingActivities ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.loadingText}>Cargando tareas...</Text>
+              </View>
+            ) : weekActivities.length === 0 ? (
                 <Animated.View
                   entering={FadeIn.delay(200).duration(500)}
                   style={styles.emptyState}
@@ -1070,6 +1080,25 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               >
                 <Text style={styles.testOnboardingText}>
                   Última Pantalla (Chart)
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.testOnboardingButton,
+                pressed && styles.testOnboardingButtonPressed,
+              ]}
+              onPress={() => router.push("/onboarding-v3")}
+            >
+              <LinearGradient
+                colors={["#A78BFA", "#7C3AED"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.testOnboardingGradient}
+              >
+                <Text style={styles.testOnboardingText}>
+                  Onboarding V3 (Nuevo)
                 </Text>
               </LinearGradient>
             </Pressable>
@@ -2317,6 +2346,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 60,
     paddingHorizontal: 40,
+  } as any,
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    gap: 16,
+  } as any,
+  loadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    opacity: 0.7,
   } as any,
   emptyIconContainer: {
     width: 100,

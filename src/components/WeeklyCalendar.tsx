@@ -1,12 +1,13 @@
 import { colors } from '@/constants/theme';
 import { CoinsCounter } from '@/src/components/CoinsCounter';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { useAchievementsStore } from '@/src/store/achievementsStore';
 import { useAppStreakStore } from '@/src/store/appStreakStore';
 import { getLocalDateKey } from '@/src/utils/dateHelpers'; // ✅ TIMEZONE SAFE
 import { addDays, format, isSameDay, isToday, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'expo-router';
-import { Crown } from 'lucide-react-native';
+import { Crown, UserCircle } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -44,6 +45,7 @@ export function WeeklyCalendar({
   scheduledTasksHistory = {},
 }: WeeklyCalendarProps) {
   const router = useRouter();
+  const { isAnonymous } = useAuth();
   const { totalCoins, loadAchievements } = useAchievementsStore();
   const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const today = new Date();
@@ -96,6 +98,17 @@ export function WeeklyCalendar({
             onPress={() => router.push('/achievements')}
           >
             <Crown size={24} color={colors.primary} strokeWidth={2.5} />
+          </Pressable>
+          <Pressable 
+            style={styles.profileButton}
+            onPress={() => router.push('/login')}
+          >
+            <UserCircle 
+              size={24} 
+              color={isAnonymous ? colors.textSecondary : colors.primary} 
+              strokeWidth={2} 
+            />
+            {isAnonymous && <View style={styles.profileDot} />}
           </Pressable>
         </View>
       </View>
@@ -260,6 +273,21 @@ const styles = StyleSheet.create({
   },
   crownButton: {
     padding: 8,
+  },
+  profileButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  profileDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF6B6B',
+    borderWidth: 1.5,
+    borderColor: colors.background,
   },
   multiplierBadge: {
     backgroundColor: `${colors.primary}25`,

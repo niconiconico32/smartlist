@@ -24,7 +24,7 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
 import React, { createRef, useCallback, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
 import IndexScreen from './index';
@@ -79,6 +79,7 @@ export default function SwipeableLayout() {
   const [currentStreak, setCurrentStreak] = useState(0);
   const [isStreakActiveToday, setIsStreakActiveToday] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const pulseAnimFirstTime = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
@@ -208,11 +209,21 @@ export default function SwipeableLayout() {
   // Load routines and streak when screen focuses
   useFocusEffect(
     useCallback(() => {
-      loadRoutines();
-      loadStreak();
-      loadAchievements();
-      initializeAppStreak();
-      trackWeeklyUsage();
+      const loadAll = async () => {
+        setIsLoadingData(true);
+        try {
+          await Promise.all([
+            loadRoutines(),
+            loadStreak(),
+            loadAchievements(),
+            initializeAppStreak(),
+            trackWeeklyUsage(),
+          ]);
+        } finally {
+          setIsLoadingData(false);
+        }
+      };
+      loadAll();
     }, [loadRoutines, loadStreak])
   );
 
@@ -466,22 +477,47 @@ export default function SwipeableLayout() {
 
       {/* Fixed Header Components */}
       <View style={styles.fixedHeader}>
-        <WeeklyCalendar 
-          completedTasksHistory={completedTasksHistory}
-          scheduledTasksHistory={scheduledTasksHistory}
-          scheduledRoutines={routines}
-          onDateSelect={(date) => {
-            setSelectedDate(date);
-            console.log('Fecha seleccionada:', format(date, 'yyyy-MM-dd'));
-          }}
-        />
-        <View style={styles.progressWrapper}>
-          <FocusHeroCard 
-            currentStreak={currentStreak}
-            isStreakActiveToday={isStreakActiveToday}
-          />
-        </View>
+        {isLoadingData ? (
+          <View style={styles.headerLoading}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        ) : (
+          <>
+            <WeeklyCalendar 
+              completedTasksHistory={completedTasksHistory}
+              scheduledTasksHistory={scheduledTasksHistory}
+              scheduledRoutines={routines}
+              onDateSelect={(date) => {
+                setSelectedDate(date);
+                console.log('Fecha seleccionada:', format(date, 'yyyy-MM-dd'));
+              }}
+            />
+            <View style={styles.progressWrapper}>
+              <FocusHeroCard 
+                currentStreak={currentStreak}
+                isStreakActiveToday={isStreakActiveToday}
+              />
+            </View>
+          </>
+        )}
       </View>
+
+      {/* Debug: Test Onboarding Final */}
+      {__DEV__ && (
+        <Pressable
+          onPress={() => router.push('/onboardingfinal')}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            backgroundColor: '#10B981',
+            paddingVertical: 10,
+            borderRadius: 12,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>🚀 Test Onboarding Final</Text>
+        </Pressable>
+      )}
 
       {/* Swipeable Content */}
       <PagerView
@@ -595,6 +631,8 @@ export default function SwipeableLayout() {
         onCreateRoutine={handleCreateRoutine}
       />
 
+      
+
       {/* Notification Test Panel */}
       <NotificationTestPanel 
         visible={showNotificationPanel}
@@ -636,6 +674,11 @@ const styles = StyleSheet.create({
   fixedHeader: {
     backgroundColor: colors.background,
     zIndex: 1,
+  },
+  headerLoading: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   progressWrapper: {
     paddingHorizontal: 20,

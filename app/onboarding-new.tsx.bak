@@ -1,0 +1,3653 @@
+import {
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText
+} from '@/constants/buttons';
+import { colors } from "@/constants/theme";
+import { usePurchases } from '@/src/contexts/PurchasesContext';
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, useLocalSearchParams } from "expo-router";
+import {
+  Brain,
+  Check,
+  CloudFog,
+  CreditCard,
+  Crown,
+  Flame,
+  Plus,
+  Shield,
+  Sparkles,
+  Unlock,
+  Zap
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import Animated, {
+  Easing,
+  FadeInDown,
+  FadeInUp,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Defs, Path, Stop, LinearGradient as SvgLinearGradient } from "react-native-svg";
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Typewriter text component
+const TypewriterText = ({ text, style, onComplete, delay = 0 }: { text: string; style: any; onComplete?: () => void; delay?: number }) => {
+  const [displayed, setDisplayed] = useState('');
+  const indexRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setDisplayed('');
+    indexRef.current = 0;
+
+    // Clear any running timers from previous render
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+    timeoutRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(() => {
+        const next = indexRef.current + 1;
+        setDisplayed(text.slice(0, next));
+        indexRef.current = next;
+        if (next >= text.length) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          onComplete?.();
+        }
+      }, 38);
+    }, delay);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [text, delay]);
+
+  return <Text style={style}>{displayed}</Text>;
+};
+
+// Chart dimensions
+const CHART_WIDTH = SCREEN_WIDTH - 80;
+const CHART_HEIGHT = 200;
+
+// Satisfaction Chart Component
+const SatisfactionChart = () => {
+  const progress = useSharedValue(0);
+  const [showTooltip1, setShowTooltip1] = useState(false);
+  const [showTooltip2, setShowTooltip2] = useState(false);
+  const [showTooltip3, setShowTooltip3] = useState(false);
+
+  // Path for the curve (Bezier curve going up)
+  const pathD = `M 20 ${CHART_HEIGHT - 30} Q 80 ${CHART_HEIGHT - 50}, 140 ${CHART_HEIGHT - 80} T 330 ${CHART_HEIGHT - 200}`;
+  const pathLength = 310;
+
+  useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: 2000,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+    });
+
+    const timer1 = setTimeout(() => setShowTooltip1(true), 400);
+    const timer2 = setTimeout(() => setShowTooltip2(true), 1200);
+    const timer3 = setTimeout(() => setShowTooltip3(true), 2000);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, []);
+
+  const animatedProps = useAnimatedProps(() => {
+    return {
+      strokeDashoffset: pathLength * (1 - progress.value),
+    };
+  });
+
+  return (
+    <View style={chartStyles.container}>
+      <Text style={chartStyles.title}>TU NIVEL DE SATISFACCIÓN</Text>
+      <View style={chartStyles.chartCard}>
+        <View style={chartStyles.gridContainer}>
+          <View style={chartStyles.gridLine} />
+          <View style={chartStyles.gridLine} />
+          <View style={chartStyles.gridLine} />
+        </View>
+        <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={chartStyles.svg}>
+          <Defs>
+            <SvgLinearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop offset="0%" stopColor="#F38BA8" />
+              <Stop offset="50%" stopColor="#FAB387" />
+              <Stop offset="100%" stopColor="#CBA6F7" />
+            </SvgLinearGradient>
+          </Defs>
+          <AnimatedPath
+            d={pathD}
+            stroke="url(#lineGradient)"
+            strokeWidth={5}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={pathLength}
+            animatedProps={animatedProps}
+          />
+        </Svg>
+        {showTooltip1 && (
+          <Animated.View
+            entering={FadeInUp.duration(400)}
+            style={[chartStyles.tooltipContainer, { left: 24 + 1 - 4, top: 24 + (CHART_HEIGHT - 30) - 6 }]}
+          >
+            <View style={[chartStyles.tooltipDot, { backgroundColor: '#F38BA8' }]} />
+            <View style={[chartStyles.tooltip, { backgroundColor: '#F38BA8' }]}>
+              <Text style={chartStyles.tooltipText}>BAJO</Text>
+            </View>
+            <Text style={chartStyles.tooltipLabelBelow}>AHORA</Text>
+          </Animated.View>
+        )}
+        {showTooltip2 && (
+          <Animated.View
+            entering={FadeInUp.duration(400)}
+            style={[chartStyles.tooltipContainer, { left: 24 + 70 - 4, top: 24 + (CHART_HEIGHT - 80) - 6 }]}
+          >
+            <View style={[chartStyles.tooltipDot, { backgroundColor: '#FAB387' }]} />
+            <View style={[chartStyles.tooltip, { backgroundColor: '#FAB387' }]}>
+              <Text style={chartStyles.tooltipText}>Primeros Cambios</Text>
+            </View>
+          </Animated.View>
+        )}
+        {showTooltip3 && (
+          <Animated.View
+            entering={FadeInUp.duration(400)}
+            style={[chartStyles.tooltipContainer, { left: 24 + 200 - 4, top: 24 + (CHART_HEIGHT - 160) - 6 }]}
+          >
+            <View style={[chartStyles.tooltipDot, { backgroundColor: '#CBA6F7' }]} />
+            <View style={[chartStyles.tooltip, { backgroundColor: '#CBA6F7' }]}>
+              <Text style={chartStyles.tooltipText}>La vida que quieres</Text>
+            </View>
+            <Text style={chartStyles.tooltipLabelBelow}>PRONTO</Text>
+          </Animated.View>
+        )}
+        <View style={chartStyles.xAxisLabels}>
+          <Text style={chartStyles.xAxisLabel}>Día 1</Text>
+          <Text style={chartStyles.xAxisLabel}>Pronto</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const chartStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 32,
+    letterSpacing: 2,
+  },
+  chartCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 24,
+    width: SCREEN_WIDTH - 40,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}0D`,
+    shadowColor: colors.background,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+    minHeight: CHART_HEIGHT + 80,
+    left: 30,
+  },
+  gridContainer: {
+    position: 'absolute',
+    top: 24,
+    left: 24,
+    right: 24,
+    height: CHART_HEIGHT,
+    justifyContent: 'space-evenly',
+  },
+  gridLine: {
+    height: 1,
+    backgroundColor: `${colors.textPrimary}0D`,
+    borderStyle: 'dashed',
+  },
+  svg: {
+    marginLeft: -4,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    transform: [{ translateX: -6 }],
+  },
+  tooltipLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
+  tooltipLabelBelow: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 4,
+    letterSpacing: 1,
+  },
+  tooltip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  tooltipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.background,
+  },
+  tooltipDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.textPrimary,
+  },
+  xAxisLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    paddingHorizontal: 8,
+  },
+  xAxisLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+});
+
+// ============================================================================
+// HABIT DAYS ANIMATION COMPONENT
+// ============================================================================
+const HABIT_DAYS = [
+  { id: 0, label: "L" },
+  { id: 1, label: "M" },
+  { id: 2, label: "X" },
+  { id: 3, label: "J" },
+  { id: 4, label: "V" },
+  { id: 5, label: "S" },
+  { id: 6, label: "D" },
+];
+
+// ============================================
+// GROWTH POTENTIAL SCREEN COMPONENT
+// ============================================
+interface GrowthBarProps {
+  label: string;
+  value: number;
+  maxValue: number;
+  isPotential?: boolean;
+  delay: number;
+}
+
+const GrowthBar: React.FC<GrowthBarProps> = ({ label, value, maxValue, isPotential = false, delay }) => {
+  const barHeight = useSharedValue(0);
+  const glowOpacity = useSharedValue(0);
+  const targetHeight = (value / maxValue) * 160;
+
+  useEffect(() => {
+    barHeight.value = withDelay(
+      delay,
+      withSpring(targetHeight, { damping: 12, stiffness: 80 })
+    );
+    if (isPotential) {
+      glowOpacity.value = withDelay(
+        delay + 400,
+        withRepeat(
+          withSequence(
+            withTiming(0.8, { duration: 1500 }),
+            withTiming(0.3, { duration: 1500 })
+          ),
+          -1,
+          true
+        )
+      );
+    }
+  }, []);
+
+  const barStyle = useAnimatedStyle(() => ({
+    height: barHeight.value,
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <View style={growthStyles.barWrapper}>
+      <View style={growthStyles.barContainer}>
+        {isPotential ? (
+          <>
+            <Animated.View style={[growthStyles.barGlow, glowStyle, { height: targetHeight }]} />
+            <Animated.View style={[growthStyles.barAnimated, barStyle]}>
+              <LinearGradient
+                colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+                start={{ x: 0, y: 1 }}
+                end={{ x: 0, y: 0 }}
+                style={growthStyles.barGradient}
+              />
+            </Animated.View>
+          </>
+        ) : (
+          <Animated.View style={[growthStyles.barAnimated, barStyle]}>
+            <View style={growthStyles.barDimmed} />
+          </Animated.View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const GrowthPotentialScreen = ({ onContinue }: { onContinue: () => void }) => {
+  const mascotY = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  return (
+    <ScrollView
+      style={styles.slideScroll}
+      contentContainerStyle={growthStyles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      <Animated.Text
+        entering={FadeInDown.delay(100).duration(500)}
+        style={growthStyles.title}
+      >
+        Tu Potencial Desbloqueable
+      </Animated.Text>
+
+      <Animated.Text
+        entering={FadeInDown.delay(200).duration(500)}
+        style={growthStyles.subtitle}
+      >
+        Mira lo que puedes lograr con el sistema correcto
+      </Animated.Text>
+
+      <Animated.View
+        entering={FadeInDown.delay(300).duration(600)}
+        style={growthStyles.chartContainer}
+      >
+        <View style={growthStyles.barsRow}>
+          <View style={growthStyles.barColumnActual}>
+            <Text style={growthStyles.barValueActual}>35%</Text>
+            <GrowthBar label="Actual" value={35} maxValue={100} delay={400} />
+            <Text style={growthStyles.barLabel}>Actual</Text>
+          </View>
+          <View style={growthStyles.barColumnPotential}>
+            <Text style={growthStyles.barValuePotentialTop}>+85%</Text>
+            <GrowthBar label="Con Brainy" value={100} maxValue={100} isPotential delay={700} />
+            <Text style={[growthStyles.barLabel, growthStyles.barLabelPotential]}>Con Brainy</Text>
+          </View>
+        </View>
+        <Animated.View style={[growthStyles.mascotContainer, mascotStyle]}>
+          <Image
+            source={require("@/assets/images/logomain.png")}
+            style={growthStyles.mascot}
+            resizeMode="contain"
+          />
+          <Text style={growthStyles.mascotSpeech}>¡Tu potencial es enorme!</Text>
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.delay(500).duration(500)}
+        style={growthStyles.statsContainer}
+      >
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={[`${colors.success}26`, `${colors.success}0D`]}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.success}40` }]}>
+                <Sparkles size={18} color={colors.success} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Margen de Mejora</Text>
+              <View style={growthStyles.statBadge}>
+                <Text style={growthStyles.statBadgeText}>ALTO</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Tu mente creativa solo necesita la estructura correcta para brillar.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={[`${colors.primary}26`, `${colors.primary}0D`]}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.primary}40` }]}>
+                <Zap size={18} color={colors.primary} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Productividad Estimada</Text>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.primary}33` }]}>
+                <Text style={[growthStyles.statBadgeText, { color: colors.primary }]}>+3x</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Usuarios similares triplican su productividad en 4 semanas.
+            </Text>
+          </LinearGradient>
+        </View>
+
+        <View style={growthStyles.statCard}>
+          <LinearGradient
+            colors={[`${colors.accent}26`, `${colors.accent}0D`]}
+            style={growthStyles.statCardGradient}
+          >
+            <View style={growthStyles.statCardHeader}>
+              <View style={[growthStyles.statIconBg, { backgroundColor: `${colors.accent}40` }]}>
+                <Brain size={18} color={colors.accent} strokeWidth={2} />
+              </View>
+              <Text style={growthStyles.statCardTitle}>Claridad Mental</Text>
+              <View style={[growthStyles.statBadge, { backgroundColor: `${colors.accent}33` }]}>
+                <Text style={[growthStyles.statBadgeText, { color: colors.accent }]}>ALTA</Text>
+              </View>
+            </View>
+            <Text style={growthStyles.statCardDescription}>
+              Reduce el ruido mental y enfócate en lo que realmente importa.
+            </Text>
+          </LinearGradient>
+        </View>
+      </Animated.View>
+
+      <Animated.View
+        entering={FadeInDown.delay(700).duration(500)}
+        style={growthStyles.buttonContainer}
+      >
+        <Animated.View style={buttonAnimatedStyle}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onContinue();
+            }}
+            onPressIn={handleButtonPressIn}
+            onPressOut={handleButtonPressOut}
+            style={primaryButtonStyles}
+          >
+            <LinearGradient
+              colors={PRIMARY_GRADIENT_COLORS}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={primaryButtonGradient}
+            >
+              <Text style={primaryButtonText}>Empezar mi Transformación</Text>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      </Animated.View>
+    </ScrollView>
+  );
+};
+
+const growthStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  chartContainer: {
+    backgroundColor: `${colors.surface}80`,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    position: 'relative',
+  },
+  barsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    gap: 40,
+  },
+  barColumnActual: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 220,
+  },
+  barColumnPotential: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 220,
+  },
+  barWrapper: {
+    alignItems: 'center',
+    width: 70,
+  },
+  barContainer: {
+    width: 60,
+    height: 160,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  barAnimated: {
+    width: 60,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  barGradient: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  barDimmed: {
+    flex: 1,
+    backgroundColor: `${colors.textPrimary}26`,
+    borderRadius: 12,
+  },
+  barGlow: {
+    position: 'absolute',
+    bottom: 0,
+    left: -5,
+    width: 70,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 154, 158, 0.3)',
+  },
+  barLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  barLabelPotential: {
+    color: colors.textPrimary,
+  },
+  barValueActual: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: -95,
+  },
+  barValuePotentialTop: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FF9A9E',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  mascotContainer: {
+    position: 'absolute',
+    right: 10,
+    top: 20,
+    alignItems: 'center',
+  },
+  mascot: {
+    width: 70,
+    height: 70,
+  },
+  mascotSpeech: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.warning,
+    maxWidth: 80,
+    justifyContent: 'center',
+    textAlign: 'center'
+  },
+  statsContainer: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  statCardGradient: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}14`,
+  },
+  statCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  statIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statCardTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  statBadge: {
+    backgroundColor: `${colors.success}33`,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.success,
+  },
+  statCardDescription: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginLeft: 42,
+  },
+  buttonContainer: {
+    marginTop: 8,
+  },
+});
+
+// ============================================
+// SUCCESS TIMELINE SCREEN COMPONENT
+// ============================================
+interface TimelineNodeProps {
+  day: string;
+  title: string;
+  description: string;
+  color: string;
+  glowColor: string;
+  icon: React.ReactNode;
+  delay: number;
+  isFirst?: boolean;
+  isLast?: boolean;
+}
+
+const TimelineNode: React.FC<TimelineNodeProps> = ({
+  day,
+  title,
+  description,
+  color,
+  glowColor,
+  icon,
+  delay,
+  isFirst = false,
+  isLast = false,
+}) => {
+  const glowOpacity = useSharedValue(0.3);
+  const nodeScale = useSharedValue(0);
+
+  useEffect(() => {
+    nodeScale.value = withDelay(delay, withSpring(1, { damping: 12, stiffness: 100 }));
+    if (isFirst) {
+      glowOpacity.value = withDelay(
+        delay + 300,
+        withRepeat(
+          withSequence(
+            withTiming(1, { duration: 1200 }),
+            withTiming(0.4, { duration: 1200 })
+          ),
+          -1,
+          true
+        )
+      );
+    }
+  }, []);
+
+  const nodeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: nodeScale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  return (
+    <Animated.View style={[timelineStyles.nodeContainer, nodeStyle]}>
+      {isFirst && (
+        <Animated.View
+          style={[
+            timelineStyles.nodeGlow,
+            { backgroundColor: glowColor },
+            glowStyle,
+          ]}
+        />
+      )}
+      <View style={[timelineStyles.nodeCircle, { borderColor: color }]}>
+        <LinearGradient
+          colors={[color, glowColor]}
+          style={timelineStyles.nodeGradient}
+        >
+          {icon}
+        </LinearGradient>
+      </View>
+      <View style={timelineStyles.nodeContent}>
+        <Text style={[timelineStyles.nodeDay, { color }]}>{day}</Text>
+        <Text style={timelineStyles.nodeTitle}>{title}</Text>
+        <Text style={timelineStyles.nodeDescription}>{description}</Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+const SuccessTimelineScreen = ({ onContinue }: { onContinue: () => void }) => {
+  const pathProgress = useSharedValue(0);
+  const mascotY = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    pathProgress.value = withDelay(
+      400,
+      withTiming(1, { duration: 2000, easing: Easing.out(Easing.cubic) })
+    );
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-6, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  return (
+    <LinearGradient
+      colors={[colors.background, '#16213E']}
+      style={timelineStyles.container}
+    >
+      <ScrollView
+        contentContainerStyle={timelineStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={timelineStyles.title}
+        >
+          Tu Cronología de Éxito
+        </Animated.Text>
+
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={timelineStyles.subtitle}
+        >
+          No es magia. Es neurociencia aplicada a tus tiempos.
+        </Animated.Text>
+
+        <View style={timelineStyles.timelineContainer}>
+          <View style={timelineStyles.pathContainer}>
+            <LinearGradient
+              colors={[colors.textPrimary, '#FAB387', '#CBA6F7']}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0 }}
+              style={timelineStyles.pathLine}
+            />
+            <Animated.View style={timelineStyles.pathGlow} />
+          </View>
+
+          <Animated.View style={[timelineStyles.mascotContainer, mascotStyle]}>
+            <View style={timelineStyles.speechBubble}>
+              <Text style={timelineStyles.speechBubbleText}>
+                ¡Tu nuevo yo está más cerca de lo que crees!
+              </Text>
+              <View style={timelineStyles.speechBubbleArrow} />
+            </View>
+            <Image
+              source={require("@/assets/images/logomain.png")}
+              style={timelineStyles.mascot}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <View style={timelineStyles.nodesContainer}>
+            <TimelineNode
+              day="Día 30"
+              title="Control Total"
+              description="La procrastinación ya no es tu jefe. Tú mandas."
+              color="#CBA6F7"
+              glowColor="#9D4EDD"
+              icon={<Crown size={20} color={colors.textPrimary} strokeWidth={2} />}
+              delay={1800}
+              isLast
+            />
+            <TimelineNode
+              day="Día 7"
+              title="Inercia Positiva"
+              description="Tus primeras rachas se sienten naturales, no forzadas."
+              color="#FAB387"
+              glowColor="#FF8C42"
+              icon={<Flame size={20} color={colors.textPrimary} strokeWidth={2} />}
+              delay={1200}
+            />
+            <TimelineNode
+              day="Día 1 (Hoy)"
+              title="Alivio Mental"
+              description="Dejas de guardar todo en tu cabeza. Tu ansiedad baja hoy mismo."
+              color={colors.textPrimary}
+              glowColor="#A6E3A1"
+              icon={<Sparkles size={20} color={colors.background} strokeWidth={2} />}
+              delay={600}
+              isFirst
+            />
+          </View>
+        </View>
+
+        <Animated.View
+          entering={FadeInDown.delay(2200).duration(500)}
+          style={timelineStyles.buttonContainer}
+        >
+          <Animated.View style={buttonAnimatedStyle}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onContinue();
+              }}
+              onPressIn={handleButtonPressIn}
+              onPressOut={handleButtonPressOut}
+              style={primaryButtonStyles}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}
+              >
+                <Text style={primaryButtonText}>Ver mi Regalo de Bienvenida</Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        </Animated.View>
+      </ScrollView>
+    </LinearGradient>
+  );
+};
+
+const timelineStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  timelineContainer: {
+    position: 'relative',
+    minHeight: 450,
+    marginBottom: 24,
+  },
+  pathContainer: {
+    position: 'absolute',
+    left: 27,
+    top: 60,
+    bottom: 60,
+    width: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  pathLine: {
+    flex: 1,
+    borderRadius: 3,
+  },
+  pathGlow: {
+    position: 'absolute',
+    top: 0,
+    left: -4,
+    right: -4,
+    bottom: 0,
+    backgroundColor: `${colors.textPrimary}26`,
+    borderRadius: 8,
+  },
+  mascotContainer: {
+    position: 'absolute',
+    right: 0,
+    bottom: -10,
+    display: 'flex',
+    flexDirection: 'row'
+  },
+  mascot: {
+    width: 60,
+    height: 60,
+  },
+  speechBubble: {
+    backgroundColor: `${colors.textPrimary}F2`,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    maxWidth: 160,
+    marginRight: 8,
+    position: 'relative',
+    shadowColor: '#CBA6F7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  speechBubbleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.background,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  speechBubbleArrow: {
+    position: 'absolute',
+    right: -8,
+    top: '50%',
+    marginTop: -6,
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderBottomWidth: 6,
+    borderLeftWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: `${colors.textPrimary}F2`,
+  },
+  nodesContainer: {
+    paddingLeft: 0,
+    gap: 24,
+  },
+  nodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingLeft: 0,
+    position: 'relative',
+  },
+  nodeGlow: {
+    position: 'absolute',
+    left: 4,
+    top: 4,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  nodeCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    overflow: 'hidden',
+    backgroundColor: `${colors.background}CC`,
+  },
+  nodeGradient: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nodeContent: {
+    flex: 1,
+    marginLeft: 16,
+    paddingTop: 4,
+  },
+  nodeDay: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  nodeTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  nodeDescription: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  buttonContainer: {
+    marginTop: 8,
+  },
+});
+
+// ============================================
+// REVERSE TRIAL SCREEN COMPONENT
+// ============================================
+const ReverseTrialScreen = ({ onAccept }: { onAccept: () => void }) => {
+  const { packages, purchasePackage, isLoadingPurchases } = usePurchases();
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const cardY = useSharedValue(0);
+  const badgePulse = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.3);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    cardY.value = withRepeat(
+      withSequence(
+        withTiming(-8, { duration: 2500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 2500, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    badgePulse.value = withRepeat(
+      withSequence(
+        withTiming(1.05, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+    glowOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.6, { duration: 2000 }),
+        withTiming(0.3, { duration: 2000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cardY.value }],
+  }));
+
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgePulse.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  const handleStartTrial = async () => {
+    if (!packages.length) {
+      // No packages available (RevenueCat not configured yet) — skip to app
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onAccept();
+      return;
+    }
+
+    setIsPurchasing(true);
+    try {
+      const mainPackage = packages[0];
+      const result = await purchasePackage(mainPackage);
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        onAccept();
+      } else if (result.cancelled) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } else if (result.errorMessage) {
+        Alert.alert('Error', 'No se pudo completar la compra. Intenta de nuevo.');
+      }
+    } catch (error) {
+      console.error('❌ Trial purchase error:', error);
+      Alert.alert('Error', 'Ocurrió un error inesperado.');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  return (
+    <LinearGradient
+      colors={[colors.background, '#16213E']}
+      style={trialStyles.container}
+    >
+      <ScrollView
+        contentContainerStyle={trialStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={trialStyles.headerTitle}
+        >
+          Hagamos un trato honesto.
+        </Animated.Text>
+
+        <Animated.View style={[trialStyles.cardGlow, glowStyle]} />
+
+        <Animated.View
+          entering={FadeInDown.delay(300).duration(600)}
+          style={[trialStyles.cardContainer, cardStyle]}
+        >
+          <LinearGradient
+            colors={[`${colors.surface}E6`, `${colors.background}F2`]}
+            style={trialStyles.card}
+          >
+            <View style={trialStyles.iconContainer}>
+              <LinearGradient
+                colors={['#FFD700', '#FFA500']}
+                style={trialStyles.shieldGlow}
+              />
+              <View style={trialStyles.shieldIcon}>
+                <Shield size={75} color="#FFD700" strokeWidth={1.2} fill="rgba(255, 215, 0, 0.2)" />
+              </View>
+              <Image
+                source={require("@/assets/images/logomain.png")}
+                style={trialStyles.mascotSmall}
+                resizeMode="contain"
+              />
+            </View>
+
+            <Text style={trialStyles.cardHeadline}>
+              Probablemente odias las pruebas gratuitas que piden tu tarjeta.
+            </Text>
+
+            <Text style={trialStyles.cardBody}>
+              Sabemos que algunas apps ofrecen una prueba gratis y esperan que sus usuarios olviden cancelarla. Aquí no hacemos eso.
+            </Text>
+
+            <View style={trialStyles.offerContainer}>
+              <LinearGradient
+                colors={['rgba(255, 215, 0, 0.15)', 'rgba(255, 165, 0, 0.1)']}
+                style={trialStyles.offerGradient}
+              >
+                <Text style={trialStyles.offerText}>
+                  3 Días Premium.{"\n"} 0 Riesgos.
+                </Text>
+                <Text style={trialStyles.offerHighlight}>
+                  No pedimos tarjeta.
+                </Text>
+              </LinearGradient>
+            </View>
+
+            <View style={trialStyles.trustBadges}>
+              <Animated.View style={[trialStyles.trustBadge, badgeStyle]}>
+                <View style={trialStyles.badgeIconContainer}>
+                  <CreditCard size={16} color="#F38BA8" strokeWidth={2} />
+                  <View style={trialStyles.crossLine} />
+                </View>
+                <Text style={trialStyles.trustBadgeText}>Sin Cobros Sorpresa</Text>
+              </Animated.View>
+              <View style={trialStyles.badgeDivider} />
+              <View style={trialStyles.trustBadge}>
+                <Unlock size={16} color="#A6E3A1" strokeWidth={2} />
+                <Text style={trialStyles.trustBadgeText}>Acceso Total</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(700).duration(500)}
+          style={trialStyles.buttonContainer}
+        >
+          <Animated.View style={buttonAnimatedStyle}>
+            <Pressable
+              onPress={handleStartTrial}
+              onPressIn={handleButtonPressIn}
+              onPressOut={handleButtonPressOut}
+              disabled={isPurchasing || isLoadingPurchases}
+              style={primaryButtonStyles}
+            >
+              <LinearGradient
+                colors={PRIMARY_GRADIENT_COLORS}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={primaryButtonGradient}
+              >
+                {isPurchasing ? (
+                  <ActivityIndicator color={colors.background} />
+                ) : (
+                  <Text style={primaryButtonText}>Acepto el Regalo (Empezar)</Text>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        </Animated.View>
+
+        <Animated.Text
+          entering={FadeInDown.delay(900).duration(500)}
+          style={trialStyles.secondaryText}
+        >
+          Después de 3 días, tú decides si vale la pena.
+        </Animated.Text>
+      </ScrollView>
+    </LinearGradient>
+  );
+};
+
+const trialStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 32,
+    letterSpacing: -0.5,
+  },
+  cardGlow: {
+    position: 'absolute',
+    top: 100,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+  },
+  cardContainer: {
+    width: '100%',
+    marginBottom: 24,
+  },
+  card: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 215, 0, 0.3)',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    position: 'relative',
+  },
+  shieldGlow: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    opacity: 0.2,
+  },
+  shieldIcon: {
+    position: 'absolute',
+    top: 5,
+    zIndex: 1,
+  },
+  mascotSmall: {
+    width: 70,
+    height: 70,
+    marginTop: 15,
+  },
+  cardHeadline: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 12,
+    lineHeight: 24,
+  },
+  cardBody: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  offerContainer: {
+    marginBottom: 20,
+  },
+  offerGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+  },
+  offerText: {
+    fontSize: 25,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  offerHighlight: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFD700',
+    textAlign: 'center',
+  },
+  trustBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeIconContainer: {
+    position: 'relative',
+  },
+  crossLine: {
+    position: 'absolute',
+    top: 7,
+    left: -2,
+    width: 20,
+    height: 2,
+    backgroundColor: '#F38BA8',
+    transform: [{ rotate: '45deg' }],
+  },
+  trustBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  badgeDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: `${colors.textPrimary}33`,
+  },
+  buttonContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  secondaryText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+});
+
+// ============================================
+// ANIMATED DAY CIRCLE COMPONENT
+// ============================================
+const AnimatedDayCircle = ({ 
+  label, 
+  delay, 
+  onFilled 
+}: { 
+  label: string; 
+  delay: number; 
+  onFilled?: () => void;
+}) => {
+  const fillProgress = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const checkOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      fillProgress.value = withTiming(1, { 
+        duration: 400, 
+        easing: Easing.out(Easing.cubic) 
+      });
+      scale.value = withSequence(
+        withTiming(1.15, { duration: 150 }),
+        withSpring(1, { damping: 10 })
+      );
+      checkOpacity.value = withDelay(200, withTiming(1, { duration: 200 }));
+      if (onFilled) {
+        setTimeout(onFilled, 400);
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [delay]);
+
+  const circleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    backgroundColor: fillProgress.value > 0 
+      ? `${colors.success}${Math.round(fillProgress.value * 255).toString(16).padStart(2, '0')}` 
+      : colors.surface,
+    borderColor: fillProgress.value > 0 
+      ? colors.success 
+      : `${colors.textPrimary}1A`,
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+  }));
+
+  const labelStyle = useAnimatedStyle(() => ({
+    opacity: 1 - checkOpacity.value,
+  }));
+
+  return (
+    <Animated.View style={[habitStyles.dayCircle, circleStyle]}>
+      <Animated.Text style={[habitStyles.dayLabel, labelStyle]}>
+        {label}
+      </Animated.Text>
+      <Animated.Text style={[habitStyles.checkMark, checkStyle]}>
+        ✓
+      </Animated.Text>
+    </Animated.View>
+  );
+};
+
+const HabitDaysAnimation = ({ onComplete }: { onComplete: () => void }) => {
+  const [filledCount, setFilledCount] = useState(0);
+  const [showButton, setShowButton] = useState(false);
+  const titleOpacity = useSharedValue(0);
+  const subtitleOpacity = useSharedValue(0);
+  const factOpacity = useSharedValue(0);
+  const buttonOpacity = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    titleOpacity.value = withDelay(100, withTiming(1, { duration: 500 }));
+    subtitleOpacity.value = withDelay(300, withTiming(1, { duration: 500 }));
+    factOpacity.value = withDelay(3500, withTiming(1, { duration: 500 }));
+    
+    const buttonTimer = setTimeout(() => {
+      setShowButton(true);
+      buttonOpacity.value = withTiming(1, { duration: 400 });
+    }, 4000);
+    
+    return () => clearTimeout(buttonTimer);
+  }, []);
+
+  const titleStyle = useAnimatedStyle(() => ({
+    opacity: titleOpacity.value,
+    transform: [{ translateY: (1 - titleOpacity.value) * 20 }],
+  }));
+
+  const subtitleStyle = useAnimatedStyle(() => ({
+    opacity: subtitleOpacity.value,
+  }));
+
+  const factStyle = useAnimatedStyle(() => ({
+    opacity: factOpacity.value,
+    transform: [{ translateY: (1 - factOpacity.value) * 10 }],
+  }));
+
+  const buttonStyle = useAnimatedStyle(() => ({
+    opacity: buttonOpacity.value,
+    transform: [
+      { translateY: (1 - buttonOpacity.value) * 20 },
+      { scale: buttonScale.value }
+    ],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  const getDelay = (index: number) => 500 + (index * 430);
+
+  return (
+    <View style={habitStyles.container}>
+      <Animated.View
+        entering={FadeInDown.delay(0).duration(500)}
+        style={habitStyles.logoContainer}
+      >
+        <Image
+          source={require("@/assets/images/streak.png")}
+          style={habitStyles.logo}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      <Animated.Text style={[habitStyles.title, titleStyle]}>
+        Construye tu hábito diario
+      </Animated.Text>
+
+      <Animated.Text style={[habitStyles.subtitle, subtitleStyle]}>
+        La consistencia es clave para el cambio duradero
+      </Animated.Text>
+
+      <View style={habitStyles.daysRow}>
+        {HABIT_DAYS.map((day, index) => (
+          <AnimatedDayCircle
+            key={day.id}
+            label={day.label}
+            delay={getDelay(index)}
+            onFilled={index === 6 ? undefined : () => setFilledCount(prev => prev + 1)}
+          />
+        ))}
+      </View>
+
+      <Animated.Text style={habitStyles.progressText}>
+        Empieza pequeño y mantén la consistencia
+      </Animated.Text>
+
+      <Animated.View style={[habitStyles.factCard, factStyle]}>
+        <View style={habitStyles.factIconContainer}>
+          <Flame
+            size={20}
+            color={colors.accent}
+            strokeWidth={2}
+            fill={colors.accent}
+          />
+        </View>
+        <Text style={habitStyles.factText}>
+          Las personas con rachas de 7 días tienen 3x más probabilidades
+          de formar hábitos duraderos
+        </Text>
+      </Animated.View>
+
+      {showButton && (
+        <Animated.View style={[habitStyles.buttonContainer, buttonStyle]}>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onComplete();
+            }}
+            onPressIn={handleButtonPressIn}
+            onPressOut={handleButtonPressOut}
+            style={primaryButtonStyles}
+          >
+            <LinearGradient
+              colors={PRIMARY_GRADIENT_COLORS}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={primaryButtonGradient}
+            >
+              <Text style={primaryButtonText}>Continuar</Text>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+const habitStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 32,
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  logo: {
+    width: 130,
+    height: 130,
+    marginBottom: -20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+    lineHeight: 40,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  dayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: `${colors.textPrimary}1A`,
+    position: 'relative',
+  },
+  dayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    position: 'absolute',
+  },
+  checkMark: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.background,
+    position: 'absolute',
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  factCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${colors.accent}26`,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginHorizontal: 20,
+  },
+  factIconContainer: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  factText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  buttonContainer: {
+    marginTop: 32,
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+});
+
+const GOAL_OPTIONS = [
+  {
+    id: "paralysis",
+    emoji: "🧠",
+    label: "Vencer la parálisis por análisis",
+    color: colors.primary,
+  },
+  {
+    id: "time",
+    emoji: "⌜",
+    label: "Mejorar mi noción del tiempo",
+    color: colors.accent,
+  },
+  {
+    id: "noise",
+    emoji: "⚡",
+    label: "Reducir el ruido mental",
+    color: colors.success,
+  },
+  {
+    id: "consistent",
+    emoji: "✅",
+    label: "Ser más consistente",
+    color: colors.primary,
+  },
+  {
+    id: "anxiety",
+    emoji: "🧘",
+    label: "Bajar la ansiedad al empezar",
+    color: colors.accent,
+  },
+];
+
+const OVERWHELM_OPTIONS = [
+  { id: "always", label: "Sí, siempre", value: "always" },
+  { id: "often", label: "Sí, a menudo", value: "often" },
+  { id: "sometimes", label: "De vez en cuando", value: "sometimes" },
+  { id: "rarely", label: "Raramente", value: "rarely" },
+  { id: "never", label: "Nunca", value: "never" },
+];
+
+const AGREEMENT_OPTIONS = [
+  { id: "strongly_agree", label: "Muy de acuerdo", value: "strongly_agree" },
+  { id: "somewhat_agree", label: "Algo de acuerdo", value: "somewhat_agree" },
+  { id: "disagree", label: "En desacuerdo", value: "disagree" },
+  {
+    id: "strongly_disagree",
+    label: "Muy en desacuerdo",
+    value: "strongly_disagree",
+  },
+];
+
+const STATEMENTS = [
+  {
+    id: 1,
+    textMain: "A menudo sé exactamente lo que tengo que hacer, pero me siento ",
+    textHighlight: "físicamente incapaz de empezar",
+  },
+  {
+    id: 2,
+    textMain: "Paso más tiempo preocupándome por una tarea que lo que ",
+    textHighlight: "realmente me tomaría completarla",
+  },
+  {
+    id: 3,
+    textMain: "Si no veo una tarea justo frente a mí, ",
+    textHighlight: "efectivamente no existe",
+  },
+  {
+    id: 4,
+    textMain: "Los plazos no se sienten 'reales' hasta que llega el ",
+    textHighlight: "pánico del último minuto",
+  },
+];
+
+const DAYS_OF_WEEK = [
+  { id: 1, label: "Lun", shortLabel: "L" },
+  { id: 2, label: "Mar", shortLabel: "M" },
+  { id: 3, label: "Mié", shortLabel: "X" },
+  { id: 4, label: "Jue", shortLabel: "J" },
+  { id: 5, label: "Vie", shortLabel: "V" },
+  { id: 6, label: "Sáb", shortLabel: "S" },
+  { id: 0, label: "Dom", shortLabel: "D" },
+];
+
+const ENEMY_OPTIONS = [
+  {
+    id: "analysis",
+    icon: Brain,
+    label: "Parálisis por Análisis",
+    color: colors.primary,
+  },
+  {
+    id: "forget",
+    icon: CloudFog,
+    label: "Olvido constante",
+    color: colors.primary,
+  },
+  {
+    id: "overload",
+    icon: Zap,
+    label: "Sobrecarga Sensorial",
+    color: colors.accent,
+  },
+];
+
+const ADHD_SYMPTOMS = [
+  {
+    id: "paralysis",
+    label: "😫 Me cuesta empezar tareas (Parálisis)",
+  },
+  {
+    id: "time",
+    label: "⏰ Pierdo la noción del tiempo",
+  },
+  {
+    id: "overwhelm",
+    label: "🤯 Me siento abrumado/a fácilmente",
+  },
+  {
+    id: "forget",
+    label: "💨 Olvido cosas importantes al instante",
+  },
+  {
+    id: "racing_mind",
+    label: "🌪️ Mi mente no para nunca",
+  },
+];
+
+const LIFE_AREAS = [
+  {
+    id: "home",
+    label: "🏠 Caos Doméstico",
+  },
+  {
+    id: "work",
+    label: "💼 Trabajo y Estudios",
+  },
+  {
+    id: "health",
+    label: "🧘 Salud y Autocuidado",
+  },
+];
+
+
+const RANGOS_EDAD = [
+  { id: "18-24", label: "18-24" },
+  { id: "25-34", label: "25-34" },
+  { id: "35-44", label: "35-44" },
+  { id: "45-54", label: "45-54" },
+  { id: "55+", label: "55+" },
+]; 
+
+const TASK_SUGGESTIONS = [
+  {
+    id: "clean-room",
+    label: "🧹 Limpiar mi habitación",
+    text: "Limpiar mi habitación",
+  },
+  {
+    id: "walk-dog",
+    label: "🐕 Pasear al perro",
+    text: "Pasear al perro",
+  },
+  {
+    id: "make-omelette",
+    label: "🍳 Hacer un omelette",
+    text: "Hacer un omelette",
+  },
+];
+
+interface SelectableButtonProps {
+  icon: any;
+  label: string;
+  color: string;
+  selected: boolean;
+  onPress: () => void;
+}
+
+const SelectableButton: React.FC<SelectableButtonProps> = ({
+  icon: Icon,
+  label,
+  color,
+  selected,
+  onPress,
+}) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSpring(0.95, { damping: 10, stiffness: 300 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  return (
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.selectableButton,
+          selected && styles.selectableButtonSelected,
+        ]}
+      >
+        <View
+          style={[
+            styles.selectableIconContainer,
+            { backgroundColor: `${color}26` },
+          ]}
+        >
+          <Icon size={24} color={color} strokeWidth={2} />
+        </View>
+        <Text
+          style={[
+            styles.selectableLabel,
+            selected && styles.selectableLabelSelected,
+          ]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    </Animated.View>
+  );
+};
+
+interface GoalPillProps {
+  goal: { id: string; emoji: string; label: string; color: string };
+  selected: boolean;
+  onPress: () => void;
+  delay: number;
+}
+
+const GoalPill: React.FC<GoalPillProps> = ({
+  goal,
+  selected,
+  onPress,
+  delay,
+}) => {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePressIn = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    scale.value = withSpring(0.92, { damping: 8, stiffness: 400 });
+  };
+
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 8, stiffness: 400 });
+  };
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(delay).duration(400)}
+      style={animatedStyle}
+    >
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[styles.goalPill, selected && styles.goalPillSelected]}
+      >
+        <Text style={styles.goalEmoji}>{goal.emoji}</Text>
+        <Text style={[styles.goalLabel, selected && styles.goalLabelSelected]}>
+          {goal.label}
+        </Text>
+        {selected ? (
+          <Check size={16} color={colors.primary} strokeWidth={3} />
+        ) : (
+          <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+};
+
+export default function OnboardingScreen() {
+  const searchParams = useLocalSearchParams();
+  const initialSlide = searchParams.slide ? parseInt(searchParams.slide as string) : 0;
+  
+  const [currentSlide, setCurrentSlide] = useState(initialSlide);
+  const [userName, setUserName] = useState("");
+  const [selectedEnemies, setSelectedEnemies] = useState<string[]>([]);
+  const [selectedAdhdSymptoms, setSelectedAdhdSymptoms] = useState<string[]>([]);
+  const [selectedLifeArea, setSelectedLifeArea] = useState<string | null>(null);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [overwhelmLevel, setOverwhelmLevel] = useState<string | null>(null);
+  const [statement1, setStatement1] = useState<string | null>(null);
+  const [statement2, setStatement2] = useState<string | null>(null);
+  const [statement3, setStatement3] = useState<string | null>(null);
+  const [statement4, setStatement4] = useState<string | null>(null);
+  const [taskText, setTaskText] = useState("");
+
+  const [dialoguePhase, setDialoguePhase] = useState(0);
+  const [typewriterDone, setTypewriterDone] = useState(false);
+  const [bubbleReady, setBubbleReady] = useState(false);
+  const breathingAnim = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+  const bubbleScale = useSharedValue(0);
+  const bubbleOpacity = useSharedValue(0);
+  
+  useEffect(() => {
+    breathingAnim.value = withRepeat(
+      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+
+  // Reset dialogue state when entering slide 1
+  useEffect(() => {
+    if (currentSlide === 1) {
+      setDialoguePhase(0);
+      setTypewriterDone(false);
+      setBubbleReady(false);
+      bubbleScale.value = 0;
+      bubbleOpacity.value = 0;
+      // Animate bubble in after mascot appears
+      const timer = setTimeout(() => {
+        setBubbleReady(true);
+        bubbleScale.value = withSpring(1, { damping: 6, stiffness: 100 });
+        bubbleOpacity.value = withTiming(1, { duration: 150 });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [currentSlide]);
+
+  const handleDialogueContinue = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (dialoguePhase === 0) {
+      setTypewriterDone(false);
+      // Shrink bubble, swap text, grow back
+      bubbleScale.value = withSequence(
+        withTiming(0.9, { duration: 150 }),
+        withSpring(1, { damping: 12, stiffness: 200 })
+      );
+      setDialoguePhase(1);
+    } else {
+      goToNextSlide();
+    }
+  }, [dialoguePhase]);
+
+  const bubbleAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bubbleScale.value }],
+    opacity: bubbleOpacity.value,
+  }));
+
+  const mascotAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateY: breathingAnim.value * -12 },
+        { scale: 1 + breathingAnim.value * 0.03 },
+      ],
+    };
+  });
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
+  };
+
+  const goToNextSlide = () => {
+    if (currentSlide < 14) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  const goToPrevSlide = () => {
+    if (currentSlide > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  const finishOnboarding = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.replace("/(tabs)");
+  };
+
+  const renderSlide = () => {
+    switch (currentSlide) {
+      case 0:
+        return (
+          <View style={styles.welcomeSlideSimple}>
+            <View style={styles.welcomeContentArea}>
+              <Animated.View
+                entering={FadeInDown.delay(100).duration(700)}
+                style={[styles.welcomeMascotCenter, mascotAnimatedStyle]}
+              >
+                <Image
+                  source={require("@/assets/images/logomain.png")}
+                  style={styles.welcomeMascotLarge}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+
+              <Animated.Text
+                entering={FadeInDown.delay(400).duration(600)}
+                style={styles.welcomeTitleCenter}
+              >
+                ¡Bienvenid@ a Brainy!
+              </Animated.Text>
+
+              <Animated.Text
+                entering={FadeInDown.delay(550).duration(600)}
+                style={styles.welcomeSubtitleCenter}
+              >
+                Tu cerebro no está roto.{"\n"}Solo necesita un copiloto.
+              </Animated.Text>
+            </View>
+
+            <Animated.View
+              entering={FadeInDown.delay(700).duration(500)}
+              style={styles.welcomeButtonsContainer}
+            >
+              <Animated.View style={buttonAnimatedStyle}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    goToNextSlide();
+                  }}
+                  onPressIn={handleButtonPressIn}
+                  onPressOut={handleButtonPressOut}
+                  style={primaryButtonStyles}
+                >
+                  <LinearGradient
+                    colors={PRIMARY_GRADIENT_COLORS}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={primaryButtonGradient}
+                  >
+                    <Text style={primaryButtonText}>Empezar</Text> 
+                  </LinearGradient>
+                </Pressable>
+              </Animated.View>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.replace("/(tabs)");
+                }}
+                style={({ pressed }) => [
+                  styles.welcomeButtonSecondary,
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <Text style={styles.welcomeButtonSecondaryText}>Ya Tengo cuenta</Text>
+              </Pressable>
+            </Animated.View>
+          </View>
+        );
+
+      case 1:
+        return (
+          <View style={styles.welcomeSlideSimple}>
+            {/* Fixed content area - never changes size so mascot/bubble don't move */}
+            <View style={styles.welcomeDialogueArea}>
+              {/* Speech bubble */}
+              <Animated.View style={[styles.speechBubbleContainer]}>
+                <View style={styles.speechBubble}>
+                  {dialoguePhase === 0 && bubbleReady && (
+                    <TypewriterText
+                      text="¡Hola! Soy Brainy 👋"
+                      style={styles.speechBubbleText}
+                      delay={200}
+                      onComplete={() => setTypewriterDone(true)}
+                    />
+                  )}
+                  {dialoguePhase === 1 && (
+                    <TypewriterText
+                      key="phase1"
+                      text="Solo unas preguntitas antes de iniciar nuestro viaje."
+                      style={styles.speechBubbleText}
+                      delay={100}
+                      onComplete={() => setTypewriterDone(true)}
+                    />
+                  )}
+                </View>
+                <View style={styles.speechBubbleTail} />
+              </Animated.View>
+
+              {/* Mascot */}
+              <Animated.View
+                entering={FadeInDown.delay(100).duration(700)}
+                style={[styles.welcomeMascotCenter, mascotAnimatedStyle, { marginBottom: 0, marginTop: 8 }]}
+              >
+                <Image
+                  source={require("@/assets/images/logomain.png")}
+                  style={styles.welcomeMascotLarge}
+                  resizeMode="contain"
+                />
+              </Animated.View>
+            </View>
+
+            {/* Button always rendered - opacity fades in when typewriter done */}
+            <View style={styles.welcomeButtonsContainer}>
+              <Animated.View style={buttonAnimatedStyle}>
+                <Pressable
+                  onPress={typewriterDone ? handleDialogueContinue : undefined}
+                  onPressIn={typewriterDone ? handleButtonPressIn : undefined}
+                  onPressOut={typewriterDone ? handleButtonPressOut : undefined}
+                  style={[primaryButtonStyles, { opacity: typewriterDone ? 1 : 0.3 }]}
+                >
+                  <LinearGradient
+                    colors={PRIMARY_GRADIENT_COLORS}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={primaryButtonGradient}
+                  >
+                    <Text style={primaryButtonText}>Continuar</Text>
+                  </LinearGradient>
+                </Pressable>
+              </Animated.View>
+            </View>
+          </View>
+        );
+
+      case 2:
+          return ("¡Hola! Soy Brainy 👋 Solo unas preguntitas antes de iniciar nuestro viaje."
+
+          )
+
+      case 2:
+        return (
+          <View style={styles.slide}>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.logoImageContainer}
+            >
+              <Image
+                source={require("@/assets/images/logomain.png")}
+                style={styles.logoImageSmall}
+                resizeMode="contain"
+              />
+            </Animated.View>
+
+            <Animated.Text
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.slideTitle}
+            >
+              ¿Cuál es tu nombre?
+            </Animated.Text>
+
+            <Animated.Text
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
+            >
+              ¡Me encantaría conocerte mejor!
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.nameInputContainer}
+            >
+              <TextInput
+                style={styles.nameInput}
+                placeholder="Tu nombre"
+                placeholderTextColor={colors.textSecondary}
+                value={userName}
+                onChangeText={setUserName}
+                autoFocus
+              />
+            </Animated.View>
+          </View>
+        );
+
+      case 2:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.slideTitle}
+            >
+              ¿Cuál es tu edad?
+            </Animated.Text>
+
+            <Animated.Text
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
+            >
+              El TDAH se manifiesta de formas únicas en cada etapa de la vida.
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.adhdSymptomsGrid}
+            >
+              {RANGOS_EDAD.map((area, index) => (
+                <Animated.View
+                  key={area.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedLifeArea(area.id);
+                    }}
+                    style={({ pressed }) => [
+                      styles.adhdSymptomPill,
+                      selectedLifeArea === area.id &&
+                        styles.adhdSymptomPillSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.adhdSymptomLabel}>
+                      {area.label}
+                    </Text>
+                    {selectedLifeArea === area.id ? (
+                      <Check size={16} color={colors.primary} strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+
+      case 3:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.slideTitle}
+            >
+              ¿Cómo te afecta el TDAH hoy?
+            </Animated.Text>
+
+            <Animated.Text
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
+            >
+              Selecciona los síntomas que experimentas frecuentemente.
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.adhdSymptomsGrid}
+            >
+              {ADHD_SYMPTOMS.map((symptom, index) => (
+                <Animated.View
+                  key={symptom.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (selectedAdhdSymptoms.includes(symptom.id)) {
+                        setSelectedAdhdSymptoms(
+                          selectedAdhdSymptoms.filter((id) => id !== symptom.id)
+                        );
+                      } else {
+                        setSelectedAdhdSymptoms([...selectedAdhdSymptoms, symptom.id]);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.adhdSymptomPill,
+                      selectedAdhdSymptoms.includes(symptom.id) &&
+                        styles.adhdSymptomPillSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.adhdSymptomLabel}>
+                      {symptom.label}
+                    </Text>
+                    {selectedAdhdSymptoms.includes(symptom.id) ? (
+                      <Check size={16} color={colors.primary} strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 4:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.slideTitle}
+            >
+              ¿Qué área de tu día a día es con la que más te cuesta lidiar?
+            </Animated.Text>
+
+            <Animated.Text
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
+            >
+              Deja que Brainy te ayude con esto. Crearemos un par de tareas por ti.
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.adhdSymptomsGrid}
+            >
+              {LIFE_AREAS.map((area, index) => (
+                <Animated.View
+                  key={area.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedLifeArea(area.id);
+                    }}
+                    style={({ pressed }) => [
+                      styles.adhdSymptomPill,
+                      selectedLifeArea === area.id &&
+                        styles.adhdSymptomPillSelected,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <Text style={styles.adhdSymptomLabel}>
+                      {area.label}
+                    </Text>
+                    {selectedLifeArea === area.id ? (
+                      <Check size={16} color={colors.primary} strokeWidth={3} />
+                    ) : (
+                      <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+                    )}
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 5:
+        return (
+          <HabitDaysAnimation onComplete={goToNextSlide} />
+        );
+
+      case 6:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.slideTitle}
+            >
+              ¿Qué quieres lograr con Brainy?
+            </Animated.Text>
+
+            <Animated.Text
+              entering={FadeInDown.delay(250).duration(500)}
+              style={styles.slideSubtitle}
+            >
+              Selecciona tus objetivos para que la IA personalice tu
+              experiencia.
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.goalsGrid}
+            >
+              {GOAL_OPTIONS.map((goal, index) => (
+                <GoalPill
+                  key={goal.id}
+                  goal={goal}
+                  selected={selectedGoals.includes(goal.id)}
+                  onPress={() => {
+                    if (selectedGoals.includes(goal.id)) {
+                      setSelectedGoals(
+                        selectedGoals.filter((g) => g !== goal.id),
+                      );
+                    } else {
+                      setSelectedGoals([...selectedGoals, goal.id]);
+                    }
+                  }}
+                  delay={400 + index * 50}
+                />
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 7:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.statementSubtitle}
+            >
+              ¿Qué tan de acuerdo estás con esta afirmación?
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.statementWrapper}
+            >
+              <Image
+                source={require("@/assets/images/logoonboarding5.png")}
+                style={styles.statementOwl}
+                resizeMode="contain"
+              />
+              <View style={styles.speechCard}>
+                <Text style={styles.quoteOpen}>"</Text>
+                <Text style={styles.speechCardText}>
+                  {STATEMENTS[0].textMain}
+                  <Text style={styles.speechCardHighlight}>
+                    {STATEMENTS[0].textHighlight}
+                  </Text>
+                </Text>
+                <Text style={styles.quoteClose}>"</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.agreementOptions}
+            >
+              {AGREEMENT_OPTIONS.map((option, index) => (
+                <Animated.View
+                  key={option.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStatement1(option.value);
+                      setTimeout(() => goToNextSlide(), 300);
+                    }}
+                    style={[
+                      styles.agreementOption,
+                      statement1 === option.value &&
+                        styles.agreementOptionSelected,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={statement1 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
+                    >
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement1 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement1 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 8:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.statementSubtitle}
+            >
+              ¿Qué tan de acuerdo estás con esta afirmación?
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.statementWrapper}
+            >
+              <Image
+                source={require("@/assets/images/logoonboarding5.png")}
+                style={styles.statementOwl}
+                resizeMode="contain"
+              />
+              <View style={styles.speechCard}>
+                <Text style={styles.quoteOpen}>"</Text>
+                <Text style={styles.speechCardText}>
+                  {STATEMENTS[1].textMain}
+                  <Text style={styles.speechCardHighlight}>
+                    {STATEMENTS[1].textHighlight}
+                  </Text>
+                </Text>
+                <Text style={styles.quoteClose}>"</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.agreementOptions}
+            >
+              {AGREEMENT_OPTIONS.map((option, index) => (
+                <Animated.View
+                  key={option.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStatement2(option.value);
+                      setTimeout(() => goToNextSlide(), 300);
+                    }}
+                    style={[
+                      styles.agreementOption,
+                      statement2 === option.value &&
+                        styles.agreementOptionSelected,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={statement2 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
+                    >
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement2 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement2 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 9:
+        return (
+          <ScrollView
+            style={styles.slideScroll}
+            contentContainerStyle={styles.slideScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.Text
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.statementSubtitle}
+            >
+              ¿Qué tan de acuerdo estás con esta afirmación?
+            </Animated.Text>
+
+            <Animated.View
+              entering={FadeInDown.delay(200).duration(500)}
+              style={styles.statementWrapper}
+            >
+              <Image
+                source={require("@/assets/images/logoonboarding5.png")}
+                style={styles.statementOwl}
+                resizeMode="contain"
+              />
+              <View style={styles.speechCard}>
+                <Text style={styles.quoteOpen}>"</Text>
+                <Text style={styles.speechCardText}>
+                  {STATEMENTS[2].textMain}
+                  <Text style={styles.speechCardHighlight}>
+                    {STATEMENTS[2].textHighlight}
+                  </Text>
+                </Text>
+                <Text style={styles.quoteClose}>"</Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.agreementOptions}
+            >
+              {AGREEMENT_OPTIONS.map((option, index) => (
+                <Animated.View
+                  key={option.id}
+                  entering={FadeInDown.delay(400 + index * 50).duration(400)}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setStatement3(option.value);
+                      setTimeout(() => goToNextSlide(), 300);
+                    }}
+                    style={[
+                      styles.agreementOption,
+                      statement3 === option.value &&
+                        styles.agreementOptionSelected,
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={statement3 === option.value ? ['#FF9A9E', '#FECFEF', '#D4A5FF'] : [`${colors.surface}CC`, `${colors.surface}CC`]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.agreementOptionGradient}
+                    >
+                      <View style={[
+                        styles.agreementOptionInner,
+                        statement3 === option.value && styles.agreementOptionInnerSelected,
+                      ]}>
+                        <Text
+                          style={[
+                            styles.agreementOptionText,
+                            statement3 === option.value &&
+                              styles.agreementOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+        );
+
+      case 10:
+        return (
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              style={styles.slideScroll}
+              contentContainerStyle={styles.slideScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <Animated.View
+                entering={FadeInDown.delay(100).duration(500)}
+                style={styles.taskMascotRow}
+              >
+                <Image
+                  source={require("@/assets/images/logomain.png")}
+                  style={styles.taskMascotImage}
+                  resizeMode="contain"
+                />
+                <View style={styles.taskSpeechBubble}>
+                  <Text style={styles.taskSpeechText}>
+                    ¡Deja mostrarte de qué estoy hecho!
+                  </Text>
+                </View>
+              </Animated.View>
+
+              <Animated.Text
+                entering={FadeInDown.delay(250).duration(500)}
+                style={styles.subtitle}
+              >
+                ¿Con qué tarea necesitas ayuda? 
+              </Animated.Text>
+
+              <Animated.View
+                entering={FadeInDown.delay(400).duration(500)}
+                style={styles.taskInputContainer}
+              >
+                <TextInput
+                  style={styles.taskInput}
+                  placeholder="Escribe tu tarea aquí..."
+                  placeholderTextColor={`${colors.textSecondary}CC`}
+                  value={taskText}
+                  onChangeText={setTaskText}
+                  multiline
+                  numberOfLines={4}
+                />
+                
+                <Animated.View
+                  entering={FadeInDown.delay(600).duration(500).springify()}
+                  style={styles.generateButtonContainer}
+                >
+                  <Pressable
+                    onPress={() => {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    }}
+                    style={({ pressed }) => [
+                      styles.generateButton,
+                      pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={PRIMARY_GRADIENT_COLORS}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.generateButtonGradient}
+                    >
+                      <Sparkles size={18} color={colors.background} strokeWidth={2.5} />
+                      <Text style={styles.generateButtonText}>Generar</Text>
+                    </LinearGradient>
+                  </Pressable>
+                </Animated.View>
+              </Animated.View>
+
+              <Animated.View
+                entering={FadeInDown.delay(550).duration(500)}
+                style={styles.orDivider}
+              >
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o elige una opción</Text>
+                <View style={styles.dividerLine} />
+              </Animated.View>
+
+              <Animated.View
+                entering={FadeInDown.delay(600).duration(500)}
+                style={styles.adhdSymptomsGrid}
+              >
+                {TASK_SUGGESTIONS.map((task, index) => (
+                  <Animated.View
+                    key={task.id}
+                    entering={FadeInDown.delay(700 + index * 50).duration(400)}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setTaskText(task.text);
+                      }}
+                      style={({ pressed }) => [
+                        styles.adhdSymptomPill,
+                        taskText === task.text && styles.adhdSymptomPillSelected,
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Text style={styles.adhdSymptomLabel}>
+                        {task.label}
+                      </Text>
+                    </Pressable>
+                  </Animated.View>
+                ))}
+              </Animated.View>
+            </ScrollView>
+          </View>
+        );
+
+      case 11:
+        return (
+          <GrowthPotentialScreen onContinue={goToNextSlide} />
+        );
+
+      case 12:
+        return (
+          <SuccessTimelineScreen onContinue={goToNextSlide} />
+        );
+
+      case 13:
+        return (
+          <ReverseTrialScreen onAccept={finishOnboarding} />
+        );
+
+      case 14:
+        return (
+          <View style={styles.slide}>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(500)}
+              style={styles.neuroscienceContent}
+            >
+              <Animated.Text
+                entering={FadeInDown.delay(200).duration(500)}
+                style={styles.neuroscienceTitle}
+              >
+                La neurociencia confirma que lograr 'micro-victorias' libera la dopamina necesaria para mantener tu motivación.
+              </Animated.Text>
+            </Animated.View>
+
+            <Animated.Text
+              entering={FadeInDown.delay(300).duration(500)}
+              style={styles.neuroscienceSubtitle}
+            >
+              Respaldado por investigaciones enfocadas en la Terapia Cognitivo-Conductual (TCC)
+            </Animated.Text>
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {__DEV__ && (
+        <Pressable
+          onPress={() => router.replace("/(tabs)")}
+          style={styles.devCloseButton}
+        >
+          <Text style={styles.devCloseButtonText}>×</Text>
+        </Pressable>
+      )}
+
+      {currentSlide > 0 && (
+      <View style={styles.headerContainer}>
+        <View style={styles.backButtonArea}>
+          {currentSlide > 0 ? (
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <Pressable
+                onPress={goToPrevSlide}
+                style={({ pressed }) => [
+                  styles.backButton,
+                  pressed && styles.backButtonPressed,
+                ]}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </Pressable>
+            </Animated.View>
+          ) : (
+            <View style={styles.backButtonPlaceholder} />
+          )}
+        </View>
+
+        <View style={styles.progressBarWrapper}>
+          <View style={styles.progressBarBackground}>
+            <Animated.View
+              entering={FadeInDown.duration(400)}
+              style={[
+                styles.progressBarFill,
+                { width: `${((currentSlide + 1) / 15) * 100}%` },
+              ]}
+            />
+          </View>
+        </View>
+
+        <View style={styles.backButtonArea} />
+      </View>
+      )}
+
+      <View style={styles.slideContainer}>{renderSlide()}</View>
+
+      {((currentSlide > 1 && currentSlide < 7 && currentSlide !== 5)) && (
+        <View style={styles.navigationContainer}>
+          {currentSlide === 6 ? (
+            <Animated.View style={buttonAnimatedStyle}>
+              <Pressable
+                onPress={goToNextSlide}
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+                disabled={selectedGoals.length === 0}
+                style={[
+                  primaryButtonStyles,
+                  selectedGoals.length === 0 && { opacity: 0.5 },
+                ]}
+              >
+                <LinearGradient
+                  colors={PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={primaryButtonGradient}
+                >
+                  <Text style={primaryButtonText}>Continuar</Text>
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+          ) : currentSlide === 10 ? (
+            <Animated.View style={buttonAnimatedStyle}>
+              <Pressable
+                onPress={goToNextSlide}
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+                disabled={!taskText.trim()}
+                style={[
+                  primaryButtonStyles,
+                  !taskText.trim() && { opacity: 0.5 },
+                ]}
+              >
+                <LinearGradient
+                  colors={PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={primaryButtonGradient}
+                >
+                  <Text style={primaryButtonText}>Ayúdame con esto</Text>
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+          ) : (
+            <Animated.View style={buttonAnimatedStyle}>
+              <Pressable
+                onPress={goToNextSlide}
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+                disabled={
+                  (currentSlide === 2 && !userName.trim()) ||
+                  (currentSlide === 3 && selectedAdhdSymptoms.length === 0) ||
+                  (currentSlide === 4 && !selectedLifeArea)
+                }
+                style={[
+                  primaryButtonStyles,
+                  ((currentSlide === 2 && !userName.trim()) ||
+                    (currentSlide === 3 && selectedAdhdSymptoms.length === 0) ||
+                    (currentSlide === 4 && !selectedLifeArea)) && { opacity: 0.5 },
+                ]}
+              >
+                <LinearGradient
+                  colors={PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={primaryButtonGradient}
+                >
+                  <Text style={primaryButtonText}>Continuar</Text>
+                </LinearGradient>
+              </Pressable>
+            </Animated.View>
+          )}
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  devCloseButton: {
+    position: "absolute",
+    top: 50,
+    right: 16,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${colors.textPrimary}1A`,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}33`,
+  },
+  devCloseButtonText: {
+    fontSize: 24,
+    color: colors.textSecondary,
+    fontWeight: "300",
+    marginTop: -2,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+  },
+  backButtonArea: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+  },
+  progressBarWrapper: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  progressBarBackground: {
+    height: 2,
+    backgroundColor: colors.surface,
+    borderRadius: 1,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 1,
+  },
+  backButtonPlaceholder: {
+    width: 40,
+    height: 40,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonPressed: {
+    opacity: 0.6,
+  },
+  backButtonText: {
+    fontSize: 30,
+    color: colors.textPrimary,
+  },
+  slideContainer: {
+    flex: 1,
+  },
+  slideScroll: {
+    flex: 1,
+  },
+  slideScrollContent: {
+    paddingHorizontal: 32,
+    paddingTop: 20,
+    paddingBottom: 20,
+    alignItems: "center",
+  },
+  slide: {
+    paddingHorizontal: 32,
+    paddingTop: 60,
+    alignItems: "center",
+  },
+  welcomeSlideSimple: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 32,
+    paddingBottom: 40,
+  },
+  welcomeContentArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeDialogueArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeMascotCenter: {
+    alignItems: "center",
+    justifyContent: 'center',
+    marginBottom: 32,
+  },
+  welcomeMascotLarge: {
+    width: 190,
+    height: 190,
+  },
+  speechBubbleContainer: {
+    alignItems: 'center',
+    marginBottom: 0,
+    minHeight: 90,
+  },
+  speechBubble: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    borderWidth: 2.5,
+    borderColor: colors.textRoutineCard,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    maxWidth: SCREEN_WIDTH - 80,
+    minWidth: SCREEN_WIDTH * 0.6,
+    minHeight: 90,
+    justifyContent: 'center',
+  },
+  speechBubbleTail: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderTopWidth: 14,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.textRoutineCard,
+    marginTop: -1,
+  },
+  speechBubbleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  welcomeTitleCenter: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  welcomeSubtitleCenter: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  welcomeButtonsContainer: {
+    width: "100%",
+    gap: 16,
+  },
+  welcomeButtonSecondary: {
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 32,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: `${colors.textPrimary}33`,
+  },
+  welcomeButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  slideTitle: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    marginBottom: 16,
+    letterSpacing: -0.5,
+    lineHeight: 40,
+  },
+  slideSubtitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 32,
+  },
+  logoImageContainer: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  logoImageSmall: {
+    width: 80,
+    height: 80,
+  },
+  nameInputContainer: {
+    width: "100%",
+    paddingHorizontal: 20,
+  },
+  nameInput: {
+    backgroundColor: colors.surface,
+    borderRadius: 32,
+    padding: 18,
+    fontSize: 16,
+    color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}0D`,
+    textAlign: "center",
+  },
+  taskMascotRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    marginBottom: 32,
+    gap: 12,
+  },
+  taskMascotImage: {
+    width: 80,
+    height: 80,
+    marginTop: 4,
+  },
+  taskSpeechBubble: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}1A`,
+    padding: 16,
+    position: "relative",
+  },
+  taskSpeechText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textPrimary,
+    lineHeight: 24,
+  },
+  generateButtonContainer: {
+    position: "absolute",
+    bottom: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  generateButton: {
+    borderRadius: 28,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  generateButtonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 28,
+    gap: 6,
+  },
+  generateButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.background,
+    letterSpacing: 0.3,
+  },
+  taskInputContainer: {
+    width: "100%",
+    marginBottom: 24,
+    position: "relative",
+  },
+  taskInput: {
+    backgroundColor: `${colors.textRoutineCard}33`,
+    borderRadius: 20,
+    padding: 18,
+    fontSize: 14,
+    color: colors.textPrimary,
+    borderWidth: 3,
+    borderColor: colors.primary,
+    minHeight: 220,
+    textAlignVertical: "top",
+    marginTop: 12,
+  },
+  orDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: `${colors.textPrimary}1A`,
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: colors.textSecondary,
+  },
+  selectableButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: `${colors.textPrimary}0D`,
+  },
+  selectableButtonSelected: {
+    backgroundColor: `${colors.primary}33`,
+    borderColor: colors.primary,
+  },
+  selectableIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  selectableLabel: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  selectableLabelSelected: {
+    color: colors.textPrimary,
+  },
+  adhdSymptomsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  adhdSymptomPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: `${colors.textPrimary}0D`,
+    gap: 8,
+  },
+  adhdSymptomPillSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}0D`,
+  },
+  adhdSymptomLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textPrimary,
+  },
+  navigationContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    paddingBottom: 40,
+  },
+  goalsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  goalPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderColor: `${colors.textPrimary}0D`,
+    gap: 8,
+  },
+  goalPillSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}0D`,
+  },
+  goalEmoji: {
+    fontSize: 18,
+  },
+  goalLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textPrimary,
+  },
+  goalLabelSelected: {
+    color: colors.textPrimary,
+  },
+  statementSubtitle: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  statementWrapper: {
+    position: "relative",
+    width: "100%",
+    marginBottom: 32,
+    paddingTop: 24,
+  },
+  statementOwl: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 72,
+    height: 72,
+    zIndex: 10,
+  },
+  speechCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}1A`,
+    padding: 24,
+    marginLeft: 40,
+    marginTop: 16,
+  },
+  quoteOpen: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: colors.accent,
+    lineHeight: 36,
+    marginBottom: 4,
+  },
+  quoteClose: {
+    fontSize: 36,
+    fontWeight: "900",
+    color: colors.accent,
+    lineHeight: 36,
+    textAlign: "right",
+    marginTop: 4,
+  },
+  speechCardText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    lineHeight: 26,
+  },
+  speechCardHighlight: {
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  agreementOptions: {
+    width: "100%",
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  agreementOption: {
+    borderRadius: 32,
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  agreementOptionGradient: {
+    borderRadius: 32,
+    padding: 2,
+  },
+  agreementOptionInner: {
+    backgroundColor: colors.background,
+    borderRadius: 32,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}33`,
+  },
+  agreementOptionSelected: {
+    shadowOpacity: 0.35,
+  },
+  agreementOptionInnerSelected: {
+    backgroundColor: '#F2E852',
+    borderColor: `${colors.textPrimary}26`,
+  },
+  agreementOptionText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  agreementOptionTextSelected: {
+    color: colors.textTertiary,
+    fontWeight: "600",
+  },
+  neuroscienceContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  neuroscienceTitle: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: colors.textPrimary,
+    textAlign: "center",
+    lineHeight: 40,
+    letterSpacing: -0.5,
+  },
+  neuroscienceSubtitle: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginBottom: 32,
+    paddingHorizontal: 40,
+    lineHeight: 20,
+  },
+});
