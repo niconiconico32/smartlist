@@ -67,14 +67,14 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
     Animated.parallel([
       Animated.spring(expandAnim, {
         toValue: 1,
-        friction: 7,
-        tension: 120,
+        friction: 9,
+        tension: 200,
         useNativeDriver: true,
       }),
       Animated.spring(rotateAnim, {
         toValue: 1,
-        friction: 8,
-        tension: 140,
+        friction: 10,
+        tension: 200,
         useNativeDriver: true,
       }),
     ]).start();

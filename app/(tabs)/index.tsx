@@ -64,6 +64,7 @@ import {
   scheduleTaskReminders,
 } from "@/src/lib/notificationService";
 import { supabase } from "@/src/lib/supabase";
+import { fetchActivitiesFromCloud, syncActivitiesToCloud } from "@/src/lib/syncService";
 import { calculateStreak, useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import {
@@ -465,9 +466,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const loadActivities = async () => {
     try {
       setIsLoadingActivities(true);
-      const stored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
-      if (stored) {
-        const storedActivities = JSON.parse(stored);
+      const storedActivities = await fetchActivitiesFromCloud();
+      if (storedActivities && storedActivities.length > 0) {
         const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
         // Migrar tareas antiguas sin recurrence o scheduledDate
         const migratedActivities = storedActivities.map((activity: Activity) => ({
@@ -491,6 +491,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             setIsFirstTime(false);
           }
         }
+      } else {
+        setActivities([]);
       }
     } catch (error) {
       console.error("Error loading activities:", error);
@@ -501,6 +503,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const clearAllActivities = async () => {
     try {
+      await syncActivitiesToCloud([]);
       await AsyncStorage.removeItem(ACTIVITIES_STORAGE_KEY);
       setActivities([]);
       setLocalIsFirstTime(true);
@@ -514,10 +517,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const saveActivities = async () => {
     try {
-      await AsyncStorage.setItem(
-        ACTIVITIES_STORAGE_KEY,
-        JSON.stringify(activities),
-      );
+      await syncActivitiesToCloud(activities);
     } catch (error) {
       console.error("Error saving activities:", error);
     }
@@ -545,7 +545,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         throw new Error(error.message);
       }
 
-      console.log("Respuesta de la API:", data);
 
       if (!data || data.error) {
         throw new Error(data?.error || 'Error desconocido');
@@ -950,7 +949,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   return (
     <>
-      <SafeAreaView style={styles.safeArea}>
+      <View style={styles.safeArea}>
         {/* Header */}
         <Animated.View
           entering={FadeInDown.duration(400).springify()}
@@ -1645,11 +1644,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                   <Clock size={20} color={colors.textSecondary} />
                   <Text style={styles.timePickerText}>
                     {scheduledTime
-                      ? scheduledTime.toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "Sin hora específica"}
+                      ? `${String(scheduledTime.getHours()).padStart(2, '0')}:${String(scheduledTime.getMinutes()).padStart(2, '0')}`
+                      : "Seleccionar hora"}
                   </Text>
                   {scheduledTime && (
                     <Pressable
@@ -1991,7 +1987,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             </View>
           </View>
         </Modal>
-      </SafeAreaView>
+      </View>
       
       {/* Debug Panel - Solo en modo developer */}
       {DEV_MODE && (

@@ -4,6 +4,7 @@ import Purchases, {
     type CustomerInfo,
     type PurchasesPackage,
 } from 'react-native-purchases';
+import Constants from 'expo-constants';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -25,6 +26,12 @@ let isConfigured = false;
  */
 export async function configurePurchases(): Promise<void> {
   if (isConfigured) return;
+
+  if (Constants.appOwnership === 'expo') {
+    console.warn('⚠️ Running in Expo Go: Bypassing RevenueCat setup');
+    isConfigured = true;
+    return;
+  }
 
   const apiKey =
     Platform.OS === 'ios' ? REVENUECAT_API_KEYS.ios : REVENUECAT_API_KEYS.android;
@@ -49,6 +56,9 @@ export async function configurePurchases(): Promise<void> {
  * Call this immediately after Supabase sign-in.
  */
 export async function loginUser(supabaseUserId: string): Promise<CustomerInfo> {
+  if (Constants.appOwnership === 'expo') {
+    return { entitlements: { active: {} } } as any;
+  }
   const { customerInfo } = await Purchases.logIn(supabaseUserId);
   return customerInfo;
 }
@@ -58,6 +68,7 @@ export async function loginUser(supabaseUserId: string): Promise<CustomerInfo> {
  * Call this when Supabase signs out.
  */
 export async function logoutUser(): Promise<void> {
+  if (Constants.appOwnership === 'expo') return;
   await Purchases.logOut();
 }
 
@@ -74,6 +85,9 @@ export function isPremiumActive(customerInfo: CustomerInfo): boolean {
  * Fetch the latest customer info from RevenueCat.
  */
 export async function getCustomerInfo(): Promise<CustomerInfo> {
+  if (Constants.appOwnership === 'expo') {
+    return { entitlements: { active: {} } } as any;
+  }
   return Purchases.getCustomerInfo();
 }
 
@@ -84,6 +98,7 @@ export async function getCustomerInfo(): Promise<CustomerInfo> {
  * Returns null if no offerings are configured.
  */
 export async function getOfferings(): Promise<PurchasesPackage[] | null> {
+  if (Constants.appOwnership === 'expo') return null;
   const offerings = await Purchases.getOfferings();
   if (!offerings.current?.availablePackages.length) {
     return null;
@@ -107,6 +122,9 @@ export interface PurchaseResult {
 export async function purchasePackage(
   pkg: PurchasesPackage,
 ): Promise<PurchaseResult> {
+  if (Constants.appOwnership === 'expo') {
+    return { success: false, cancelled: false, errorMessage: 'Unavailable in Expo Go' };
+  }
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     const premium = isPremiumActive(customerInfo);
@@ -134,6 +152,9 @@ export async function purchasePackage(
  * Restore previously purchased subscriptions.
  */
 export async function restorePurchases(): Promise<CustomerInfo> {
+  if (Constants.appOwnership === 'expo') {
+    return { entitlements: { active: {} } } as any;
+  }
   return Purchases.restorePurchases();
 }
 

@@ -6,15 +6,20 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest"
   },
   "dependencies": {
+    "@expo-google-fonts/jersey-10": "^0.4.1",
+    "@expo-google-fonts/jersey-15": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.87.1",
     "@tanstack/react-query": "^5.90.12",
+    "@types/jest": "29.5.14",
     "date-fns": "^4.1.0",
     "expo": "~54.0.27",
     "expo-audio": "~1.1.1",
@@ -36,6 +41,9 @@
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.10",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.17",
+    "lottie-react-native": "~7.3.1",
     "lucide-react-native": "^0.560.0",
     "nativewind": "^4.2.1",
     "react": "19.1.0",
@@ -57,9 +65,11 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
     "@types/react": "~19.1.0",
     "babel-plugin-transform-remove-console": "^6.9.4",
-    "react-test-renderer": "19.1.0",
+    "react-test-renderer": "^19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true

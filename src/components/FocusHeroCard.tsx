@@ -1,11 +1,10 @@
 import { BlurView } from 'expo-blur';
 import { Flame } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
-  FadeIn,
-  FadeOut,
+
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -21,6 +20,13 @@ const BG_IMAGES: Record<string, any> = {
   bg_autumn: require('../../assets/images/pixelbgs/autumm.png'),
   bg_winter: require('../../assets/images/pixelbgs/winter.png'),
   bg_woods: require('../../assets/images/pixelbgs/woods.png'),
+};
+
+const OUTFIT_IMAGES: Record<string, any> = {
+  outfit_1_1: require('../../assets/images/outfits/1_1.png'),
+  outfit_1_2: require('../../assets/images/outfits/1_2.png'),
+  outfit_1_3: require('../../assets/images/outfits/1_3.png'),
+  outfit_1_4: require('../../assets/images/outfits/1_4.png'),
 };
 
 const DEFAULT_BG = require('../../assets/images/pixelbgs/spring.png');
@@ -39,8 +45,8 @@ export function FocusHeroCard({
 }: FocusHeroCardProps) {
   const flameScale = useSharedValue(1);
   const mascotY = useSharedValue(0);
-  const [showBubble, setShowBubble] = useState(false);
-  const activeBackground = useAchievementsStore((s) => s.activeBackground);
+
+  const { activeBackground, activeOutfit } = useAchievementsStore();
 
   // Resolve background image source
   const bgSource = activeBackground && BG_IMAGES[activeBackground]
@@ -75,15 +81,7 @@ export function FocusHeroCard({
     );
   }, []);
 
-  // Speech bubble: show after 5s, hide after 8s
-  useEffect(() => {
-    const showTimer = setTimeout(() => setShowBubble(true), 5000);
-    const hideTimer = setTimeout(() => setShowBubble(false), 13000);
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
+
 
   const flameAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: flameScale.value }],
@@ -131,26 +129,6 @@ export function FocusHeroCard({
 
       {/* --- CONTENIDO: Mascota centrada + Burbuja arriba --- */}
       <View style={styles.contentContainer}>
-        {/* Speech Bubble - positioned above mascot */}
-        {showBubble && (
-          <Animated.View
-            entering={FadeIn.duration(400).springify()}
-            exiting={FadeOut.duration(300)}
-            style={styles.bubbleWrapper}
-          >
-            <Pressable
-              style={styles.speechBubble}
-              onPress={() => {
-                // TODO: abrir tip diario
-              }}
-            >
-              <Text style={styles.speechBubbleText}>
-                ¡Hey! Tócame para leer tu tip diario  {'\n'}  para  ayudarte a lidiar con el TDAH.
-              </Text>
-              <View style={styles.speechBubbleTail} />
-            </Pressable>
-          </Animated.View>
-        )}
 
         <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
           <Image
@@ -158,6 +136,13 @@ export function FocusHeroCard({
             style={styles.mascot}
             resizeMode="contain"
           />
+          {activeOutfit && OUTFIT_IMAGES[activeOutfit] && (
+            <Image
+              source={OUTFIT_IMAGES[activeOutfit]}
+              style={styles.mascotOutfit}
+              resizeMode="contain"
+            />
+          )}
           <View style={styles.mascotShadow} />
           <StreakBadge />
         </Animated.View>
@@ -201,6 +186,14 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     zIndex: 10,
+  },
+  mascotOutfit: {
+    width: 110,
+    height: 110,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 11,
   },
   mascotShadow: {
     position: 'absolute',

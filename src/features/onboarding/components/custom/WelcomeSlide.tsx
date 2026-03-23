@@ -4,11 +4,15 @@ import {
     primaryButtonStyles,
     primaryButtonText,
 } from '@/constants/buttons';
+import { colors } from '@/constants/theme';
+import { useAuth } from '@/src/contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { useOnboardingStore } from '@/src/store/onboardingStore';
 import Animated, {
     Easing,
     FadeInDown,
@@ -27,6 +31,14 @@ interface Props {
 const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
   const breathingAnim = useSharedValue(0);
   const buttonScale = useSharedValue(1);
+  const { signInWithOAuth, signInAnonymously, session, isLoading } = useAuth();
+
+  useEffect(() => {
+    // Si inicia sesión (o ya tiene una sesión activa por estar testeando), continuar el flujo automáticamente.
+    if (session) {
+      onNext();
+    }
+  }, [session, onNext]);
 
   useEffect(() => {
     breathingAnim.value = withRepeat(
@@ -89,41 +101,60 @@ const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
         style={slideStyles.welcomeButtonsContainer}
       >
         <Animated.View style={buttonAnimatedStyle}>
+          <View style={styles.googleButtonWrapper}>
+            <GoogleSigninButton
+              size={GoogleSigninButton.Size.Wide}
+              color={GoogleSigninButton.Color.Light}
+              onPress={async () => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                await signInWithOAuth('google');
+              }}
+              disabled={isLoading}
+              style={{ width: '100%', height: 56 }}
+            />
+          </View>
           <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              onNext();
+            onPress={async () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await signInAnonymously();
             }}
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
-            style={primaryButtonStyles}
+            disabled={isLoading}
+            style={({ pressed }) => [
+              styles.guestButton,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}
           >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={primaryButtonGradient}
-            >
-              <Text style={primaryButtonText}>Empezar</Text>
-            </LinearGradient>
+            <Text style={styles.guestButtonText}>Continuar como invitado</Text>
           </Pressable>
         </Animated.View>
-
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.replace('/(tabs)');
-          }}
-          style={({ pressed }) => [
-            slideStyles.welcomeButtonSecondary,
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <Text style={slideStyles.welcomeButtonSecondaryText}>Ya Tengo cuenta</Text>
-        </Pressable>
       </Animated.View>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  googleButtonWrapper: {
+    height: 56,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestButton: {
+    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1.5,
+    borderColor: `${colors.textPrimary}33`,
+    marginTop: 12,
+  },
+  guestButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+});
 
 export default WelcomeSlide;

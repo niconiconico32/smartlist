@@ -39,12 +39,21 @@ const SingleSelectSlide: React.FC<Props> = ({ config, answers, onAnswer, resolve
 
       <Animated.View
         entering={FadeInDown.delay(300).duration(500)}
-        style={slideStyles.pillGrid}
+        style={[
+          slideStyles.pillGrid, 
+          { 
+            flexDirection: 'column', 
+            width: '100%', 
+            paddingHorizontal: 0, 
+            gap: 16 
+          }
+        ]}
       >
         {resolvedOptions.map((option, index) => (
           <Animated.View
             key={option.id}
             entering={FadeInDown.delay(400 + index * 50).duration(400)}
+            style={{ width: '100%' }}
           >
             <Pressable
               onPress={() => {
@@ -53,15 +62,14 @@ const SingleSelectSlide: React.FC<Props> = ({ config, answers, onAnswer, resolve
               }}
               style={({ pressed }) => [
                 slideStyles.pill,
+                { width: '100%', minHeight: 64, justifyContent: 'center', alignItems: 'center' },
                 selected === option.id && slideStyles.pillSelected,
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Text style={slideStyles.pillLabel}>{option.label}</Text>
-              {selected === option.id ? (
-                <Check size={16} color={colors.primary} strokeWidth={3} />
-              ) : (
-                <Plus size={16} color={colors.textSecondary} strokeWidth={2} />
+              <Text style={[slideStyles.pillLabel, { fontSize: 16 }]}>{option.label}</Text>
+              {selected === option.id && (
+                <Check size={20} color={colors.primary} strokeWidth={3} style={{ position: 'absolute', right: 20 }} />
               )}
             </Pressable>
           </Animated.View>

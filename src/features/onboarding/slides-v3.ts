@@ -128,8 +128,8 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'main-goal',
     answerKey: 'mainGoal',
     showNavButton: true,
-    title: 'Si pudieras dominar una sola cosa, ¿cuál sería?',
-    subtitle: 'Este será nuestro norte.',
+    title: '¿Cuál de estas áreas te gustaría dominar?',
+    subtitle: 'Este será nuestro norte. Puedes elegir más de una.',
     options: 'MAIN_GOAL',
     canContinue: (answers) => answers.mainGoal.length > 0,
     buttonText: 'Continuar',
@@ -183,9 +183,9 @@ export const SLIDES_V3: SlideConfig[] = [
     type: 'task-demo',
     id: 'task-demo',
     answerKey: 'taskText',
-    showNavButton: true,
+    showNavButton: false,
     canContinue: (answers) => !!answers.taskText.trim(),
-    buttonText: 'Ayúdame con esto',
+    buttonText: 'Generar',
   },
 
   // === 14: Neuroscience ===
@@ -223,6 +223,12 @@ export const SLIDES_V3: SlideConfig[] = [
     showNavButton: false,
   },
 
+  // === 18: Reverse Trial (Paywall) - REMOVED ===
+  // (El onboarding ahora finaliza en Commitment per user request)
+
+  /* 
+  --- DRAFTED SLIDES FOR LATER ---
+  
   // === 18: Testimonial ===
   {
     type: 'testimonial',
@@ -262,7 +268,7 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
   },
-
+  */
 ];
 
 export const TOTAL_SLIDES_V3 = SLIDES_V3.length;

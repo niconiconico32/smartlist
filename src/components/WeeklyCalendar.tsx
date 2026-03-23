@@ -6,10 +6,18 @@ import { useAppStreakStore } from '@/src/store/appStreakStore';
 import { getLocalDateKey } from '@/src/utils/dateHelpers'; // ✅ TIMEZONE SAFE
 import { addDays, format, isSameDay, isToday, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { Crown, UserCircle } from 'lucide-react-native';
+import { Crown } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DeviceEventEmitter, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming
+} from "react-native-reanimated";
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const DAY_WIDTH = 64; // minWidth + gap
@@ -38,24 +46,79 @@ interface WeeklyCalendarProps {
   scheduledTasksHistory?: Record<string, { tasks: number; routines: number }>; // Tareas programadas pero no completadas
 }
 
-export function WeeklyCalendar({ 
-  onDateSelect, 
+export function WeeklyCalendar({
+  onDateSelect,
   completedTasksHistory = {},
   scheduledRoutines = [],
   scheduledTasksHistory = {},
 }: WeeklyCalendarProps) {
   const router = useRouter();
   const { isAnonymous } = useAuth();
-  const { totalCoins, loadAchievements } = useAchievementsStore();
+  const { totalCoins, loadAchievements, isRoutineModalOpen } = useAchievementsStore();
   const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const scrollViewRef = useRef<ScrollView>(null);
 
+  // Animation values
+  const pillScale = useSharedValue(1);
+  const floatingY = useSharedValue(0);
+  const floatingOpacity = useSharedValue(0);
+  const [earnedCoinsAmount, setEarnedCoinsAmount] = useState(0);
+
+  // El valor que realmente se muestra en el UI, se depara del store real
+  // para que podamos retrasar la subida del numero hasta que el bounce ocurra.
+  const [displayedCoins, setDisplayedCoins] = useState(totalCoins);
+
+  // Sincronizar silenciosamente si no hay modal abierto.
+  // Esto cubre compras, carga inicial, u otras sumas sin modal.
+  useEffect(() => {
+    if (!isRoutineModalOpen && displayedCoins !== totalCoins) {
+      setDisplayedCoins(totalCoins);
+    }
+  }, [totalCoins, isRoutineModalOpen]);
+
+  // Manejar animaciones reaccionando al evento explícito de two.tsx
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('triggerCoinAnimation', (amount: number) => {
+      setEarnedCoinsAmount(amount);
+
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } catch (e) { }
+
+      // Esto gatillará a CoinsCounter.tsx para hacer su roll-up!
+      setDisplayedCoins(useAchievementsStore.getState().totalCoins);
+
+      // Bouncing Pill
+      pillScale.value = withSequence(
+        withSpring(1.15, { damping: 10, stiffness: 200 }),
+        withSpring(1, { damping: 10, stiffness: 200 })
+      );
+
+      // Floating Points (+X)
+      floatingOpacity.value = 1;
+      floatingY.value = 0;
+      floatingY.value = withTiming(-40, { duration: 1200 });
+      floatingOpacity.value = withTiming(0, { duration: 1200 });
+    });
+
+    return () => sub.remove();
+  }, []);
+
+  const pillAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pillScale.value }]
+  }));
+
+  const floatingTextStyle = useAnimatedStyle(() => ({
+    opacity: floatingOpacity.value,
+    transform: [{ translateY: floatingY.value }]
+  }));
+
   useEffect(() => {
     loadAchievements();
   }, []);
-  
+
   // Generate 15 days back and 30 days forward from today (total 46 days)
   const startDate = subDays(today, 15);
   const allDays = Array.from({ length: 46 }, (_, i) => addDays(startDate, i));
@@ -87,36 +150,33 @@ export function WeeklyCalendar({
           <View style={styles.redDot} />
         </View>
         <View style={styles.rightSection}>
-          <CoinsCounter coins={totalCoins} size="small" />
-          {appStreak > 0 && (
-            <View style={styles.multiplierBadge}>
-              <Text style={styles.multiplierBadgeText}>x{getMultiplier().toFixed(2)}</Text>
-            </View>
-          )}
-          <Pressable 
-            style={styles.crownButton}
-            onPress={() => router.push('/achievements')}
-          >
-            <Crown size={24} color={colors.primary} strokeWidth={2.5} />
-          </Pressable>
-          <Pressable 
-            style={styles.profileButton}
-            onPress={() => router.push('/login')}
-          >
-            <UserCircle 
-              size={24} 
-              color={isAnonymous ? colors.textSecondary : colors.primary} 
-              strokeWidth={2} 
-            />
-            {isAnonymous && <View style={styles.profileDot} />}
-          </Pressable>
+          <Animated.View style={[pillAnimatedStyle, { zIndex: 10 }]}>
+            <Pressable
+              style={styles.crownsPill}
+              onPress={() => router.push('/achievements')}
+            >
+              <Crown size={20} color={colors.surface} strokeWidth={2.5} />
+
+              <CoinsCounter coins={displayedCoins} size="special" color="#1A1C20" />
+
+              {appStreak > 0 && (
+                <View style={styles.multiplierCornerBadge}>
+                  <Text style={styles.multiplierCornerText}>x{getMultiplier()}</Text>
+                </View>
+              )}
+            </Pressable>
+
+            <Animated.View style={[styles.floatingTextContainer, floatingTextStyle]} pointerEvents="none">
+              <Text style={styles.floatingText}>+{earnedCoinsAmount}</Text>
+            </Animated.View>
+          </Animated.View>
         </View>
       </View>
 
       {/* Scrollable Week Days Row */}
-      <ScrollView 
+      <ScrollView
         ref={scrollViewRef}
-        horizontal 
+        horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.weekScrollContent}
         style={styles.weekScroll}
@@ -127,14 +187,14 @@ export function WeeklyCalendar({
           const dateKey = getLocalDateKey(day); // ✅ TIMEZONE SAFE
           const dayActivity = completedTasksHistory[dateKey];
           const scheduledActivity = scheduledTasksHistory[dateKey];
-          
+
           const totalCompleted = dayActivity ? (dayActivity.tasks + dayActivity.routines) : 0;
           const totalScheduled = scheduledActivity ? (scheduledActivity.tasks + scheduledActivity.routines) : 0;
-          
+
           const hasCompletedTasks = totalCompleted > 0;
           const hasScheduledTasks = totalScheduled > 0;
           const hasExcess = totalCompleted > 3;
-          
+
           // Build dots array for completed tasks (max 3 visible)
           const completedDots: ('routine' | 'task')[] = [];
           if (dayActivity) {
@@ -148,7 +208,7 @@ export function WeeklyCalendar({
               completedDots.push('task');
             }
           }
-          
+
           // Build dots for scheduled tasks (outline only)
           const scheduledDots: ('routine' | 'task')[] = [];
           if (scheduledActivity && !hasCompletedTasks) {
@@ -163,8 +223,8 @@ export function WeeklyCalendar({
           }
 
           return (
-            <Pressable 
-              key={index} 
+            <Pressable
+              key={index}
               style={styles.dayContainer}
               onPress={() => handleDateSelect(day)}
             >
@@ -186,19 +246,19 @@ export function WeeklyCalendar({
               ]}>
                 {format(day, 'EEE', { locale: es }).toUpperCase().slice(0, 3)}
               </Text>
-              
+
               {/* Activity Indicators Row - Always rendered for consistent height */}
               <View style={styles.activityRow}>
                 {hasCompletedTasks ? (
                   // Mostrar puntos llenos para tareas completadas
                   <>
                     {completedDots.map((type, dotIndex) => (
-                      <View 
+                      <View
                         key={dotIndex}
                         style={[
                           styles.activityDot,
                           type === 'routine' && styles.activityDotRoutine
-                        ]} 
+                        ]}
                       />
                     ))}
                     {hasExcess && (
@@ -209,12 +269,12 @@ export function WeeklyCalendar({
                   // Mostrar puntos outline para tareas programadas sin completar
                   <>
                     {scheduledDots.map((type, dotIndex) => (
-                      <View 
+                      <View
                         key={`scheduled-${dotIndex}`}
                         style={[
                           styles.activityDotScheduled,
                           type === 'routine' && styles.activityDotScheduledRoutine
-                        ]} 
+                        ]}
                       />
                     ))}
                     {totalScheduled > 3 && (
@@ -236,9 +296,9 @@ export function WeeklyCalendar({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    paddingTop: 20,
+    paddingTop: 40,
     paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 28,
   },
   header: {
     flexDirection: 'row',
@@ -252,10 +312,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dayName: {
+    fontFamily: 'Jersey10',
     fontSize: 48,
-    fontWeight: '900',
     color: colors.primary,
-    letterSpacing: -1,
+    letterSpacing: 2,
+    textTransform: 'lowercase',
   },
   redDot: {
     width: 10,
@@ -266,41 +327,35 @@ const styles = StyleSheet.create({
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     marginLeft: 'auto',
-    marginTop: 14,
-    marginRight: -14,
+    marginTop: 10,
+    marginRight: 0,
   },
-  crownButton: {
-    padding: 8,
-  },
-  profileButton: {
-    padding: 8,
+  crownsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EAF0FC', // soft grayish blue based on the image
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 42,
+    gap: 6,
     position: 'relative',
   },
-  profileDot: {
+  multiplierCornerBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF6B6B',
-    borderWidth: 1.5,
+    top: -14,
+    right: -16,
+    backgroundColor: '#C9FD5A',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 2,
     borderColor: colors.background,
   },
-  multiplierBadge: {
-    backgroundColor: `${colors.primary}25`,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: `${colors.primary}50`,
-  },
-  multiplierBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
+  multiplierCornerText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#280D8C',
   },
   weekScroll: {
     borderTopWidth: 1,
@@ -386,11 +441,26 @@ const styles = StyleSheet.create({
     top: -2,
   },
   dayNumberToday: {
-    color: '#FFFFFF',
+    color: colors.primary,
     fontWeight: '800',
   },
   dayLabelToday: {
-    color: '#FFFFFF',
+    color: colors.primary,
     fontWeight: '700',
+  },
+  floatingTextContainer: {
+    position: 'absolute',
+    top: -15,
+    right: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  floatingText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#84CC16', // Vibrant gamification green
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 });

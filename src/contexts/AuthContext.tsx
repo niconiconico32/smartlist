@@ -68,7 +68,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const redirectUrl = Linking.createURL('/(tabs)');
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const isUpgrading = !!session && session.user?.is_anonymous === true;
+      const authMethod = isUpgrading
+        ? supabase.auth.linkIdentity.bind(supabase.auth)
+        : supabase.auth.signInWithOAuth.bind(supabase.auth);
+
+      const { data, error } = await authMethod({
         provider,
         options: {
           redirectTo: redirectUrl,
@@ -99,6 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const params = new URLSearchParams(
           url.hash ? url.hash.substring(1) : url.search.substring(1),
         );
+
+        const error = params.get('error');
+        const errorDescription = params.get('error_description');
+
+        if (error) {
+          throw new Error(errorDescription ? errorDescription.replace(/\+/g, ' ') : error);
+        }
 
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');

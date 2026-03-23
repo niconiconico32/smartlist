@@ -5,7 +5,9 @@ import {
     primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -30,16 +32,40 @@ export default function OnboardingV3Screen() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
   const buttonScale = useSharedValue(1);
+  const { signInAnonymously } = useAuth();
 
   const config = SLIDES_V3[currentSlide];
 
   // ── Navigation ──
+  const finishOnboarding = useCallback(async () => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Persist answers to the onboarding store
+      const store = useOnboardingStore.getState();
+      store.setName(answers.userName);
+      store.setSymptoms(answers.adhdSymptoms);
+      store.setGoal(answers.goals.join(', '));
+      
+      await store.completeOnboarding();
+    } catch (e) {
+      console.error('Error during completeOnboarding:', e);
+    } finally {
+      // ALWAYS navigate off the onboarding regardless of db errors
+      if (router.canGoBack()) {
+        router.dismissAll();
+      }
+      router.replace('/(tabs)');
+    }
+  }, [answers]);
+
   const goToNextSlide = useCallback(() => {
     if (currentSlide < TOTAL_SLIDES_V3 - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide((s) => s + 1);
+    } else {
+      finishOnboarding();
     }
-  }, [currentSlide]);
+  }, [currentSlide, finishOnboarding]);
 
   const goToPrevSlide = useCallback(() => {
     if (currentSlide > 0) {
@@ -47,17 +73,6 @@ export default function OnboardingV3Screen() {
       setCurrentSlide((s) => s - 1);
     }
   }, [currentSlide]);
-
-  const finishOnboarding = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Persist answers to the onboarding store
-    const store = useOnboardingStore.getState();
-    store.setName(answers.userName);
-    store.setSymptoms(answers.adhdSymptoms);
-    store.setGoal(answers.goals.join(', '));
-    store.completeOnboarding();
-    router.replace('/(tabs)');
-  }, [answers]);
 
   // ── Answer handler ──
   const handleAnswer = useCallback(
@@ -89,12 +104,6 @@ export default function OnboardingV3Screen() {
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Dev close button */}
-      {__DEV__ && (
-        <Pressable onPress={() => router.replace('/(tabs)')} style={s.devCloseButton}>
-          <Text style={s.devCloseButtonText}>×</Text>
-        </Pressable>
-      )}
 
       {/* Header: back + progress bar */}
       {showBack && (
@@ -105,7 +114,7 @@ export default function OnboardingV3Screen() {
                 onPress={goToPrevSlide}
                 style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
               >
-                <Text style={s.backButtonText}>←</Text>
+                <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
               </Pressable>
             </Animated.View>
           </View>
@@ -121,8 +130,6 @@ export default function OnboardingV3Screen() {
               />
             </View>
           </View>
-
-          <View style={s.backButtonArea} />
         </View>
       )}
 
@@ -190,22 +197,23 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: `${colors.textPrimary}14`,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${colors.textPrimary}08`,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: `${colors.textPrimary}0D`,
+    borderWidth: 1.5,
+    borderColor: `${colors.textPrimary}15`,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   backButtonPressed: {
-    backgroundColor: `${colors.textPrimary}26`,
-  },
-  backButtonText: {
-    fontSize: 20,
-    color: colors.textPrimary,
-    fontWeight: '600',
+    backgroundColor: `${colors.textPrimary}15`,
+    transform: [{ scale: 0.95 }],
   },
   progressBarWrapper: {
     flex: 1,
@@ -226,22 +234,5 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
-  },
-  devCloseButton: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    zIndex: 999,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: `${colors.textPrimary}33`,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devCloseButtonText: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
   },
 });

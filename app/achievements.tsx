@@ -5,7 +5,7 @@ import { ACHIEVEMENT_DEFINITIONS, useAchievementsStore } from '@/src/store/achie
 import { useAppStreakStore } from '@/src/store/appStreakStore';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import { Check, ChevronLeft, Crown, Lock } from 'lucide-react-native';
+import { Calendar, Check, ChevronLeft, Crown, Flame, Lock, Store, Trophy } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,7 +45,7 @@ export default function AchievementsScreen() {
     activeBackground, activeOutfit,
     spendCoins, onPurchaseMade, setActiveBackground, setActiveOutfit,
   } = useAchievementsStore();
-  const { streak: appStreak } = useAppStreakStore();
+  const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const [activeTab, setActiveTab] = useState<TabType>('logros');
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
 
@@ -132,164 +132,208 @@ export default function AchievementsScreen() {
     const isOutfit = item.type === 'outfit';
 
     return (
-      <Pressable
-        key={item.id}
-        style={styles.shopItem}
-        onPress={() => !owned && handleItemPress(item)}
-      >
+      <View key={item.id} style={styles.shopItemCard}>
         <View style={[styles.shopImageContainer, active && styles.shopImageContainerActive]}>
-          <Image
-            source={item.image}
-            style={isOutfit ? styles.shopImageOutfit : styles.shopImage}
-            resizeMode={isOutfit ? 'contain' : 'cover'}
+          <Image 
+            source={item.image} 
+            style={item.type === 'outfit' ? styles.shopOutfitImage : styles.shopImage} 
+            resizeMode={item.type === 'outfit' ? 'contain' : 'cover'}
           />
-          {/* Lock overlay for non-owned */}
-          {!owned && (
-            <View style={styles.lockOverlay}>
-              <Lock size={24} color="rgba(255,255,255,0.9)" strokeWidth={2.5} />
-            </View>
-          )}
-          {/* Active check badge */}
-          {active && (
-            <View style={styles.activeBadge}>
-              <Check size={14} color="#fff" strokeWidth={3} />
-            </View>
+        </View>
+        
+        <View style={styles.shopItemDetails}>
+          <Text style={styles.shopItemName} numberOfLines={1}>{item.name}</Text>
+          
+          {!owned ? (
+            <Pressable 
+              style={[
+                styles.actionButton, 
+                totalCoins >= item.price ? styles.buyButtonAffordable : styles.buyButtonLocked
+              ]}
+              onPress={() => setConfirmItem(item)}
+              disabled={totalCoins < item.price}
+            >
+              {totalCoins < item.price ? (
+                <Lock size={14} color="#9CA3AF" strokeWidth={2.5} />
+              ) : (
+                <Crown size={14} color="#FFFFFF" strokeWidth={2.5} />
+              )}
+              <Text style={[styles.actionButtonText, totalCoins >= item.price ? styles.buyButtonTextAffordable : styles.buyButtonTextLocked]}>
+                {item.price}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable 
+              style={[
+                styles.actionButton, 
+                active ? styles.applyButtonActive : styles.applyButton
+              ]}
+              onPress={() => handleApply(item)}
+            >
+              <Text style={[styles.actionButtonText, active ? styles.applyButtonTextActive : styles.applyButtonText]}>
+                {active ? 'Equipado' : 'Equipar'}
+              </Text>
+            </Pressable>
           )}
         </View>
-
-        {/* Bottom: price or Apply button */}
-        {owned ? (
-          <Pressable
-            style={[styles.applyButton, active && styles.applyButtonActive]}
-            onPress={() => handleApply(item)}
-          >
-            <Text style={[styles.applyButtonText, active && styles.applyButtonTextActive]}>
-              {active ? 'Activo' : 'Aplicar'}
-            </Text>
-          </Pressable>
-        ) : (
-          <View style={[styles.priceRow, !canAfford && styles.priceRowDisabled]}>
-            <Crown size={14} color={canAfford ? colors.primary : colors.textSecondary} strokeWidth={2.5} />
-            <Text style={[styles.priceText, !canAfford && styles.priceTextDisabled]}>{item.price}</Text>
-          </View>
-        )}
-      </Pressable>
+      </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color={colors.textPrimary} strokeWidth={2.5} />
+          <ChevronLeft size={28} color="#111827" strokeWidth={2.5} />
         </Pressable>
         <View style={{ flex: 1 }} />
-        <CoinsCounter coins={totalCoins} size="large" />
-        <Crown size={24} color={colors.primary} strokeWidth={2.5} />
+        <View style={styles.crownsPill}>
+          <Crown size={20} color={colors.surface} strokeWidth={2.5} />
+          <CoinsCounter coins={totalCoins} size="special" color="#1A1C20" />
+        </View>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={styles.mainContent}>
+        {/* Content */}
+        {activeTab === 'logros' ? (
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+            {/* Top Dashboard Headers */}
+            <View style={styles.dashboardContainer}>
+              {/* Top Stat: Logros Completados */}
+              <View style={styles.dashboardTopCard}>
+                <View style={styles.dashboardRow}>
+                  <Calendar size={22} color={colors.background} strokeWidth={2.5} />
+                  <Text style={styles.dashboardValueText}>
+                    {achievementsList.filter(a => a.completed).length}/{achievementsList.length}
+                  </Text>
+                </View>
+                <Text style={styles.dashboardLabelText}>Logros Completados</Text>
+              </View>
+
+              {/* Split Stats: Streak and Multiplier */}
+              <View style={styles.dashboardSplitContainer}>
+                <View style={styles.dashboardSplitCard}>
+                  <View style={styles.dashboardRow}>
+                    <Flame size={22} color="#EF4444" strokeWidth={2.5} />
+                    <Text style={styles.dashboardValueText}>{appStreak}</Text>
+                  </View>
+                  <Text style={styles.dashboardLabelText}>Racha diaria</Text>
+                </View>
+
+                <View style={[styles.dashboardSplitCard, { backgroundColor: colors.primary, borderColor: colors.primary, elevation: 4, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 }]}>
+                  <View style={styles.dashboardRow}>
+                    <Crown size={22} color="#111827" strokeWidth={2.5} />
+                    <Text style={styles.dashboardValueText}>x{getMultiplier()}</Text>
+                  </View>
+                  <Text style={[styles.dashboardLabelText, { color: '#374151' }]}>Multiplicador</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.sectionHeaderTitle}>Achievements</Text>
+
+            {/* Achievement Cards with Progress Line */}
+            <View style={styles.achievementsContainer}>
+              {achievementsList.map((achievement, index) => (
+                <AchievementCard
+                  key={achievement.id}
+                  achievement={achievement}
+                  isLast={index === achievementsList.length - 1}
+                  onPress={() => { }}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        ) : (
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.shopContentContainer}>
+            {/* Backgrounds Section */}
+            <Text style={styles.shopSectionTitle}>Fondos</Text>
+            <View style={styles.shopGrid}>
+              {SHOP_ITEMS.filter(i => i.type === 'background').map(renderShopItem)}
+            </View>
+
+            {/* Outfits Section */}
+            <Text style={styles.shopSectionTitle}>Outfits</Text>
+            <View style={styles.shopGrid}>
+              {SHOP_ITEMS.filter(i => i.type === 'outfit').map(renderShopItem)}
+            </View>
+          </ScrollView>
+        )}
+
+        {/* Purchase Confirmation Modal */}
+        <Modal
+          visible={!!confirmItem}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setConfirmItem(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              {confirmItem && (
+                <>
+                  <View style={styles.modalImageContainer}>
+                    <Image
+                      source={confirmItem.image}
+                      style={confirmItem.type === 'outfit' ? styles.modalImageOutfit : styles.modalImage}
+                      resizeMode={confirmItem.type === 'outfit' ? 'contain' : 'cover'}
+                    />
+                  </View>
+                  <Text style={styles.modalTitle}>¿Comprar "{confirmItem.name}"?</Text>
+                  <View style={styles.modalPriceRow}>
+                    <Crown size={18} color={colors.primary} strokeWidth={2.5} />
+                    <Text style={styles.modalPriceText}>{confirmItem.price}</Text>
+                  </View>
+                  <Text style={styles.modalBalance}>
+                    Tendrás {totalCoins - confirmItem.price} coronas después de la compra
+                  </Text>
+                  <View style={styles.modalButtons}>
+                    <Pressable style={styles.modalCancelButton} onPress={() => setConfirmItem(null)}>
+                      <Text style={styles.modalCancelText}>Cancelar</Text>
+                    </Pressable>
+                    <Pressable style={styles.modalConfirmButton} onPress={handleConfirmPurchase}>
+                      <Text style={styles.modalConfirmText}>Comprar</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </View>
+
+      {/* Footer Tabs */}
+      <View style={styles.footerContainer}>
         <Pressable
-          style={[styles.tab, activeTab === 'logros' && styles.tabActive]}
+          style={styles.footerTab}
           onPress={() => handleTabPress('logros')}
         >
-          <Text style={[styles.tabText, activeTab === 'logros' && styles.tabTextActive]}>
+          <Trophy
+            size={24}
+            color={activeTab === 'logros' ? '#111827' : '#9CA3AF'}
+            strokeWidth={activeTab === 'logros' ? 2.5 : 2}
+          />
+          <Text style={[styles.footerTabText, activeTab === 'logros' && styles.footerTabTextActive]}>
             Logros
           </Text>
         </Pressable>
+
         <Pressable
-          style={[styles.tab, activeTab === 'tienda' && styles.tabActive]}
+          style={styles.footerTab}
           onPress={() => handleTabPress('tienda')}
         >
-          <Text style={[styles.tabText, activeTab === 'tienda' && styles.tabTextActive]}>
+          <Store
+            size={24}
+            color={activeTab === 'tienda' ? '#111827' : '#9CA3AF'}
+            strokeWidth={activeTab === 'tienda' ? 2.5 : 2}
+          />
+          <Text style={[styles.footerTabText, activeTab === 'tienda' && styles.footerTabTextActive]}>
             Tienda
           </Text>
         </Pressable>
       </View>
-
-      {/* Content */}
-      {activeTab === 'logros' ? (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-          {/* Streak Multiplier Banner */}
-          {appStreak > 0 && (
-            <View style={styles.multiplierBanner}>
-              <Text style={styles.multiplierText}>
-                🔥 ¡Tu racha de {appStreak} día{appStreak !== 1 ? 's' : ''} aumentará las coronas que recibas hoy en un {Math.round(appStreak * 15)}%!
-              </Text>
-            </View>
-          )}
-
-          {/* Achievement Cards with Progress Line */}
-          <View style={styles.achievementsContainer}>
-            {achievementsList.map((achievement, index) => (
-              <AchievementCard
-                key={achievement.id}
-                achievement={achievement}
-                isLast={index === achievementsList.length - 1}
-                onPress={() => {}}
-              />
-            ))}
-          </View>
-        </ScrollView>
-      ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.shopContentContainer}>
-          {/* Backgrounds Section */}
-          <Text style={styles.shopSectionTitle}>Fondos</Text>
-          <View style={styles.shopGrid}>
-            {SHOP_ITEMS.filter(i => i.type === 'background').map(renderShopItem)}
-          </View>
-
-          {/* Outfits Section */}
-          <Text style={styles.shopSectionTitle}>Outfits</Text>
-          <View style={styles.shopGrid}>
-            {SHOP_ITEMS.filter(i => i.type === 'outfit').map(renderShopItem)}
-          </View>
-        </ScrollView>
-      )}
-
-      {/* Purchase Confirmation Modal */}
-      <Modal
-        visible={!!confirmItem}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setConfirmItem(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            {confirmItem && (
-              <>
-                <View style={styles.modalImageContainer}>
-                  <Image
-                    source={confirmItem.image}
-                    style={confirmItem.type === 'outfit' ? styles.modalImageOutfit : styles.modalImage}
-                    resizeMode={confirmItem.type === 'outfit' ? 'contain' : 'cover'}
-                  />
-                </View>
-                <Text style={styles.modalTitle}>¿Comprar "{confirmItem.name}"?</Text>
-                <View style={styles.modalPriceRow}>
-                  <Crown size={18} color={colors.primary} strokeWidth={2.5} />
-                  <Text style={styles.modalPriceText}>{confirmItem.price}</Text>
-                </View>
-                <Text style={styles.modalBalance}>
-                  Tendrás {totalCoins - confirmItem.price} coronas después de la compra
-                </Text>
-                <View style={styles.modalButtons}>
-                  <Pressable style={styles.modalCancelButton} onPress={() => setConfirmItem(null)}>
-                    <Text style={styles.modalCancelText}>Cancelar</Text>
-                  </Pressable>
-                  <Pressable style={styles.modalConfirmButton} onPress={handleConfirmPurchase}>
-                    <Text style={styles.modalConfirmText}>Comprar</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -297,7 +341,10 @@ export default function AchievementsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#EAF0FC',
+  },
+  mainContent: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -311,31 +358,35 @@ const styles = StyleSheet.create({
     padding: 4,
     width: 36,
   },
-  // Tabs
-  tabsContainer: {
+  crownsPill: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 8,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 11,
     alignItems: 'center',
+    backgroundColor: '#EAF0FC', // soft grayish blue based on the image
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 42,
+    gap: 6,
+    position: 'relative',
   },
-  tabActive: {
-    backgroundColor: colors.surface,
+  // Footer
+  footerContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#EAF0FC',
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  tabText: {
-    fontSize: 15,
+  footerTab: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  footerTabText: {
+    fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: '#9CA3AF',
   },
-  tabTextActive: {
-    color: colors.textPrimary,
+  footerTabTextActive: {
+    color: '#111827',
     fontWeight: '700',
   },
   // Scroll
@@ -349,21 +400,56 @@ const styles = StyleSheet.create({
   achievementsContainer: {
     gap: 16,
   },
-  multiplierBanner: {
-    backgroundColor: `${colors.primary}18`,
-    borderWidth: 1,
-    borderColor: `${colors.primary}40`,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
+  // Dashboard
+  dashboardContainer: {
+    gap: 12,
+    marginBottom: 24,
   },
-  multiplierText: {
-    fontSize: 14,
+  dashboardTopCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardSplitContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  dashboardSplitCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  dashboardValueText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  dashboardLabelText: {
+    fontSize: 13,
+    color: '#6B7280',
     fontWeight: '600',
-    color: colors.primary,
-    textAlign: 'center',
-    lineHeight: 20,
+  },
+  sectionHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+    marginLeft: 4,
   },
   // Shop
   shopContentContainer: {
@@ -373,7 +459,7 @@ const styles = StyleSheet.create({
   shopSectionTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.textPrimary,
+    color: '#111827',
     marginBottom: 16,
     marginTop: 8,
   },
@@ -383,86 +469,95 @@ const styles = StyleSheet.create({
     marginHorizontal: -(GRID_GAP / 2),
     marginBottom: 24,
   },
-  shopItem: {
+  shopItemCard: {
     width: ITEM_WIDTH,
-    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 12,
     marginHorizontal: GRID_GAP / 2,
     marginBottom: GRID_GAP,
   },
   shopImageContainer: {
-    width: ITEM_WIDTH,
-    height: ITEM_WIDTH,
-    borderRadius: 16,
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: `${colors.textPrimary}10`,
+    backgroundColor: '#F3F4F6',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   shopImageContainerActive: {
-    borderWidth: 2,
     borderColor: colors.primary,
+    borderWidth: 2,
   },
   shopImage: {
     width: '100%',
     height: '100%',
   },
-  shopImageOutfit: {
+  shopOutfitImage: {
     width: '100%',
     height: '100%',
+    transform: [{ scale: 0.8 }],
   },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
+  // Removed ownedBadge
+  shopItemDetails: {
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    gap: 10,
   },
-  activeBadge: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  shopItemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    width: '100%',
   },
-  priceRow: {
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 6,
+    width: '100%',
+    paddingVertical: 10,
+    borderRadius: 12,
   },
-  priceRowDisabled: {
-    opacity: 0.5,
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
-  priceText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
+  buyButtonAffordable: {
+    backgroundColor: colors.surface,
+    shadowColor: colors.surface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  priceTextDisabled: {
-    color: colors.textSecondary,
+  buyButtonLocked: {
+    backgroundColor: '#F3F4F6',
   },
-  // Apply button
+  buyButtonTextAffordable: {
+    color: '#FFFFFF',
+  },
+  buyButtonTextLocked: {
+    color: '#9CA3AF',
+  },
   applyButton: {
-    marginTop: 6,
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  applyButtonActive: {
-    backgroundColor: `${colors.primary}30`,
+    backgroundColor: '#EAF0FC',
   },
   applyButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.background,
+  },
+  applyButtonActive: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   applyButtonTextActive: {
-    color: colors.primary,
+    color: '#9CA3AF',
   },
   // Confirmation Modal
   modalOverlay: {

@@ -1,6 +1,8 @@
 import { colors } from "@/constants/theme";
+import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import LottieView from "lottie-react-native";
 import {
   Activity,
   Bell,
@@ -26,7 +28,7 @@ import {
   Target,
   Utensils,
 } from "lucide-react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -44,9 +46,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-// Colores para las rutinas (se asignan de forma rotativa)
-const ROUTINE_COLORS = ["#B2E6FB", "#F4F853", "#C9FD5A", "#F8CBDF", "#F5C2E7"];
-const BACKGROUND_COLORS = ["rgba(178, 230, 251, 0.1)", "rgba(244, 248, 83, 0.1)", "rgba(201, 253, 90, 0.1)", "rgba(248, 203, 223, 0.1)", "rgba(245, 194, 231, 0.1)"];
+import { ROUTINE_BACKGROUND_COLORS, ROUTINE_COLORS } from '@/constants/routineColors';
 
 const AVAILABLE_ICONS: Record<string, any> = {
   Dumbbell,
@@ -107,8 +107,13 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   onPress,
 }) => {
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
-  const backgroundColor = BACKGROUND_COLORS[colorIndex % BACKGROUND_COLORS.length];
+  const backgroundColor = ROUTINE_BACKGROUND_COLORS[colorIndex % ROUTINE_BACKGROUND_COLORS.length];
   const IconComponent = getIconComponent(icon);
+
+  // Streak logic
+  const { getStreak } = useRoutineStreakStore();
+  const streakCount = getStreak(id);
+  const lottieRef = useRef<LottieView>(null);
 
   // Cálculo de progreso
   const completedCount = initialTasks.filter((t) => t.completed).length;
@@ -131,7 +136,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   const handleCardPress = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
 
     cardScale.value = withSequence(
       withTiming(0.98, { duration: 100 }),
@@ -205,13 +210,40 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
                 {name}
               </Text>
               <View style={styles.metaRow}>
-                {reminderEnabled && reminderTime  && (
+                {reminderEnabled && reminderTime && (
                   <View style={styles.reminderBadge}>
                     <Bell size={10} color={colors.textRoutineCard} />
                     <Text style={styles.reminderText}>{reminderTime}</Text>
                   </View>
                 )}
               </View>
+            </View>
+
+            {/* Fuego (Lottie) */}
+            <View style={styles.streakContainer}>
+              {streakCount > 0 ? (
+                <>
+                  <LottieView
+                    ref={lottieRef}
+                    source={require("@/assets/images/lottie/Fire animation.json")}
+                    autoPlay
+                    loop
+                    style={styles.lottieFire}
+                  />
+                  <Text style={styles.streakNumberActive}>{streakCount}</Text>
+                </>
+              ) : (
+                <>
+                  <LottieView
+                    source={require("@/assets/images/lottie/Fire animation.json")}
+                    autoPlay={false}
+                    loop={false}
+                    colorFilters={[{ keypath: "**", color: "#666666" }]}
+                    style={[styles.lottieFire, { opacity: 0.4 }]}
+                  />
+                  <Text style={styles.streakNumberInactive}>{streakCount}</Text>
+                </>
+              )}
             </View>
           </View>
 
@@ -327,5 +359,37 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 2,
+  },
+  streakContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 48,
+    height: 48,
+    position: "relative",
+  },
+  lottieFire: {
+    width: 60,
+    height: 60,
+    position: 'absolute',
+    top: -12,
+  },
+  streakNumberActive: {
+    position: 'absolute',
+    bottom: 0,
+
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textShadowColor: 'rgba(255,100,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  streakNumberInactive: {
+    position: 'absolute',
+    bottom: -0,
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    opacity: 0.6,
   },
 });

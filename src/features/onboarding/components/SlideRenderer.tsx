@@ -144,7 +144,7 @@ const SlideRenderer: React.FC<Props> = ({
       return <HabitDaysSlide onNext={onNext} />;
 
     case 'task-demo':
-      return <TaskDemoSlide answers={answers} onAnswer={onAnswer} />;
+      return <TaskDemoSlide answers={answers} onAnswer={onAnswer} onNext={onNext} />;
 
     case 'growth-potential':
       return <GrowthPotentialSlide onNext={onNext} />;
@@ -180,7 +180,7 @@ const SlideRenderer: React.FC<Props> = ({
       return <TrialReminderSlide onNext={onNext} />;
 
     case 'plan-selector':
-      return <PlanSelectorSlide onNext={onNext} />;
+      return <PlanSelectorSlide onNext={onFinish} />;
 
     case 'paywall':
       return <PaywallSlide onFinish={onFinish} />;

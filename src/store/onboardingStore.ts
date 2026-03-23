@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { supabase } from '@/src/lib/supabase';
 
 interface OnboardingState {
   name: string;
@@ -13,7 +14,7 @@ interface OnboardingState {
   setSymptoms: (symptoms: string[]) => void;
   setGoal: (goal: string) => void;
   setProductivityTime: (time: string) => void;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<void>;
 }
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
@@ -28,8 +29,14 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   setSymptoms: (symptoms) => set({ symptoms }),
   setGoal: (goal) => set({ goal }),
   setProductivityTime: (time) => set({ productivityTime: time }),
-  completeOnboarding: () => {
+  completeOnboarding: async () => {
     set({ isOnboardingComplete: true });
-    AsyncStorage.setItem('onboarding_complete', 'true');
+    await AsyncStorage.setItem('onboarding_complete', 'true');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await supabase.auth.updateUser({
+        data: { onboarding_completed: true }
+      });
+    }
   },
 }));

@@ -2,13 +2,13 @@ import { colors } from '@/constants/theme';
 import React, { useEffect } from 'react';
 import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    Easing,
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -61,7 +61,7 @@ const NeuroscienceSlide: React.FC = () => {
           style={[s.mascotContainer, mascotStyle]}
         >
           <Image
-            source={require('@/assets/images/logomain.png')}
+            source={require('@/assets/images/brainyscience.png')}
             style={s.mascot}
             resizeMode="contain"
           />

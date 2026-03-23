@@ -6,6 +6,8 @@ import {
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
 import { usePurchases } from '@/src/contexts/PurchasesContext';
+import { scheduleTrialExpirationNotification } from '@/src/utils/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CreditCard, Shield, Unlock } from 'lucide-react-native';
@@ -78,6 +80,8 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
     buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
   };
 
+  const TRIAL_DAYS = 7;
+
   const handleStartTrial = async () => {
     if (!packages.length) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -91,6 +95,10 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
       const result = await purchasePackage(mainPackage);
 
       if (result.success) {
+        // Save trial start date for tracking
+        await AsyncStorage.setItem('@trial_start_date', new Date().toISOString());
+        // Schedule notification 2 days before trial ends
+        await scheduleTrialExpirationNotification(TRIAL_DAYS);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onFinish();
       } else if (result.cancelled) {
@@ -110,7 +118,7 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
     <LinearGradient colors={[colors.background, '#16213E']} style={s.container}>
       <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
         <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={s.headerTitle}>
-          Hagamos un trato honesto.
+          Prueba todo. Sin riesgo.
         </Animated.Text>
 
         <Animated.View style={[s.cardGlow, glowStyle]} />
@@ -141,12 +149,12 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
             </View>
 
             <Text style={s.cardHeadline}>
-              Probablemente odias las pruebas gratuitas que piden tu tarjeta.
+              7 días con todas las funciones Premium. Gratis.
             </Text>
 
             <Text style={s.cardBody}>
-              Sabemos que algunas apps ofrecen una prueba gratis y esperan que sus usuarios olviden
-              cancelarla. Aquí no hacemos eso.
+              Queremos que compruebes cómo Brainy transforma tu día a día antes de
+              tomar cualquier decisión. Sin trucos, sin letras pequeñas.
             </Text>
 
             <View style={s.offerContainer}>
@@ -155,19 +163,16 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
                 style={s.offerGradient}
               >
                 <Text style={s.offerText}>
-                  3 Días Premium.{'\n'} 0 Riesgos.
-                </Text>
-                <Text style={s.offerHighlight}>No pedimos tarjeta.</Text>
+                7 Días Premium.{'\n'} 100% Gratis.
+              </Text>
+              <Text style={s.offerHighlight}>Cancela cuando quieras antes de que termine.</Text>
               </LinearGradient>
             </View>
 
             <View style={s.trustBadges}>
               <Animated.View style={[s.trustBadge, badgeStyle]}>
-                <View style={s.badgeIconContainer}>
-                  <CreditCard size={16} color="#F38BA8" strokeWidth={2} />
-                  <View style={s.crossLine} />
-                </View>
-                <Text style={s.trustBadgeText}>Sin Cobros Sorpresa</Text>
+                <CreditCard size={16} color="#A6E3A1" strokeWidth={2} />
+                <Text style={s.trustBadgeText}>No se cobra hasta el día 8</Text>
               </Animated.View>
               <View style={s.badgeDivider} />
               <View style={s.trustBadge}>
@@ -196,7 +201,7 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
                 {isPurchasing ? (
                   <ActivityIndicator color={colors.background} />
                 ) : (
-                  <Text style={primaryButtonText}>Acepto el Regalo (Empezar)</Text>
+                  <Text style={primaryButtonText}>Comenzar 7 Días Gratis</Text>
                 )}
               </LinearGradient>
             </Pressable>
@@ -204,7 +209,7 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
         </Animated.View>
 
         <Animated.Text entering={FadeInDown.delay(900).duration(500)} style={s.secondaryText}>
-          Después de 3 días, tú decides si vale la pena.
+          Después de 7 días, tú decides si vale la pena.
         </Animated.Text>
       </ScrollView>
     </LinearGradient>

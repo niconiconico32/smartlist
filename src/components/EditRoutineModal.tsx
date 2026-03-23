@@ -143,23 +143,23 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       setRoutineName(routine.name);
       setSelectedDays(routine.days || []);
       setSelectedIcon(routine.icon || 'Circle');
-      
+
       // Initialize with tasks or one empty task
-      const initialTasks = routine.tasks && routine.tasks.length > 0 
+      const initialTasks = routine.tasks && routine.tasks.length > 0
         ? routine.tasks.map(t => ({ id: t.id, title: t.title, completed: t.completed }))
         : [{
-            id: Date.now().toString(),
-            title: '',
-            completed: false,
-          }];
-      
+          id: Date.now().toString(),
+          title: '',
+          completed: false,
+        }];
+
       setTasks(initialTasks);
-      
+
       // Set first task as editing if it's empty
       if (initialTasks.length > 0 && !initialTasks[0].title) {
         setEditingTaskId(initialTasks[0].id);
       }
-      
+
       setReminderEnabled(routine.reminderEnabled);
       if (routine.reminderTime) {
         const [hours, minutes] = routine.reminderTime.split(':');
@@ -167,7 +167,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
         date.setHours(parseInt(hours), parseInt(minutes));
         setReminderTime(date);
       }
-      
+
       setHasUnsavedChanges(false);
     }
   }, [routine, visible]);
@@ -175,25 +175,27 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   // Detectar cambios sin guardar
   useEffect(() => {
     if (!routine || !visible) return;
-    
+
     const hasNameChanged = routineName.trim() !== routine.name;
     const hasDaysChanged = JSON.stringify(selectedDays.sort()) !== JSON.stringify([...(routine.days || [])].sort());
-    
+
     // Comparar solo título y orden de tareas, ignorar completed
     const currentTaskTitles = tasks.map(t => t.title.trim()).filter(t => t !== '');
     const originalTaskTitles = (routine.tasks || []).map(t => t.title.trim()).filter(t => t !== '');
     const hasTasksChanged = JSON.stringify(currentTaskTitles) !== JSON.stringify(originalTaskTitles);
-    
+
     const hasReminderChanged = reminderEnabled !== routine.reminderEnabled;
     const hasIconChanged = selectedIcon !== (routine.icon || 'Circle');
-    
+
     // Solo considerar cambio en reminderTime si está habilitado
     let hasTimeChanged = false;
     if (reminderEnabled && routine.reminderTime) {
-      const currentTime = reminderTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const hh = String(reminderTime.getHours()).padStart(2, '0');
+      const mm = String(reminderTime.getMinutes()).padStart(2, '0');
+      const currentTime = `${hh}:${mm}`;
       hasTimeChanged = currentTime !== routine.reminderTime;
     }
-    
+
     setHasUnsavedChanges(hasNameChanged || hasDaysChanged || hasTasksChanged || hasReminderChanged || hasIconChanged || hasTimeChanged);
   }, [routineName, selectedDays, tasks, reminderEnabled, reminderTime, selectedIcon, routine, visible]);
 
@@ -259,14 +261,14 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       title: '',
       completed: false,
     };
-    
+
     setTasks(prev => [...prev, newTask]);
     setEditingTaskId(newTask.id);
     triggerHaptic('light');
   };
 
   const handleUpdateTask = (taskId: string, newTitle: string) => {
-    setTasks(prev => prev.map(task => 
+    setTasks(prev => prev.map(task =>
       task.id === taskId ? { ...task, title: newTitle } : task
     ));
   };
@@ -307,12 +309,12 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const handleSaveRoutine = () => {
     // Filter out empty tasks
     const validTasks = tasks.filter(task => task.title.trim() !== '');
-    
+
     if (routineName.trim() && validTasks.length > 0 && selectedDays.length > 0 && routine) {
-      const timeString = reminderTime.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      // Format time as HH:mm (24h, zero-padded) — toLocaleTimeString is unreliable on Android
+      const hh = String(reminderTime.getHours()).padStart(2, '0');
+      const mm = String(reminderTime.getMinutes()).padStart(2, '0');
+      const timeString = `${hh}:${mm}`;
 
       const updatedRoutine: Routine = {
         id: routine.id,
@@ -345,10 +347,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
   };
 
   const renderTaskItem = useCallback(
@@ -356,7 +357,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       const index = getIndex() ?? 0;
       const isEditing = editingTaskId === item.id;
       const isLastItem = index === tasks.length - 1;
-      
+
       return (
         <ScaleDecorator>
           <View
@@ -365,14 +366,14 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               isActive && styles.taskItemDragging,
             ]}
           >
-            <Pressable 
+            <Pressable
               onLongPress={() => {
                 if (!isEditing) {
                   triggerHaptic('medium');
                   drag();
                 }
               }}
-              onPressIn={drag} 
+              onPressIn={drag}
               style={styles.dragHandle}
               disabled={isEditing}
             >
@@ -381,7 +382,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
             <View style={styles.taskNumber}>
               <Text style={styles.taskNumberText}>{index + 1}</Text>
             </View>
-            
+
             <TextInput
               ref={(ref) => {
                 if (ref) {
@@ -403,7 +404,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               multiline={false}
               blurOnSubmit={false}
             />
-            
+
             {isLastItem ? (
               <Pressable
                 onPress={handleAddTask}
@@ -434,7 +435,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
         <Text style={styles.label}>Nombre de la rutina</Text>
         <View style={{ height: 12 }} />
         <View style={styles.nameInputContainer}>
-          <Pressable 
+          <Pressable
             style={styles.iconButton}
             onPress={() => {
               setShowIconPicker(true);
@@ -510,19 +511,19 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       <View style={styles.section}>
         <Text style={styles.label}>¿Quieres un recordatorio?</Text>
         <View style={{ height: 12 }} />
-        <Pressable 
+        <Pressable
           onPress={() => {
             setReminderEnabled(!reminderEnabled);
             dismissKeyboard();
           }}
           style={[
-            styles.reminderCard, 
+            styles.reminderCard,
             reminderEnabled && styles.reminderCardActive
           ]}
         >
           <View style={styles.reminderInfo}>
             <View style={[
-              styles.iconContainer, 
+              styles.iconContainer,
               reminderEnabled && styles.iconContainerActive
             ]}>
               <Bell size={20} color={reminderEnabled ? '#FFF' : colors.textSecondary} />
@@ -541,7 +542,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
           </View>
 
           {reminderEnabled && (
-            <Pressable 
+            <Pressable
               style={styles.timeDisplay}
               onPress={() => {
                 setShowTimePicker(true);
@@ -555,7 +556,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
         {showTimePicker && (
           Platform.OS === 'ios' ? (
-            <Pressable 
+            <Pressable
               style={styles.timePickerContainer}
               onPress={() => setShowTimePicker(false)}
             >
@@ -647,59 +648,59 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               />
             </View>
           </View>
-        
-        {/* Icon Picker Modal */}
-        <Modal
-          visible={showIconPicker}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowIconPicker(false)}
-        >
-          <Pressable 
-            style={styles.iconPickerOverlay}
-            onPress={() => setShowIconPicker(false)}
+
+          {/* Icon Picker Modal */}
+          <Modal
+            visible={showIconPicker}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowIconPicker(false)}
           >
-            <View style={styles.iconPickerContainer}>
-              <View style={styles.iconPickerHeader}>
-                <Text style={styles.iconPickerTitle}>Elige un ícono</Text>
-                <Pressable onPress={() => setShowIconPicker(false)}>
-                  <X size={20} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-              <ScrollView style={styles.iconPickerScroll}>
-                <View style={styles.iconGrid}>
-                  {AVAILABLE_ICONS.map((icon) => (
-                    <Pressable
-                      key={icon.name}
-                      style={[
-                        styles.iconOption,
-                        selectedIcon === icon.name && styles.iconOptionSelected,
-                      ]}
-                      onPress={() => {
-                        setSelectedIcon(icon.name);
-                        setShowIconPicker(false);
-                        triggerHaptic('selection');
-                      }}
-                    >
-                      <View style={{ gap: 8, alignItems: 'center' }}>
-                        {React.createElement(icon.component, { 
-                          size: 28, 
-                          color: selectedIcon === icon.name ? colors.primary : colors.textSecondary 
-                        })}
-                        <Text style={[
-                          styles.iconLabel,
-                          selectedIcon === icon.name && styles.iconLabelSelected,
-                        ]}>
-                          {icon.label}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))}
+            <Pressable
+              style={styles.iconPickerOverlay}
+              onPress={() => setShowIconPicker(false)}
+            >
+              <View style={styles.iconPickerContainer}>
+                <View style={styles.iconPickerHeader}>
+                  <Text style={styles.iconPickerTitle}>Elige un ícono</Text>
+                  <Pressable onPress={() => setShowIconPicker(false)}>
+                    <X size={20} color={colors.textSecondary} />
+                  </Pressable>
                 </View>
-              </ScrollView>
-            </View>
-          </Pressable>
-        </Modal>
+                <ScrollView style={styles.iconPickerScroll}>
+                  <View style={styles.iconGrid}>
+                    {AVAILABLE_ICONS.map((icon) => (
+                      <Pressable
+                        key={icon.name}
+                        style={[
+                          styles.iconOption,
+                          selectedIcon === icon.name && styles.iconOptionSelected,
+                        ]}
+                        onPress={() => {
+                          setSelectedIcon(icon.name);
+                          setShowIconPicker(false);
+                          triggerHaptic('selection');
+                        }}
+                      >
+                        <View style={{ gap: 8, alignItems: 'center' }}>
+                          {React.createElement(icon.component, {
+                            size: 28,
+                            color: selectedIcon === icon.name ? colors.primary : colors.textSecondary
+                          })}
+                          <Text style={[
+                            styles.iconLabel,
+                            selectedIcon === icon.name && styles.iconLabelSelected,
+                          ]}>
+                            {icon.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            </Pressable>
+          </Modal>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
@@ -805,7 +806,7 @@ const styles = StyleSheet.create({
     color: '#1E1E2E',
     fontWeight: '700',
   },
-  
+
   // Tasks
   taskNumber: {
     width: 28,
@@ -824,7 +825,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: colors.surfaceHighlight,
+    backgroundColor: colors.surface,
     borderRadius: 28,
     paddingHorizontal: 6,
     paddingVertical: 6,
@@ -953,7 +954,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  
+
   // Icon Selector
   nameInputContainer: {
     flexDirection: 'row',

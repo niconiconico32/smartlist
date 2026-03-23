@@ -10,7 +10,7 @@ import {
   Clock,
   X
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   Dimensions,
@@ -35,7 +35,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Types
 export type FocusSubtask = {
@@ -61,13 +61,13 @@ const THUMB_SIZE = 70;
 const SLIDE_THRESHOLD = SLIDER_WIDTH - THUMB_SIZE - 8;
 
 // Burst Particle Component
-const BurstParticle = ({ 
-  delay, 
-  angle, 
-  color 
-}: { 
-  delay: number; 
-  angle: number; 
+const BurstParticle = ({
+  delay,
+  angle,
+  color
+}: {
+  delay: number;
+  angle: number;
   color: string;
 }) => {
   const translateX = useSharedValue(0);
@@ -80,18 +80,18 @@ const BurstParticle = ({
     const radian = (angle * Math.PI) / 180;
     const endX = Math.cos(radian) * distance;
     const endY = Math.sin(radian) * distance;
-    
+
     scale.value = withDelay(delay, withSpring(1, { damping: 8 }));
     translateX.value = withDelay(
       delay,
-      withTiming(endX, { 
+      withTiming(endX, {
         duration: 2800,
         easing: Easing.out(Easing.cubic),
       })
     );
     translateY.value = withDelay(
       delay,
-      withTiming(endY, { 
+      withTiming(endY, {
         duration: 2800,
         easing: Easing.out(Easing.cubic),
       })
@@ -150,11 +150,11 @@ const BurstExplosion = ({ visible }: { visible: boolean }) => {
 };
 
 // Swipe to Complete Slider Component
-const SwipeToCompleteSlider = ({ 
+const SwipeToCompleteSlider = ({
   onComplete,
   isLastTask,
   currentIndex,
-}: { 
+}: {
   onComplete: () => void;
   isLastTask: boolean;
   currentIndex: number;
@@ -172,9 +172,14 @@ const SwipeToCompleteSlider = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
+  // Use a ref so the gesture worklet always has the latest callback
+  // without the gesture object needing to be recreated on every re-render
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
   const handleComplete = useCallback(() => {
-    onComplete();
-  }, [onComplete]);
+    onCompleteRef.current();
+  }, []);
 
   // Reset slider when task changes
   useEffect(() => {
@@ -184,11 +189,13 @@ const SwipeToCompleteSlider = ({
     backgroundProgress.value = 0;
   }, [currentIndex]);
 
-  const panGesture = Gesture.Pan()
+  const panGesture = useMemo(() => Gesture.Pan()
     .onStart(() => {
+      if (isCompleted.value) return;
       runOnJS(triggerHapticLight)();
     })
     .onUpdate((event) => {
+      if (isCompleted.value) return;
       const newX = Math.max(0, Math.min(event.translationX, SLIDE_THRESHOLD));
       translateX.value = newX;
       backgroundProgress.value = newX / SLIDE_THRESHOLD;
@@ -199,6 +206,7 @@ const SwipeToCompleteSlider = ({
       );
     })
     .onEnd(() => {
+      if (isCompleted.value) return;
       if (translateX.value >= SLIDE_THRESHOLD * 0.9) {
         // Complete!
         isCompleted.value = true;
@@ -212,7 +220,7 @@ const SwipeToCompleteSlider = ({
         backgroundProgress.value = withSpring(0);
         textOpacity.value = withSpring(1);
       }
-    });
+    }), []);  // stable — all callbacks use refs, no deps needed
 
   const thumbStyle = useAnimatedStyle(() => ({
     transform: [
@@ -246,12 +254,12 @@ const SwipeToCompleteSlider = ({
       <View style={styles.sliderTrack}>
         {/* Progress fill */}
         <Animated.View style={[styles.sliderFill, backgroundStyle]} />
-        
+
         {/* Text */}
         <Animated.Text style={[styles.sliderText, textStyle]}>
           {isLastTask ? 'Desliza para finalizar 🎉' : 'Desliza para completar >>>'}
         </Animated.Text>
-        
+
         {/* Thumb */}
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[thumbStyle, styles.sliderThumbWrapper]}>
@@ -271,14 +279,12 @@ const SwipeToCompleteSlider = ({
 };
 
 // Progress Bar Component
-const ProgressBar = ({ 
-  isActive, 
+const ProgressBar = ({
+  isActive,
   isCompleted,
-  index,
-}: { 
+}: {
   isActive: boolean;
   isCompleted: boolean;
-  index: number;
 }) => {
   const pulseOpacity = useSharedValue(1);
   const scale = useSharedValue(1);
@@ -344,23 +350,25 @@ export function FocusModeScreen({
   const [isClosing, setIsClosing] = useState(false);
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [showExitModal, setShowExitModal] = useState(false);
-  
-  // Timestamps para calcular el tiempo en background
+
+  // Timestamps para calcular el tiempo
   const startTimeRef = useRef<number>(Date.now());
-  const backgroundTimeRef = useRef<number>(0);
+  const baseTotalTimeRef = useRef<number>(0);
   const subtasksRef = useRef<FocusSubtask[]>(subtasks);
+  const celebrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mantener ref actualizado con las subtasks más recientes
   useEffect(() => {
     subtasksRef.current = subtasks;
   }, [subtasks]);
 
-  // Guardar subtasks actualizadas cuando el componente se desmonte
+  // Guardar subtasks cuando el componente se desmonte, SOLO si no cerró explícitamente
+  const isExplicitlyClosedRef = useRef(false);
   useEffect(() => {
     return () => {
-      // Cleanup: Pasar subtasks actualizadas al parent cuando se desmonte
-      // Usar ref para obtener el valor más reciente
-      onClose(subtasksRef.current);
+      if (!isExplicitlyClosedRef.current) {
+        onClose(subtasksRef.current);
+      }
     };
   }, [onClose]);
 
@@ -371,13 +379,22 @@ export function FocusModeScreen({
         const saved = await AsyncStorage.getItem(`focus_progress_${activityId}`);
         if (saved) {
           const progress = JSON.parse(saved);
-          // Solo restaurar el índice y tiempos, NO las subtasks
-          // Las subtasks actuales vienen de initialSubtasks que reflejan el estado real
           setCurrentIndex(progress.currentIndex);
-          setTotalElapsedTime(progress.totalElapsedTime);
-          setElapsedTime(progress.elapsedTime);
-          // Adjust startTimeRef to account for already-elapsed time
-          startTimeRef.current = Date.now() - (progress.elapsedTime * 1000);
+
+          if (progress.startTime) {
+            // Nuevo formato con timestamps reales
+            startTimeRef.current = progress.startTime;
+            baseTotalTimeRef.current = progress.baseTotalTime || 0;
+            const newElapsed = Math.max(0, Math.floor((Date.now() - progress.startTime) / 1000));
+            setElapsedTime(newElapsed);
+            setTotalElapsedTime(baseTotalTimeRef.current + newElapsed);
+          } else if (progress.elapsedTime !== undefined) {
+            // Fallback para formato antiguo
+            setTotalElapsedTime(progress.totalElapsedTime);
+            setElapsedTime(progress.elapsedTime);
+            baseTotalTimeRef.current = progress.totalElapsedTime - progress.elapsedTime;
+            startTimeRef.current = Date.now() - (progress.elapsedTime * 1000);
+          }
         }
       } catch (error) {
         console.error('Error loading progress:', error);
@@ -386,76 +403,65 @@ export function FocusModeScreen({
     loadProgress();
   }, [activityId]);
 
-  // Save progress whenever state changes (position and time only, not subtasks state)
-  useEffect(() => {
-    const saveProgress = async () => {
-      try {
-        const progress = {
-          currentIndex,
-          totalElapsedTime,
-          elapsedTime,
-        };
-        await AsyncStorage.setItem(`focus_progress_${activityId}`, JSON.stringify(progress));
-      } catch (error) {
-        console.error('Error saving progress:', error);
-      }
-    };
-    saveProgress();
-  }, [currentIndex, totalElapsedTime, elapsedTime, activityId]);
-
-  // Background gradient animation
-  const gradientPosition = useSharedValue(0);
+  // Save progress securely
+  const saveCurrentProgress = useCallback(async () => {
+    try {
+      const progress = {
+        currentIndex,
+        startTime: startTimeRef.current,
+        baseTotalTime: baseTotalTimeRef.current,
+      };
+      await AsyncStorage.setItem(`focus_progress_${activityId}`, JSON.stringify(progress));
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
+  }, [currentIndex, activityId]);
 
   useEffect(() => {
-    gradientPosition.value = withRepeat(
-      withTiming(1, { duration: 10000, easing: Easing.linear }),
-      -1,
-      true
-    );
-  }, []);
+    saveCurrentProgress();
+  }, [saveCurrentProgress]);
 
-  // Timer basado en timestamps para funcionar en background
+  // Background gradient (static — animation removed, gradientPosition was unused)
+  const gradientPosition = useSharedValue(0); // kept for potential future use
+
+  // Timer basado en timestamps reales para funcionar automáticamente en background
   useEffect(() => {
     if (!isTimerRunning || isClosing) return;
 
-    startTimeRef.current = Date.now() - (elapsedTime * 1000);
-    
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsed = Math.floor((now - startTimeRef.current) / 1000);
       setElapsedTime(elapsed);
-      setTotalElapsedTime((prev) => {
-        const currentTaskElapsed = elapsed;
-        const previousTasksTime = prev - (elapsedTime || 0);
-        return previousTasksTime + currentTaskElapsed;
-      });
+      setTotalElapsedTime(baseTotalTimeRef.current + elapsed);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTimerRunning, isClosing]);
+  }, [isTimerRunning, isClosing]); // elapsedTime NO debe ser dependencia
 
-  // AppState listener para manejar background/foreground
+  // AppState listener sin thrashing
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'background' || nextAppState === 'inactive') {
-        // Guardar el tiempo cuando la app va a background
-        backgroundTimeRef.current = Date.now();
-      } else if (nextAppState === 'active' && backgroundTimeRef.current > 0) {
-        // Recalcular el tiempo cuando la app vuelve a foreground
-        if (isTimerRunning && !isClosing) {
-          const timeInBackground = Math.floor((Date.now() - backgroundTimeRef.current) / 1000);
-          setElapsedTime((prev) => prev + timeInBackground);
-          setTotalElapsedTime((prev) => prev + timeInBackground);
-          startTimeRef.current = Date.now() - ((elapsedTime + timeInBackground) * 1000);
+      if (nextAppState === 'active') {
+        // Fuerza actualización inmediata visual cuando la app vuelve
+        if (isTimerRunning && !isClosing && startTimeRef.current > 0) {
+          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          setElapsedTime(elapsed);
+          setTotalElapsedTime(baseTotalTimeRef.current + elapsed);
         }
-        backgroundTimeRef.current = 0;
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        saveCurrentProgress();
       }
     });
 
+    return () => subscription.remove();
+  }, [isTimerRunning, isClosing, saveCurrentProgress]);
+
+  // Limpiar timeout de celebración si el componente se desmonta inesperadamente
+  useEffect(() => {
     return () => {
-      subscription.remove();
+      if (celebrationTimeoutRef.current) clearTimeout(celebrationTimeoutRef.current);
     };
-  }, [isTimerRunning, isClosing, elapsedTime]);
+  }, []);
 
   const currentSubtask = subtasks[currentIndex];
   const isLastTask = currentIndex === subtasks.length - 1;
@@ -471,7 +477,7 @@ export function FocusModeScreen({
     // Show confetti
     setShowConfetti(true);
     setIsTimerRunning(false);
-    
+
     // Mark current task as completed
     setSubtasks((prev) =>
       prev.map((task, idx) =>
@@ -480,10 +486,12 @@ export function FocusModeScreen({
     );
 
     // Wait for celebration, then move to next or close
-    const timeout1 = setTimeout(async () => {
-      if (!isClosing) {
+    if (celebrationTimeoutRef.current) clearTimeout(celebrationTimeoutRef.current);
+
+    celebrationTimeoutRef.current = setTimeout(async () => {
+      if (!isExplicitlyClosedRef.current) {
         setShowConfetti(false);
-        
+
         if (isLastTask) {
           // Limpiar progreso guardado
           try {
@@ -491,11 +499,13 @@ export function FocusModeScreen({
           } catch (error) {
             console.error('Error clearing progress:', error);
           }
-          
-          // Cerrar la pantalla (el cleanup se encargará de pasar las subtasks)
+
+          // Cerrar la pantalla — marcar como cerrado explícito para evitar doble onClose en unmount
+          isExplicitlyClosedRef.current = true;
           onClose(subtasksRef.current);
         } else {
           // Next task
+          baseTotalTimeRef.current = totalElapsedTime; // Guards progreso total hasta hora
           setCurrentIndex((prev) => prev + 1);
           setElapsedTime(0);
           startTimeRef.current = Date.now();
@@ -503,57 +513,67 @@ export function FocusModeScreen({
         }
       }
     }, 2800);
-    
-    return () => clearTimeout(timeout1);
-  }, [currentIndex, isLastTask, activityId, isClosing, onClose]);
+
+    // No devolver cleanup en useCallback, ya se hace en el useEffect superior
+  }, [currentIndex, isLastTask, activityId, isClosing, onClose, totalElapsedTime]);
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      baseTotalTimeRef.current = totalElapsedTime; // Guardar todo el progreso
+
       setCurrentIndex((prev) => prev - 1);
       setElapsedTime(0);
       startTimeRef.current = Date.now();
+      setIsTimerRunning(true); // Asegurar que el timer siga corriendo
     }
-  }, [currentIndex]);
+  }, [currentIndex, totalElapsedTime]);
 
   const goToNext = useCallback(() => {
     if (currentIndex < subtasks.length - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      baseTotalTimeRef.current = totalElapsedTime; // Guardar progreso total
+
       setCurrentIndex((prev) => prev + 1);
       setElapsedTime(0);
       startTimeRef.current = Date.now();
+      setIsTimerRunning(true); // Asegurar que el timer siga corriendo
     }
-  }, [currentIndex, subtasks.length]);
+  }, [currentIndex, subtasks.length, totalElapsedTime]);
 
   const handleClose = useCallback(() => {
     setShowExitModal(true);
   }, []);
 
   const handleConfirmExit = useCallback(async () => {
+    // Marcar como cerrado explícito PRIMERO para que el cleanup en unmount no llame onClose de nuevo
+    isExplicitlyClosedRef.current = true;
     setIsClosing(true);
     setIsTimerRunning(false);
-    
+
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    } catch (error) {}
-    
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => { });
+    } catch (error) { }
+
     // Clear saved progress when exiting
     try {
       await AsyncStorage.removeItem(`focus_progress_${activityId}`);
     } catch (error) {
       console.error('Error clearing progress:', error);
     }
-    
+
     setTimeout(() => {
-      onClose(subtasks); // Pass updated subtasks to parent
+      onClose(subtasksRef.current); // Pass updated subtasks to parent
     }, 50);
-  }, [subtasks, activityId, onClose]);
+  }, [activityId, onClose]);
 
   const handleCancelExit = useCallback(() => {
     setShowExitModal(false);
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    } catch (error) {}
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+    } catch (error) { }
   }, []);
 
 
@@ -604,6 +624,7 @@ export function FocusModeScreen({
 
           {/* Task Title */}
           <View style={styles.taskTitleContainer}>
+            <Text style={styles.taskEmoji}>{taskEmoji}</Text>
             <Text style={styles.taskTitle} numberOfLines={1}>
               {taskTitle}
             </Text>
@@ -614,7 +635,6 @@ export function FocusModeScreen({
             {subtasks.map((subtask, index) => (
               <ProgressBar
                 key={subtask.id}
-                index={index}
                 isActive={index === currentIndex}
                 isCompleted={subtask.isCompleted}
               />
@@ -623,7 +643,7 @@ export function FocusModeScreen({
 
           {/* Progress Text */}
           <Text style={styles.progressText}>
-            {completedCount + (currentIndex < subtasks.length ? 0 : 0)} / {subtasks.length} completados
+            {completedCount} / {subtasks.length} completados
           </Text>
         </View>
 
@@ -633,11 +653,11 @@ export function FocusModeScreen({
           <Pressable
             onPress={goToPrevious}
             style={[styles.navButton, styles.navButtonLeft]}
-            disabled={currentIndex === 0}
+            disabled={currentIndex === 0 || showConfetti}
           >
-            <ChevronLeft 
-              size={24} 
-              color={currentIndex === 0 ? colors.disabled : colors.textSecondary} 
+            <ChevronLeft
+              size={24}
+              color={currentIndex === 0 || showConfetti ? colors.disabled : colors.textSecondary}
             />
           </Pressable>
 
@@ -660,7 +680,11 @@ export function FocusModeScreen({
                 </View>
 
                 {/* Subtask Title */}
-                <Text style={styles.subtaskTitle}>
+                <Text
+                  style={styles.subtaskTitle}
+                  adjustsFontSizeToFit
+                  numberOfLines={3}
+                >
                   {currentSubtask.title}
                 </Text>
               </View>
@@ -671,11 +695,11 @@ export function FocusModeScreen({
           <Pressable
             onPress={goToNext}
             style={[styles.navButton, styles.navButtonRight]}
-            disabled={currentIndex === subtasks.length - 1}
+            disabled={currentIndex === subtasks.length - 1 || showConfetti}
           >
-            <ChevronRight 
-              size={14} 
-              color={currentIndex === subtasks.length - 1 ? colors.disabled : colors.textSecondary} 
+            <ChevronRight
+              size={24}
+              color={currentIndex === subtasks.length - 1 || showConfetti ? colors.disabled : colors.textSecondary}
             />
           </Pressable>
         </View>
@@ -687,7 +711,7 @@ export function FocusModeScreen({
             💡 Enfócate solo en este paso
           </Text>
 
-          <SwipeToCompleteSlider 
+          <SwipeToCompleteSlider
             onComplete={handleCompleteTask}
             isLastTask={isLastTask}
             currentIndex={currentIndex}
@@ -710,7 +734,7 @@ export function FocusModeScreen({
               <Text style={styles.modalSubtitle}>
                 {subtasks.filter(s => !s.isCompleted).length} subtarea{subtasks.filter(s => !s.isCompleted).length !== 1 ? 's' : ''} pendiente{subtasks.filter(s => !s.isCompleted).length !== 1 ? 's' : ''}
               </Text>
-              
+
               <View style={styles.modalButtons}>
                 <Pressable onPress={handleConfirmExit} style={styles.modalButton}>
                   <LinearGradient
@@ -722,7 +746,7 @@ export function FocusModeScreen({
                     <Text style={styles.modalButtonText}>Guardar y Salir</Text>
                   </LinearGradient>
                 </Pressable>
-                
+
                 <Pressable onPress={handleCancelExit} style={styles.modalSecondaryButton}>
                   <Text style={styles.modalSecondaryButtonText}>Seguir Aquí</Text>
                 </Pressable>
@@ -752,7 +776,7 @@ const styles = StyleSheet.create({
     flex: 1,
     zIndex: 2,
   },
-  
+
   // Header
   header: {
     paddingHorizontal: 20,
@@ -908,13 +932,12 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: colors.primary + '40',
     borderRadius: SLIDER_HEIGHT / 2,
   },
   sliderText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.textPrimary,
+    color: colors.background,
     textAlign: 'center',
     marginLeft: THUMB_SIZE + 16,
     letterSpacing: -0.3,

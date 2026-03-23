@@ -251,10 +251,10 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
     const validTasks = tasks.filter(task => task.title.trim() !== '');
     
     if (routineName.trim() && validTasks.length > 0 && selectedDays.length > 0) {
-      const timeString = reminderTime.toLocaleTimeString('es-ES', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      // Format time as HH:mm (24h, zero-padded) — toLocaleTimeString is unreliable on Android
+      const hh = String(reminderTime.getHours()).padStart(2, '0');
+      const mm = String(reminderTime.getMinutes()).padStart(2, '0');
+      const timeString = `${hh}:${mm}`;
 
       onCreateRoutine({
         name: routineName,
@@ -307,10 +307,9 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
   };
 
   const renderTaskItem = useCallback(

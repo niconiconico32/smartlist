@@ -4,7 +4,17 @@ import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: any = {};
+if (!isExpoGo) {
+  Notifications = require('expo-notifications');
+} else {
+  Notifications = {
+    requestPermissionsAsync: async () => ({ status: 'undetermined' }),
+  };
+}
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -642,7 +652,7 @@ function PaywallScreen({ onAccept, onSkip }: { onAccept: () => void; onSkip: () 
         <Image source={require('@/assets/images/streak.png')} style={{ width: 100, height: 100, marginBottom: 16 }} resizeMode="contain" />
         <Text style={styles.slideTitle}>Empieza tu transformación hoy</Text>
         <Text style={[styles.slideSubtitle, { marginBottom: 24 }]}>
-          Prueba Brainy Premium gratis por 14 días.{'\n'}Te avisaremos 2 días antes de que termine.
+          Prueba Brainy Premium gratis por 7 días.{'\n'}Te avisaremos 2 días antes de que termine.
         </Text>
         <View style={styles.timelineContainer}>
           <View style={styles.timelineLine} />
@@ -652,18 +662,18 @@ function PaywallScreen({ onAccept, onSkip }: { onAccept: () => void; onSkip: () 
           </View>
           <View style={styles.timelineNode}>
             <View style={[styles.timelineDot, { backgroundColor: '#FFE66D' }]} />
-            <Text style={styles.timelineLabel}>Día 12{'\n'}Recordatorio</Text>
+            <Text style={styles.timelineLabel}>Día 5{'\n'}Recordatorio</Text>
           </View>
           <View style={styles.timelineNode}>
             <View style={[styles.timelineDot, { backgroundColor: '#FF6B6B' }]} />
-            <Text style={styles.timelineLabel}>Día 14{'\n'}Cobro</Text>
+            <Text style={styles.timelineLabel}>Día 7{'\n'}Cobro</Text>
           </View>
         </View>
       </ScrollView>
       <View style={styles.bottomButtonArea}>
         <Pressable onPress={handleStartTrial} style={{ width: '100%' }} disabled={loading}>
           <LinearGradient colors={PRIMARY_GRADIENT_COLORS} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.primaryButton, loading && { opacity: 0.6 }]}>
-            <Text style={styles.primaryButtonText}>{loading ? 'Procesando...' : 'Iniciar mis 14 días gratis'}</Text>
+            <Text style={styles.primaryButtonText}>{loading ? 'Procesando...' : 'Iniciar mis 7 días gratis'}</Text>
           </LinearGradient>
         </Pressable>
         <Pressable onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSkip(); }} style={{ marginTop: 12 }}>

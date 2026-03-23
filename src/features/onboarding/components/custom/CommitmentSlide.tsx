@@ -1,14 +1,14 @@
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // ============================================
@@ -16,8 +16,8 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 // ============================================
 const COMMITMENTS = [
   'Prometo ser amable conmigo mismo/a si fallo un día.',
-  'Dedicaré al menos 2 minutos al día a revisar mi plan.',
-  'Confío en que mi cerebro puede aprender nuevas rutas.',
+  'Dedicaré al menos 2 minutos al día a revisar mis tareas y rutinas.',
+  'Confío en que mi cerebro puede aprender nuevos hábitos.',
 ];
 
 interface Props {
@@ -36,6 +36,9 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
   return (
     <View style={s.container}>
       <View style={s.contentArea}>
+        <Animated.View entering={FadeInDown.delay(50).duration(400)} style={s.logoContainer}>
+          <Image source={require('@/assets/images/brainysign.png')} style={s.logo} />
+        </Animated.View>
         <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
           Un pequeño trato entre tú y yo
         </Animated.Text>
@@ -43,16 +46,24 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
           Estos compromisos harán toda la diferencia.
         </Animated.Text>
 
-        {COMMITMENTS.map((text, idx) => (
-          <Animated.View key={idx} entering={FadeInUp.delay(350 + idx * 120).duration(400)}>
-            <Pressable onPress={() => toggleCheck(idx)} style={s.commitRow}>
-              <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
-                {checked[idx] && <Text style={s.checkmark}>✓</Text>}
-              </View>
-              <Text style={s.commitText}>{text}</Text>
-            </Pressable>
-          </Animated.View>
-        ))}
+        {COMMITMENTS.map((text, idx) => {
+          const isVisible = idx === 0 || checked[idx - 1];
+          if (!isVisible) return null;
+
+          return (
+            <Animated.View
+              key={idx}
+              entering={FadeInUp.delay(idx === 0 ? 350 : 100).duration(400)}
+            >
+              <Pressable onPress={() => toggleCheck(idx)} style={s.commitRow}>
+                <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
+                  {checked[idx] && <Text style={s.checkmark}>✓</Text>}
+                </View>
+                <Text style={s.commitText}>{text}</Text>
+              </Pressable>
+            </Animated.View>
+          );
+        })}
       </View>
 
       <View style={s.buttonContainer}>
@@ -92,6 +103,15 @@ const s = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 60,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 64,
+    height: 64,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 28,

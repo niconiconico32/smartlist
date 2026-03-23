@@ -329,6 +329,9 @@ interface AchievementsStore {
   activeBackground: string | null;
   activeOutfit: string | null;
 
+  // New map to prevent re-awarding coins on the same day simply by unchecking and rechecking tasks
+  rewardedRoutines: Record<string, string>;
+
   // Actions
   loadAchievements: () => Promise<void>;
   updateAchievement: (id: AchievementId, progress: number) => Promise<void>;
@@ -351,6 +354,11 @@ interface AchievementsStore {
   spendCoins: (amount: number) => Promise<boolean>;
   setActiveBackground: (id: string | null) => Promise<void>;
   setActiveOutfit: (id: string | null) => Promise<void>;
+
+  isRoutineModalOpen: boolean;
+  setRoutineModalOpen: (isOpen: boolean) => void;
+
+  awardRoutineCompletionCoins: (routineId: string) => Promise<{ earned: number; isNew: boolean }>;
 }
 
 // =====================================================
@@ -373,6 +381,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           purchasedBackgrounds: s.purchasedBackgrounds,
           activeBackground: s.activeBackground,
           activeOutfit: s.activeOutfit,
+          rewardedRoutines: s.rewardedRoutines,
         }),
       );
     } catch (error) {
@@ -391,6 +400,8 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     purchasedBackgrounds: [],
     activeBackground: null,
     activeOutfit: null,
+    rewardedRoutines: {},
+    isRoutineModalOpen: false,
 
     // =========================================================
     // LOAD (with backward-compatible migration)
@@ -421,6 +432,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             purchasedBackgrounds: data.purchasedBackgrounds || [],
             activeBackground: data.activeBackground || null,
             activeOutfit: data.activeOutfit || null,
+            rewardedRoutines: data.rewardedRoutines || {},
           });
         }
       } catch (error) {
@@ -682,5 +694,33 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       set({ activeOutfit: id });
       await persist();
     },
+
+    // =========================================================
+    // AWARD ROUTINE COMPLETION COINS
+    // =========================================================
+    awardRoutineCompletionCoins: async (routineId: string) => {
+      const today = getLocalDateKey(new Date());
+      const state = get();
+      
+      if (state.rewardedRoutines[routineId] === today) {
+        // Ya fue compensado hoy, no hacer nada
+        return { earned: 0, isNew: false };
+      }
+      
+      const multiplier = useAppStreakStore.getState().getMultiplier();
+      const earned = Math.round(100 * multiplier);
+      
+      set({
+        rewardedRoutines: { ...state.rewardedRoutines, [routineId]: today },
+        totalCoins: state.totalCoins + earned,
+      });
+      await persist();
+      
+      return { earned, isNew: true };
+    },
+
+    setRoutineModalOpen: (isOpen: boolean) => {
+      set({ isRoutineModalOpen: isOpen });
+    }
   };
 });

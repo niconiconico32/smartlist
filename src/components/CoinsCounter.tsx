@@ -4,36 +4,18 @@ import { Animated, StyleSheet, Text } from 'react-native';
 
 interface CoinsCounterProps {
   coins: number;
-  size?: 'small' | 'large';
+  size?: 'small' | 'large' | 'special';
+  color?: string;
 }
 
-export function CoinsCounter({ coins, size = 'small' }: CoinsCounterProps) {
+export function CoinsCounter({ coins, size = 'small', color }: CoinsCounterProps) {
   const animatedValue = useRef(new Animated.Value(coins)).current;
-  const scaleValue = useRef(new Animated.Value(1)).current;
   const previousCoins = useRef(coins);
   const [displayCoins, setDisplayCoins] = React.useState(coins);
 
   useEffect(() => {
-    // Update display on mount
-    setDisplayCoins(coins);
-    
     // If coins increased, animate the number
     if (coins > previousCoins.current) {
-      // Scale animation (bounce effect)
-      Animated.sequence([
-        Animated.spring(scaleValue, {
-          toValue: 1.3,
-          friction: 3,
-          tension: 100,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleValue, {
-          toValue: 1,
-          friction: 3,
-          tension: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
 
       // Number count animation
       Animated.timing(animatedValue, {
@@ -41,12 +23,12 @@ export function CoinsCounter({ coins, size = 'small' }: CoinsCounterProps) {
         duration: 800,
         useNativeDriver: false,
       }).start();
-      
+
       // Listen to animation value changes
       const listener = animatedValue.addListener(({ value }) => {
         setDisplayCoins(Math.floor(value));
       });
-      
+
       // Cleanup listener after animation
       setTimeout(() => {
         animatedValue.removeListener(listener);
@@ -68,14 +50,16 @@ export function CoinsCounter({ coins, size = 'small' }: CoinsCounterProps) {
       style={[
         styles.container,
         isSmall ? styles.containerSmall : styles.containerLarge,
-        { transform: [{ scale: scaleValue }] },
       ]}
     >
-      
+
       <Text
         style={[
           styles.coinsText,
-          isSmall ? styles.coinsTextSmall : styles.coinsTextLarge,
+          size === 'small' && styles.coinsTextSmall,
+          size === 'large' && styles.coinsTextLarge,
+          size === 'special' && styles.coinsTextSpecial,
+          color ? { color } : undefined,
         ]}
       >
         {displayCoins}
@@ -90,11 +74,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   containerSmall: {
-    paddingVertical: 6,
+    paddingVertical: 3,
     gap: 4,
   },
   containerLarge: {
-    paddingVertical: 8,
+    paddingVertical: 4,
     gap: 6,
   },
   coinsText: {
@@ -102,9 +86,13 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   coinsTextSmall: {
-    fontSize: 18,
+    fontSize: 12,
   },
   coinsTextLarge: {
-    fontSize: 18,
+    fontSize: 14,
+  },
+  coinsTextSpecial: {
+    fontSize: 12,
+    fontWeight: '900',
   },
 });

@@ -6,11 +6,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { LogBox } from 'react-native';
 import 'react-native-reanimated';
+import { Jersey10_400Regular } from '@expo-google-fonts/jersey-10';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppErrorBoundary } from '@/src/components/AppErrorBoundary';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { PurchasesProvider } from '@/src/contexts/PurchasesContext';
+import { useOnboardingStore } from '@/src/store/onboardingStore';
+import { useRoutineStreakStore } from '@/src/store/routineStreakStore';
 
 // Suprimir warning de expo-notifications - las notificaciones funcionan en development build
 LogBox.ignoreLogs([
@@ -34,8 +37,16 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Jersey10: Jersey10_400Regular,
     ...FontAwesome.font,
   });
+
+  const { initializeRoutineStreaks } = useRoutineStreakStore();
+
+  useEffect(() => {
+    // Initialize routine streaks as soon as app starts
+    initializeRoutineStreaks();
+  }, []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
@@ -68,21 +79,35 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, isLoading, isAnonymous } = useAuth();
+  const isOnboardingLocal = useOnboardingStore((s) => s.isOnboardingComplete);
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return; // Wait until auth state is resolved
 
-    const inAuthGroup = segments[0] === 'login';
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'onboarding-new' || segments[0] === 'onboarding-v3';
 
-    if (!session && !inAuthGroup) {
-      // No session → send to login
-      router.replace('/login');
-    } else if (session && !isAnonymous && inAuthGroup) {
-      // Fully authenticated user on login screen → send to main app
-      // (Anonymous users CAN visit login to upgrade their account)
-      router.replace('/(tabs)');
+    if (!session) {
+      if (!inAuthGroup) {
+        // No session → send to onboarding
+        router.replace('/onboarding-v3');
+      }
+    } else {
+      const hasCompletedOnboarding = 
+        session.user?.user_metadata?.onboarding_completed === true || 
+        isOnboardingLocal;
+
+      if (!hasCompletedOnboarding && !inAuthGroup) {
+        // User hasn't finished onboarding but is trying to access app
+        router.replace('/onboarding-v3');
+      } else if (hasCompletedOnboarding && segments[0] === 'login') {
+        // Fully authenticated user on login screen → send to main app
+        // (Anonymous users CAN visit login to upgrade their account)
+        if (!isAnonymous) {
+          router.replace('/(tabs)');
+        }
+      }
     }
   }, [session, isLoading, isAnonymous, segments]);
 

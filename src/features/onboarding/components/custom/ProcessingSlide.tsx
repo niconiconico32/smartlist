@@ -3,14 +3,14 @@ import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    Easing,
-    FadeInDown,
-    SharedValue,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withTiming
+  Easing,
+  FadeInDown,
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
 } from 'react-native-reanimated';
 
 import type { OnboardingAnswers } from '../../types';
@@ -81,7 +81,7 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
     <View style={s.container}>
       <Animated.View style={[s.mascotContainer, mascotStyle]}>
         <Image
-          source={require('@/assets/images/streak.png')}
+          source={require('@/assets/images/brainycomputing.png')}
           style={s.mascot}
           resizeMode="contain"
         />

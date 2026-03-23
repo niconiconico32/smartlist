@@ -1,43 +1,45 @@
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-    FadeIn,
-    FadeInDown
+  FadeIn,
+  FadeInDown
 } from 'react-native-reanimated';
 
 // ============================================
 // TESTIMONIAL SLIDE — Carousel style
-// ============================================
 const TESTIMONIALS = [
   {
     initials: 'A',
+    image: require('@/assets/images/user2.png'),
     name: 'Alex',
     age: '29 años',
-    quote:
-      'Pensé que era flojo, pero Brainy me enseñó que solo necesitaba un sistema que hablara mi idioma. Ahora completo mis tareas sin sentir que lucho contra mí mismo.',
+    quote: 'Toda la vida juré que era flojo, pero me di cuenta de que solo necesitaba organizarme distinto. Con Brainy al fin avanzo con mis cosas sin que sea una pelea constante contra mi propia cabeza.'
+
   },
   {
     initials: 'C',
+    image: require('@/assets/images/user1.png'),
     name: 'Camila',
     age: '34 años',
     quote:
-      'Por primera vez completé una rutina por más de 2 semanas. Eso no me pasaba desde el colegio. ¡Brainy realmente entiende cómo funciona mi cerebro!',
+      'Llevo más de dos semanas cumpliendo mi rutina y de verdad no me lo creo (literal no me pasaba desde el colegio jaja). Siento que la app está hecha exactamente para cabezas como la mía.'
   },
   {
     initials: 'D',
+    image: require('@/assets/images/user3.png'),
     name: 'Diego',
     age: '26 años',
     quote:
-      'Las micro-recompensas son adictivas en el buen sentido. Antes me costaba empezar cualquier tarea, ahora tengo racha de 21 días consecutivos.',
+      'El sistema de rachas te atrapa de la mejor manera. Antes me costaba un mundo empezar, hoy llevo 21 días seguidos cumpliendo.'
   },
 ];
 
@@ -86,7 +88,11 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
             <View style={s.avatarRingOuter}>
               <View style={s.avatarRing}>
                 <View style={s.avatar}>
-                  <Text style={s.avatarInitials}>{testimonial.initials}</Text>
+                  {testimonial.image ? (
+                    <Image source={testimonial.image} style={s.avatarImage} />
+                  ) : (
+                    <Text style={s.avatarInitials}>{testimonial.initials}</Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -245,11 +251,17 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: colors.primary,
+    overflow: 'hidden',
   },
   avatarInitials: {
     fontSize: 44,
     fontWeight: '900',
     color: colors.textPrimary,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   // ── Name ──
   name: {

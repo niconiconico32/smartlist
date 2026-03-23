@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import { EditRoutineModal } from "@/src/components/EditRoutineModal";
 import { RoutineCard } from "@/src/components/RoutineCard";
+import { RoutineCelebration } from "@/src/components/RoutineCelebration";
 import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
@@ -11,12 +12,13 @@ import {
 } from "@/src/lib/notificationService";
 import * as routineService from "@/src/lib/routineService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
+import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import type { Routine } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, View, DeviceEventEmitter } from "react-native";
 import Animated, {
     FadeIn,
     FadeInDown,
@@ -47,12 +49,19 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
     onRoutineEdited, 
     onReminderActivated 
   } = useAchievementsStore();
+  const { recordRoutineCompletion, unmarkRoutineCompletion } = useRoutineStreakStore();
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebratedRoutineName, setCelebratedRoutineName] = useState("");
+  const [earnedCoins, setEarnedCoins] = useState(100);
+  
+  // Guardamos las monedas ganadas mientras los modales están abiertos
+  const pendingAnimationAmount = useRef(0);
 
   // Get current day abbreviation from selected date
   const currentDayAbbrev = useMemo(() => {
@@ -91,44 +100,7 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
       setIsLoading(true);
 
       // Cargar rutinas desde Supabase
-      let fetchedRoutines = await routineService.fetchRoutines(user.id);
-      
-      // Limpiar duplicados
-      const uniqueNames = new Map<string, Routine>();
-      const toDelete: string[] = [];
-      
-      const sorted = [...fetchedRoutines].sort((a, b) => {
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      });
-      
-      for (const routine of sorted) {
-        if (!uniqueNames.has(routine.name)) {
-          uniqueNames.set(routine.name, routine);
-        } else {
-          toDelete.push(routine.id);
-        }
-      }
-      
-      if (toDelete.length > 0) {
-        await Promise.all(toDelete.map(id => routineService.deleteRoutine(id, user.id)));
-        fetchedRoutines = await routineService.fetchRoutines(user.id);
-      }
-      
-      // Si no hay rutinas, crear una de prueba
-      if (fetchedRoutines.length === 0) {
-        await routineService.createRoutine(user.id, {
-          name: "Rutina de Prueba",
-          days: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
-          tasks: [
-            { title: "Tarea 1", position: 0 },
-            { title: "Tarea 2", position: 1 },
-            { title: "Tarea 3", position: 2 },
-          ],
-          icon: "Star",
-          reminderEnabled: false,
-        });
-        fetchedRoutines = await routineService.fetchRoutines(user.id);
-      }
+      const fetchedRoutines = await routineService.fetchRoutines(user.id);
       
       setRoutines(fetchedRoutines);
       // Actualizar logro de cantidad de rutinas creadas
@@ -282,7 +254,21 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
 
       // Verificar si la rutina está completa
       if (allTasksComplete && completed) {
+        // Otorgar monedas solo si no se ha celebrado hoy
+        const result = await useAchievementsStore.getState().awardRoutineCompletionCoins(routineId);
+        
+        if (result.isNew) {
+          pendingAnimationAmount.current += result.earned;
+          const fullRoutine = routines.find((r) => r.id === routineId);
+          if (fullRoutine) {
+            setCelebratedRoutineName(fullRoutine.name);
+            setEarnedCoins(result.earned);
+            setShowCelebration(true);
+          }
+        }
+
         await routineService.markRoutineComplete(routineId, user.id);
+        await recordRoutineCompletion(routineId);
         // Actualizar logro de primera rutina completada
         achievementRoutineCompleted();
         if (onRoutineCompleted) {
@@ -290,6 +276,7 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
         }
       } else if (!allTasksComplete) {
         await routineService.unmarkRoutineComplete(routineId, user.id);
+        await unmarkRoutineCompletion(routineId);
       }
     } catch (error) {
       console.error("Error al actualizar tarea:", error);
@@ -381,10 +368,27 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
         visible={selectedRoutine !== null}
         routine={selectedRoutine}
         colorIndex={selectedRoutineIndex}
-        onClose={() => setSelectedRoutine(null)}
+        onClose={() => {
+          setSelectedRoutine(null);
+          if (pendingAnimationAmount.current > 0) {
+            const amount = pendingAnimationAmount.current;
+            pendingAnimationAmount.current = 0;
+            setTimeout(() => {
+              DeviceEventEmitter.emit('triggerCoinAnimation', amount);
+            }, 300);
+          }
+        }}
         onTaskToggle={handleTaskToggle}
         onDelete={handleDeleteRoutine}
         onEdit={handleEditRoutine}
+      />
+
+      {/* Celebration Modal */}
+      <RoutineCelebration
+        visible={showCelebration}
+        routineName={celebratedRoutineName}
+        earnedCoins={earnedCoins}
+        onClose={() => setShowCelebration(false)}
       />
     </View>
   );

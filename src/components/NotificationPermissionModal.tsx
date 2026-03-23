@@ -1,5 +1,16 @@
 import { colors } from '@/constants/theme';
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: any = {};
+if (!isExpoGo) {
+  Notifications = require('expo-notifications');
+} else {
+  Notifications = {
+    getPermissionsAsync: async () => ({ status: 'undetermined' }),
+    requestPermissionsAsync: async () => ({ status: 'undetermined' }),
+  };
+}
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, Flame, Sparkles, X } from 'lucide-react-native';
 import React, { useState } from 'react';

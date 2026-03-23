@@ -7,10 +7,18 @@ import {
 import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Notifications from 'expo-notifications';
-import React, { useState } from 'react';
+import { requestNotificationPermissions } from '@/src/lib/notificationService';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 // ============================================
 // NOTIFICATIONS SLIDE
@@ -22,25 +30,70 @@ interface Props {
 const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
   const [granted, setGranted] = useState(false);
 
+  const mascotY = useSharedValue(0);
+  const bellRotate = useSharedValue(0);
+
+  useEffect(() => {
+    // Floating mascot
+    mascotY.value = withRepeat(
+      withSequence(
+        withTiming(-10, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    // Bell wiggle
+    bellRotate.value = withRepeat(
+      withSequence(
+        withTiming(15, { duration: 200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-15, { duration: 200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(10, { duration: 150, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 150, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000 }) // pause
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
+
+  const bellStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${bellRotate.value}deg` }],
+  }));
+
   const requestPermission = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status === 'granted') {
+    const success = await requestNotificationPermissions();
+    
+    if (success) {
       setGranted(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(onNext, 700);
+    } else {
+      // Si el usuario deniega los permisos en el OS, avanzamos igual 
+      // para que no se quede bloqueado en esta pantalla
+      onNext();
     }
   };
 
   return (
     <View style={s.container}>
       <View style={s.contentArea}>
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={s.mascotContainer}>
+        {/* Mascot + bell */}
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(600)}
+          style={[s.mascotContainer, mascotStyle]}
+        >
           <Image
-            source={require('@/assets/images/streak.png')}
+            source={require('@/assets/images/logomain.png')}
             style={s.mascot}
             resizeMode="contain"
           />
+          <Animated.Text style={[s.bell, bellStyle]}>🔔</Animated.Text>
         </Animated.View>
 
         <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.title}>
@@ -121,11 +174,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   mascotContainer: {
+    alignItems: 'center',
     marginBottom: 24,
   },
   mascot: {
-    width: 110,
-    height: 110,
+    width: 140,
+    height: 140,
+  },
+  bell: {
+    position: 'absolute',
+    right: -10,
+    bottom: 20,
+    fontSize: 32,
   },
   title: {
     fontSize: 28,

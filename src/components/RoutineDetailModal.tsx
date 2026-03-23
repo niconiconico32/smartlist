@@ -32,8 +32,7 @@ import Animated, {
     withTiming
 } from "react-native-reanimated";
 
-// Colores para las rutinas (se asignan de forma rotativa)
-const ROUTINE_COLORS = ["#FAB387", "#CBA6F7", "#A6E3A1", "#89B4FA", "#F5C2E7"];
+import { ROUTINE_COLORS } from '@/constants/routineColors';
 
 const DAYS_OF_WEEK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -299,9 +298,11 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   // Actualizar tareas cuando cambie la rutina o se abra el modal
   useEffect(() => {
     if (routine && visible) {
-      setTasks(
-        routine.tasks.map((t) => ({ ...t, completed: t.completed || false })),
-      );
+      const mappedTasks = routine.tasks.map((t) => ({ ...t, completed: t.completed || false }));
+      setTasks(mappedTasks);
+      // Initialize completedToday based on whether all tasks are already done
+      const allDone = mappedTasks.length > 0 && mappedTasks.every((t) => t.completed);
+      setCompletedToday(allDone);
     }
   }, [routine?.id, visible]);
 

@@ -23,7 +23,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
-import React, { createRef, useCallback, useRef, useState } from 'react';
+import React, { createRef, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
@@ -82,6 +82,7 @@ export default function SwipeableLayout() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const pulseAnimFirstTime = useRef(new Animated.Value(1)).current;
   const router = useRouter();
+  const hasLoadedOnce = useRef(false);
 
   // Load and calculate streak
   const loadStreak = useCallback(async () => {
@@ -210,7 +211,9 @@ export default function SwipeableLayout() {
   useFocusEffect(
     useCallback(() => {
       const loadAll = async () => {
-        setIsLoadingData(true);
+        if (!hasLoadedOnce.current) {
+          setIsLoadingData(true);
+        }
         try {
           await Promise.all([
             loadRoutines(),
@@ -221,6 +224,7 @@ export default function SwipeableLayout() {
           ]);
         } finally {
           setIsLoadingData(false);
+          hasLoadedOnce.current = true;
         }
       };
       loadAll();
@@ -586,40 +590,6 @@ export default function SwipeableLayout() {
           </Text>
         </Pressable>
       </View>
-
-      {/* First Time Overlay - Top Level */}
-      {isFirstTime && (
-        <Animated_Reanimated.View 
-          style={styles.firstTimeOverlay}
-          entering={FadeIn.duration(500)}
-        >
-          <View style={styles.firstTimeContent}>
-            <Image 
-              source={require('@/assets/images/logomain.png')}
-              style={styles.firstTimeImage}
-              resizeMode="contain"
-            />
-            <Text 
-              style={styles.firstTimeText}
-              numberOfLines={3}
-            >
-              ¡Comencémos creando tu primera tarea!
-            </Text>
-            <Animated.View
-              style={[
-                styles.firstTimePulseRing,
-                {
-                  transform: [{ scale: pulseAnimFirstTime }],
-                  opacity: pulseAnimFirstTime.interpolate({
-                    inputRange: [1, 1.15],
-                    outputRange: [0.3, 0.1],
-                  }),
-                },
-              ]}
-            />
-          </View>
-        </Animated_Reanimated.View>
-      )}
 
       {/* Create Routine Modal */}
       <CreateRoutineModal

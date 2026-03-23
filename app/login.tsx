@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
+import { useOnboardingStore } from '@/src/store/onboardingStore';
 import React, { useCallback } from 'react';
 import {
     ActivityIndicator,
@@ -15,6 +16,7 @@ import {
     Text,
     View,
 } from 'react-native';
+import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -40,7 +42,9 @@ export default function LoginScreen() {
   const handleSkip = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await signInAnonymously();
-  }, [signInAnonymously]);
+    await useOnboardingStore.getState().completeOnboarding();
+    router.replace('/(tabs)');
+  }, [signInAnonymously, router]);
 
   return (
     <View style={styles.container}>
@@ -79,18 +83,15 @@ export default function LoginScreen() {
           style={styles.buttonsSection}
         >
           {/* Google */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.oauthButton,
-              styles.googleButton,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={handleGoogleSignIn}
-            disabled={isLoading}
-          >
-            <Text style={styles.googleIcon}>G</Text>
-            <Text style={styles.googleButtonText}>Continuar con Google</Text>
-          </Pressable>
+          <View style={styles.googleButtonWrapper}>
+            <GoogleSigninButton
+              size={GoogleSigninButton.Size.Wide}
+              color={GoogleSigninButton.Color.Light}
+              onPress={handleGoogleSignIn}
+              disabled={isLoading}
+              style={{ width: '100%', height: 56 }}
+            />
+          </View>
 
           {/* Apple — only on iOS */}
           {Platform.OS === 'ios' && (
@@ -117,8 +118,8 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* Skip (anonymous) — hide when upgrading */}
-          {!isUpgrading && (
+          {/* Skip (anonymous) o Volver a la app si ya es anónimo */}
+          {!isUpgrading ? (
             <Pressable
               style={({ pressed }) => [
                 styles.skipButton,
@@ -140,7 +141,27 @@ export default function LoginScreen() {
                 )}
               </LinearGradient>
             </Pressable>
+          ) : (
+            <Pressable
+              style={({ pressed }) => [
+                styles.skipButton,
+                pressed && styles.buttonPressed,
+              ]}
+              onPress={() => router.replace('/(tabs)')}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={['#ECF230', '#F2E852']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.skipButtonGradient}
+              >
+                <Text style={styles.skipButtonText}>Volver a la app</Text>
+              </LinearGradient>
+            </Pressable>
           )}
+
+          {/* Extra back button for testing removed for production */}
 
           <Text style={styles.disclaimer}>
             Al continuar, aceptas nuestros Términos de Servicio{'\n'}y Política de Privacidad.
@@ -212,18 +233,11 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     gap: 10,
   },
-  googleButton: {
-    backgroundColor: '#FFFFFF',
-  },
-  googleIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#4285F4',
-  },
-  googleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E1E2E',
+  googleButtonWrapper: {
+    height: 56,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appleButton: {
     backgroundColor: '#000000',

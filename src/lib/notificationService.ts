@@ -1,5 +1,25 @@
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
+
+const isExpoGo = Constants.appOwnership === "expo";
+let Notifications: any = {};
+if (!isExpoGo) {
+  Notifications = require("expo-notifications");
+} else {
+  Notifications = {
+    setNotificationHandler: () => {},
+    getPermissionsAsync: async () => ({ status: "undetermined" }),
+    requestPermissionsAsync: async () => ({ status: "undetermined" }),
+    scheduleNotificationAsync: async () => {},
+    cancelScheduledNotificationAsync: async () => {},
+    cancelAllScheduledNotificationsAsync: async () => {},
+    getAllScheduledNotificationsAsync: async () => [],
+    setNotificationChannelAsync: async () => {},
+    AndroidImportance: { HIGH: 4, MAX: 5, DEFAULT: 3 },
+    AndroidNotificationPriority: { HIGH: "high", MAX: "max", DEFAULT: "default" },
+    SchedulableTriggerInputTypes: { DAILY: "daily", WEEKLY: "weekly", TIME_INTERVAL: "timeInterval", DATE: "date" }
+  };
+}
 
 // Configurar cómo se muestran las notificaciones cuando la app está abierta
 Notifications.setNotificationHandler({
@@ -164,7 +184,7 @@ export async function cancelRoutineReminders(routineId: string): Promise<void> {
       await Notifications.getAllScheduledNotificationsAsync();
 
     // Filtrar las que pertenecen a esta rutina y cancelarlas
-    const routineNotifications = scheduledNotifications.filter((notification) =>
+    const routineNotifications = scheduledNotifications.filter((notification: any) =>
       notification.identifier.startsWith(`routine_${routineId}_`),
     );
 
@@ -187,7 +207,7 @@ export async function cancelAllRoutineReminders(): Promise<void> {
     const scheduledNotifications =
       await Notifications.getAllScheduledNotificationsAsync();
 
-    const routineNotifications = scheduledNotifications.filter((notification) =>
+    const routineNotifications = scheduledNotifications.filter((notification: any) =>
       notification.identifier.startsWith("routine_"),
     );
 
@@ -209,7 +229,7 @@ export async function cancelAllRoutineReminders(): Promise<void> {
  * Obtiene todas las notificaciones programadas (para debug)
  */
 export async function getScheduledNotifications(): Promise<
-  Notifications.NotificationRequest[]
+  any[]
 > {
   try {
     return await Notifications.getAllScheduledNotificationsAsync();
@@ -373,17 +393,22 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
       const reminderMinute = minutes - minutesBefore;
       let reminderHour = hours;
       let calculatedMinute = reminderMinute;
+      let dayOffset = 0;
 
       if (reminderMinute < 0) {
         reminderHour = hours - 1;
         calculatedMinute = 60 + reminderMinute;
         if (reminderHour < 0) {
           reminderHour = 23;
+          dayOffset = -1;
         }
       }
 
       // Convertir de 0=Dom, 1=Lun... a 1=Dom, 2=Lun... (formato expo-notifications)
-      const weekdays = task.recurrence.days.map((day) => day + 1);
+      const weekdays = task.recurrence.days.map((day) => {
+        const adjustedDay = (day + dayOffset + 7) % 7;
+        return adjustedDay + 1;
+      });
 
       for (const weekday of weekdays) {
         const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -427,7 +452,7 @@ export async function cancelTaskReminders(taskId: string): Promise<void> {
     const scheduledNotifications =
       await Notifications.getAllScheduledNotificationsAsync();
 
-    const taskNotifications = scheduledNotifications.filter((notification) =>
+    const taskNotifications = scheduledNotifications.filter((notification: any) =>
       notification.identifier.startsWith(`task_${taskId}`),
     );
 
@@ -450,7 +475,7 @@ export async function cancelAllTaskReminders(): Promise<void> {
     const scheduledNotifications =
       await Notifications.getAllScheduledNotificationsAsync();
 
-    const taskNotifications = scheduledNotifications.filter((notification) =>
+    const taskNotifications = scheduledNotifications.filter((notification: any) =>
       notification.identifier.startsWith("task_"),
     );
 

@@ -11,21 +11,34 @@
  * - Proteger la racha (loss aversion positiva)
  */
 
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
+import { requestNotificationPermissions } from '../lib/notificationService';
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
+const isExpoGo = Constants.appOwnership === 'expo';
+let Notifications: any = {};
+if (!isExpoGo) {
+  Notifications = require('expo-notifications');
+} else {
+  Notifications = {
+    setNotificationHandler: () => {},
+    getPermissionsAsync: async () => ({ status: 'undetermined' }),
+    requestPermissionsAsync: async () => ({ status: 'undetermined' }),
+    scheduleNotificationAsync: async () => {},
+    cancelScheduledNotificationAsync: async () => {},
+    cancelAllScheduledNotificationsAsync: async () => {},
+    getAllScheduledNotificationsAsync: async () => [],
+    setNotificationChannelAsync: async () => {},
+    AndroidImportance: { HIGH: 4, MAX: 5, DEFAULT: 3 },
+    AndroidNotificationPriority: { HIGH: 'high', MAX: 'max', DEFAULT: 'default' },
+    SchedulableTriggerInputTypes: { DAILY: 'daily', WEEKLY: 'weekly', TIME_INTERVAL: 'timeInterval', DATE: 'date' }
+  };
+}
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Re-export for backward compatibility
+export { requestNotificationPermissions };
+
+// NOTE: setNotificationHandler is configured once in notificationService.ts
+// No need to call it again here.
 
 // ============================================================================
 // MOTIVATIONAL MESSAGES
@@ -160,36 +173,6 @@ function getNotificationId(type: 'morning' | 'afternoon' | 'evening'): string {
   return `smartlist-${type}-notification`;
 }
 
-// ============================================================================
-// PERMISSION MANAGEMENT
-// ============================================================================
-
-/**
- * Solicita permisos de notificación al usuario
- */
-export async function requestNotificationPermissions(): Promise<boolean> {
-  try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('❌ Notification permissions denied');
-      return false;
-    }
-
-    console.log('✅ Notification permissions granted');
-    return true;
-  } catch (error) {
-    console.error('Error requesting notification permissions:', error);
-    return false;
-  }
-}
-
 /**
  * Verifica si los permisos de notificación están otorgados
  */
@@ -301,12 +284,21 @@ export async function scheduleDailyNotifications(): Promise<void> {
 }
 
 /**
- * Cancela todas las notificaciones programadas
+ * Cancela solo las notificaciones motivacionales (smartlist-*)
+ * No toca las notificaciones de rutinas (routine_*) ni tareas (task_*)
  */
 export async function cancelAllScheduledNotifications(): Promise<void> {
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    console.log('🗑️ All scheduled notifications cancelled');
+    const allNotifications = await Notifications.getAllScheduledNotificationsAsync();
+    const smartlistNotifications = allNotifications.filter((n: any) =>
+      n.identifier.startsWith('smartlist-')
+    );
+
+    for (const notification of smartlistNotifications) {
+      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    }
+
+    console.log(`🗑️ ${smartlistNotifications.length} motivational notifications cancelled`);
   } catch (error) {
     console.error('Error cancelling notifications:', error);
   }
@@ -315,7 +307,7 @@ export async function cancelAllScheduledNotifications(): Promise<void> {
 /**
  * Obtiene todas las notificaciones programadas (para debugging)
  */
-export async function getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
+export async function getScheduledNotifications(): Promise<any[]> {
   try {
     const notifications = await Notifications.getAllScheduledNotificationsAsync();
     console.log(`📋 Currently scheduled notifications: ${notifications.length}`);
@@ -435,6 +427,57 @@ export async function scheduleStreakWarningNotification(): Promise<void> {
   }
 }
 
+// ============================================================================
+// TRIAL EXPIRATION NOTIFICATIONS
+// ============================================================================
+
+/**
+ * Schedule a push notification to remind the user their trial is ending.
+ * Fires 2 days before the trial expires.
+ * 
+ * @param trialDays Total trial length in days (e.g., 14)
+ */
+export async function scheduleTrialExpirationNotification(
+  trialDays: number
+): Promise<void> {
+  try {
+    const hasPermissions = await checkNotificationPermissions();
+    if (!hasPermissions) return;
+
+    // Cancel any existing trial notification first
+    try {
+      await Notifications.cancelScheduledNotificationAsync('smartlist-trial-expiration');
+    } catch {
+      // Ignore if not found
+    }
+
+    const reminderDays = trialDays - 2; // Fire 2 days before expiration
+    if (reminderDays <= 0) return; // Trial too short for a reminder
+
+    const seconds = reminderDays * 24 * 60 * 60;
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: 'smartlist-trial-expiration',
+      content: {
+        title: '✨ ¿Te está gustando Brainy?',
+        body: 'Tu prueba premium termina en 2 días. ¡Sigue organizando tu vida sin límites!',
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { type: 'trial_expiration' },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
+        repeats: false,
+      },
+    });
+
+    console.log(`✅ Trial expiration notification scheduled for ${reminderDays} days from now`);
+  } catch (error) {
+    console.error('Error scheduling trial expiration notification:', error);
+  }
+}
+
 export default {
   requestNotificationPermissions,
   checkNotificationPermissions,
@@ -444,4 +487,5 @@ export default {
   sendTestNotification,
   sendStreakNotification,
   scheduleStreakWarningNotification,
+  scheduleTrialExpirationNotification,
 };
