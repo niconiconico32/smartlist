@@ -3,13 +3,15 @@ import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
 import { DailyStreakScreen } from '@/src/components/DailyStreakScreen';
 import { FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
-import { NotificationPermissionModal } from '@/src/components/NotificationPermissionModal';
 import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
+import { PaywallModal } from '@/src/components/PaywallModal';
+import { StreakShieldModal } from '@/src/components/StreakShieldModal';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
 import { useAuth } from '@/src/contexts/AuthContext';
 import * as routineService from '@/src/lib/routineService';
 import { useAchievementsStore } from '@/src/store/achievementsStore';
 import { useAppStreakStore } from '@/src/store/appStreakStore';
+import { useProStore } from '@/src/store/proStore';
 import {
   getLocalTodayDateKey,
   hasCountedToday,
@@ -66,13 +68,16 @@ export default function SwipeableLayout() {
   const { user } = useAuth();
   const { onStreakChanged, onRoutinesCountChanged, loadAchievements, trackWeeklyUsage, onReminderActivated } = useAchievementsStore();
   const { streak: appStreak, history: appStreakHistory, shouldShowStreakScreen, initializeAppStreak, dismissStreakScreen } = useAppStreakStore();
+  const { isPro, hasSeenTrialOffer } = useProStore();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  const [showNotificationPermissionModal, setShowNotificationPermissionModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const paywallCheckedRef = useRef(false);
+
   const [routines, setRoutines] = useState<Array<{ id: string; name: string; days: string[]; tasks?: Array<{ id: string; completed?: boolean }> }>>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [routinesRefreshKey, setRoutinesRefreshKey] = useState(0);
@@ -165,9 +170,8 @@ export default function SwipeableLayout() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
       } else {
-        // First time ever - show notification permission modal
+        // First time ever
         if (!hasAskedForNotifications) {
-          setShowNotificationPermissionModal(true);
           await AsyncStorage.setItem('@notification_permission_asked', 'true');
         }
         setCurrentStreak(1);
@@ -221,6 +225,8 @@ export default function SwipeableLayout() {
             loadAchievements(),
             initializeAppStreak(),
             trackWeeklyUsage(),
+            useProStore.getState().load(),
+            useProStore.getState().rechargeShieldsIfNeeded(),
           ]);
         } finally {
           setIsLoadingData(false);
@@ -230,6 +236,18 @@ export default function SwipeableLayout() {
       loadAll();
     }, [loadRoutines, loadStreak])
   );
+
+  // Auto-trigger Day 8 Paywall Reverse Trial
+  useEffect(() => {
+    if (!isLoadingData && !paywallCheckedRef.current) {
+      // If data is ready, and it's the first check this session
+      paywallCheckedRef.current = true;
+      // If the user saw the trial offer but is NO longer Pro (Day 8+)
+      if (hasSeenTrialOffer && !isPro) {
+        setShowPaywall(true);
+      }
+    }
+  }, [isLoadingData, hasSeenTrialOffer, isPro]);
 
   // Calculate real completed tasks history from activities
   const calculateCompletedTasksHistory = () => {
@@ -497,9 +515,23 @@ export default function SwipeableLayout() {
               }}
             />
             <View style={styles.progressWrapper}>
-              <FocusHeroCard 
+            <FocusHeroCard 
                 currentStreak={currentStreak}
                 isStreakActiveToday={isStreakActiveToday}
+                onTripleTap={() => {
+                  const { togglePro, isPro } = useProStore.getState();
+                  togglePro();
+                  Haptics.notificationAsync(
+                    isPro
+                      ? Haptics.NotificationFeedbackType.Warning
+                      : Haptics.NotificationFeedbackType.Success
+                  );
+                  // isPro is the OLD value before toggle, so show opposite
+                  Alert.alert(
+                    isPro ? '⚙️ Modo Dev' : '⚙️ Modo Dev',
+                    isPro ? 'PRO desactivado' : '✨ PRO activado'
+                  );
+                }}
               />
             </View>
           </>
@@ -508,19 +540,33 @@ export default function SwipeableLayout() {
 
       {/* Debug: Test Onboarding Final */}
       {__DEV__ && (
-        <Pressable
-          onPress={() => router.push('/onboardingfinal')}
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 8,
-            backgroundColor: '#10B981',
-            paddingVertical: 10,
-            borderRadius: 12,
-            alignItems: 'center',
-          }}
-        >
-          <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>🚀 Test Onboarding Final</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 8 }}>
+          <Pressable
+            onPress={() => router.push('/onboardingfinal')}
+            style={{
+              flex: 1,
+              backgroundColor: '#10B981',
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>🚀 Test Onboarding</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowPaywall(true)}
+            style={{
+              flex: 1,
+              backgroundColor: '#8B5CF6',
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>💰 Test Paywall</Text>
+          </Pressable>
+        </View>
       )}
 
       {/* Swipeable Content */}
@@ -609,14 +655,7 @@ export default function SwipeableLayout() {
         onClose={() => setShowNotificationPanel(false)}
       />
 
-      {/* Notification Permission Modal - First Task */}
-      <NotificationPermissionModal 
-        visible={showNotificationPermissionModal}
-        onClose={() => setShowNotificationPermissionModal(false)}
-        onPermissionGranted={() => {
-          console.log('Notification permission granted');
-        }}
-      />
+
 
       {/* Daily App-Open Streak Screen */}
       <DailyStreakScreen
@@ -624,6 +663,15 @@ export default function SwipeableLayout() {
         streak={appStreak}
         history={appStreakHistory}
         onDismiss={dismissStreakScreen}
+      />
+
+      {/* Streak Shield Protection Modal (Pro only) */}
+      <StreakShieldModal />
+
+      {/* Paywall Reverse Trial (Day 8+) */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
       />
     </View>
   );

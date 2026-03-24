@@ -54,8 +54,10 @@ import { ActivityButton } from "@/src/components/ActivityButton";
 import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
 import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
+import { TaskCelebration } from "@/src/components/TaskCelebration";
 import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
 import { TaskModalNew } from "@/src/components/TaskModalNew";
+import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
 import {
@@ -67,6 +69,7 @@ import { supabase } from "@/src/lib/supabase";
 import { fetchActivitiesFromCloud, syncActivitiesToCloud } from "@/src/lib/syncService";
 import { calculateStreak, useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
+import { useProStore } from "@/src/store/proStore";
 import {
   ONBOARDING_BUTTONS,
   ONBOARDING_COLORS,
@@ -218,6 +221,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   );
   const [currentSubtaskIndex, setCurrentSubtaskIndex] = useState(0);
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
+
+  // Task Celebration States
+  const [showTaskCelebration, setShowTaskCelebration] = useState(false);
+  const [celebratedTaskName, setCelebratedTaskName] = useState("");
+  const [earnedTaskCoins, setEarnedTaskCoins] = useState(0);
+  const [showTrialOffer, setShowTrialOffer] = useState(false);
+
   const [elapsedTime, setElapsedTime] = useState(0);
   const executionSlideAnim = useRef(new RNAnimated.Value(0)).current;
   const micVibrationAnim = useRef(new RNAnimated.Value(0)).current;
@@ -703,10 +713,32 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const handleUpdateTask = (activityId: string, newSubtasks: Subtask[], difficulty: "easy" | "moderate" | "hard") => {
+  const handleUpdateTask = async (activityId: string, newSubtasks: Subtask[], difficulty: "easy" | "moderate" | "hard") => {
     const allCompleted = areAllSubtasksCompleted(newSubtasks);
     const targetDate = selectedDate || new Date();
     const todayStr = getLocalDateKey(targetDate);
+    
+    // Reward logic for manual completions
+    const currentActivity = activities.find(a => a.id === activityId);
+    if (currentActivity && allCompleted) {
+      const isRecurrent = currentActivity.recurrence?.type !== "once";
+      const alreadyCompletedToday = isRecurrent 
+        ? currentActivity.completedDates?.includes(todayStr) 
+        : currentActivity.completed;
+
+      if (!alreadyCompletedToday) {
+        const { earned, isNew } = await useAchievementsStore.getState().awardTaskCompletionCoins(
+          currentActivity.id,
+          difficulty || "easy"
+        );
+
+        if (isNew && earned > 0) {
+          setEarnedTaskCoins(earned);
+          setCelebratedTaskName(currentActivity.title || "Tarea completada");
+          setShowTaskCelebration(true);
+        }
+      }
+    }
     
     setActivities((prev) =>
       prev.map((activity) => {
@@ -1455,13 +1487,43 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               setGeneratedTaskTitle("");
               setGeneratedEmoji("✨");
             }}
-            onClose={(updatedSubtasks) => {
+            onClose={async (updatedSubtasks) => {
               // Update activity with progress if it exists
               if (currentFocusModeActivityId && updatedSubtasks) {
                 const allCompleted = areAllSubtasksCompleted(updatedSubtasks);
                 const targetDate = selectedDate || new Date();
                 const todayStr = getLocalDateKey(targetDate);
                 
+                // Extraer la actividad para rewards antes de procesar
+                const currentActivity = activities.find(
+                  (a) => a.id === currentFocusModeActivityId
+                );
+
+                if (currentActivity && allCompleted) {
+                  const isRecurrent = currentActivity.recurrence?.type !== "once";
+                  const alreadyCompletedToday = isRecurrent 
+                    ? currentActivity.completedDates?.includes(todayStr) 
+                    : currentActivity.completed;
+
+                  if (!alreadyCompletedToday) {
+                    // 🎉 Es primera vez completada hoy! Otorgamos Monedas.
+                    const { earned, isNew } = await useAchievementsStore.getState().awardTaskCompletionCoins(
+                      currentActivity.id,
+                      currentActivity.difficulty || "easy"
+                    );
+
+                    if (isNew && earned > 0) {
+                      setEarnedTaskCoins(earned);
+                      setCelebratedTaskName(currentActivity.title || generatedTaskTitle);
+                      setShowTaskCelebration(true);
+                    }
+
+                    if (onTaskCompleted) {
+                      onTaskCompleted();
+                    }
+                  }
+                }
+
                 setActivities((prevActivities) =>
                   prevActivities.map((activity) => {
                     if (activity.id !== currentFocusModeActivityId) return activity;
@@ -1474,9 +1536,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                       
                       if (isRecurrent) {
                         const alreadyCompletedToday = activity.completedDates?.includes(todayStr);
-                        if (!alreadyCompletedToday && onTaskCompleted) {
-                          onTaskCompleted();
-                        }
                         return {
                           ...updatedActivity,
                           completedDates: alreadyCompletedToday
@@ -1484,9 +1543,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                             : [...(activity.completedDates || []), todayStr],
                         };
                       } else {
-                        if (!activity.completed && onTaskCompleted) {
-                          onTaskCompleted();
-                        }
                         return { ...updatedActivity, completed: true };
                       }
                     }
@@ -1504,6 +1560,28 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             }}
           />
         </Modal>
+
+        {/* Task Celebration Screen */}
+        <TaskCelebration
+          visible={showTaskCelebration}
+          taskTitle={celebratedTaskName}
+          earnedCoins={earnedTaskCoins}
+          onClose={() => {
+            setShowTaskCelebration(false);
+            const proStore = useProStore.getState();
+            if (!proStore.hasSeenTrialOffer) {
+              setTimeout(() => {
+                setShowTrialOffer(true);
+              }, 400); // Wait for the celebration modal to close fully
+            }
+          }}
+        />
+
+        {/* Pro Trial Offer */}
+        <ProTrialOfferModal
+          visible={showTrialOffer}
+          onClose={() => setShowTrialOffer(false)}
+        />
 
         {/* Streak Success Screen - Dev Testing */}
         <Modal

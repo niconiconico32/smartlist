@@ -18,6 +18,7 @@ import {
 } from '@/src/utils/dateHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { useProStore } from './proStore';
 
 const APP_STREAK_KEY = '@smartlist_app_streak';
 
@@ -55,6 +56,12 @@ interface AppStreakStore {
    * If streak is 0, returns 1 (no bonus).
    */
   getMultiplier: () => number;
+
+  /**
+   * Resets the consecutive streak count to 1 but keeps today as the last open date.
+   * This is called if a Pro user with shields declines the pending shield offer.
+   */
+  resetStreak: () => Promise<void>;
 }
 
 export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
@@ -87,8 +94,17 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
         if (data.lastOpenDate && isLocalYesterday(data.lastOpenDate)) {
           // Consecutive day
           newCount = data.count + 1;
+        } else if (data.lastOpenDate && !isLocalToday(data.lastOpenDate)) {
+          // Gap detected — check if Pro user has shields to protect streak
+          const proState = useProStore.getState();
+          if (proState.isPro && proState.streakShieldCount > 0) {
+            // Offer to protect the streak (UI handled by pendingShieldOffer flag)
+            proState.activateShieldOffer();
+            // Keep the old streak suspended — don't reset yet
+            newCount = data.count;
+          }
+          // If no shields or not Pro, newCount stays 1 (reset)
         }
-        // If last open was >1 day ago, streak resets to 1
 
         // Update history: add today, keep last 7
         const newHistory = [today, ...data.history.filter((d) => d !== today)].slice(0, 7);
@@ -135,7 +151,27 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
 
   getMultiplier: () => {
     const { streak } = get();
+    // Multiplier is a Pro-only feature
+    if (!useProStore.getState().isPro) return 1;
     if (streak <= 0) return 1;
     return 1 + streak * 0.15;
+  },
+
+  resetStreak: async () => {
+    try {
+      const stored = await AsyncStorage.getItem(APP_STREAK_KEY);
+      if (stored) {
+        const data: AppStreakData = JSON.parse(stored);
+        const newData: AppStreakData = {
+          ...data,
+          count: 1, // Break the streak
+        };
+        await AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(newData));
+        set({ streak: 1 });
+        console.log('[appStreakStore] Streak manually reset to 1 (shield declined).');
+      }
+    } catch (error) {
+      console.error('Error resetting app streak:', error);
+    }
   },
 }));

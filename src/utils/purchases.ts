@@ -14,7 +14,7 @@ const REVENUECAT_API_KEYS = {
 };
 
 /** The entitlement identifier configured in RevenueCat */
-export const ENTITLEMENT_ID = 'premium_access';
+export const ENTITLEMENT_ID = 'pro';
 
 // ─── Initialize ───────────────────────────────────────────────────────────────
 

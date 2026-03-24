@@ -358,7 +358,13 @@ interface AchievementsStore {
   isRoutineModalOpen: boolean;
   setRoutineModalOpen: (isOpen: boolean) => void;
 
+  dailyTasksCompletedCount: number;
+  dailyRoutinesCompletedCount: number;
+  lastRewardDate: string | null;
+  rewardedTasks: Record<string, string>;
+
   awardRoutineCompletionCoins: (routineId: string) => Promise<{ earned: number; isNew: boolean }>;
+  awardTaskCompletionCoins: (taskId: string, difficulty: 'easy' | 'moderate' | 'hard') => Promise<{ earned: number; isNew: boolean }>;
 }
 
 // =====================================================
@@ -382,6 +388,10 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           activeBackground: s.activeBackground,
           activeOutfit: s.activeOutfit,
           rewardedRoutines: s.rewardedRoutines,
+          rewardedTasks: s.rewardedTasks,
+          dailyTasksCompletedCount: s.dailyTasksCompletedCount,
+          dailyRoutinesCompletedCount: s.dailyRoutinesCompletedCount,
+          lastRewardDate: s.lastRewardDate,
         }),
       );
     } catch (error) {
@@ -401,6 +411,10 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     activeBackground: null,
     activeOutfit: null,
     rewardedRoutines: {},
+    rewardedTasks: {},
+    dailyTasksCompletedCount: 0,
+    dailyRoutinesCompletedCount: 0,
+    lastRewardDate: null,
     isRoutineModalOpen: false,
 
     // =========================================================
@@ -433,6 +447,10 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             activeBackground: data.activeBackground || null,
             activeOutfit: data.activeOutfit || null,
             rewardedRoutines: data.rewardedRoutines || {},
+            rewardedTasks: data.rewardedTasks || {},
+            dailyTasksCompletedCount: data.dailyTasksCompletedCount || 0,
+            dailyRoutinesCompletedCount: data.dailyRoutinesCompletedCount || 0,
+            lastRewardDate: data.lastRewardDate || null,
           });
         }
       } catch (error) {
@@ -696,7 +714,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     },
 
     // =========================================================
-    // AWARD ROUTINE COMPLETION COINS
+    // AWARD ROUTINE COMPLETION COINS (WITH DIMINISHING RETURNS)
     // =========================================================
     awardRoutineCompletionCoins: async (routineId: string) => {
       const today = getLocalDateKey(new Date());
@@ -706,12 +724,67 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
         // Ya fue compensado hoy, no hacer nada
         return { earned: 0, isNew: false };
       }
+
+      // Check date reset for diminishing returns
+      let { dailyRoutinesCompletedCount, lastRewardDate } = state;
+      if (lastRewardDate !== today) {
+        dailyRoutinesCompletedCount = 0;
+        // Reiniciamos ambas cuentas si el día cambió
+        set({
+          lastRewardDate: today,
+          dailyRoutinesCompletedCount: 0,
+          dailyTasksCompletedCount: 0,
+        });
+      }
       
       const multiplier = useAppStreakStore.getState().getMultiplier();
-      const earned = Math.round(100 * multiplier);
+      const baseEarned = 100; // Base de recompensa para rutinas
+      const fadingFactor = Math.pow(0.5, dailyRoutinesCompletedCount);
+      const earned = Math.round(baseEarned * fadingFactor * multiplier);
       
       set({
         rewardedRoutines: { ...state.rewardedRoutines, [routineId]: today },
+        dailyRoutinesCompletedCount: dailyRoutinesCompletedCount + 1,
+        totalCoins: state.totalCoins + earned,
+      });
+      await persist();
+      
+      return { earned, isNew: true };
+    },
+
+    // =========================================================
+    // AWARD TASK COMPLETION COINS (WITH DIMINISHING RETURNS)
+    // =========================================================
+    awardTaskCompletionCoins: async (taskId: string, difficulty: 'easy' | 'moderate' | 'hard') => {
+      const today = getLocalDateKey(new Date());
+      const state = get();
+      
+      if (state.rewardedTasks[taskId] === today) {
+        // Ya fue compensado hoy, no hacer nada
+        return { earned: 0, isNew: false };
+      }
+
+      // Check date reset for diminishing returns
+      let { dailyTasksCompletedCount, lastRewardDate } = state;
+      if (lastRewardDate !== today) {
+        dailyTasksCompletedCount = 0;
+        set({
+          lastRewardDate: today,
+          dailyRoutinesCompletedCount: 0,
+          dailyTasksCompletedCount: 0,
+        });
+      }
+      
+      const multiplier = useAppStreakStore.getState().getMultiplier();
+      const baseMap = { easy: 100, moderate: 160, hard: 200 };
+      const baseEarned = baseMap[difficulty] || 100;
+      
+      const fadingFactor = Math.pow(0.5, dailyTasksCompletedCount);
+      const earned = Math.round(baseEarned * fadingFactor * multiplier);
+      
+      set({
+        rewardedTasks: { ...state.rewardedTasks, [taskId]: today },
+        dailyTasksCompletedCount: dailyTasksCompletedCount + 1,
         totalCoins: state.totalCoins + earned,
       });
       await persist();

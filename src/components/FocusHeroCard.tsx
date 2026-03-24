@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import { Flame } from 'lucide-react-native';
-import React, { useEffect } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
 
@@ -37,14 +37,18 @@ const FLAME_INACTIVE_COLOR = '#94A3B8';
 interface FocusHeroCardProps {
   currentStreak?: number;
   isStreakActiveToday?: boolean;
+  onTripleTap?: () => void;
 }
 
 export function FocusHeroCard({ 
   currentStreak = 0, 
-  isStreakActiveToday = false 
+  isStreakActiveToday = false,
+  onTripleTap,
 }: FocusHeroCardProps) {
   const flameScale = useSharedValue(1);
   const mascotY = useSharedValue(0);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { activeBackground, activeOutfit } = useAchievementsStore();
 
@@ -130,22 +134,39 @@ export function FocusHeroCard({
       {/* --- CONTENIDO: Mascota centrada + Burbuja arriba --- */}
       <View style={styles.contentContainer}>
 
-        <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
-          <Image
-            source={require('../../assets/images/logomain.png')}
-            style={styles.mascot}
-            resizeMode="contain"
-          />
-          {activeOutfit && OUTFIT_IMAGES[activeOutfit] && (
+        <Pressable
+          onPress={() => {
+            if (!onTripleTap) return;
+            tapCountRef.current += 1;
+            if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+            tapTimerRef.current = setTimeout(() => {
+              tapCountRef.current = 0;
+            }, 1000);
+            if (tapCountRef.current >= 3) {
+              tapCountRef.current = 0;
+              if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+              onTripleTap();
+            }
+          }}
+          style={{ alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
             <Image
-              source={OUTFIT_IMAGES[activeOutfit]}
-              style={styles.mascotOutfit}
+              source={require('../../assets/images/logomain.png')}
+              style={styles.mascot}
               resizeMode="contain"
             />
-          )}
-          <View style={styles.mascotShadow} />
-          <StreakBadge />
-        </Animated.View>
+            {activeOutfit && OUTFIT_IMAGES[activeOutfit] && (
+              <Image
+                source={OUTFIT_IMAGES[activeOutfit]}
+                style={styles.mascotOutfit}
+                resizeMode="contain"
+              />
+            )}
+            <View style={styles.mascotShadow} />
+            <StreakBadge />
+          </Animated.View>
+        </Pressable>
       </View>
       
       {/* Borde sutil */}

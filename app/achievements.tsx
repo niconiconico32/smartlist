@@ -3,6 +3,7 @@ import { Achievement, AchievementCard } from '@/src/components/AchievementCard';
 import { CoinsCounter } from '@/src/components/CoinsCounter';
 import { ACHIEVEMENT_DEFINITIONS, useAchievementsStore } from '@/src/store/achievementsStore';
 import { useAppStreakStore } from '@/src/store/appStreakStore';
+import { useProStore } from '@/src/store/proStore';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
 import { Calendar, Check, ChevronLeft, Crown, Flame, Lock, Store, Trophy } from 'lucide-react-native';
@@ -46,6 +47,7 @@ export default function AchievementsScreen() {
     spendCoins, onPurchaseMade, setActiveBackground, setActiveOutfit,
   } = useAchievementsStore();
   const { streak: appStreak, getMultiplier } = useAppStreakStore();
+  const { isPro } = useProStore();
   const [activeTab, setActiveTab] = useState<TabType>('logros');
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
 
@@ -259,6 +261,47 @@ export default function AchievementsScreen() {
             <Text style={styles.shopSectionTitle}>Outfits</Text>
             <View style={styles.shopGrid}>
               {SHOP_ITEMS.filter(i => i.type === 'outfit').map(renderShopItem)}
+            </View>
+
+            {/* ─── PREMIUM SECTION ─── */}
+            <View style={styles.premiumSection}>
+              <View style={styles.premiumHeader}>
+                <Lock size={18} color={isPro ? '#F59E0B' : '#6B7280'} />
+                <Text style={[styles.premiumTitle, isPro && styles.premiumTitleActive]}>
+                  {isPro ? '✨ Sección Premium' : 'Sección Premium'}
+                </Text>
+              </View>
+              <Text style={styles.premiumSubtitle}>
+                {isPro
+                  ? 'Tienes acceso completo a todos los beneficios Pro.'
+                  : 'Activa Pro para desbloquear multiplicador de racha, escudos y más.'}
+              </Text>
+
+              {/* Premium benefit rows */}
+              {[
+                { icon: '🔥', label: 'Multiplicador de racha (hasta +200%)' },
+                { icon: '🛡️', label: 'Protector de racha (2 por semana)' },
+                { icon: '🎨', label: 'Contenido exclusivo próximamente' },
+              ].map((benefit, i) => (
+                <View key={i} style={styles.premiumBenefitRow}>
+                  <Text style={styles.premiumBenefitIcon}>{benefit.icon}</Text>
+                  <Text style={[styles.premiumBenefitText, !isPro && styles.premiumBenefitLocked]}>
+                    {benefit.label}
+                  </Text>
+                  {isPro
+                    ? <Check size={16} color="#10B981" />
+                    : <Lock size={14} color="#9CA3AF" />}
+                </View>
+              ))}
+
+              {!isPro && (
+                <Pressable
+                  style={styles.premiumCTA}
+                  onPress={() => Alert.alert('Pro', 'Pronto podrás activar Pro desde aquí. ¡Toca la mascota 3 veces en la pantalla principal para el modo dev! 🚀')}
+                >
+                  <Text style={styles.premiumCTAText}>Más info sobre Pro</Text>
+                </Pressable>
+              )}
             </View>
           </ScrollView>
         )}
@@ -643,5 +686,76 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.background,
+  },
+
+  // ─── Premium Section ───
+  premiumSection: {
+    marginTop: 32,
+    marginHorizontal: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  premiumHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  premiumTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  premiumTitleActive: {
+    color: '#D97706',
+  },
+  premiumSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  premiumBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  premiumBenefitIcon: {
+    fontSize: 18,
+    width: 28,
+    textAlign: 'center',
+  },
+  premiumBenefitText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  premiumBenefitLocked: {
+    color: '#9CA3AF',
+  },
+  premiumCTA: {
+    marginTop: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  premiumCTAText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
 });
