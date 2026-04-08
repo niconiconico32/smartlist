@@ -3,6 +3,8 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import * as routineService from "@/src/lib/routineService";
 import type { CompletionHistory } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
+import { addDays, format } from "date-fns";
+import { es } from "date-fns/locale";
 import {
     Bell,
     Calendar,
@@ -35,6 +37,25 @@ import Animated, {
 import { ROUTINE_COLORS } from '@/constants/routineColors';
 
 const DAYS_OF_WEEK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+// JS day (0=Sun) -> index in DAYS_OF_WEEK
+const JS_DAY_TO_INDEX: Record<number, number> = { 0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5 };
+
+/**
+ * Returns the next date (starting from tomorrow) when this routine is scheduled.
+ */
+const getNextRoutineDate = (routineDays: string[]): Date | null => {
+  if (!routineDays || routineDays.length === 0) return null;
+  const today = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const candidate = addDays(today, i);
+    const idx = JS_DAY_TO_INDEX[candidate.getDay()];
+    if (routineDays.includes(DAYS_OF_WEEK[idx])) {
+      return candidate;
+    }
+  }
+  return null;
+};
 
 // Función para obtener los días del mes en formato de calendario
 const getCalendarDays = (year: number, month: number) => {
@@ -161,11 +182,13 @@ const TaskRow = ({
   color,
   onToggle,
   index,
+  disabled,
 }: {
   task: { id: string; title: string; completed?: boolean };
   color: string;
   onToggle: () => void;
   index: number;
+  disabled?: boolean;
 }) => {
   const checkboxScale = useSharedValue(1);
   const rowScale = useSharedValue(1);
@@ -181,6 +204,8 @@ const TaskRow = ({
   }, [task.completed]);
 
   const handlePress = () => {
+    if (disabled) return;
+
     checkboxScale.value = withSequence(
       withTiming(0.8, { duration: 80 }),
       withSpring(1, { damping: 10, stiffness: 300 }),
@@ -214,8 +239,8 @@ const TaskRow = ({
     >
       <TouchableOpacity
         onPress={handlePress}
-        style={styles.taskRow}
-        activeOpacity={0.8}
+        style={[styles.taskRow, disabled && styles.taskRowDisabled]}
+        activeOpacity={disabled ? 1 : 0.8}
       >
         <Animated.View
           style={[
@@ -227,6 +252,7 @@ const TaskRow = ({
                   borderColor: `${colors.textSecondary}40`,
                 },
             checkboxAnimatedStyle,
+            disabled && { opacity: 0.4 },
           ]}
         >
           <Animated.View style={checkAnimatedStyle}>
@@ -237,6 +263,7 @@ const TaskRow = ({
           style={[
             styles.taskLabel,
             task.completed && styles.taskLabelCompleted,
+            disabled && { opacity: 0.5 },
           ]}
         >
           {task.title}
@@ -263,6 +290,7 @@ interface RoutineDetailModalProps {
     reminderTime?: string;
   } | null;
   colorIndex?: number;
+  isReadOnly?: boolean;
   onClose: () => void;
   onTaskToggle?: (routineId: string, taskId: string, completed: boolean) => void;
   onDelete?: (id: string) => void;
@@ -273,6 +301,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   visible,
   routine,
   colorIndex = 0,
+  isReadOnly = false,
   onClose,
   onTaskToggle,
   onDelete,
@@ -283,6 +312,12 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   const [completedToday, setCompletedToday] = useState(false);
   const [completionHistory, setCompletionHistory] = useState<CompletionHistory>({});
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
+
+  // Next scheduled day for read-only banner
+  const nextRoutineDate = isReadOnly && routine ? getNextRoutineDate(routine.days) : null;
+  const nextDayLabel = nextRoutineDate
+    ? format(nextRoutineDate, "EEEE d 'de' MMMM", { locale: es })
+    : null;
 
   // Obtener mes y año actuales
   const now = new Date();
@@ -443,6 +478,15 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
             contentContainerStyle={styles.scrollContentContainer}
             showsVerticalScrollIndicator={true}
           >
+            {/* Read-only banner */}
+            {isReadOnly && nextDayLabel && (
+              <View style={styles.readOnlyBanner}>
+                <Text style={styles.readOnlyBannerText}>
+                  🔒 No te toca esta rutina hoy. Vuelve el{' '}
+                  <Text style={styles.readOnlyBannerDay}>{nextDayLabel}</Text>.
+                </Text>
+              </View>
+            )}
             {/* Borde superior con gradiente */}
 
 
@@ -496,6 +540,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                   color={color}
                   onToggle={() => toggleTask(task.id)}
                   index={index}
+                  disabled={isReadOnly}
                 />
               ))}
             </View>
@@ -691,6 +736,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 8,
   },
+  taskRowDisabled: {
+    opacity: 0.55,
+  },
   checkbox: {
     width: 26,
     height: 26,
@@ -790,5 +838,26 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 18,
+  },
+  readOnlyBanner: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(250, 179, 135, 0.15)',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FAB387',
+  },
+  readOnlyBannerText: {
+    fontSize: 13,
+    color: '#FAB387',
+    fontWeight: '600',
+    lineHeight: 18,
+  },
+  readOnlyBannerDay: {
+    fontWeight: '800',
+    textTransform: 'capitalize',
   },
 });

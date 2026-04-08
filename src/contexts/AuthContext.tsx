@@ -3,7 +3,10 @@ import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+
+// Ensures an active WebBrowser session resolves instead of returning 'auth session in progress'
+WebBrowser.maybeCompleteAuthSession();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
+      if (Platform.OS !== 'web') {
+        WebBrowser.dismissBrowser();
+      }
+
       const redirectUrl = Linking.createURL('/(tabs)');
 
       const isUpgrading = !!session && session.user?.is_anonymous === true;
@@ -87,7 +94,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('already linked') || error.message.includes('Identity is already linked')) {
+          Alert.alert(
+            'Cuenta ya en uso',
+            'La cuenta de Google que seleccionaste ya fue registrada previamente. Para usarla, debes cerrar tu sesión anónima actual (los datos no respaldados se perderán). ¿Deseas cerrar sesión ahora?',
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Cerrar sesión', style: 'destructive', onPress: () => signOut() }
+            ]
+          );
+          return;
+        }
+        throw error;
+      }
       if (!data.url) throw new Error('No OAuth URL returned');
 
       // Open the OAuth flow in an in-app browser
@@ -155,6 +175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async (): Promise<void> => {
     try {
+      if (Platform.OS !== 'web') {
+        WebBrowser.dismissBrowser();
+      }
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Error signing out:', error.message);

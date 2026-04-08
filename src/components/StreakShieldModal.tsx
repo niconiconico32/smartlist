@@ -1,20 +1,20 @@
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ShieldAlert } from 'lucide-react-native';
 import { useProStore } from '../store/proStore';
 import { useAppStreakStore } from '../store/appStreakStore';
 
 export const StreakShieldModal: React.FC = () => {
   const { pendingShieldOffer, streakShieldCount, consumeShield, clearPendingShieldOffer } = useProStore();
-  const { streak, resetStreak } = useAppStreakStore();
+  const { streak, resetStreak, markShieldUsed } = useAppStreakStore();
 
   if (!pendingShieldOffer) return null;
 
   const handleUseShield = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await consumeShield();
-    // Streak is automatically maintained because appStreakStore preserved it initially
+    markShieldUsed(); // Flag streak as shield-protected so DailyStreakScreen shows ⬤ Protected variant
   };
 
   const handleDecline = async () => {

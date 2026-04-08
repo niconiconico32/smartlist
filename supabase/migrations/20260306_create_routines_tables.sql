@@ -232,7 +232,7 @@ CREATE TRIGGER update_routines_updated_at
 -- =====================================================
 
 -- View: Daily routine progress
-CREATE OR REPLACE VIEW daily_routine_progress AS
+CREATE OR REPLACE VIEW daily_routine_progress WITH (security_invoker = on) AS
 SELECT 
   r.id as routine_id,
   r.user_id,

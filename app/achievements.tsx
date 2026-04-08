@@ -6,9 +6,11 @@ import { useAppStreakStore } from '@/src/store/appStreakStore';
 import { useProStore } from '@/src/store/proStore';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import { Calendar, Check, ChevronLeft, Crown, Flame, Lock, Store, Trophy } from 'lucide-react-native';
+import { PaywallModal } from '@/src/components/PaywallModal';
+import { ProTrialOfferModal } from '@/src/components/ProTrialOfferModal';
+import { Calendar, ChevronLeft, Crown, Flame, Lock, Store, Trophy } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -23,17 +25,39 @@ const OUTFIT_PRICE = 650;
 
 // Shop items from assets
 const SHOP_ITEMS = [
-  // Backgrounds
+  // Backgrounds (PNG - originales)
   { id: 'bg_spring', name: 'Primavera', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/spring.png') },
   { id: 'bg_beach', name: 'Playa', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/beach.png') },
   { id: 'bg_autumn', name: 'Otoño', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/autumm.png') },
   { id: 'bg_winter', name: 'Invierno', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/winter.png') },
   { id: 'bg_woods', name: 'Bosque', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/woods.png') },
-  // Outfits
+  // Backgrounds (WEBP - nuevos)
+  { id: 'bg_w1', name: 'Fondo 1', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/1.webp') },
+  { id: 'bg_w2', name: 'Fondo 2', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/2.webp') },
+  { id: 'bg_w3', name: 'Fondo 3', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/3.webp') },
+  { id: 'bg_w4', name: 'Fondo 4', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/4.webp') },
+  { id: 'bg_w5', name: 'Fondo 5', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/5.webp') },
+  { id: 'bg_w6', name: 'Fondo 6', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/6.webp') },
+  { id: 'bg_w7', name: 'Fondo 7', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/7.webp') },
+  { id: 'bg_w8', name: 'Fondo 8', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/8.webp') },
+  { id: 'bg_w9', name: 'Fondo 9', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/9.webp') },
+  { id: 'bg_w10', name: 'Fondo 10', price: BG_PRICE, type: 'background' as const, image: require('@/assets/images/pixelbgs/10.webp') },
+  // Outfits (PNG - originales)
   { id: 'outfit_1_1', name: 'Outfit 1', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/1_1.png') },
   { id: 'outfit_1_2', name: 'Outfit 2', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/1_2.png') },
   { id: 'outfit_1_3', name: 'Outfit 3', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/1_3.png') },
   { id: 'outfit_1_4', name: 'Outfit 4', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/1_4.png') },
+  // Outfits (WEBP - nuevos)
+  { id: 'outfit_w5',  name: 'Outfit 5',  price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/5.webp') },
+  { id: 'outfit_w6',  name: 'Outfit 6',  price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/6.webp') },
+  { id: 'outfit_w7',  name: 'Outfit 7',  price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/7.webp') },
+  { id: 'outfit_w8',  name: 'Outfit 8',  price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/8.webp') },
+  { id: 'outfit_w9',  name: 'Outfit 9',  price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/9.webp') },
+  { id: 'outfit_w10', name: 'Outfit 10', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/10.webp') },
+  { id: 'outfit_w11', name: 'Outfit 11', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/11.webp') },
+  { id: 'outfit_w12', name: 'Outfit 12', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/12.webp') },
+  { id: 'outfit_w13', name: 'Outfit 13', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/13.webp') },
+  { id: 'outfit_w14', name: 'Outfit 14', price: OUTFIT_PRICE, type: 'outfit' as const, image: require('@/assets/images/outfits/14.webp') },
 ];
 
 type ShopItem = typeof SHOP_ITEMS[number];
@@ -50,6 +74,8 @@ export default function AchievementsScreen() {
   const { isPro } = useProStore();
   const [activeTab, setActiveTab] = useState<TabType>('logros');
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [showTrialOffer, setShowTrialOffer] = useState(false);
 
   useEffect(() => {
     loadAchievements();
@@ -127,7 +153,7 @@ export default function AchievementsScreen() {
     };
   });
 
-  const renderShopItem = (item: ShopItem) => {
+  const renderShopItem = ({ item }: { item: ShopItem }) => {
     const owned = isOwned(item);
     const active = isActive(item);
     const canAfford = totalCoins >= item.price;
@@ -198,6 +224,39 @@ export default function AchievementsScreen() {
         </View>
       </View>
 
+      {/* Debug: Test Buttons (solo en desarrollo) */}
+      {__DEV__ && (
+        <View style={{ flexDirection: 'row', paddingHorizontal: 24, gap: 8, marginTop: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+          <Pressable
+            onPress={() => router.push('/onboardingfinal')}
+            style={{ flex: 1, backgroundColor: '#10B981', paddingVertical: 10, borderRadius: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 11 }}>🚀 Onb.</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowPaywall(true)}
+            style={{ flex: 1, backgroundColor: '#8B5CF6', paddingVertical: 10, borderRadius: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 11 }}>💰 Pay</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowTrialOffer(true)}
+            style={{ flex: 1, backgroundColor: '#D946EF', paddingVertical: 10, borderRadius: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 11 }}>🎁 Gift</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              const current = useAchievementsStore.getState().totalCoins;
+              useAchievementsStore.setState({ totalCoins: current + 1000 });
+            }}
+            style={{ flex: 1, backgroundColor: '#F59E0B', paddingVertical: 10, borderRadius: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 11 }}>👑 +1k</Text>
+          </Pressable>
+        </View>
+      )}
+
       <View style={styles.mainContent}>
         {/* Content */}
         {activeTab === 'logros' ? (
@@ -253,56 +312,26 @@ export default function AchievementsScreen() {
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.shopContentContainer}>
             {/* Backgrounds Section */}
             <Text style={styles.shopSectionTitle}>Fondos</Text>
-            <View style={styles.shopGrid}>
-              {SHOP_ITEMS.filter(i => i.type === 'background').map(renderShopItem)}
-            </View>
+            <FlatList
+              data={SHOP_ITEMS.filter(i => i.type === 'background')}
+              renderItem={renderShopItem}
+              keyExtractor={item => item.id}
+              numColumns={NUM_COLUMNS}
+              scrollEnabled={false}
+              columnWrapperStyle={styles.shopFlatListRow}
+              contentContainerStyle={{ marginBottom: 24 }}
+            />
 
             {/* Outfits Section */}
             <Text style={styles.shopSectionTitle}>Outfits</Text>
-            <View style={styles.shopGrid}>
-              {SHOP_ITEMS.filter(i => i.type === 'outfit').map(renderShopItem)}
-            </View>
-
-            {/* ─── PREMIUM SECTION ─── */}
-            <View style={styles.premiumSection}>
-              <View style={styles.premiumHeader}>
-                <Lock size={18} color={isPro ? '#F59E0B' : '#6B7280'} />
-                <Text style={[styles.premiumTitle, isPro && styles.premiumTitleActive]}>
-                  {isPro ? '✨ Sección Premium' : 'Sección Premium'}
-                </Text>
-              </View>
-              <Text style={styles.premiumSubtitle}>
-                {isPro
-                  ? 'Tienes acceso completo a todos los beneficios Pro.'
-                  : 'Activa Pro para desbloquear multiplicador de racha, escudos y más.'}
-              </Text>
-
-              {/* Premium benefit rows */}
-              {[
-                { icon: '🔥', label: 'Multiplicador de racha (hasta +200%)' },
-                { icon: '🛡️', label: 'Protector de racha (2 por semana)' },
-                { icon: '🎨', label: 'Contenido exclusivo próximamente' },
-              ].map((benefit, i) => (
-                <View key={i} style={styles.premiumBenefitRow}>
-                  <Text style={styles.premiumBenefitIcon}>{benefit.icon}</Text>
-                  <Text style={[styles.premiumBenefitText, !isPro && styles.premiumBenefitLocked]}>
-                    {benefit.label}
-                  </Text>
-                  {isPro
-                    ? <Check size={16} color="#10B981" />
-                    : <Lock size={14} color="#9CA3AF" />}
-                </View>
-              ))}
-
-              {!isPro && (
-                <Pressable
-                  style={styles.premiumCTA}
-                  onPress={() => Alert.alert('Pro', 'Pronto podrás activar Pro desde aquí. ¡Toca la mascota 3 veces en la pantalla principal para el modo dev! 🚀')}
-                >
-                  <Text style={styles.premiumCTAText}>Más info sobre Pro</Text>
-                </Pressable>
-              )}
-            </View>
+            <FlatList
+              data={SHOP_ITEMS.filter(i => i.type === 'outfit')}
+              renderItem={renderShopItem}
+              keyExtractor={item => item.id}
+              numColumns={NUM_COLUMNS}
+              scrollEnabled={false}
+              columnWrapperStyle={styles.shopFlatListRow}
+            />
           </ScrollView>
         )}
 
@@ -377,6 +406,9 @@ export default function AchievementsScreen() {
           </Text>
         </Pressable>
       </View>
+      {/* Paywall Modal */}
+      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
+      <ProTrialOfferModal visible={showTrialOffer} onClose={() => setShowTrialOffer(false)} />
     </SafeAreaView>
   );
 }
@@ -511,6 +543,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginHorizontal: -(GRID_GAP / 2),
     marginBottom: 24,
+  },
+  shopFlatListRow: {
+    justifyContent: 'flex-start',
+    marginHorizontal: -(GRID_GAP / 2),
   },
   shopItemCard: {
     width: ITEM_WIDTH,
@@ -688,74 +724,5 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
 
-  // ─── Premium Section ───
-  premiumSection: {
-    marginTop: 32,
-    marginHorizontal: 4,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  premiumHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  premiumTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  premiumTitleActive: {
-    color: '#D97706',
-  },
-  premiumSubtitle: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  premiumBenefitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  premiumBenefitIcon: {
-    fontSize: 18,
-    width: 28,
-    textAlign: 'center',
-  },
-  premiumBenefitText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-  },
-  premiumBenefitLocked: {
-    color: '#9CA3AF',
-  },
-  premiumCTA: {
-    marginTop: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  premiumCTAText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
+
 });

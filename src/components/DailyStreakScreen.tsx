@@ -43,6 +43,7 @@ interface DailyStreakScreenProps {
   visible: boolean;
   streak: number;
   history: string[]; // Array of "YYYY-MM-DD" dates the user opened the app
+  shieldUsedToday?: boolean; // true when a shield was consumed to protect this streak
   onDismiss: () => void;
 }
 
@@ -132,6 +133,7 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
   visible,
   streak,
   history,
+  shieldUsedToday = false,
   onDismiss,
 }) => {
   const mascotScale = useSharedValue(0);
@@ -217,7 +219,10 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
       statusBarTranslucent
     >
       <LinearGradient
-        colors={['#7C6BC4', '#8B7BD4', '#9688D8']}
+        colors={shieldUsedToday
+          ? ['#B45309', '#D97706', '#F59E0B'] // Amber/gold when shield protected
+          : ['#7C6BC4', '#8B7BD4', '#9688D8']  // Default purple
+        }
         style={styles.container}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -294,7 +299,9 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
             entering={FadeInDown.delay(900).duration(500)}
             style={styles.motivationalText}
           >
-            ¡Genial! Abre la app cada día para{'\n'}mantener tu racha con Brainy!
+            {shieldUsedToday
+              ? '🛡 ¡Tu escudo protegió tu racha!\n¡Sigue abriendo la app cada día!'
+              : '¡Genial! Abre la app cada día para{\n}mantener tu racha con Brainy!'}
           </Animated.Text>
         </View>
 

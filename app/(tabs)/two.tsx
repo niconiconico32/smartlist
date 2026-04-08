@@ -15,6 +15,7 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import type { Routine } from "@/src/types/routine";
 import * as Haptics from "expo-haptics";
+import { isSameDay } from "date-fns";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -62,6 +63,12 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
   
   // Guardamos las monedas ganadas mientras los modales están abiertos
   const pendingAnimationAmount = useRef(0);
+
+  // Check if selected date is today
+  const isToday = useMemo(() => {
+    const date = selectedDate || new Date();
+    return isSameDay(date, new Date());
+  }, [selectedDate]);
 
   // Get current day abbreviation from selected date
   const currentDayAbbrev = useMemo(() => {
@@ -368,6 +375,7 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
         visible={selectedRoutine !== null}
         routine={selectedRoutine}
         colorIndex={selectedRoutineIndex}
+        isReadOnly={!isToday}
         onClose={() => {
           setSelectedRoutine(null);
           if (pendingAnimationAmount.current > 0) {
@@ -378,7 +386,7 @@ export default function RoutinesScreen({ selectedDate, onRoutineCompleted }: Rou
             }, 300);
           }
         }}
-        onTaskToggle={handleTaskToggle}
+        onTaskToggle={isToday ? handleTaskToggle : undefined}
         onDelete={handleDeleteRoutine}
         onEdit={handleEditRoutine}
       />

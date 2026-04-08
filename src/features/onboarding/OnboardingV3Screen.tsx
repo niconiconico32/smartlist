@@ -10,9 +10,9 @@ import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
@@ -102,8 +102,22 @@ export default function OnboardingV3Screen() {
   const hideBackOnSlides = ['welcome', 'processing'];
   const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
 
+  // ── hardware back handler ──
+  React.useEffect(() => {
+    const onBackPress = () => {
+      if (showBack) {
+        goToPrevSlide();
+      }
+      return true; // ALWAYS prevent native back navigation
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [showBack, goToPrevSlide]);
+
   return (
     <SafeAreaView style={s.container}>
+      {/* Disable iOS swipe back and header */}
+      <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
 
       {/* Header: back + progress bar */}
       {showBack && (

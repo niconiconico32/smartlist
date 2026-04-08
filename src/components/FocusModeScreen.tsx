@@ -1,20 +1,22 @@
 import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { useAchievementsStore } from '@/src/store/achievementsStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
-  ChevronLeft,
   ChevronRight,
   Clock,
-  X
+  Crown,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   Dimensions,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -55,9 +57,9 @@ interface FocusModeScreenProps {
 }
 
 // Slider constants
-const SLIDER_WIDTH = SCREEN_WIDTH - 48;
-const SLIDER_HEIGHT = 85;
-const THUMB_SIZE = 70;
+const SLIDER_WIDTH = SCREEN_WIDTH - 30;
+const SLIDER_HEIGHT = 90;
+const THUMB_SIZE = 78;
 const SLIDE_THRESHOLD = SLIDER_WIDTH - THUMB_SIZE - 8;
 
 // Burst Particle Component
@@ -149,6 +151,51 @@ const BurstExplosion = ({ visible }: { visible: boolean }) => {
   );
 };
 
+// Floating Coin Badge — shown on top of confetti
+const FloatingCoinBadge = ({ visible, amount }: { visible: boolean; amount: number }) => {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.5);
+
+  useEffect(() => {
+    if (visible) {
+      // Pop in
+      opacity.value = withSpring(1, { damping: 12, stiffness: 200 });
+      scale.value = withSpring(1, { damping: 10, stiffness: 250 });
+      translateY.value = withTiming(0, { duration: 200 });
+
+      // Float up then fade out
+      const timeout = setTimeout(() => {
+        translateY.value = withTiming(-80, { duration: 1200 });
+        opacity.value = withTiming(0, { duration: 900 });
+      }, 700);
+
+      return () => clearTimeout(timeout);
+    } else {
+      opacity.value = 0;
+      scale.value = 0.5;
+      translateY.value = 0;
+    }
+  }, [visible, amount]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <View style={[styles.burstContainer, !visible && { opacity: 0 }]} pointerEvents="none">
+      <Animated.View style={[styles.floatingCoinBadge, animStyle]}>
+        <Crown size={22} color={colors.primary} strokeWidth={2.5} />
+        <Text style={styles.floatingCoinText}>+{amount}</Text>
+      </Animated.View>
+    </View>
+  );
+};
+
 // Swipe to Complete Slider Component
 const SwipeToCompleteSlider = ({
   onComplete,
@@ -163,6 +210,7 @@ const SwipeToCompleteSlider = ({
   const isCompleted = useSharedValue(false);
   const textOpacity = useSharedValue(1);
   const backgroundProgress = useSharedValue(0);
+  const lastHapticX = useSharedValue(0);
 
   const triggerHapticSuccess = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -204,6 +252,12 @@ const SwipeToCompleteSlider = ({
         [0, SLIDE_THRESHOLD * 0.5],
         [1, 0]
       );
+
+      // Haptic tick effect while sliding
+      if (Math.abs(newX - lastHapticX.value) > 20) {
+        runOnJS(triggerHapticLight)();
+        lastHapticX.value = newX;
+      }
     })
     .onEnd(() => {
       if (isCompleted.value) return;
@@ -240,40 +294,40 @@ const SwipeToCompleteSlider = ({
         [0, 1],
         [THUMB_SIZE + 8, SLIDER_WIDTH]
       ),
-      // Cambiar color del fill a medida que se arrastra (Lavender → Peach)
       backgroundColor: interpolateColor(
         progress,
         [0, 0.5, 1],
-        ['rgba(203, 166, 247, 0.25)', '#CBA6F7', '#FAB387']
+        ['rgba(255, 255, 255, 0.01)', 'rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.25)']
       ),
     };
   });
 
   return (
     <View style={styles.sliderContainer}>
-      <View style={styles.sliderTrack}>
+      <BlurView intensity={35} tint="dark" style={styles.sliderTrack}>
         {/* Progress fill */}
         <Animated.View style={[styles.sliderFill, backgroundStyle]} />
 
         {/* Text */}
         <Animated.Text style={[styles.sliderText, textStyle]}>
-          {isLastTask ? 'Desliza para finalizar 🎉' : 'Desliza para completar >>>'}
+          {isLastTask ? 'Finalizar...' : 'Desliza para completar...'}
         </Animated.Text>
 
-        {/* Thumb */}
+        {/* Big Neon Thumb */}
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[thumbStyle, styles.sliderThumbWrapper]}>
+            <View style={styles.thumbGlow} />
             <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
+              colors={[colors.primary, colors.textSecondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.sliderThumbGradient}
+              style={styles.sliderThumbApple}
             >
-              <ChevronRight size={22} color={colors.background} strokeWidth={3} />
+              <ChevronRight size={32} color={colors.background} strokeWidth={3} />
             </LinearGradient>
           </Animated.View>
         </GestureDetector>
-      </View>
+      </BlurView>
     </View>
   );
 };
@@ -282,9 +336,11 @@ const SwipeToCompleteSlider = ({
 const ProgressBar = ({
   isActive,
   isCompleted,
+  onPress,
 }: {
   isActive: boolean;
   isCompleted: boolean;
+  onPress?: () => void;
 }) => {
   const pulseOpacity = useSharedValue(1);
   const scale = useSharedValue(1);
@@ -319,14 +375,17 @@ const ProgressBar = ({
   }));
 
   return (
-    <Animated.View
-      style={[
-        styles.progressBar,
-        isCompleted && styles.progressBarCompleted,
-        isActive && styles.progressBarActive,
-        animatedStyle,
-      ]}
-    />
+    <Pressable style={{ flex: 1, paddingVertical: 10, justifyContent: 'center' }} onPress={onPress}>
+      <Animated.View
+        style={[
+          styles.progressBar,
+          isCompleted && styles.progressBarCompleted,
+          isActive && styles.progressBarActive,
+          { flex: undefined },
+          animatedStyle,
+        ]}
+      />
+    </Pressable>
   );
 };
 
@@ -345,11 +404,30 @@ export function FocusModeScreen({
   const [subtasks, setSubtasks] = useState(initialSubtasks);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [earnedCoins, setEarnedCoins] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [isClosing, setIsClosing] = useState(false);
   const [totalElapsedTime, setTotalElapsedTime] = useState(0);
   const [showExitModal, setShowExitModal] = useState(false);
+
+  // Background Gradient Animation (600% panning CSS-like)
+  const gradientTranslateX = useSharedValue(0);
+
+  useEffect(() => {
+    gradientTranslateX.value = withRepeat(
+      withSequence(
+        withTiming(-SCREEN_WIDTH * 5, { duration: 7000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 7000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedGradientStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: gradientTranslateX.value }],
+  }));
 
   // Timestamps para calcular el tiempo
   const startTimeRef = useRef<number>(Date.now());
@@ -364,16 +442,25 @@ export function FocusModeScreen({
 
   // Guardar subtasks cuando el componente se desmonte, SOLO si no cerró explícitamente
   const isExplicitlyClosedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     return () => {
       if (!isExplicitlyClosedRef.current) {
-        onClose(subtasksRef.current);
+        onCloseRef.current(subtasksRef.current);
       }
     };
-  }, [onClose]);
+  }, []);
 
   // Load saved progress on mount
   useEffect(() => {
+    // RESET FOR TESTING - Elimina esto cuando termines de probar
+    useAchievementsStore.setState({ todaysRewardedTaskIds: [], dailyTasksCompletedCount: 0, rewardedTasks: {} });
+
     const loadProgress = async () => {
       try {
         const saved = await AsyncStorage.getItem(`focus_progress_${activityId}`);
@@ -473,7 +560,23 @@ export function FocusModeScreen({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleCompleteTask = useCallback(() => {
+  const handleCompleteTask = useCallback(async () => {
+    const completedSubtask = subtasks[currentIndex];
+
+    // Award coins using static store access (no hook subscription → no re-render → modal stays open)
+    if (completedSubtask) {
+      const duration = completedSubtask.duration || 0;
+      const difficulty: 'easy' | 'moderate' | 'hard' =
+        duration >= 20 ? 'hard' : duration >= 10 ? 'moderate' : 'easy';
+      const result = await useAchievementsStore.getState().awardTaskCompletionCoins(
+        activityId,
+        difficulty,
+        completedSubtask.id
+      );
+      // Show badge whenever coins were earned (isNew = first time today for this subtask)
+      setEarnedCoins(result.earned);
+    }
+
     // Show confetti
     setShowConfetti(true);
     setIsTimerRunning(false);
@@ -491,6 +594,7 @@ export function FocusModeScreen({
     celebrationTimeoutRef.current = setTimeout(async () => {
       if (!isExplicitlyClosedRef.current) {
         setShowConfetti(false);
+        setEarnedCoins(0);
 
         if (isLastTask) {
           // Limpiar progreso guardado
@@ -502,7 +606,7 @@ export function FocusModeScreen({
 
           // Cerrar la pantalla — marcar como cerrado explícito para evitar doble onClose en unmount
           isExplicitlyClosedRef.current = true;
-          onClose(subtasksRef.current);
+          onCloseRef.current(subtasksRef.current);
         } else {
           // Next task
           baseTotalTimeRef.current = totalElapsedTime; // Guards progreso total hasta hora
@@ -515,7 +619,7 @@ export function FocusModeScreen({
     }, 2800);
 
     // No devolver cleanup en useCallback, ya se hace en el useEffect superior
-  }, [currentIndex, isLastTask, activityId, isClosing, onClose, totalElapsedTime]);
+  }, [currentIndex, isLastTask, activityId, isClosing, totalElapsedTime, subtasks]);
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -565,9 +669,9 @@ export function FocusModeScreen({
     }
 
     setTimeout(() => {
-      onClose(subtasksRef.current); // Pass updated subtasks to parent
+      onCloseRef.current(subtasksRef.current); // Pass updated subtasks to parent
     }, 50);
-  }, [activityId, onClose]);
+  }, [activityId]);
 
   const handleCancelExit = useCallback(() => {
     setShowExitModal(false);
@@ -578,58 +682,38 @@ export function FocusModeScreen({
 
 
 
+  const swipeGesture = useMemo(() =>
+    Gesture.Pan()
+      .activeOffsetX([-30, 30])
+      .onEnd((e) => {
+        if (e.translationX < -50) {
+          runOnJS(goToNext)();
+        } else if (e.translationX > 50) {
+          runOnJS(goToPrevious)();
+        }
+      }),
+    [goToNext, goToPrevious]);
+
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* Animated Background Gradient */}
-      <LinearGradient
-        colors={[colors.background, colors.surface, colors.background, colors.surface]}
-        style={StyleSheet.absoluteFill}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
-      {/* Vignette Effect */}
-      <View style={styles.vignetteOverlay}>
-        <LinearGradient
-          colors={['rgba(0,0,0,0.8)', 'transparent', 'transparent', 'rgba(0,0,0,0.8)']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-        />
-        <LinearGradient
-          colors={['rgba(0,0,0,0.6)', 'transparent', 'transparent', 'rgba(0,0,0,0.6)']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0, y: 0.5 }}
-          end={{ x: 1, y: 0.5 }}
-        />
+      {/* CSS-Like Animated Background Gradient (600%) */}
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+        <Animated.View style={[{ width: '900%', height: '100%' }, animatedGradientStyle]}>
+          <LinearGradient
+            colors={['#6e4bc5', '#2b5c8c', '#fb38fd', '#6e4bc5', '#2b5c8c', '#fb38fd', '#6e4bc5']}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0.5 }}
+            end={{ x: 2, y: 0.5 }}
+          />
+        </Animated.View>
       </View>
 
-      {/* Ambient glow behind current task */}
-      <View style={styles.ambientGlow}>
-        <LinearGradient
-          colors={['transparent', 'rgba(236, 242, 48, 0.12)', 'transparent']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0.5, y: 0.3 }}
-          end={{ x: 0.5, y: 0.7 }}
-        />
-      </View>
+      {/* Dark tint overlay for better contrast and vignette feel */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} pointerEvents="none" />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
+        {/* Header Sin Boton Cerrar */}
         <View style={styles.header}>
-          {/* Close Button */}
-          <Pressable onPress={handleClose} style={styles.closeButton}>
-            <X size={24} color={colors.textSecondary} />
-          </Pressable>
-
-          {/* Task Title */}
-          <View style={styles.taskTitleContainer}>
-            <Text style={styles.taskEmoji}>{taskEmoji}</Text>
-            <Text style={styles.taskTitle} numberOfLines={1}>
-              {taskTitle}
-            </Text>
-          </View>
-
           {/* Progress Bars (Stories style) */}
           <View style={styles.progressBarsContainer}>
             {subtasks.map((subtask, index) => (
@@ -637,72 +721,60 @@ export function FocusModeScreen({
                 key={subtask.id}
                 isActive={index === currentIndex}
                 isCompleted={subtask.isCompleted}
+                onPress={() => {
+                  if (!showConfetti) {
+                    setCurrentIndex(index);
+                  }
+                }}
               />
             ))}
           </View>
 
-          {/* Progress Text */}
-          <Text style={styles.progressText}>
-            {completedCount} / {subtasks.length} completados
-          </Text>
-        </View>
+          {/* Subtask Info Row */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 6, marginTop: 12 }}>
+            {/* Timer Left */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Clock size={14} color={colors.textSecondary} />
+              <Text style={[styles.progressText, { textAlign: 'left', fontVariant: ['tabular-nums'] }]}>
+                {formatTime(elapsedTime)} / {currentSubtask?.duration} min
+              </Text>
+            </View>
 
-        {/* Main Content */}
-        <View style={styles.content}>
-          {/* Navigation - Previous */}
-          <Pressable
-            onPress={goToPrevious}
-            style={[styles.navButton, styles.navButtonLeft]}
-            disabled={currentIndex === 0 || showConfetti}
-          >
-            <ChevronLeft
-              size={24}
-              color={currentIndex === 0 || showConfetti ? colors.disabled : colors.textSecondary}
-            />
-          </Pressable>
-
-          {/* Current Subtask */}
-          <View style={styles.subtaskContainer}>
-            {currentSubtask && (
-              <View
-                key={currentSubtask.id}
-                style={styles.subtaskContent}
-              >
-                {/* Timer / Duration */}
-                <View style={styles.timerContainer}>
-                  <Clock size={18} color={colors.textSecondary} />
-                  <Text style={styles.timerText}>
-                    {formatTime(elapsedTime)}
-                  </Text>
-                  <Text style={styles.estimatedTime}>
-                    / {currentSubtask.duration} min estimado
-                  </Text>
-                </View>
-
-                {/* Subtask Title */}
-                <Text
-                  style={styles.subtaskTitle}
-                  adjustsFontSizeToFit
-                  numberOfLines={3}
-                >
-                  {currentSubtask.title}
-                </Text>
-              </View>
-            )}
+            {/* Progress Right */}
+            <Text style={[styles.progressText, { textAlign: 'right' }]}>
+              {completedCount} / {subtasks.length} completados
+            </Text>
           </View>
-
-          {/* Navigation - Next */}
-          <Pressable
-            onPress={goToNext}
-            style={[styles.navButton, styles.navButtonRight]}
-            disabled={currentIndex === subtasks.length - 1 || showConfetti}
-          >
-            <ChevronRight
-              size={24}
-              color={currentIndex === subtasks.length - 1 || showConfetti ? colors.disabled : colors.textSecondary}
-            />
-          </Pressable>
         </View>
+
+        {/* Main Content (Swipeable) */}
+        <GestureDetector gesture={swipeGesture}>
+          <View style={styles.content}>
+            {/* Current Subtask */}
+            <View style={styles.subtaskContainer}>
+              {currentSubtask && (
+                <View
+                  key={currentSubtask.id}
+                  style={styles.subtaskContent}
+                >
+
+
+                  {/* Subtask Title (Scrollable to prevent truncation) */}
+                  <ScrollView
+                    style={{ maxHeight: 220, width: '100%' }}
+                    contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                  >
+                    <Text style={styles.subtaskTitle}>
+                      {currentSubtask.title}
+                    </Text>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </View>
+        </GestureDetector>
 
         {/* Footer - Swipe Slider */}
         <View style={styles.footer}>
@@ -721,6 +793,9 @@ export function FocusModeScreen({
 
       {/* Confetti */}
       <BurstExplosion visible={showConfetti} />
+
+      {/* Floating Coin Reward */}
+      <FloatingCoinBadge visible={showConfetti && earnedCoins > 0} amount={earnedCoins} />
 
       {/* Exit Confirmation Modal */}
       {showExitModal && (
@@ -839,9 +914,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   navButton: {
-    padding: 12,
-    borderRadius: 50,
-    backgroundColor: colors.surface + '80',
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   navButtonLeft: {
     marginRight: 8,
@@ -877,12 +954,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   subtaskTitle: {
-    fontSize: 42,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '700',
     color: colors.textPrimary,
     textAlign: 'center',
-    letterSpacing: -1,
-    lineHeight: 50,
+    letterSpacing: -0.5,
+    lineHeight: 42,
     paddingHorizontal: 8,
   },
   timerContainer: {
@@ -891,8 +968,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timerText: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: colors.textPrimary,
     fontVariant: ['tabular-nums'],
   },
@@ -908,9 +985,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   tipText: {
-    fontSize: 13,
+    fontSize: 10,
     color: colors.textSecondary,
     textAlign: 'center',
+    opacity: 0.6,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
   },
 
   // Slider - Frosted glass
@@ -920,12 +1000,12 @@ const styles = StyleSheet.create({
   sliderTrack: {
     width: SLIDER_WIDTH,
     height: SLIDER_HEIGHT,
-    backgroundColor: colors.surface + 'CC',
     borderRadius: SLIDER_HEIGHT / 2,
     justifyContent: 'center',
     overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)', // Deepens the background slightly behind the blur
     borderWidth: 1,
-    borderColor: colors.primary + '26',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sliderFill: {
     position: 'absolute',
@@ -935,28 +1015,41 @@ const styles = StyleSheet.create({
     borderRadius: SLIDER_HEIGHT / 2,
   },
   sliderText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.background,
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.7)' + 40,
     textAlign: 'center',
-    marginLeft: THUMB_SIZE + 16,
-    letterSpacing: -0.3,
+    marginLeft: THUMB_SIZE + 10,
+    letterSpacing: 1,
   },
   sliderThumbWrapper: {
     position: 'absolute',
     left: 4,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  sliderThumbGradient: {
+  thumbGlow: {
+    position: 'absolute',
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    backgroundColor: '#ffffff',
+    opacity: 0.8,
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  sliderThumbApple: {
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    elevation: 8,
+    elevation: 5,
   },
   sliderThumb: {
     position: 'absolute',
@@ -974,7 +1067,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  // Confetti
+  // Confetti / Burst
   burstContainer: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -986,6 +1079,23 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+  floatingCoinBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  floatingCoinText: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.primary,
+    letterSpacing: -0.5,
   },
 
   // Exit Modal

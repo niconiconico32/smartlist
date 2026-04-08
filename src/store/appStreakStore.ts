@@ -26,6 +26,7 @@ export interface AppStreakData {
   count: number;
   lastOpenDate: string | null; // "YYYY-MM-DD"
   history: string[]; // last opens as "YYYY-MM-DD", most recent first
+  shieldUsedToday?: boolean; // true when a shield protected the streak today
 }
 
 interface AppStreakStore {
@@ -33,6 +34,8 @@ interface AppStreakStore {
   lastOpenDate: string | null;
   history: string[];
   shouldShowStreakScreen: boolean;
+  /** True when a shield was consumed today to protect the streak */
+  shieldUsedToday: boolean;
 
   /**
    * Called once when the app loads.
@@ -62,6 +65,13 @@ interface AppStreakStore {
    * This is called if a Pro user with shields declines the pending shield offer.
    */
   resetStreak: () => Promise<void>;
+
+  /**
+   * Mark that a shield was used today to protect the streak.
+   * Called from StreakShieldModal after the user accepts the shield offer.
+   * Sets shieldUsedToday = true so DailyStreakScreen shows the protected variant.
+   */
+  markShieldUsed: () => void;
 }
 
 export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
@@ -69,6 +79,7 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
   lastOpenDate: null,
   history: [],
   shouldShowStreakScreen: false,
+  shieldUsedToday: false,
 
   initializeAppStreak: async () => {
     try {
@@ -85,6 +96,7 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
             lastOpenDate: data.lastOpenDate,
             history: data.history,
             shouldShowStreakScreen: false,
+            shieldUsedToday: data.shieldUsedToday ?? false,
           });
           return;
         }
@@ -147,6 +159,21 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
 
   dismissStreakScreen: () => {
     set({ shouldShowStreakScreen: false });
+  },
+
+  markShieldUsed: () => {
+    set({ shieldUsedToday: true });
+    // Also persist the flag so it survives same-session re-renders
+    AsyncStorage.getItem(APP_STREAK_KEY).then((stored) => {
+      if (stored) {
+        const data: AppStreakData = JSON.parse(stored);
+        const updated: AppStreakData = { ...data, shieldUsedToday: true };
+        AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(updated)).catch(
+          (e) => console.error('[appStreakStore] Error persisting shieldUsedToday:', e)
+        );
+      }
+    }).catch((e) => console.error('[appStreakStore] Error reading streak for shield mark:', e));
+    console.log('[appStreakStore] Shield used today — streak protected!');
   },
 
   getMultiplier: () => {

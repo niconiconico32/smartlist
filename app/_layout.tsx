@@ -13,7 +13,9 @@ import { AppErrorBoundary } from '@/src/components/AppErrorBoundary';
 import { AuthProvider, useAuth } from '@/src/contexts/AuthContext';
 import { PurchasesProvider } from '@/src/contexts/PurchasesContext';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
+import { useProStore } from '@/src/store/proStore';
 import { useRoutineStreakStore } from '@/src/store/routineStreakStore';
+import { configurePurchases } from '@/src/utils/purchases';
 
 // Suprimir warning de expo-notifications - las notificaciones funcionan en development build
 LogBox.ignoreLogs([
@@ -42,10 +44,24 @@ export default function RootLayout() {
   });
 
   const { initializeRoutineStreaks } = useRoutineStreakStore();
+  const { load: loadPro, rechargeShieldsIfNeeded } = useProStore();
 
   useEffect(() => {
-    // Initialize routine streaks as soon as app starts
-    initializeRoutineStreaks();
+    /**
+     * Startup sequence — ORDER IS CRITICAL:
+     * 1. Configure RevenueCat SDK (must be before any purchase call)
+     * 2. Load Pro state (isPro, shieldCount, trial expiry)
+     * 3. Recharge shields if Monday
+     * 4. Initialize routine streaks
+     */
+    const bootstrap = async () => {
+      await configurePurchases();
+      await loadPro();
+      await rechargeShieldsIfNeeded();
+      await useOnboardingStore.getState().loadOnboardingStatus();
+      initializeRoutineStreaks();
+    };
+    bootstrap();
   }, []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -83,6 +99,7 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+
   useEffect(() => {
     if (isLoading) return; // Wait until auth state is resolved
 
@@ -90,8 +107,12 @@ function RootLayoutNav() {
 
     if (!session) {
       if (!inAuthGroup) {
-        // No session → send to onboarding
-        router.replace('/onboarding-v3');
+        // No session → if onboarding is already completed, show login splash
+        if (isOnboardingLocal) {
+          router.replace('/login');
+        } else {
+          router.replace('/onboarding-v3');
+        }
       }
     } else {
       const hasCompletedOnboarding = 

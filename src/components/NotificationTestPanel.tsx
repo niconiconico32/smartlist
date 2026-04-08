@@ -62,23 +62,9 @@ export function NotificationTestPanel({ visible, onClose }: NotificationTestPane
   };
 
   const handleTestStreak = async () => {
-    Alert.prompt(
-      '🔥 Test Streak Notification',
-      'Enter streak day (1, 7, 30, etc.):',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send',
-          onPress: async (value) => {
-            const days = parseInt(value || '1');
-            await sendStreakNotification(days);
-            Alert.alert('✅ Sent', `Streak notification for day ${days} sent!`);
-          },
-        },
-      ],
-      'plain-text',
-      '7'
-    );
+    // Alert.prompt has OS-specific type constraints and causes issues
+    await sendStreakNotification(7);
+    Alert.alert('✅ Sent', 'Streak notification for day 7 sent!');
   };
 
   const handleCancelAll = async () => {

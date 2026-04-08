@@ -1,10 +1,10 @@
 import { colors } from '@/constants/theme';
 import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
 import { DailyStreakScreen } from '@/src/components/DailyStreakScreen';
-import { FocusHeroCard } from '@/src/components/FocusHeroCard';
+import { BG_IMAGES, DEFAULT_BG, FocusHeroCard } from '@/src/components/FocusHeroCard';
 import { LiquidFAB } from '@/src/components/LiquidFAB';
-import { NotificationTestPanel } from '@/src/components/NotificationTestPanel';
 import { PaywallModal } from '@/src/components/PaywallModal';
+import { ProTrialOfferModal } from '@/src/components/ProTrialOfferModal';
 import { StreakShieldModal } from '@/src/components/StreakShieldModal';
 import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -23,19 +23,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
 import React, { createRef, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Dimensions, ImageBackground, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import PagerView from 'react-native-pager-view';
-import Animated_Reanimated, { FadeIn } from 'react-native-reanimated';
 import IndexScreen from './index';
 import TwoScreen from './two';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Ref para llamar función del IndexScreen
-export const addTaskRef = createRef<{ 
+export const addTaskRef = createRef<{
   openTaskModal: (showSchedule?: boolean) => void;
   openProgramScheduleModal: () => void;
 }>();
@@ -67,14 +67,14 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
 export default function SwipeableLayout() {
   const { user } = useAuth();
   const { onStreakChanged, onRoutinesCountChanged, loadAchievements, trackWeeklyUsage, onReminderActivated } = useAchievementsStore();
-  const { streak: appStreak, history: appStreakHistory, shouldShowStreakScreen, initializeAppStreak, dismissStreakScreen } = useAppStreakStore();
-  const { isPro, hasSeenTrialOffer } = useProStore();
+  const { streak: appStreak, history: appStreakHistory, shouldShowStreakScreen, shieldUsedToday, initializeAppStreak, dismissStreakScreen } = useAppStreakStore();
+  const { isPro, hasSeenTrialOffer, pendingShieldOffer } = useProStore();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
-  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [showTrialOffer, setShowTrialOffer] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const paywallCheckedRef = useRef(false);
 
@@ -95,7 +95,7 @@ export default function SwipeableLayout() {
       const streakData = await AsyncStorage.getItem('@smartlist_streak');
       if (streakData) {
         const { count, lastCompletedDate } = JSON.parse(streakData);
-        
+
         if (lastCompletedDate) {
           // ✅ TIMEZONE SAFE: Check if streak is still valid
           if (isLocalToday(lastCompletedDate)) {
@@ -133,17 +133,17 @@ export default function SwipeableLayout() {
       const streakData = await AsyncStorage.getItem('@smartlist_streak');
       const hasAskedForNotifications = await AsyncStorage.getItem('@notification_permission_asked');
       const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE: Use local date
-      
+
       if (streakData) {
         const { count, lastCompletedDate } = JSON.parse(streakData);
-        
+
         // ✅ TIMEZONE SAFE: Check if already counted today
         if (hasCountedToday(lastCompletedDate)) {
           // Already counted today - just ensure UI is updated
           setIsStreakActiveToday(true);
           return;
         }
-        
+
         // Check if streak should continue or reset
         let newCount = 1;
         if (lastCompletedDate && isLocalYesterday(lastCompletedDate)) {
@@ -151,26 +151,26 @@ export default function SwipeableLayout() {
           newCount = count + 1;
         }
         // If more than 1 day ago or null, streak resets to 1
-        
+
         setCurrentStreak(newCount);
         setIsStreakActiveToday(true);
         await AsyncStorage.setItem('@smartlist_streak', JSON.stringify({
           count: newCount,
           lastCompletedDate: today,
         }));
-        
+
         // Actualizar logro de racha
         onStreakChanged(newCount);
-        
+
         // 🔔 Send streak milestone notification
         await sendStreakNotification(newCount);
-        
+
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) {}
+        } catch (e) { }
       } else {
-        // First time ever
+        // First time ever completing a task
         if (!hasAskedForNotifications) {
           await AsyncStorage.setItem('@notification_permission_asked', 'true');
         }
@@ -180,17 +180,24 @@ export default function SwipeableLayout() {
           count: 1,
           lastCompletedDate: today,
         }));
-        
+
         // Actualizar logro de racha
         onStreakChanged(1);
-        
+
         // 🔔 Send first streak notification
         await sendStreakNotification(1);
-        
+
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) {}
+        } catch (e) { }
+      }
+
+      // 🎁 Pro Trial Offer: show after completing first task/routine if user hasn't seen it yet
+      const { isPro: currentIsPro, hasSeenTrialOffer: currentHasSeen } = useProStore.getState();
+      if (!currentIsPro && !currentHasSeen) {
+        // Small delay so the task celebration animation finishes first
+        setTimeout(() => setShowTrialOffer(true), 1200);
       }
     } catch (error) {
       console.error('Error updating streak:', error);
@@ -200,7 +207,7 @@ export default function SwipeableLayout() {
   // Load routines from Supabase
   const loadRoutines = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       const fetchedRoutines = await routineService.fetchRoutines(user.id);
       setRoutines(fetchedRoutines as any);
@@ -237,26 +244,27 @@ export default function SwipeableLayout() {
     }, [loadRoutines, loadStreak])
   );
 
-  // Auto-trigger Day 8 Paywall Reverse Trial
+  // Auto-trigger Day 8 Paywall Reverse Trial (only for expired trials)
   useEffect(() => {
     if (!isLoadingData && !paywallCheckedRef.current) {
-      // If data is ready, and it's the first check this session
       paywallCheckedRef.current = true;
-      // If the user saw the trial offer but is NO longer Pro (Day 8+)
       if (hasSeenTrialOffer && !isPro) {
+        // Trial expired — show paywall
         setShowPaywall(true);
       }
+      // NOTE: ProTrialOfferModal is NOT shown here.
+      // It fires inside updateStreakOnTaskComplete, after the user's first task/routine completion.
     }
   }, [isLoadingData, hasSeenTrialOffer, isPro]);
 
   // Calculate real completed tasks history from activities
   const calculateCompletedTasksHistory = () => {
     const history: Record<string, { tasks: number; routines: number }> = {};
-    
+
     // Contar tareas completadas
     activities.forEach(activity => {
       const recurrenceType = activity.recurrence?.type || 'once';
-      
+
       if (recurrenceType === 'once' || !activity.recurrence) {
         // Tareas de una vez: solo contar en su fecha programada si están completadas
         if (activity.scheduledDate && activity.completed) {
@@ -283,7 +291,7 @@ export default function SwipeableLayout() {
         });
       }
     });
-    
+
     // Contar rutinas completadas
     routines.forEach(routine => {
       // Las rutinas tienen completedDates por cada día que se completaron
@@ -295,15 +303,15 @@ export default function SwipeableLayout() {
         history[date].routines++;
       });
     });
-    
+
     return history;
   };
-  
+
   // Calculate scheduled (pending) tasks history from activities
   const calculateScheduledTasksHistory = () => {
     const history: Record<string, { tasks: number; routines: number }> = {};
     const today = new Date();
-    
+
     // Generate dates for past 15 days and next 30 days to check for scheduled tasks
     for (let i = -15; i < 30; i++) {
       const checkDate = new Date(today);
@@ -311,11 +319,11 @@ export default function SwipeableLayout() {
       const dateKey = format(checkDate, 'yyyy-MM-dd');
       const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
       const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Ajustar para que 0 = Lunes, 6 = Domingo
-      
+
       // Contar tareas programadas
       activities.forEach(activity => {
         const recurrenceType = activity.recurrence?.type || 'once';
-        
+
         if (recurrenceType === 'once' || !activity.recurrence) {
           // Tareas de una vez: contar si está programada para este día y NO está completada
           if (activity.scheduledDate === dateKey && !activity.completed) {
@@ -336,7 +344,7 @@ export default function SwipeableLayout() {
           // Tareas semanales: contar si este día está en los días programados y NO está completada
           const isScheduledForThisDay = activity.recurrence?.days?.includes(adjustedDayOfWeek);
           const isCompletedOnThisDay = activity.completedDates?.includes(dateKey);
-          
+
           if (isScheduledForThisDay && !isCompletedOnThisDay) {
             if (!history[dateKey]) {
               history[dateKey] = { tasks: 0, routines: 0 };
@@ -345,19 +353,19 @@ export default function SwipeableLayout() {
           }
         }
       });
-      
+
       // Contar rutinas programadas pero no completadas
       routines.forEach(routine => {
         // Verificar si esta rutina está programada para este día de la semana
-        const isScheduledForThisDay = routine.days.some(dayAbbrev => 
+        const isScheduledForThisDay = routine.days.some(dayAbbrev =>
           DAY_ABBREV_TO_NUMBER[dayAbbrev] === dayOfWeek
         );
-        
+
         if (isScheduledForThisDay) {
           // Verificar si la rutina NO fue completada en este día
           const routineCompletedDates = (routine as any).completedDates || [];
           const isCompletedOnThisDay = routineCompletedDates.includes(dateKey);
-          
+
           if (!isCompletedOnThisDay) {
             if (!history[dateKey]) {
               history[dateKey] = { tasks: 0, routines: 0 };
@@ -367,10 +375,10 @@ export default function SwipeableLayout() {
         }
       });
     }
-    
+
     return history;
   };
-  
+
   const completedTasksHistory = calculateCompletedTasksHistory();
   const scheduledTasksHistory = calculateScheduledTasksHistory();
 
@@ -431,11 +439,11 @@ export default function SwipeableLayout() {
         reminderEnabled: routine.reminderEnabled,
         reminderTime: routine.reminderTime,
       });
-      
+
       if (newRoutine) {
         // Recargar rutinas para actualizar calendario
         await loadRoutines();
-        
+
         // Forzar recarga de TwoScreen incrementando el refresh key
         setRoutinesRefreshKey(prev => prev + 1);
 
@@ -443,7 +451,7 @@ export default function SwipeableLayout() {
         if (routine.reminderEnabled) {
           onReminderActivated();
         }
-        
+
         const daysText = routine.days.join(', ');
         Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
       } else {
@@ -497,77 +505,49 @@ export default function SwipeableLayout() {
         </BlurView>
       )}
 
-      {/* Fixed Header Components */}
-      <View style={styles.fixedHeader}>
+      <ImageBackground
+        source={useAchievementsStore.getState().activeBackground && BG_IMAGES[useAchievementsStore.getState().activeBackground!] ? BG_IMAGES[useAchievementsStore.getState().activeBackground!] : DEFAULT_BG}
+        style={styles.fixedHeader}
+      >
+        {/*
+          ZONA DE AJUSTE MANUAL DEL GRADIENTE 🎨
+          - colors: Cambia el color base o la intensidad.
+          - end={{ x: 0, y: 1 }}: Define hasta dónde llega el desvanecido.
+            (1 es hasta el fondo del ImageBackground, 0.5 a la mitad de la imagen).
+        */}
+        <LinearGradient
+          colors={[colors.background, 'transparent']}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 0.6 }}
+        />
+
         {isLoadingData ? (
           <View style={styles.headerLoading}>
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
         ) : (
           <>
-            <WeeklyCalendar 
+            <WeeklyCalendar
               completedTasksHistory={completedTasksHistory}
               scheduledTasksHistory={scheduledTasksHistory}
               scheduledRoutines={routines}
-              onDateSelect={(date) => {
-                setSelectedDate(date);
-                console.log('Fecha seleccionada:', format(date, 'yyyy-MM-dd'));
-              }}
+              onDateSelect={(date) => setSelectedDate(date)}
             />
             <View style={styles.progressWrapper}>
-            <FocusHeroCard 
+              <FocusHeroCard
                 currentStreak={currentStreak}
                 isStreakActiveToday={isStreakActiveToday}
-                onTripleTap={() => {
-                  const { togglePro, isPro } = useProStore.getState();
-                  togglePro();
-                  Haptics.notificationAsync(
-                    isPro
-                      ? Haptics.NotificationFeedbackType.Warning
-                      : Haptics.NotificationFeedbackType.Success
-                  );
-                  // isPro is the OLD value before toggle, so show opposite
-                  Alert.alert(
-                    isPro ? '⚙️ Modo Dev' : '⚙️ Modo Dev',
-                    isPro ? 'PRO desactivado' : '✨ PRO activado'
-                  );
-                }}
+
               />
             </View>
           </>
         )}
-      </View>
 
-      {/* Debug: Test Onboarding Final */}
-      {__DEV__ && (
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 8 }}>
-          <Pressable
-            onPress={() => router.push('/onboardingfinal')}
-            style={{
-              flex: 1,
-              backgroundColor: '#10B981',
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>🚀 Test Onboarding</Text>
-          </Pressable>
+        {/* Dither de píxeles al fondo */}
+      </ImageBackground>
 
-          <Pressable
-            onPress={() => setShowPaywall(true)}
-            style={{
-              flex: 1,
-              backgroundColor: '#8B5CF6',
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFF', fontWeight: '700', fontSize: 13 }}>💰 Test Paywall</Text>
-          </Pressable>
-        </View>
-      )}
+
 
       {/* Swipeable Content */}
       <PagerView
@@ -578,19 +558,18 @@ export default function SwipeableLayout() {
         onPageSelected={(e: any) => setCurrentPage(e.nativeEvent.position)}
       >
         <View key="1" style={styles.page}>
-          <IndexScreen 
-            key={`index-${selectedDate.toISOString()}`}
-            ref={addTaskRef} 
-            setIsFirstTime={setIsFirstTime} 
-            pulseAnim={pulseAnimFirstTime} 
-            isFirstTime={isFirstTime} 
+          <IndexScreen
+            ref={addTaskRef}
+            setIsFirstTime={setIsFirstTime}
+            pulseAnim={pulseAnimFirstTime}
+            isFirstTime={isFirstTime}
             onTaskCompleted={updateStreakOnTaskComplete}
             selectedDate={selectedDate}
             onActivitiesChange={setActivities}
           />
         </View>
         <View key="2" style={styles.page}>
-          <TwoScreen selectedDate={selectedDate} key={`${selectedDate.toISOString()}-${routinesRefreshKey}`} onRoutineCompleted={updateStreakOnTaskComplete} />
+          <TwoScreen key={routinesRefreshKey} selectedDate={selectedDate} onRoutineCompleted={updateStreakOnTaskComplete} />
         </View>
       </PagerView>
 
@@ -611,14 +590,13 @@ export default function SwipeableLayout() {
         </Pressable>
 
         <View style={styles.centralButtonContainer}>
-          <LiquidFAB 
+          <LiquidFAB
             currentPage={currentPage}
             onHacerTareaPress={handleHacerTareaPress}
             onProgramarTareaPress={handleProgramarTareaPress}
             onCreateRoutinePress={handleCreateRoutinePress}
             onOpenChange={handleFABOpenChange}
             isOpen={isFABOpen}
-            onLongPress={() => setShowNotificationPanel(true)}
           />
         </View>
 
@@ -647,26 +625,29 @@ export default function SwipeableLayout() {
         onCreateRoutine={handleCreateRoutine}
       />
 
-      
 
-      {/* Notification Test Panel */}
-      <NotificationTestPanel 
-        visible={showNotificationPanel}
-        onClose={() => setShowNotificationPanel(false)}
-      />
+
+
 
 
 
       {/* Daily App-Open Streak Screen */}
       <DailyStreakScreen
-        visible={shouldShowStreakScreen}
+        visible={shouldShowStreakScreen && !pendingShieldOffer}
         streak={appStreak}
         history={appStreakHistory}
+        shieldUsedToday={shieldUsedToday}
         onDismiss={dismissStreakScreen}
       />
 
       {/* Streak Shield Protection Modal (Pro only) */}
       <StreakShieldModal />
+
+      {/* Pro Trial Offer (first-time, non-Pro users) */}
+      <ProTrialOfferModal
+        visible={showTrialOffer && !shouldShowStreakScreen}
+        onClose={() => setShowTrialOffer(false)}
+      />
 
       {/* Paywall Reverse Trial (Day 8+) */}
       <PaywallModal
@@ -690,8 +671,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   fixedHeader: {
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
     zIndex: 1,
+    paddingBottom: 100,
   },
   headerLoading: {
     paddingVertical: 60,

@@ -1,5 +1,6 @@
 import { colors } from '@/constants/theme';
 import { CoinsCounter } from '@/src/components/CoinsCounter';
+import { HamburgerMenu } from '@/src/components/HamburgerMenu';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useAchievementsStore } from '@/src/store/achievementsStore';
 import { useAppStreakStore } from '@/src/store/appStreakStore';
@@ -145,6 +146,9 @@ export function WeeklyCalendar({
     <View style={styles.container}>
       {/* Header - Day and Date */}
       <View style={styles.header}>
+        {/* ☰ Hamburger — left of the day name */}
+        <HamburgerMenu />
+
         <View style={styles.dayNameContainer}>
           <Text style={styles.dayName}>{format(selectedDate, 'EEE', { locale: es })}</Text>
           <View style={styles.redDot} />
@@ -228,24 +232,24 @@ export function WeeklyCalendar({
               style={styles.dayContainer}
               onPress={() => handleDateSelect(day)}
             >
-              <View style={[
-                styles.dayNumberContainer
-              ]}>
+              <View style={[styles.todayFrame, isCurrentDay && styles.todayFrameActive]}>
+                <View style={styles.dayNumberContainer}>
+                  <Text style={[
+                    styles.dayNumber,
+                    isSelected && styles.dayNumberSelected,
+                    isCurrentDay && styles.dayNumberToday
+                  ]}>
+                    {format(day, 'd')}
+                  </Text>
+                </View>
                 <Text style={[
-                  styles.dayNumber,
-                  isSelected && styles.dayNumberSelected,
-                  isCurrentDay && styles.dayNumberToday
+                  styles.dayLabel,
+                  isSelected && styles.dayLabelSelected,
+                  isCurrentDay && styles.dayLabelToday
                 ]}>
-                  {format(day, 'd')}
+                  {format(day, 'EEE', { locale: es }).toUpperCase().slice(0, 3)}
                 </Text>
               </View>
-              <Text style={[
-                styles.dayLabel,
-                isSelected && styles.dayLabelSelected,
-                isCurrentDay && styles.dayLabelToday
-              ]}>
-                {format(day, 'EEE', { locale: es }).toUpperCase().slice(0, 3)}
-              </Text>
 
               {/* Activity Indicators Row - Always rendered for consistent height */}
               <View style={styles.activityRow}>
@@ -295,7 +299,7 @@ export function WeeklyCalendar({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 28,
@@ -371,9 +375,21 @@ const styles = StyleSheet.create({
     gap: 6,
     width: 40,
   },
+  todayFrame: {
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  todayFrameActive: {
+    borderColor: colors.primary,
+  },
   dayNumberContainer: {
-    width: 40,
-    height: 40,
+    width: 20,
+    height: 20,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -381,17 +397,17 @@ const styles = StyleSheet.create({
   },
 
   dayNumber: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   dayNumberSelected: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: '900',
     color: colors.primary,
   },
   dayLabel: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
     color: colors.textSecondary,
     letterSpacing: 0.5,
@@ -403,10 +419,7 @@ const styles = StyleSheet.create({
   activityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    height: 12,
-    marginTop: 4,
+    justifyContent: 'center'
   },
   activityDot: {
     width: 5,

@@ -14,12 +14,23 @@ import Animated, {
 import { useAchievementsStore } from '../store/achievementsStore';
 
 // Static background image map (require() must be static)
-const BG_IMAGES: Record<string, any> = {
+export const BG_IMAGES: Record<string, any> = {
   bg_spring: require('../../assets/images/pixelbgs/spring.png'),
-  bg_beach: require('../../assets/images/pixelbgs/beach.png'),
+  bg_beach:  require('../../assets/images/pixelbgs/beach.png'),
   bg_autumn: require('../../assets/images/pixelbgs/autumm.png'),
   bg_winter: require('../../assets/images/pixelbgs/winter.png'),
-  bg_woods: require('../../assets/images/pixelbgs/woods.png'),
+  bg_woods:  require('../../assets/images/pixelbgs/woods.png'),
+  // nuevos WebP
+  bg_w1:  require('../../assets/images/pixelbgs/1.webp'),
+  bg_w2:  require('../../assets/images/pixelbgs/2.webp'),
+  bg_w3:  require('../../assets/images/pixelbgs/3.webp'),
+  bg_w4:  require('../../assets/images/pixelbgs/4.webp'),
+  bg_w5:  require('../../assets/images/pixelbgs/5.webp'),
+  bg_w6:  require('../../assets/images/pixelbgs/6.webp'),
+  bg_w7:  require('../../assets/images/pixelbgs/7.webp'),
+  bg_w8:  require('../../assets/images/pixelbgs/8.webp'),
+  bg_w9:  require('../../assets/images/pixelbgs/9.webp'),
+  bg_w10: require('../../assets/images/pixelbgs/10.webp'),
 };
 
 const OUTFIT_IMAGES: Record<string, any> = {
@@ -27,9 +38,20 @@ const OUTFIT_IMAGES: Record<string, any> = {
   outfit_1_2: require('../../assets/images/outfits/1_2.png'),
   outfit_1_3: require('../../assets/images/outfits/1_3.png'),
   outfit_1_4: require('../../assets/images/outfits/1_4.png'),
+  // nuevos WebP
+  outfit_w5:  require('../../assets/images/outfits/5.webp'),
+  outfit_w6:  require('../../assets/images/outfits/6.webp'),
+  outfit_w7:  require('../../assets/images/outfits/7.webp'),
+  outfit_w8:  require('../../assets/images/outfits/8.webp'),
+  outfit_w9:  require('../../assets/images/outfits/9.webp'),
+  outfit_w10: require('../../assets/images/outfits/10.webp'),
+  outfit_w11: require('../../assets/images/outfits/11.webp'),
+  outfit_w12: require('../../assets/images/outfits/12.webp'),
+  outfit_w13: require('../../assets/images/outfits/13.webp'),
+  outfit_w14: require('../../assets/images/outfits/14.webp'),
 };
 
-const DEFAULT_BG = require('../../assets/images/pixelbgs/spring.png');
+export const DEFAULT_BG = require('../../assets/images/pixelbgs/spring.png');
 
 const FLAME_ACTIVE_COLOR = '#FF6B6B';
 const FLAME_INACTIVE_COLOR = '#94A3B8';
@@ -124,13 +146,6 @@ export function FocusHeroCard({
 
   return (
     <View style={styles.container}>
-      {/* --- FONDO: Imagen pixel art --- */}
-      <Image
-        source={bgSource}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      />
-
       {/* --- CONTENIDO: Mascota centrada + Burbuja arriba --- */}
       <View style={styles.contentContainer}>
 
@@ -151,15 +166,16 @@ export function FocusHeroCard({
           style={{ alignItems: 'center', justifyContent: 'center' }}
         >
           <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
-            <Image
-              source={require('../../assets/images/logomain.png')}
-              style={styles.mascot}
-              resizeMode="contain"
-            />
-            {activeOutfit && OUTFIT_IMAGES[activeOutfit] && (
+            {activeOutfit && OUTFIT_IMAGES[activeOutfit] ? (
               <Image
                 source={OUTFIT_IMAGES[activeOutfit]}
-                style={styles.mascotOutfit}
+                style={styles.mascot}
+                resizeMode="contain"
+              />
+            ) : (
+              <Image
+                source={require('../../assets/images/logomain.png')}
+                style={styles.mascot}
                 resizeMode="contain"
               />
             )}
@@ -168,9 +184,6 @@ export function FocusHeroCard({
           </Animated.View>
         </Pressable>
       </View>
-      
-      {/* Borde sutil */}
-      <View style={styles.borderOverlay} />
     </View>
   );
 }
@@ -179,19 +192,8 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: 4,
     height: 160,
-    borderRadius: 32,
     overflow: 'hidden',
-    backgroundColor: '#4A7C59',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  backgroundImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
+    backgroundColor: 'transparent',
   },
   contentContainer: {
     flex: 1,
@@ -297,12 +299,5 @@ const styles = StyleSheet.create({
   streakBadgeText: {
     fontSize: 13,
     fontWeight: '800',
-  },
-  borderOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 32,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    zIndex: 20,
   },
 });

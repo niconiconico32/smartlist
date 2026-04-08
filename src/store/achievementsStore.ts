@@ -360,11 +360,12 @@ interface AchievementsStore {
 
   dailyTasksCompletedCount: number;
   dailyRoutinesCompletedCount: number;
+  todaysRewardedTaskIds: string[];
   lastRewardDate: string | null;
   rewardedTasks: Record<string, string>;
 
   awardRoutineCompletionCoins: (routineId: string) => Promise<{ earned: number; isNew: boolean }>;
-  awardTaskCompletionCoins: (taskId: string, difficulty: 'easy' | 'moderate' | 'hard') => Promise<{ earned: number; isNew: boolean }>;
+  awardTaskCompletionCoins: (taskId: string, difficulty: 'easy' | 'moderate' | 'hard', subtaskId?: string) => Promise<{ earned: number; isNew: boolean }>;
 }
 
 // =====================================================
@@ -389,6 +390,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           activeOutfit: s.activeOutfit,
           rewardedRoutines: s.rewardedRoutines,
           rewardedTasks: s.rewardedTasks,
+          todaysRewardedTaskIds: s.todaysRewardedTaskIds,
           dailyTasksCompletedCount: s.dailyTasksCompletedCount,
           dailyRoutinesCompletedCount: s.dailyRoutinesCompletedCount,
           lastRewardDate: s.lastRewardDate,
@@ -414,6 +416,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     rewardedTasks: {},
     dailyTasksCompletedCount: 0,
     dailyRoutinesCompletedCount: 0,
+    todaysRewardedTaskIds: [],
     lastRewardDate: null,
     isRoutineModalOpen: false,
 
@@ -450,6 +453,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             rewardedTasks: data.rewardedTasks || {},
             dailyTasksCompletedCount: data.dailyTasksCompletedCount || 0,
             dailyRoutinesCompletedCount: data.dailyRoutinesCompletedCount || 0,
+            todaysRewardedTaskIds: data.todaysRewardedTaskIds || [],
             lastRewardDate: data.lastRewardDate || null,
           });
         }
@@ -753,38 +757,57 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     },
 
     // =========================================================
-    // AWARD TASK COMPLETION COINS (WITH DIMINISHING RETURNS)
+    // AWARD TASK COMPLETION COINS (WITH LIMITS & RANDOM COINS)
     // =========================================================
-    awardTaskCompletionCoins: async (taskId: string, difficulty: 'easy' | 'moderate' | 'hard') => {
+    awardTaskCompletionCoins: async (taskId: string, difficulty: 'easy' | 'moderate' | 'hard', subtaskId?: string) => {
       const today = getLocalDateKey(new Date());
       const state = get();
       
-      if (state.rewardedTasks[taskId] === today) {
-        // Ya fue compensado hoy, no hacer nada
+      const exactItemId = subtaskId ? `subtask_${subtaskId}` : `task_${taskId}`;
+
+      if (state.rewardedTasks[exactItemId]) {
+        // Ya fue compensado alguna vez (previene abuso de reinicio exacto)
         return { earned: 0, isNew: false };
       }
 
-      // Check date reset for diminishing returns
-      let { dailyTasksCompletedCount, lastRewardDate } = state;
+      // Check date reset
+      let { todaysRewardedTaskIds, lastRewardDate } = state;
       if (lastRewardDate !== today) {
-        dailyTasksCompletedCount = 0;
+        todaysRewardedTaskIds = [];
         set({
           lastRewardDate: today,
           dailyRoutinesCompletedCount: 0,
           dailyTasksCompletedCount: 0,
+          todaysRewardedTaskIds: [],
         });
       }
+      todaysRewardedTaskIds = todaysRewardedTaskIds || [];
       
-      const multiplier = useAppStreakStore.getState().getMultiplier();
-      const baseMap = { easy: 100, moderate: 160, hard: 200 };
-      const baseEarned = baseMap[difficulty] || 100;
+      // Contar límite por Tarea general, NO por subtarea
+      const isNewTaskToday = !todaysRewardedTaskIds.includes(taskId);
+      if (isNewTaskToday && todaysRewardedTaskIds.length >= 2) {
+        return { earned: 0, isNew: true };
+      }
       
-      const fadingFactor = Math.pow(0.5, dailyTasksCompletedCount);
-      const earned = Math.round(baseEarned * fadingFactor * multiplier);
+      let multiplier = 1;
+      try {
+        if (useAppStreakStore?.getState) {
+          multiplier = useAppStreakStore.getState().getMultiplier() || 1;
+        }
+      } catch (e) {}
       
+      // Coronas base entre 15 y 20 por cada acción (tarea general o cada subtarea de las afortunadas)
+      const baseEarned = Math.floor(Math.random() * (20 - 15 + 1)) + 15;
+      const earned = Math.round(baseEarned * multiplier);
+      
+      const newTodaysRewarded = isNewTaskToday 
+          ? [...todaysRewardedTaskIds, taskId] 
+          : todaysRewardedTaskIds;
+
       set({
-        rewardedTasks: { ...state.rewardedTasks, [taskId]: today },
-        dailyTasksCompletedCount: dailyTasksCompletedCount + 1,
+        rewardedTasks: { ...state.rewardedTasks, [exactItemId]: today },
+        todaysRewardedTaskIds: newTodaysRewarded,
+        dailyTasksCompletedCount: newTodaysRewarded.length,
         totalCoins: state.totalCoins + earned,
       });
       await persist();

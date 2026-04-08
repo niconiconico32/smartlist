@@ -146,14 +146,20 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   };
 
   useEffect(() => {
-    if (visible && tasks.length === 0) {
-      const firstTask: Task = {
-        id: generateId(),
-        title: '',
-      };
-      setTasks([firstTask]);
-      setEditingTaskId(firstTask.id);
-    }
+    if (!visible) return;
+    // Siempre resetear el formulario al abrir para que no queden datos de una rutina anterior
+    const firstTask: Task = { id: generateId(), title: '' };
+    setRoutineName('');
+    setSelectedDays(['Lun']);
+    setTasks([firstTask]);
+    setEditingTaskId(firstTask.id);
+    setReminderEnabled(false);
+    setReminderTime(new Date());
+    setSelectedIcon('');
+    setShowIconPicker(false);
+    setShowTimePicker(false);
+    setHasUnsavedChanges(false);
+    taskInputRefs.current = {};
   }, [visible]);
 
   useEffect(() => {
@@ -201,7 +207,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
                       selectedIcon !== '';
     
     setHasUnsavedChanges(hasContent);
-  }, [routineName, selectedDays, tasks, reminderEnabled, selectedIcon, visible]);
+  }, [routineName, selectedDays, tasks, reminderEnabled, selectedIcon]);
 
   const handleAddTask = () => {
     const newTask: Task = {

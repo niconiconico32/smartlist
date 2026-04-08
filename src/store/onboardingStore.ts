@@ -14,6 +14,7 @@ interface OnboardingState {
   setSymptoms: (symptoms: string[]) => void;
   setGoal: (goal: string) => void;
   setProductivityTime: (time: string) => void;
+  loadOnboardingStatus: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
 }
 
@@ -29,6 +30,12 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   setSymptoms: (symptoms) => set({ symptoms }),
   setGoal: (goal) => set({ goal }),
   setProductivityTime: (time) => set({ productivityTime: time }),
+  loadOnboardingStatus: async () => {
+    const status = await AsyncStorage.getItem('onboarding_complete');
+    if (status === 'true') {
+      set({ isOnboardingComplete: true });
+    }
+  },
   completeOnboarding: async () => {
     set({ isOnboardingComplete: true });
     await AsyncStorage.setItem('onboarding_complete', 'true');

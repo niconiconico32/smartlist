@@ -1,9 +1,57 @@
-import React from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Crown, ShieldAlert, Store } from 'lucide-react-native';
 import { useRevenueCat } from '../hooks/useRevenueCat';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Alert } from 'react-native';
+import { restorePurchases, isPremiumActive } from '../utils/purchases';
+import { useProStore } from '../store/proStore';
+import { colors } from '@/constants/theme';
+import { CoinsCounter } from './CoinsCounter';
+import { useAchievementsStore } from '../store/achievementsStore';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH * 0.58;
+const CARD_GAP = 12;
+
+// Same benefit cards as ProTrialOfferModal Phase 2
+const BENEFIT_CARDS = [
+  {
+    id: '1',
+    title: 'Multiplicador de Coronas',
+    subtitle: 'Las coronas que ganas aumentarán un 15% por cada día de tu Racha Diaria.',
+    image: require('@/assets/images/probird.png'),
+    icon: <Crown color="#38BDF8" size={28} strokeWidth={2.5} />,
+    iconBg: 'rgba(56, 189, 248, 0.2)',
+  },
+  {
+    id: '2',
+    title: 'Escudo de Racha',
+    subtitle: '2 protecciones semanales para que no pierdas tu bonus de Racha Diaria.',
+    image: require('@/assets/images/escudo.png'),
+    icon: <ShieldAlert color="#F59E0B" size={28} strokeWidth={2.5} />,
+    iconBg: 'rgba(245, 158, 11, 0.2)',
+  },
+  {
+    id: '3',
+    title: 'Tienda Exclusiva',
+    subtitle: 'Fondos animados, skins y accesorios premium disponibles en la Tienda.',
+    image: require('@/assets/images/ropero.png'),
+    icon: <Store color="#EC4899" size={28} strokeWidth={2.5} />,
+    iconBg: 'rgba(236, 72, 153, 0.2)',
+  },
+];
 
 interface PaywallModalProps {
   visible: boolean;
@@ -12,13 +60,37 @@ interface PaywallModalProps {
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) => {
   const { currentPackage, isPurchasing, isFetching, purchasePro } = useRevenueCat();
+  const { activatePermanentPro } = useProStore();
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
 
   const handlePurchase = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const success = await purchasePro();
     if (success) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onClose(); // Cerrar modal porque el estado isPro ya desbloqueó la app detrás
+      onClose();
+    }
+  };
+
+  const handleRestore = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsRestoring(true);
+    try {
+      const customerInfo = await restorePurchases();
+      if (isPremiumActive(customerInfo)) {
+        await activatePermanentPro();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('¡Compra restaurada!', 'Tu suscripción Pro ha sido reactivada.');
+        onClose();
+      } else {
+        Alert.alert('Sin compras previas', 'No encontramos una suscripción activa para restaurar.');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'No se pudo restaurar la compra.');
+    } finally {
+      setIsRestoring(false);
     }
   };
 
@@ -27,10 +99,34 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
     onClose();
   };
 
-  // Extraemos el texto del precio dinámico, o mostramos un texto genérico si cargando
-  const priceText = currentPackage 
+  const priceText = currentPackage
     ? `Suscribirse por ${currentPackage.product.priceString}/mes`
     : 'Suscribirse Ahora';
+
+  const renderBenefitCard = ({ item }: { item: typeof BENEFIT_CARDS[0] }) => {
+    const totalCoins = useAchievementsStore.getState().totalCoins;
+
+    return (
+      <View style={styles.benefitCard}>
+        {item.id === '1' ? (
+          /* Crowns Pill — Centered inside a container matching the image dimensions */
+          <View style={[styles.benefitCardImage, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={styles.crownsPillPreview}>
+              <Crown size={28} color="#1A1C20" strokeWidth={2.5} />
+              <CoinsCounter coins={totalCoins} size="large" color="#1A1C20" />
+              <View style={styles.multiplierBadge}>
+                <Text style={styles.multiplierText}>x1.5</Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <Image source={item.image} style={styles.benefitCardImage} resizeMode="contain" />
+        )}
+        <Text style={styles.benefitCardTitle}>{item.title}</Text>
+        <Text style={styles.benefitCardSubtitle}>{item.subtitle}</Text>
+      </View>
+    );
+  };
 
   return (
     <Modal
@@ -39,38 +135,44 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
       presentationStyle="formSheet"
       onRequestClose={handleDismiss}
     >
-      <LinearGradient
-        colors={['#1F2937', '#111827']}
-        style={styles.container}
-      >
+      <LinearGradient colors={['#F59E0B', '#FCD34D', '#D97706']} style={styles.container}>
+
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.superTitle}>VERSIÓN PRO</Text>
           <Text style={styles.title}>Desbloquea el Máximo Poder de Brainy</Text>
+          <Text style={styles.subtitle}>Tu prueba ha expirado — continúa sin límites</Text>
         </View>
 
-        <View style={styles.benefitsContainer}>
-          <View style={styles.benefitRow}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(56, 189, 248, 0.2)' }]}>
-              <Crown color="#38BDF8" size={24} strokeWidth={2.5} />
-            </View>
-            <Text style={styles.benefitText}>Multiplicador <Text style={styles.highlight}>+50% de coronas</Text> en tus tareas</Text>
-          </View>
-
-          <View style={styles.benefitRow}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(245, 158, 11, 0.2)' }]}>
-              <ShieldAlert color="#F59E0B" size={24} strokeWidth={2.5} />
-            </View>
-            <Text style={styles.benefitText}><Text style={styles.highlight}>Escudos de racha</Text> para proteger tu progreso</Text>
-          </View>
-
-          <View style={styles.benefitRow}>
-            <View style={[styles.iconBox, { backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}>
-              <Store color="#EC4899" size={24} strokeWidth={2.5} />
-            </View>
-            <Text style={styles.benefitText}>Acceso ilimitado a la <Text style={styles.highlight}>Tienda VIP</Text> exclusiva</Text>
+        {/* Benefit Cards Carousel */}
+        <View style={styles.carouselContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={BENEFIT_CARDS}
+            renderItem={renderBenefitCard}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={CARD_WIDTH + CARD_GAP}
+            decelerationRate="fast"
+            contentContainerStyle={styles.carouselContent}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
+              setActiveCardIndex(index);
+            }}
+          />
+          {/* Pagination dots */}
+          <View style={styles.dotsContainer}>
+            {BENEFIT_CARDS.map((_, i) => (
+              <View
+                key={i}
+                style={[styles.dot, activeCardIndex === i && styles.dotActive]}
+              />
+            ))}
           </View>
         </View>
 
+        {/* Footer Buttons */}
         <View style={styles.footer}>
           {(isFetching && !currentPackage) ? (
             <View style={styles.loadingContainer}>
@@ -79,14 +181,14 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             </View>
           ) : (
             <>
-              <Pressable 
+              <Pressable
                 style={({ pressed }) => [
                   styles.primaryButton,
                   pressed && styles.primaryButtonPressed,
-                  isPurchasing && styles.primaryButtonDisabled
+                  isPurchasing && styles.primaryButtonDisabled,
                 ]}
                 onPress={handlePurchase}
-                disabled={isPurchasing}
+                disabled={isPurchasing || isRestoring}
               >
                 {isPurchasing ? (
                   <ActivityIndicator color="#FFFFFF" />
@@ -95,13 +197,28 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                 )}
               </Pressable>
 
-              <Pressable 
+              <Pressable
+                style={({ pressed }) => [
+                  styles.restoreButton,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
+                onPress={handleRestore}
+                disabled={isPurchasing || isRestoring}
+              >
+                {isRestoring ? (
+                  <ActivityIndicator color="#9CA3AF" size="small" />
+                ) : (
+                  <Text style={styles.restoreButtonText}>Restaurar Compra</Text>
+                )}
+              </Pressable>
+
+              <Pressable
                 style={({ pressed }) => [
                   styles.secondaryButton,
-                  pressed && styles.secondaryButtonPressed
+                  pressed && styles.secondaryButtonPressed,
                 ]}
                 onPress={handleDismiss}
-                disabled={isPurchasing}
+                disabled={isPurchasing || isRestoring}
               >
                 <Text style={styles.secondaryButtonText}>Quizás más tarde</Text>
               </Pressable>
@@ -116,60 +233,127 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 40,
+    paddingBottom: 20,
     justifyContent: 'space-between',
   },
   header: {
-    marginTop: 40,
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
+    gap: 8,
   },
   superTitle: {
-    color: '#38BDF8',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 2,
-    marginBottom: 12,
   },
   title: {
-    color: '#F9FAFB',
-    fontSize: 32,
-    fontWeight: '800',
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 36,
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
-  benefitsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 32,
-    paddingHorizontal: 10,
+  subtitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  benefitRow: {
+  // ── Carousel ──
+  carouselContainer: {
+    marginTop: 8,
+  },
+  carouselContent: {
+    paddingHorizontal: (SCREEN_WIDTH - CARD_WIDTH) / 2,
+    gap: CARD_GAP,
+  },
+  benefitCard: {
+    width: CARD_WIDTH,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  benefitCardImage: {
+    width: 128,
+    height: 128,
+    marginBottom: 10,
+  },
+  crownsPillPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    backgroundColor: '#EAF0FC',
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    borderRadius: 42,
+    gap: 6,
+    position: 'relative',
   },
-  iconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  multiplierBadge: {
+    position: 'absolute',
+    top: -12,
+    right: -14,
+    backgroundColor: '#C9FD5A',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
-  benefitText: {
-    flex: 1,
-    color: '#D1D5DB',
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: '500',
+  multiplierText: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#280D8C',
   },
-  highlight: {
-    color: '#F9FAFB',
+  benefitCardTitle: {
+    fontSize: 16,
     fontWeight: '800',
+    color: '#1A1A2E',
+    textAlign: 'center',
   },
+  benefitCardSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 14,
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  dotActive: {
+    width: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 4,
+  },
+  // ── Footer ──
   footer: {
-    marginBottom: 40,
-    gap: 16,
+    gap: 10,
+    paddingTop: 8,
   },
   loadingContainer: {
     alignItems: 'center',
@@ -182,16 +366,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   primaryButton: {
-    backgroundColor: '#38BDF8',
-    height: 60,
-    borderRadius: 30,
+    backgroundColor: '#FFFFFF',
+    height: 56,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    elevation: 6,
   },
   primaryButtonPressed: {
     transform: [{ scale: 0.98 }],
@@ -201,12 +381,27 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
-    color: '#0F172A',
-    fontSize: 18,
+    color: '#B45309',
+    fontSize: 17,
     fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  restoreButton: {
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  restoreButtonText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 14,
+    fontWeight: '600',
   },
   secondaryButton: {
-    height: 50,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -214,8 +409,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   secondaryButtonText: {
-    color: '#9CA3AF',
-    fontSize: 15,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

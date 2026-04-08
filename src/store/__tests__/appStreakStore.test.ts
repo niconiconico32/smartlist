@@ -102,6 +102,98 @@ describe('Store: appStreakStore', () => {
     });
   });
 
+  // ─── Shield Protection Tests ──────────────────────────────────────────────────
+
+  describe('Shield protection flow', () => {
+    const { useProStore } = require('../proStore');
+
+    it('debe conservar la racha y activar pendingShieldOffer si es Pro con shields y hay gap', async () => {
+      jest.setSystemTime(new Date('2026-03-15T12:00:00Z'));
+
+      // Simulate Pro user with shields
+      useProStore.setState({
+        isPro: true,
+        streakShieldCount: 2,
+        pendingShieldOffer: false,
+      });
+
+      const storedData: AppStreakData = {
+        count: 7,
+        lastOpenDate: '2026-03-10', // 5 días de ausencia
+        history: ['2026-03-10', '2026-03-09'],
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(storedData));
+      // activateShieldOffer calls AsyncStorage.setItem — allow it
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      const { initializeAppStreak } = useAppStreakStore.getState();
+      await initializeAppStreak();
+
+      const state = useAppStreakStore.getState();
+      // Streak is preserved (not reset) while shield offer is pending
+      expect(state.streak).toBe(7);
+      expect(state.shouldShowStreakScreen).toBe(true);
+      // proStore should have been asked to show the shield offer
+      expect(useProStore.getState().pendingShieldOffer).toBe(true);
+    });
+
+    it('debe resetear racha a 1 si hay gap y el usuario NO es Pro', async () => {
+      jest.setSystemTime(new Date('2026-03-15T12:00:00Z'));
+
+      useProStore.setState({ isPro: false, streakShieldCount: 0, pendingShieldOffer: false });
+
+      const storedData: AppStreakData = {
+        count: 5,
+        lastOpenDate: '2026-03-10',
+        history: ['2026-03-10'],
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(storedData));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      await useAppStreakStore.getState().initializeAppStreak();
+
+      expect(useAppStreakStore.getState().streak).toBe(1);
+    });
+
+    it('debe resetear racha a 1 si es Pro pero no tiene shields', async () => {
+      jest.setSystemTime(new Date('2026-03-15T12:00:00Z'));
+
+      useProStore.setState({ isPro: true, streakShieldCount: 0, pendingShieldOffer: false });
+
+      const storedData: AppStreakData = {
+        count: 5,
+        lastOpenDate: '2026-03-10',
+        history: ['2026-03-10'],
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(storedData));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      await useAppStreakStore.getState().initializeAppStreak();
+
+      expect(useAppStreakStore.getState().streak).toBe(1);
+      // Should NOT trigger shield offer since no shields
+      expect(useProStore.getState().pendingShieldOffer).toBe(false);
+    });
+  });
+
+  describe('markShieldUsed()', () => {
+    it('debe marcar shieldUsedToday como true y persistir', async () => {
+      const existingData: AppStreakData = {
+        count: 7,
+        lastOpenDate: '2026-03-15',
+        history: ['2026-03-15'],
+      };
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValueOnce(JSON.stringify(existingData));
+      (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+
+      useAppStreakStore.setState({ shieldUsedToday: false });
+      useAppStreakStore.getState().markShieldUsed();
+
+      // Zustand state updated immediately (synchronous)
+      expect(useAppStreakStore.getState().shieldUsedToday).toBe(true);
+    });
+  });
+
   describe('dismissStreakScreen()', () => {
     it('debe cambiar shouldShowStreakScreen a false', () => {
       useAppStreakStore.setState({ shouldShowStreakScreen: true });

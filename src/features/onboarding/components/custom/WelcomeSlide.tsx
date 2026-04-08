@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { GoogleButton } from '@/src/components/GoogleButton';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import Animated, {
     Easing,
@@ -102,15 +102,13 @@ const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
       >
         <Animated.View style={buttonAnimatedStyle}>
           <View style={styles.googleButtonWrapper}>
-            <GoogleSigninButton
-              size={GoogleSigninButton.Size.Wide}
-              color={GoogleSigninButton.Color.Light}
+            <GoogleButton
               onPress={async () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 await signInWithOAuth('google');
               }}
               disabled={isLoading}
-              style={{ width: '100%', height: 56 }}
+              style={{ width: '100%', height: 56, borderRadius: 28 }}
             />
           </View>
           <Pressable
