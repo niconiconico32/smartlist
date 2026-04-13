@@ -11,19 +11,8 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  FlatList,
-  Image,
-  Keyboard,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  UIManager,
-  View,
-} from 'react-native';
+import { FlatList, Image, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, TextInput, UIManager, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import DraggableFlatList, {
   RenderItemParams,
   ScaleDecorator,

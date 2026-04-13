@@ -3,7 +3,8 @@ import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // ============================================

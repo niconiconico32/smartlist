@@ -1,6 +1,7 @@
 import { colors } from '@/constants/theme';
 import React, { useEffect } from 'react';
-import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Image, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
   FadeInDown,

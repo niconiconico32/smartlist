@@ -91,20 +91,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { CalendarClock, Check, Clock, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  Modal,
-  Pressable,
-  Animated as RNAnimated,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, Pressable, Animated as RNAnimated, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 

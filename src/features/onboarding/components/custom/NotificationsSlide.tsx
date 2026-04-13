@@ -9,7 +9,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { requestNotificationPermissions } from '@/src/lib/notificationService';
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
   FadeInDown,

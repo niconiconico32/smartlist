@@ -14,15 +14,8 @@ if (!isExpoGo) {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, Flame, Sparkles, X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  Animated,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 interface NotificationPermissionModalProps {
   visible: boolean;

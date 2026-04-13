@@ -13,19 +13,8 @@ import {
   X
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Dimensions,
-  FlatList,
-  Keyboard,
-  LayoutAnimation,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  UIManager,
-  View,
-} from 'react-native';
+import { Dimensions, FlatList, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, TextInput, UIManager, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import DraggableFlatList, {
   RenderItemParams,
   ScaleDecorator,

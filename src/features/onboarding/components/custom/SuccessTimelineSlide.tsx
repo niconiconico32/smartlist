@@ -9,7 +9,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Crown, Flame, Sparkles } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     Easing,
     FadeInDown,

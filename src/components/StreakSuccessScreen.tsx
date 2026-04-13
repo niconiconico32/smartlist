@@ -28,14 +28,8 @@ import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo } from 'react';
-import {
-  Dimensions,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, Image, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
   useAnimatedStyle,

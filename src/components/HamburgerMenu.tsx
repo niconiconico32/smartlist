@@ -22,17 +22,8 @@ import {
   X,
 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  Linking as RNLinking,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Modal, Platform, Pressable, Linking as RNLinking, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   FadeOut,
   SlideOutDown,

@@ -11,15 +11,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import {
-    Dimensions,
-    Image,
-    Modal,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+import { Dimensions, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     Easing,
     FadeInDown,

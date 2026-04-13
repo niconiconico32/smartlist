@@ -11,7 +11,8 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { Crown } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { DeviceEventEmitter, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DeviceEventEmitter, Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,

@@ -5,14 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Clock, Play, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 interface LiquidFABProps {
   currentPage: number;

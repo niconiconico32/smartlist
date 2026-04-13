@@ -1,6 +1,7 @@
 import { colors } from '@/constants/theme';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 interface TaskTimerProps {
   isRunning: boolean;

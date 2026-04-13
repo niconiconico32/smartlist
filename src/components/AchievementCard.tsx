@@ -1,7 +1,8 @@
 import { colors } from '@/constants/theme';
 import { Check, Crown, Hexagon, HelpCircle, LucideIcon } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 export interface Achievement {
   id: string;

@@ -2,15 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bug, Calendar, Database, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import {
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
 const STREAK_STORAGE_KEY = '@smartlist_streak';

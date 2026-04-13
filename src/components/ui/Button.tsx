@@ -1,6 +1,7 @@
 import { colors } from '@/constants/theme';
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 interface ButtonProps {
   onPress: () => void;

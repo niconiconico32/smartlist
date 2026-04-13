@@ -4,7 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import { Bell, X, Send, Calendar, Trash, Info } from 'lucide-react-native';
 import { colors } from '@/constants/theme';
 import {

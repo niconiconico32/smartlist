@@ -3,14 +3,8 @@ import * as Haptics from 'expo-haptics';
 import LottieView from 'lottie-react-native';
 import { Crown } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import {
-  Dimensions,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Dimensions, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

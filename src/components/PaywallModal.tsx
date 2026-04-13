@@ -1,15 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, FlatList, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import { Crown, ShieldAlert, Store } from 'lucide-react-native';
 import { posthog } from '@/src/config/posthog';
 import { useRevenueCat } from '../hooks/useRevenueCat';

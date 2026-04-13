@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, ViewStyle, StyleProp, ActivityIndicator } from 'react-native';
+import { Pressable, StyleSheet, View, ViewStyle, StyleProp, ActivityIndicator } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Svg, { Path } from 'react-native-svg';
 
 interface GoogleButtonProps {

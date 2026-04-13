@@ -7,7 +7,8 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     Easing,
     FadeInDown,

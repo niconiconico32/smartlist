@@ -2,7 +2,8 @@ import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { Edit2, RotateCcw, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Svg, { Circle } from 'react-native-svg';
 
 interface ActivityButtonProps {

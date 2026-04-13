@@ -7,16 +7,8 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import React, { useCallback } from 'react';
-import {
-    ActivityIndicator,
-    Dimensions,
-    Image,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';

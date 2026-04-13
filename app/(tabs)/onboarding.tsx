@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 export default function OnboardingScreen() {
   const router = useRouter();

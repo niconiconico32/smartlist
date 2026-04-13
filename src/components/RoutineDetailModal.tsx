@@ -14,17 +14,8 @@ import {
     Trash2
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     FadeInDown,
     useAnimatedStyle,

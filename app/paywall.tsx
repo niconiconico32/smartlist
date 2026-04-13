@@ -12,14 +12,8 @@ import {
   XCircle,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import {
-  Dimensions,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
   FadeInDown,

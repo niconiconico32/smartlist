@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 
 interface TypewriterTextProps {
   text: string;

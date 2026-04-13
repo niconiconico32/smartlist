@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import { ShieldAlert } from 'lucide-react-native';
 import { useProStore } from '../store/proStore';
 import { useAppStreakStore } from '../store/appStreakStore';

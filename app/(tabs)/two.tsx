@@ -19,7 +19,8 @@ import { isSameDay } from "date-fns";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View, DeviceEventEmitter } from "react-native";
+import { Alert, ScrollView, StyleSheet, View, DeviceEventEmitter } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     FadeIn,
     FadeInDown,

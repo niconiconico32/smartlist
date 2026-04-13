@@ -1,7 +1,8 @@
 import { BlurView } from 'expo-blur';
 import { Flame } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
 

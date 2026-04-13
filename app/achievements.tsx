@@ -10,7 +10,8 @@ import { PaywallModal } from '@/src/components/PaywallModal';
 import { ProTrialOfferModal } from '@/src/components/ProTrialOfferModal';
 import { Calendar, ChevronLeft, Crown, Flame, Lock, Store, Trophy } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');

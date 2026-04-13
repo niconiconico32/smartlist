@@ -1,7 +1,8 @@
 import { colors } from '@/constants/theme';
 import { useSensory } from '@/src/hooks/useSensory';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,

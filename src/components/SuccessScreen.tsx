@@ -2,13 +2,8 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, Clock, Flame, Home } from 'lucide-react-native';
 import React, { useEffect } from 'react';
-import {
-    Dimensions,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     Easing,
     useAnimatedStyle,

@@ -1,7 +1,8 @@
 import { colors } from '@/constants/theme';
 import { CheckCircle, Circle, Clock } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { TaskTimer } from './TaskTimer';
 

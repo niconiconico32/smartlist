@@ -2,7 +2,8 @@ import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import { Check, Plus } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
