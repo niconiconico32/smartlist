@@ -75,7 +75,8 @@
         }
       ],
       "expo-apple-authentication",
-      "./plugins/withRemoveBootReceiver"
+      "./plugins/withRemoveBootReceiver",
+      "./plugins/withUnrestrictMLKitOrientation"
     ],
     "experiments": {
       "typedRoutes": true
