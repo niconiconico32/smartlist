@@ -1,5 +1,6 @@
 import { PRIMARY_GRADIENT_COLORS } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { posthog } from '@/src/config/posthog';
 import { useAchievementsStore } from '@/src/store/achievementsStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
@@ -604,6 +605,12 @@ export function FocusModeScreen({
             console.error('Error clearing progress:', error);
           }
 
+          posthog.capture('focus_session_completed', {
+            task_id: activityId,
+            subtasks_count: subtasksRef.current.length,
+            total_time_seconds: totalElapsedTime,
+          });
+
           // Cerrar la pantalla — marcar como cerrado explícito para evitar doble onClose en unmount
           isExplicitlyClosedRef.current = true;
           onCloseRef.current(subtasksRef.current);
@@ -667,6 +674,14 @@ export function FocusModeScreen({
     } catch (error) {
       console.error('Error clearing progress:', error);
     }
+
+    const completedCount = subtasksRef.current.filter((s) => s.isCompleted).length;
+    posthog.capture('focus_session_exited', {
+      task_id: activityId,
+      subtasks_completed: completedCount,
+      subtasks_total: subtasksRef.current.length,
+      time_spent_seconds: totalElapsedTime,
+    });
 
     setTimeout(() => {
       onCloseRef.current(subtasksRef.current); // Pass updated subtasks to parent

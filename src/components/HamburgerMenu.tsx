@@ -1,5 +1,6 @@
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { usePurchases } from '@/src/contexts/PurchasesContext';
 import { supabase } from '@/src/lib/supabase';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -14,6 +15,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  RotateCcw,
   Shield,
   Trash2,
   Crown,
@@ -21,8 +23,10 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   Linking as RNLinking,
   StyleSheet,
@@ -38,8 +42,10 @@ import Animated, {
 const PRIVACY_POLICY_URL = 'https://suggestions-brainyapp.vercel.app'; // TODO: replace with real URL
 const TERMS_URL = 'https://suggestions-brainyapp.vercel.app'; // TODO: replace with real URL
 const CONTACT_EMAIL = 'smartlist.app.dev@gmail.com'; // TODO: replace with real email
-const MANAGE_SUBSCRIPTIONS_URL =
-  'https://play.google.com/store/account/subscriptions?package=com.brainyahdh.app';
+const MANAGE_SUBSCRIPTIONS_URL = Platform.select({
+  ios: 'https://apps.apple.com/account/subscriptions',
+  default: 'https://play.google.com/store/account/subscriptions?package=com.brainyahdh.app',
+});
 
 // ─── Row component ────────────────────────────────────────────────────────────
 interface MenuRowProps {
@@ -70,8 +76,10 @@ const Divider = () => <View style={styles.divider} />;
 export function HamburgerMenu() {
   const [visible, setVisible] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const { signOut, isAnonymous, signInWithOAuth } = useAuth();
   const { isPro } = useProStore();
+  const { restorePurchases } = usePurchases();
   const router = useRouter();
 
   const open = () => {
@@ -136,6 +144,26 @@ export function HamburgerMenu() {
       ],
     );
   }, [signOut]);
+
+  const handleRestorePurchases = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsRestoring(true);
+    try {
+      const restored = await restorePurchases();
+      if (restored) {
+        Alert.alert('¡Listo!', 'Tu suscripción Pro ha sido restaurada correctamente.');
+      } else {
+        Alert.alert(
+          'Sin compras previas',
+          'No se encontraron suscripciones asociadas a tu cuenta.',
+        );
+      }
+    } catch {
+      Alert.alert('Error', 'No se pudieron restaurar las compras. Intenta de nuevo.');
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [restorePurchases]);
 
   const handleSignOut = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -233,9 +261,30 @@ export function HamburgerMenu() {
           <MenuRow
             icon={<Shield size={18} color="#38BDF8" strokeWidth={2} />}
             label="Gestionar suscripción"
-            sublabel="Cancelar o modificar en Google Play"
+            sublabel={Platform.OS === 'ios' ? 'Cancelar o modificar en App Store' : 'Cancelar o modificar en Google Play'}
             onPress={() => openLink(MANAGE_SUBSCRIPTIONS_URL)}
           />
+
+          <Divider />
+
+          {/* Restore Purchases — mandatory for Apple App Review */}
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={handleRestorePurchases}
+            disabled={isRestoring}
+          >
+            <View style={styles.rowIcon}>
+              {isRestoring ? (
+                <ActivityIndicator size="small" color="#A78BFA" />
+              ) : (
+                <RotateCcw size={18} color="#A78BFA" strokeWidth={2} />
+              )}
+            </View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowLabel}>Restaurar compras</Text>
+              <Text style={styles.rowSublabel}>Recupera tu suscripción en este dispositivo</Text>
+            </View>
+          </Pressable>
 
           <Divider />
 

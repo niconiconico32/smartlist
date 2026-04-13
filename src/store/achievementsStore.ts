@@ -1,4 +1,5 @@
 import { getLocalDateKey } from '@/src/utils/dateHelpers';
+import { posthog } from '@/src/config/posthog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Award, Bell, Clock, Coffee, Crown, Flame, Flower2, Heart,
@@ -499,6 +500,14 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
       set({ achievements: newAchievements, totalCoins: newTotalCoins });
       await persist();
+
+      if (newCompleted && !achievement.completed) {
+        posthog.capture('achievement_unlocked', {
+          achievement_id: id,
+          achievement_title: definition.title,
+          coins_awarded: coinsToAdd,
+        });
+      }
     },
 
     completeAchievement: async (id) => {
@@ -680,6 +689,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           const newOutfits = [...purchasedOutfits, itemId];
           set({ purchasedOutfits: newOutfits });
           await persist();
+          posthog.capture('shop_item_purchased', { item_type: 'outfit', item_id: itemId });
           await updateAchievement('first_outfit', 1);
         }
       } else if (type === 'background') {
@@ -687,6 +697,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           const newBgs = [...purchasedBackgrounds, itemId];
           set({ purchasedBackgrounds: newBgs });
           await persist();
+          posthog.capture('shop_item_purchased', { item_type: 'background', item_id: itemId });
           await updateAchievement('first_skin', 1);
           await updateAchievement('three_skins', Math.min(newBgs.length, 3));
         }

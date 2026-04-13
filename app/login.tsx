@@ -1,5 +1,6 @@
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { posthog } from '@/src/config/posthog';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -23,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const { signInWithOAuth, signInAnonymously, isLoading, isAnonymous, session } = useAuth();
+  const { signInWithOAuth, signInWithApple, signInAnonymously, isLoading, isAnonymous, session } = useAuth();
   const router = useRouter();
 
   // If user is already anonymous, they're here to upgrade — not to start fresh
@@ -36,12 +37,13 @@ export default function LoginScreen() {
 
   const handleAppleSignIn = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await signInWithOAuth('apple');
-  }, [signInWithOAuth]);
+    await signInWithApple();
+  }, [signInWithApple]);
 
   const handleSkip = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await signInAnonymously();
+    posthog.capture('user_signed_in_anonymously');
     await useOnboardingStore.getState().completeOnboarding();
     router.replace('/(tabs)');
   }, [signInAnonymously, router]);
@@ -93,19 +95,20 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Apple — only on iOS */}
+          {/* Apple — only on iOS (HIG-compliant) */}
           {Platform.OS === 'ios' && (
             <Pressable
               style={({ pressed }) => [
-                styles.oauthButton,
-                styles.appleButton,
-                pressed && styles.buttonPressed,
+                styles.appleSignInButton,
+                pressed && styles.appleSignInButtonPressed,
               ]}
               onPress={handleAppleSignIn}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in with Apple"
             >
-              <Text style={styles.appleIcon}></Text>
-              <Text style={styles.appleButtonText}>Continuar con Apple</Text>
+              <Text style={styles.appleSignInIcon}></Text>
+              <Text style={styles.appleSignInLabel}>Sign in with Apple</Text>
             </Pressable>
           )}
 
@@ -225,31 +228,37 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingBottom: 8,
   },
-  oauthButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
-    borderRadius: 28,
-    gap: 10,
-  },
   googleButtonWrapper: {
     height: 56,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  appleButton: {
+
+  // ── Apple Sign In (HIG-compliant) ──────────────────────────────────────
+  appleSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 12,
     backgroundColor: '#000000',
+    gap: 8,
   },
-  appleIcon: {
-    fontSize: 20,
+  appleSignInButtonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  appleSignInIcon: {
+    fontSize: 18,
     color: '#FFFFFF',
+    marginTop: -2, // optical alignment for the Apple glyph
   },
-  appleButtonText: {
-    fontSize: 16,
+  appleSignInLabel: {
+    fontSize: 19,
     fontWeight: '600',
     color: '#FFFFFF',
+    letterSpacing: 0.1,
   },
   buttonPressed: {
     opacity: 0.85,

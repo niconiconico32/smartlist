@@ -1,5 +1,7 @@
 import { supabase } from '@/src/lib/supabase';
+import { posthog } from '@/src/config/posthog';
 import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -10,7 +12,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type OAuthProvider = 'google' | 'apple';
+type OAuthProvider = 'google';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +20,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAnonymous: boolean;
   signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -30,6 +33,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   isAnonymous: true,
   signInWithOAuth: async () => {},
+  signInWithApple: async () => {},
   signInAnonymously: async () => {},
   signOut: async () => {},
 });
@@ -53,17 +57,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 2. Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
+      (event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+
+        if (session?.user && !session.user.is_anonymous) {
+          // Note: RevenueCat identity sync is handled by PurchasesContext
+          // to avoid duplicate loginUser() calls.
+
+          // Identify authenticated user in PostHog
+          posthog.identify(session.user.id, {
+            $set: {
+              email: session.user.email,
+              provider: session.user.app_metadata?.provider,
+            },
+            $set_once: {
+              first_sign_in_date: new Date().toISOString(),
+            },
+          });
+
+          if (event === 'SIGNED_IN') {
+            posthog.capture('user_signed_in', {
+              provider: session.user.app_metadata?.provider,
+            });
+          }
+        }
       },
     );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── OAuth Sign-In ─────────────────────────────────────────────────────────
+  // ── OAuth Sign-In (Google) ─────────────────────────────────────────────────
 
   const signInWithOAuth = async (provider: OAuthProvider): Promise<void> => {
     try {
@@ -85,12 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           redirectTo: redirectUrl,
           skipBrowserRedirect: true,
-          ...(provider === 'google' && {
-            queryParams: {
-              access_type: 'offline',
-              prompt: 'consent',
-            },
-          }),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -153,6 +177,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── Apple Native Sign-In (iOS) ────────────────────────────────────────────
+
+  const signInWithApple = async (): Promise<void> => {
+    try {
+      setIsLoading(true);
+
+      // Show the native Apple Sign-In sheet (ASAuthorizationController)
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('No identity token returned from Apple');
+      }
+
+      // Exchange Apple's identity token with Supabase
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) throw error;
+
+      // Apple only provides full name on first sign-in — store it if available
+      if (credential.fullName?.givenName) {
+        const displayName = [
+          credential.fullName.givenName,
+          credential.fullName.familyName,
+        ].filter(Boolean).join(' ');
+
+        await supabase.auth.updateUser({
+          data: { full_name: displayName },
+        });
+      }
+    } catch (error: any) {
+      // ERR_REQUEST_CANCELED = user dismissed the Apple sheet
+      if (error.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      console.error('❌ Apple Sign-In error:', error.message);
+      Alert.alert(
+        'Error de inicio de sesión',
+        'No se pudo completar el inicio de sesión con Apple. Intenta de nuevo.',
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ── Anonymous Sign-In ─────────────────────────────────────────────────────
 
   const signInAnonymously = async (): Promise<void> => {
@@ -181,6 +257,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('❌ Error signing out:', error.message);
+      } else {
+        posthog.reset();
       }
     } catch (error) {
       console.error('❌ Unexpected error during sign out:', error);
@@ -195,6 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAnonymous,
         signInWithOAuth,
+        signInWithApple,
         signInAnonymously,
         signOut,
       }}

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { useAuth } from '@/src/contexts/AuthContext';
+import { useProStore } from '@/src/store/proStore';
 import {
     configurePurchases,
     getCustomerInfo,
@@ -54,18 +55,32 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
 
   // ── Helpers ─────────────────────────────────────────────────────────────
 
-  const updatePremiumStatus = useCallback((info: CustomerInfo) => {
-    setIsPremium(isPremiumActive(info));
+  /**
+   * Update both local React state AND the proStore (AsyncStorage)
+   * so that isPro stays in sync across the two sources of truth.
+   */
+  const syncPremiumStatus = useCallback(async (info: CustomerInfo) => {
+    const hasPro = isPremiumActive(info);
+    setIsPremium(hasPro);
+
+    // Sync proStore with RevenueCat server truth
+    const proStore = useProStore.getState();
+    if (hasPro && !proStore.isPro) {
+      await proStore.activatePermanentPro();
+    } else if (!hasPro && proStore.isPro && !proStore.trialExpiresAt) {
+      // No entitlement and no active trial → cancel pro in local store
+      await proStore.cancelPermanentPro();
+    }
   }, []);
 
   const refreshCustomerInfo = useCallback(async () => {
     try {
       const info = await getCustomerInfo();
-      updatePremiumStatus(info);
+      await syncPremiumStatus(info);
     } catch (error) {
       console.error('❌ Error refreshing customer info:', error);
     }
-  }, [updatePremiumStatus]);
+  }, [syncPremiumStatus]);
 
   // ── Initialize RevenueCat & sync with Supabase user ─────────────────────
 
@@ -77,10 +92,16 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
         // 1. Configure SDK (idempotent)
         await configurePurchases();
 
-        // 2. If user is logged in, link to RevenueCat
+        // 2. If user is logged in, link to RevenueCat and sync Pro status
         if (user && session) {
           const info = await loginUser(user.id);
-          if (mounted) updatePremiumStatus(info);
+          if (mounted) await syncPremiumStatus(info);
+        } else {
+          // Even anonymous users: check if there's a cached entitlement
+          try {
+            const info = await getCustomerInfo();
+            if (mounted) await syncPremiumStatus(info);
+          } catch { /* no-op for anonymous */ }
         }
 
         // 3. Load available packages
@@ -98,7 +119,7 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [user, session, updatePremiumStatus]);
+  }, [user, session, syncPremiumStatus]);
 
   // ── Handle sign-out: reset RevenueCat identity ──────────────────────────
 
@@ -115,11 +136,11 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
       const result = await purchasePackageFn(pkg);
       if (result.success && result.customerInfo) {
-        updatePremiumStatus(result.customerInfo);
+        await syncPremiumStatus(result.customerInfo);
       }
       return result;
     },
-    [updatePremiumStatus],
+    [syncPremiumStatus],
   );
 
   // ── Restore purchases ──────────────────────────────────────────────────
@@ -127,13 +148,13 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
   const handleRestore = useCallback(async (): Promise<boolean> => {
     try {
       const info = await restorePurchasesFn();
-      updatePremiumStatus(info);
+      await syncPremiumStatus(info);
       return isPremiumActive(info);
     } catch (error) {
       console.error('❌ Error restoring purchases:', error);
       return false;
     }
-  }, [updatePremiumStatus]);
+  }, [syncPremiumStatus]);
 
   return (
     <PurchasesContext.Provider

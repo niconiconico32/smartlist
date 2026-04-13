@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -11,10 +11,11 @@ import {
   View,
 } from 'react-native';
 import { Crown, ShieldAlert, Store } from 'lucide-react-native';
+import { posthog } from '@/src/config/posthog';
 import { useRevenueCat } from '../hooks/useRevenueCat';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 import { restorePurchases, isPremiumActive } from '../utils/purchases';
 import { useProStore } from '../store/proStore';
 import { colors } from '@/constants/theme';
@@ -65,6 +66,15 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
+  useEffect(() => {
+    if (visible) {
+      posthog.capture('paywall_viewed', {
+        has_package: !!currentPackage,
+        price: currentPackage?.product?.priceString,
+      });
+    }
+  }, [visible]);
+
   const handlePurchase = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     const success = await purchasePro();
@@ -81,6 +91,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
       const customerInfo = await restorePurchases();
       if (isPremiumActive(customerInfo)) {
         await activatePermanentPro();
+        posthog.capture('purchase_restored');
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('¡Compra restaurada!', 'Tu suscripción Pro ha sido reactivada.');
         onClose();
@@ -222,6 +233,21 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               >
                 <Text style={styles.secondaryButtonText}>Quizás más tarde</Text>
               </Pressable>
+
+              <View style={styles.disclaimerContainer}>
+                <Text style={styles.disclaimerText}>
+                  La suscripción se renueva automáticamente salvo que se cancele al menos 24 horas antes del fin del periodo actual.
+                </Text>
+                <View style={styles.disclaimerLinks}>
+                  <Pressable onPress={() => Linking.openURL('https://suggestions-brainyapp.vercel.app/terms')} hitSlop={8}>
+                    <Text style={styles.disclaimerLinkText}>Términos de uso</Text>
+                  </Pressable>
+                  <Text style={styles.disclaimerText}> | </Text>
+                  <Pressable onPress={() => Linking.openURL('https://suggestions-brainyapp.vercel.app/privacy')} hitSlop={8}>
+                    <Text style={styles.disclaimerLinkText}>Política de Privacidad</Text>
+                  </Pressable>
+                </View>
+              </View>
             </>
           )}
         </View>
@@ -412,5 +438,28 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
     fontWeight: '600',
+  },
+  disclaimerContainer: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 4,
+  },
+  disclaimerText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  disclaimerLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  disclaimerLinkText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 10,
+    textDecorationLine: 'underline',
   },
 });

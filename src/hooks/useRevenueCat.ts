@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { PurchasesPackage } from 'react-native-purchases';
+import { posthog } from '@/src/config/posthog';
 import { getOfferings, purchasePackage, configurePurchases } from '../utils/purchases';
 import { useProStore } from '../store/proStore';
 
@@ -41,6 +42,10 @@ export function useRevenueCat() {
         // El purchase fue exitoso y el entitlement 'pro' está activo.
         // Esparcimos el Pro permanentemente por todo el ecosistema de Zustand.
         await activatePermanentPro();
+        posthog.capture('subscription_purchased', {
+          package_identifier: currentPackage.identifier,
+          price: currentPackage.product.priceString,
+        });
         return true;
       }
 

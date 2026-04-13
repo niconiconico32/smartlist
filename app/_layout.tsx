@@ -1,12 +1,14 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { LogBox } from 'react-native';
 import 'react-native-reanimated';
 import { Jersey10_400Regular } from '@expo-google-fonts/jersey-10';
+import { PostHogProvider } from 'posthog-react-native';
+import { posthog } from '@/src/config/posthog';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AppErrorBoundary } from '@/src/components/AppErrorBoundary';
@@ -80,13 +82,23 @@ export default function RootLayout() {
   }
 
   return (
-    <AppErrorBoundary>
-      <AuthProvider>
-        <PurchasesProvider>
-          <RootLayoutNav />
-        </PurchasesProvider>
-      </AuthProvider>
-    </AppErrorBoundary>
+    <PostHogProvider
+      client={posthog}
+      autocapture={{
+        captureScreens: false, // Manual screen tracking with Expo Router
+        captureTouches: true,
+        propsToCapture: ['testID'],
+        maxElementsCaptured: 20,
+      }}
+    >
+      <AppErrorBoundary>
+        <AuthProvider>
+          <PurchasesProvider>
+            <RootLayoutNav />
+          </PurchasesProvider>
+        </AuthProvider>
+      </AppErrorBoundary>
+    </PostHogProvider>
   );
 }
 
@@ -98,7 +110,20 @@ function RootLayoutNav() {
   const isOnboardingLocal = useOnboardingStore((s) => s.isOnboardingComplete);
   const segments = useSegments();
   const router = useRouter();
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const previousPathname = useRef<string | undefined>(undefined);
 
+  // Manual screen tracking for Expo Router
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      posthog.screen(pathname, {
+        previous_screen: previousPathname.current ?? null,
+        ...params,
+      });
+      previousPathname.current = pathname;
+    }
+  }, [pathname, params]);
 
   useEffect(() => {
     if (isLoading) return; // Wait until auth state is resolved

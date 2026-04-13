@@ -6,6 +6,7 @@ import {
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/src/contexts/AuthContext';
+import { posthog } from '@/src/config/posthog';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -45,8 +46,13 @@ export default function OnboardingV3Screen() {
       store.setName(answers.userName);
       store.setSymptoms(answers.adhdSymptoms);
       store.setGoal(answers.goals.join(', '));
-      
+
       await store.completeOnboarding();
+
+      posthog.capture('onboarding_completed', {
+        main_goal: answers.goals.join(', '),
+        adhd_symptoms: answers.adhdSymptoms,
+      });
     } catch (e) {
       console.error('Error during completeOnboarding:', e);
     } finally {

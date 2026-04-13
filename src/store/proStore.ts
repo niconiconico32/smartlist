@@ -13,6 +13,7 @@
  */
 
 import { getLocalTodayDateKey } from '@/src/utils/dateHelpers';
+import { posthog } from '@/src/config/posthog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
@@ -168,7 +169,6 @@ export const useProStore = create<ProStore>((set, get) => ({
       trialExpiresAt: expiresAt.toISOString(),
     };
     set(newState);
-    set(newState);
     await persist(newState);
     console.log(`[proStore] Trial activated → expires ${expiresAt.toISOString()}`);
   },
@@ -240,6 +240,9 @@ export const useProStore = create<ProStore>((set, get) => ({
     };
     set(newState);
     await persist(newState);
+    posthog.capture('streak_shield_used', {
+      shields_remaining: newState.streakShieldCount,
+    });
     console.log(`[proStore] Shield consumed. Remaining: ${newState.streakShieldCount}`);
   },
 

@@ -18,7 +18,8 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone."
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
+        "NSUserTrackingUsageDescription": "This identifier will be used to measure the effectiveness of advertising and improve your experience in the app."
       },
       "bundleIdentifier": "com.brainyahdh.app",
       "buildNumber": "9"
@@ -73,6 +74,7 @@
           "defaultChannel": "routines"
         }
       ],
+      "expo-apple-authentication",
       "./plugins/withRemoveBootReceiver"
     ],
     "experiments": {

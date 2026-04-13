@@ -50,6 +50,7 @@ const ConfettiCannon = (props: any) => null;
 import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
 import { DEV_MODE, SHOW_TEST_BUTTONS } from "@/constants/config";
 import { colors } from "@/constants/theme";
+import { posthog } from "@/src/config/posthog";
 import { ActivityButton } from "@/src/components/ActivityButton";
 import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
@@ -269,6 +270,16 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     // Initialize app opened achievement on first load
     initializeAppOpened();
   }, []);
+
+  // Track focus session start
+  useEffect(() => {
+    if (showFocusMode && currentFocusModeActivityId) {
+      posthog.capture('focus_session_started', {
+        task_id: currentFocusModeActivityId,
+        subtasks_count: focusModeSubtasks.length,
+      });
+    }
+  }, [showFocusMode]);
 
   // Update achievements when activities change
   useEffect(() => {
@@ -656,7 +667,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     };
 
     setActivities((prev) => [newActivity, ...prev]);
-    
+    posthog.capture('task_created', {
+      task_id: newActivity.id,
+      recurrence_type: newActivity.recurrence?.type || 'none',
+      has_subtasks: newActivity.subtasks.length > 0,
+      subtasks_count: newActivity.subtasks.length,
+    });
+
     // Programar notificación si está habilitada
     if (newActivity.reminder?.enabled) {
       try {
@@ -877,6 +894,19 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const toggleActivityStatus = (id: string) => {
     const targetDateForToggle = selectedDate || new Date();
     const todayStr = getLocalDateKey(targetDateForToggle); // ✅ TIMEZONE SAFE
+    const activityToToggle = activities.find((a) => a.id === id);
+    if (activityToToggle) {
+      const isRecurrent = activityToToggle.recurrence?.type !== 'once';
+      const wasCompleted = isRecurrent
+        ? activityToToggle.completedDates?.includes(todayStr)
+        : activityToToggle.completed;
+      if (!wasCompleted) {
+        posthog.capture('task_completed', {
+          task_id: id,
+          recurrence_type: activityToToggle.recurrence?.type || 'none',
+        });
+      }
+    }
 
     setActivities((prevActivities) => {
       const updatedActivities = prevActivities.map((activity) => {

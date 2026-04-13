@@ -5,6 +5,7 @@ import {
     primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { posthog } from '@/src/config/posthog';
 import { usePurchases } from '@/src/contexts/PurchasesContext';
 import { scheduleTrialExpirationNotification } from '@/src/utils/notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -99,6 +100,10 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
         await AsyncStorage.setItem('@trial_start_date', new Date().toISOString());
         // Schedule notification 2 days before trial ends
         await scheduleTrialExpirationNotification(TRIAL_DAYS);
+        posthog.capture('trial_started', {
+          trial_days: TRIAL_DAYS,
+          package_identifier: mainPackage.identifier,
+        });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         onFinish();
       } else if (result.cancelled) {
