@@ -1,22 +1,44 @@
-import { colors } from '@/constants/theme';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { posthog } from '@/src/config/posthog';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
-import { useOnboardingStore } from '@/src/store/onboardingStore';
-import React, { useCallback } from 'react';
-import { ActivityIndicator, Dimensions, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import { GoogleSigninButton } from '@react-native-google-signin/google-signin';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { posthog } from "@/src/config/posthog";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { useOnboardingStore } from "@/src/store/onboardingStore";
+import Constants from "expo-constants";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
+import React, { useCallback } from "react";
+import {
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
+} from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+// GoogleSigninButton requires native modules — not available in Expo Go
+const isExpoGo = Constants.appOwnership === "expo";
+let GoogleSigninButton: any = null;
+if (!isExpoGo) {
+  GoogleSigninButton =
+    require("@react-native-google-signin/google-signin").GoogleSigninButton;
+}
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function LoginScreen() {
-  const { signInWithOAuth, signInWithApple, signInAnonymously, isLoading, isAnonymous, session } = useAuth();
+  const {
+    signInWithOAuth,
+    signInWithApple,
+    signInAnonymously,
+    isLoading,
+    isAnonymous,
+    session,
+  } = useAuth();
   const router = useRouter();
 
   // If user is already anonymous, they're here to upgrade — not to start fresh
@@ -24,7 +46,7 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await signInWithOAuth('google');
+    await signInWithOAuth("google");
   }, [signInWithOAuth]);
 
   const handleAppleSignIn = useCallback(async () => {
@@ -35,9 +57,9 @@ export default function LoginScreen() {
   const handleSkip = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await signInAnonymously();
-    posthog.capture('user_signed_in_anonymously');
+    posthog.capture("user_signed_in_anonymously");
     await useOnboardingStore.getState().completeOnboarding();
-    router.replace('/(tabs)');
+    router.replace("/(tabs)");
   }, [signInAnonymously, router]);
 
   return (
@@ -45,10 +67,7 @@ export default function LoginScreen() {
       <SafeAreaView style={styles.safeArea}>
         {/* ── Back button (when upgrading) ─────────────────────── */}
         {isUpgrading && (
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft size={24} color={colors.textPrimary} />
           </Pressable>
         )}
@@ -59,7 +78,7 @@ export default function LoginScreen() {
           style={styles.heroSection}
         >
           <Image
-            source={require('../assets/images/logomain.png')}
+            source={require("../assets/images/logomain.png")}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -78,17 +97,36 @@ export default function LoginScreen() {
         >
           {/* Google */}
           <View style={styles.googleButtonWrapper}>
-            <GoogleSigninButton
-              size={GoogleSigninButton.Size.Wide}
-              color={GoogleSigninButton.Color.Light}
-              onPress={handleGoogleSignIn}
-              disabled={isLoading}
-              style={{ width: '100%', height: 56 }}
-            />
+            {GoogleSigninButton ? (
+              <GoogleSigninButton
+                size={GoogleSigninButton.Size.Wide}
+                color={GoogleSigninButton.Color.Light}
+                onPress={handleGoogleSignIn}
+                disabled={isLoading}
+                style={{ width: "100%", height: 56 }}
+              />
+            ) : (
+              <Pressable
+                onPress={handleGoogleSignIn}
+                disabled={isLoading}
+                style={{
+                  width: "100%",
+                  height: 56,
+                  backgroundColor: "#fff",
+                  borderRadius: 8,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "#333", fontWeight: "600" }}>
+                  Sign in with Google
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Apple — only on iOS (HIG-compliant) */}
-          {Platform.OS === 'ios' && (
+          {Platform.OS === "ios" && (
             <Pressable
               style={({ pressed }) => [
                 styles.appleSignInButton,
@@ -124,7 +162,7 @@ export default function LoginScreen() {
               disabled={isLoading}
             >
               <LinearGradient
-                colors={['#ECF230', '#F2E852']}
+                colors={["#ECF230", "#F2E852"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.skipButtonGradient}
@@ -142,11 +180,11 @@ export default function LoginScreen() {
                 styles.skipButton,
                 pressed && styles.buttonPressed,
               ]}
-              onPress={() => router.replace('/(tabs)')}
+              onPress={() => router.replace("/(tabs)")}
               disabled={isLoading}
             >
               <LinearGradient
-                colors={['#ECF230', '#F2E852']}
+                colors={["#ECF230", "#F2E852"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.skipButtonGradient}
@@ -159,7 +197,8 @@ export default function LoginScreen() {
           {/* Extra back button for testing removed for production */}
 
           <Text style={styles.disclaimer}>
-            Al continuar, aceptas nuestros Términos de Servicio{'\n'}y Política de Privacidad.
+            Al continuar, aceptas nuestros Términos de Servicio{"\n"}y Política
+            de Privacidad.
           </Text>
         </Animated.View>
       </SafeAreaView>
@@ -176,12 +215,12 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     paddingHorizontal: 24,
     paddingBottom: 16,
   },
   backButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 60,
     left: 24,
     zIndex: 10,
@@ -191,8 +230,8 @@ const styles = StyleSheet.create({
   // Hero
   heroSection: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
   },
   logo: {
@@ -202,15 +241,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 36,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
     opacity: 0.8,
   },
@@ -222,19 +261,19 @@ const styles = StyleSheet.create({
   },
   googleButtonWrapper: {
     height: 56,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // ── Apple Sign In (HIG-compliant) ──────────────────────────────────────
   appleSignInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#000000',
+    backgroundColor: "#000000",
     gap: 8,
   },
   appleSignInButtonPressed: {
@@ -243,13 +282,13 @@ const styles = StyleSheet.create({
   },
   appleSignInIcon: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     marginTop: -2, // optical alignment for the Apple glyph
   },
   appleSignInLabel: {
     fontSize: 19,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     letterSpacing: 0.1,
   },
   buttonPressed: {
@@ -259,19 +298,19 @@ const styles = StyleSheet.create({
 
   // Divider
   divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginVertical: 4,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   dividerText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
     opacity: 0.6,
   },
@@ -279,25 +318,25 @@ const styles = StyleSheet.create({
   // Skip
   skipButton: {
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   skipButtonGradient: {
     height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   skipButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.background,
   },
 
   // Disclaimer
   disclaimer: {
     fontSize: 11,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 16,
     opacity: 0.5,
     marginTop: 4,

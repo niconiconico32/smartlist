@@ -54,7 +54,9 @@
             "newArchEnabled": true
           },
           "android": {
-            "newArchEnabled": true
+            "newArchEnabled": true,
+            "enableJetpackCompose": true,
+            "kotlinVersion": "1.9.24"
           }
         }
       ],
@@ -76,7 +78,27 @@
       ],
       "expo-apple-authentication",
       "./plugins/withRemoveBootReceiver",
-      "./plugins/withUnrestrictMLKitOrientation"
+      "./plugins/withUnrestrictMLKitOrientation",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "RoutinesWidget",
+              "label": "Rutinas Brainy",
+              "minWidth": "320dp",
+              "minHeight": "56dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "maxResizeWidth": "320dp",
+              "maxResizeHeight": "56dp",
+              "description": "Muestra tus rutinas del día.",
+              "previewImage": "./assets/images/logomain.png",
+              "resizeMode": "none"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

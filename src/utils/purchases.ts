@@ -1,10 +1,11 @@
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import Purchases, {
     LOG_LEVEL,
     type CustomerInfo,
+    type PurchasesOffering,
     type PurchasesPackage,
 } from 'react-native-purchases';
-import Constants from 'expo-constants';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -93,17 +94,35 @@ export async function getCustomerInfo(): Promise<CustomerInfo> {
 
 // ─── Offerings / Packages ─────────────────────────────────────────────────────
 
+/** The offering identifier configured in RevenueCat */
+export const OFFERING_ID = 'default';
+
 /**
- * Get the main offering's available packages for the paywall.
- * Returns null if no offerings are configured.
+ * Get the paywall offering's available packages.
+ * Fetches the specific offering configured in RevenueCat.
+ * Returns null if the offering is not found or has no packages.
  */
 export async function getOfferings(): Promise<PurchasesPackage[] | null> {
   if (Constants.appOwnership === 'expo') return null;
-  const offerings = await Purchases.getOfferings();
-  if (!offerings.current?.availablePackages.length) {
+  // syncAttributesAndOfferingsIfNeeded bypasses the offerings cache and
+  // fetches fresh data from the RC server (including latest paywall design).
+  const offerings = await Purchases.syncAttributesAndOfferingsIfNeeded();
+  const target = offerings.all[OFFERING_ID] ?? offerings.current;
+  if (!target?.availablePackages.length) {
     return null;
   }
-  return offerings.current.availablePackages;
+  return target.availablePackages;
+}
+
+/**
+ * Get the PurchasesOffering object for the configured offering.
+ * Needed by RevenueCatUI.presentPaywall().
+ */
+export async function getOffering(): Promise<PurchasesOffering | null> {
+  if (Constants.appOwnership === 'expo') return null;
+  // Force a fresh fetch so the latest paywall template revision is used.
+  const offerings = await Purchases.syncAttributesAndOfferingsIfNeeded();
+  return offerings.all[OFFERING_ID] ?? offerings.current ?? null;
 }
 
 // ─── Purchase ─────────────────────────────────────────────────────────────────
@@ -161,5 +180,5 @@ export async function restorePurchases(): Promise<CustomerInfo> {
 // ─── Re-exports for convenience ───────────────────────────────────────────────
 
 export { Purchases };
-export type { CustomerInfo, PurchasesPackage };
+export type { CustomerInfo, PurchasesOffering, PurchasesPackage };
 

@@ -1,39 +1,59 @@
-import { colors } from '@/constants/theme';
-import { CreateRoutineModal } from '@/src/components/CreateRoutineModal';
-import { DailyStreakScreen } from '@/src/components/DailyStreakScreen';
-import { BG_IMAGES, DEFAULT_BG, FocusHeroCard } from '@/src/components/FocusHeroCard';
-import { LiquidFAB } from '@/src/components/LiquidFAB';
-import { PaywallModal } from '@/src/components/PaywallModal';
-import { ProTrialOfferModal } from '@/src/components/ProTrialOfferModal';
-import { StreakShieldModal } from '@/src/components/StreakShieldModal';
-import { WeeklyCalendar } from '@/src/components/WeeklyCalendar';
-import { useAuth } from '@/src/contexts/AuthContext';
-import * as routineService from '@/src/lib/routineService';
-import { useAchievementsStore } from '@/src/store/achievementsStore';
-import { useAppStreakStore } from '@/src/store/appStreakStore';
-import { useProStore } from '@/src/store/proStore';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { CreateRoutineModal } from "@/src/components/CreateRoutineModal";
+import { DailyStreakScreen } from "@/src/components/DailyStreakScreen";
 import {
-  getLocalTodayDateKey,
-  hasCountedToday,
-  isLocalToday,
-  isLocalYesterday
-} from '@/src/utils/dateHelpers';
-import { sendStreakNotification } from '@/src/utils/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format } from 'date-fns';
-import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { CalendarCheck, Grid2x2 } from 'lucide-react-native';
-import React, { createRef, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Dimensions, ImageBackground, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import PagerView from 'react-native-pager-view';
-import IndexScreen from './index';
-import TwoScreen from './two';
+    BG_IMAGES,
+    DEFAULT_BG,
+    FocusHeroCard,
+} from "@/src/components/FocusHeroCard";
+import { LiquidFAB } from "@/src/components/LiquidFAB";
+import { PaywallModal } from "@/src/components/PaywallModal";
+import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
+import { StreakShieldModal } from "@/src/components/StreakShieldModal";
+import { WeeklyCalendar } from "@/src/components/WeeklyCalendar";
+import { useAuth } from "@/src/contexts/AuthContext";
+import * as routineService from "@/src/lib/routineService";
+import { useAchievementsStore } from "@/src/store/achievementsStore";
+import { useAppStreakStore } from "@/src/store/appStreakStore";
+import { useProStore } from "@/src/store/proStore";
+import {
+    getLocalTodayDateKey,
+    hasCountedToday,
+    isLocalToday,
+    isLocalYesterday,
+} from "@/src/utils/dateHelpers";
+import { sendStreakNotification } from "@/src/utils/notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { format } from "date-fns";
+import { BlurView } from "expo-blur";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useRouter } from "expo-router";
+import { CalendarCheck, Grid2x2 } from "lucide-react-native";
+import React, {
+    createRef,
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    ImageBackground,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
+} from "react-native";
+import PagerView from "react-native-pager-view";
+import IndexScreen from "./index";
+import TwoScreen from "./two";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Ref para llamar función del IndexScreen
 export const addTaskRef = createRef<{
@@ -47,7 +67,7 @@ interface Activity {
   title: string;
   completed: boolean;
   recurrence?: {
-    type: 'once' | 'daily' | 'weekly';
+    type: "once" | "daily" | "weekly";
     days?: number[];
   };
   completedDates?: string[];
@@ -56,19 +76,34 @@ interface Activity {
 
 // Map of day abbreviations to day of week numbers (0 = Sunday, 1 = Monday, etc.)
 const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
-  'Dom': 0,
-  'Lun': 1,
-  'Mar': 2,
-  'Mié': 3,
-  'Jue': 4,
-  'Vie': 5,
-  'Sáb': 6,
+  Dom: 0,
+  Lun: 1,
+  Mar: 2,
+  Mié: 3,
+  Jue: 4,
+  Vie: 5,
+  Sáb: 6,
 };
 
 export default function SwipeableLayout() {
   const { user } = useAuth();
-  const { onStreakChanged, onRoutinesCountChanged, loadAchievements, trackWeeklyUsage, onReminderActivated } = useAchievementsStore();
-  const { streak: appStreak, history: appStreakHistory, shouldShowStreakScreen, shieldUsedToday, initializeAppStreak, dismissStreakScreen } = useAppStreakStore();
+  const {
+    onStreakChanged,
+    onRoutinesCountChanged,
+    loadAchievements,
+    trackWeeklyUsage,
+    onReminderActivated,
+  } = useAchievementsStore();
+  const {
+    streak: appStreak,
+    history: appStreakHistory,
+    shouldShowStreakScreen,
+    shieldUsedToday,
+    maxStreak,
+    shieldDates,
+    initializeAppStreak,
+    dismissStreakScreen,
+  } = useAppStreakStore();
   const { isPro, hasSeenTrialOffer, pendingShieldOffer } = useProStore();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -79,7 +114,14 @@ export default function SwipeableLayout() {
   const [showPaywall, setShowPaywall] = useState(false);
   const paywallCheckedRef = useRef(false);
 
-  const [routines, setRoutines] = useState<Array<{ id: string; name: string; days: string[]; tasks?: Array<{ id: string; completed?: boolean }> }>>([]);
+  const [routines, setRoutines] = useState<
+    Array<{
+      id: string;
+      name: string;
+      days: string[];
+      tasks?: Array<{ id: string; completed?: boolean }>;
+    }>
+  >([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [routinesRefreshKey, setRoutinesRefreshKey] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -93,7 +135,7 @@ export default function SwipeableLayout() {
   // Load and calculate streak
   const loadStreak = useCallback(async () => {
     try {
-      const streakData = await AsyncStorage.getItem('@smartlist_streak');
+      const streakData = await AsyncStorage.getItem("@smartlist_streak");
       if (streakData) {
         const { count, lastCompletedDate } = JSON.parse(streakData);
 
@@ -113,10 +155,13 @@ export default function SwipeableLayout() {
             // Streak lost - reset
             setCurrentStreak(0);
             setIsStreakActiveToday(false);
-            await AsyncStorage.setItem('@smartlist_streak', JSON.stringify({
-              count: 0,
-              lastCompletedDate: null,
-            }));
+            await AsyncStorage.setItem(
+              "@smartlist_streak",
+              JSON.stringify({
+                count: 0,
+                lastCompletedDate: null,
+              }),
+            );
           }
         } else {
           setCurrentStreak(count || 0);
@@ -124,15 +169,17 @@ export default function SwipeableLayout() {
         }
       }
     } catch (error) {
-      console.error('Error loading streak:', error);
+      console.error("Error loading streak:", error);
     }
   }, []);
 
   // Update streak when user completes any task (easy reward system)
   const updateStreakOnTaskComplete = useCallback(async () => {
     try {
-      const streakData = await AsyncStorage.getItem('@smartlist_streak');
-      const hasAskedForNotifications = await AsyncStorage.getItem('@notification_permission_asked');
+      const streakData = await AsyncStorage.getItem("@smartlist_streak");
+      const hasAskedForNotifications = await AsyncStorage.getItem(
+        "@notification_permission_asked",
+      );
       const today = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE: Use local date
 
       if (streakData) {
@@ -155,10 +202,13 @@ export default function SwipeableLayout() {
 
         setCurrentStreak(newCount);
         setIsStreakActiveToday(true);
-        await AsyncStorage.setItem('@smartlist_streak', JSON.stringify({
-          count: newCount,
-          lastCompletedDate: today,
-        }));
+        await AsyncStorage.setItem(
+          "@smartlist_streak",
+          JSON.stringify({
+            count: newCount,
+            lastCompletedDate: today,
+          }),
+        );
 
         // Actualizar logro de racha
         onStreakChanged(newCount);
@@ -169,18 +219,21 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) { }
+        } catch (e) {}
       } else {
         // First time ever completing a task
         if (!hasAskedForNotifications) {
-          await AsyncStorage.setItem('@notification_permission_asked', 'true');
+          await AsyncStorage.setItem("@notification_permission_asked", "true");
         }
         setCurrentStreak(1);
         setIsStreakActiveToday(true);
-        await AsyncStorage.setItem('@smartlist_streak', JSON.stringify({
-          count: 1,
-          lastCompletedDate: today,
-        }));
+        await AsyncStorage.setItem(
+          "@smartlist_streak",
+          JSON.stringify({
+            count: 1,
+            lastCompletedDate: today,
+          }),
+        );
 
         // Actualizar logro de racha
         onStreakChanged(1);
@@ -191,17 +244,18 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) { }
+        } catch (e) {}
       }
 
       // 🎁 Pro Trial Offer: show after completing first task/routine if user hasn't seen it yet
-      const { isPro: currentIsPro, hasSeenTrialOffer: currentHasSeen } = useProStore.getState();
+      const { isPro: currentIsPro, hasSeenTrialOffer: currentHasSeen } =
+        useProStore.getState();
       if (!currentIsPro && !currentHasSeen) {
         // Small delay so the task celebration animation finishes first
         setTimeout(() => setShowTrialOffer(true), 1200);
       }
     } catch (error) {
-      console.error('Error updating streak:', error);
+      console.error("Error updating streak:", error);
     }
   }, []);
 
@@ -215,7 +269,7 @@ export default function SwipeableLayout() {
       // Actualizar logro de cantidad de rutinas
       onRoutinesCountChanged(fetchedRoutines.length);
     } catch (error) {
-      console.error('Error loading routines:', error);
+      console.error("Error loading routines:", error);
     }
   }, [user]);
 
@@ -227,13 +281,19 @@ export default function SwipeableLayout() {
           setIsLoadingData(true);
         }
         try {
+          // Load persisted state first — must complete before any
+          // store mutations (trackWeeklyUsage, initializeAppStreak)
+          // so they don't persist default/empty values to disk.
           await Promise.all([
             loadRoutines(),
             loadStreak(),
             loadAchievements(),
+            useProStore.getState().load(),
+          ]);
+          // Now safe to run mutating operations
+          await Promise.all([
             initializeAppStreak(),
             trackWeeklyUsage(),
-            useProStore.getState().load(),
             useProStore.getState().rechargeShieldsIfNeeded(),
           ]);
         } finally {
@@ -242,7 +302,7 @@ export default function SwipeableLayout() {
         }
       };
       loadAll();
-    }, [loadRoutines, loadStreak])
+    }, [loadRoutines, loadStreak]),
   );
 
   // Auto-trigger Day 8 Paywall Reverse Trial (only for expired trials)
@@ -263,10 +323,10 @@ export default function SwipeableLayout() {
     const history: Record<string, { tasks: number; routines: number }> = {};
 
     // Contar tareas completadas
-    activities.forEach(activity => {
-      const recurrenceType = activity.recurrence?.type || 'once';
+    activities.forEach((activity) => {
+      const recurrenceType = activity.recurrence?.type || "once";
 
-      if (recurrenceType === 'once' || !activity.recurrence) {
+      if (recurrenceType === "once" || !activity.recurrence) {
         // Tareas de una vez: solo contar en su fecha programada si están completadas
         if (activity.scheduledDate && activity.completed) {
           if (!history[activity.scheduledDate]) {
@@ -274,17 +334,17 @@ export default function SwipeableLayout() {
           }
           history[activity.scheduledDate].tasks++;
         }
-      } else if (recurrenceType === 'daily') {
+      } else if (recurrenceType === "daily") {
         // Tareas diarias: contar en cada fecha donde fue completada
-        activity.completedDates?.forEach(date => {
+        activity.completedDates?.forEach((date) => {
           if (!history[date]) {
             history[date] = { tasks: 0, routines: 0 };
           }
           history[date].tasks++;
         });
-      } else if (recurrenceType === 'weekly') {
+      } else if (recurrenceType === "weekly") {
         // Tareas semanales: contar en cada fecha donde fue completada
-        activity.completedDates?.forEach(date => {
+        activity.completedDates?.forEach((date) => {
           if (!history[date]) {
             history[date] = { tasks: 0, routines: 0 };
           }
@@ -294,7 +354,7 @@ export default function SwipeableLayout() {
     });
 
     // Contar rutinas completadas
-    routines.forEach(routine => {
+    routines.forEach((routine) => {
       // Las rutinas tienen completedDates por cada día que se completaron
       const routineCompletedDates = (routine as any).completedDates || [];
       routineCompletedDates.forEach((date: string) => {
@@ -317,15 +377,15 @@ export default function SwipeableLayout() {
     for (let i = -15; i < 30; i++) {
       const checkDate = new Date(today);
       checkDate.setDate(today.getDate() + i);
-      const dateKey = format(checkDate, 'yyyy-MM-dd');
+      const dateKey = format(checkDate, "yyyy-MM-dd");
       const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
       const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Ajustar para que 0 = Lunes, 6 = Domingo
 
       // Contar tareas programadas
-      activities.forEach(activity => {
-        const recurrenceType = activity.recurrence?.type || 'once';
+      activities.forEach((activity) => {
+        const recurrenceType = activity.recurrence?.type || "once";
 
-        if (recurrenceType === 'once' || !activity.recurrence) {
+        if (recurrenceType === "once" || !activity.recurrence) {
           // Tareas de una vez: contar si está programada para este día y NO está completada
           if (activity.scheduledDate === dateKey && !activity.completed) {
             if (!history[dateKey]) {
@@ -333,7 +393,7 @@ export default function SwipeableLayout() {
             }
             history[dateKey].tasks++;
           }
-        } else if (recurrenceType === 'daily') {
+        } else if (recurrenceType === "daily") {
           // Tareas diarias: contar si NO está completada en esta fecha
           if (!activity.completedDates?.includes(dateKey)) {
             if (!history[dateKey]) {
@@ -341,10 +401,12 @@ export default function SwipeableLayout() {
             }
             history[dateKey].tasks++;
           }
-        } else if (recurrenceType === 'weekly') {
+        } else if (recurrenceType === "weekly") {
           // Tareas semanales: contar si este día está en los días programados y NO está completada
-          const isScheduledForThisDay = activity.recurrence?.days?.includes(adjustedDayOfWeek);
-          const isCompletedOnThisDay = activity.completedDates?.includes(dateKey);
+          const isScheduledForThisDay =
+            activity.recurrence?.days?.includes(adjustedDayOfWeek);
+          const isCompletedOnThisDay =
+            activity.completedDates?.includes(dateKey);
 
           if (isScheduledForThisDay && !isCompletedOnThisDay) {
             if (!history[dateKey]) {
@@ -356,10 +418,10 @@ export default function SwipeableLayout() {
       });
 
       // Contar rutinas programadas pero no completadas
-      routines.forEach(routine => {
+      routines.forEach((routine) => {
         // Verificar si esta rutina está programada para este día de la semana
-        const isScheduledForThisDay = routine.days.some(dayAbbrev =>
-          DAY_ABBREV_TO_NUMBER[dayAbbrev] === dayOfWeek
+        const isScheduledForThisDay = routine.days.some(
+          (dayAbbrev) => DAY_ABBREV_TO_NUMBER[dayAbbrev] === dayOfWeek,
         );
 
         if (isScheduledForThisDay) {
@@ -384,7 +446,7 @@ export default function SwipeableLayout() {
   const scheduledTasksHistory = calculateScheduledTasksHistory();
 
   const handleTabPress = (page: number) => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       Haptics.selectionAsync();
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -393,7 +455,7 @@ export default function SwipeableLayout() {
   };
 
   const handleAddPress = () => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       Haptics.selectionAsync();
     } else {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -426,7 +488,7 @@ export default function SwipeableLayout() {
     icon?: string;
   }) => {
     if (!user) {
-      Alert.alert('Error', 'Debes iniciar sesión para crear rutinas');
+      Alert.alert("Error", "Debes iniciar sesión para crear rutinas");
       return;
     }
 
@@ -446,21 +508,24 @@ export default function SwipeableLayout() {
         await loadRoutines();
 
         // Forzar recarga de TwoScreen incrementando el refresh key
-        setRoutinesRefreshKey(prev => prev + 1);
+        setRoutinesRefreshKey((prev) => prev + 1);
 
         // Achievement: reminder activated on creation
         if (routine.reminderEnabled) {
           onReminderActivated();
         }
 
-        const daysText = routine.days.join(', ');
-        Alert.alert('¡Éxito!', `Rutina "${routine.name}" creada para ${daysText}`);
+        const daysText = routine.days.join(", ");
+        Alert.alert(
+          "¡Éxito!",
+          `Rutina "${routine.name}" creada para ${daysText}`,
+        );
       } else {
-        Alert.alert('Error', 'No se pudo crear la rutina');
+        Alert.alert("Error", "No se pudo crear la rutina");
       }
     } catch (error) {
-      console.error('Error al crear rutina:', error);
-      Alert.alert('Error', 'Ocurrió un error al crear la rutina');
+      console.error("Error al crear rutina:", error);
+      Alert.alert("Error", "Ocurrió un error al crear la rutina");
     }
   };
 
@@ -487,7 +552,7 @@ export default function SwipeableLayout() {
             duration: 1000,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       pulseAnimFirstTime.setValue(1);
@@ -507,7 +572,12 @@ export default function SwipeableLayout() {
       )}
 
       <ImageBackground
-        source={useAchievementsStore.getState().activeBackground && BG_IMAGES[useAchievementsStore.getState().activeBackground!] ? BG_IMAGES[useAchievementsStore.getState().activeBackground!] : DEFAULT_BG}
+        source={
+          useAchievementsStore.getState().activeBackground &&
+          BG_IMAGES[useAchievementsStore.getState().activeBackground!]
+            ? BG_IMAGES[useAchievementsStore.getState().activeBackground!]
+            : DEFAULT_BG
+        }
         style={styles.fixedHeader}
       >
         {/*
@@ -517,7 +587,7 @@ export default function SwipeableLayout() {
             (1 es hasta el fondo del ImageBackground, 0.5 a la mitad de la imagen).
         */}
         <LinearGradient
-          colors={[colors.background, 'transparent']}
+          colors={[colors.background, "transparent"]}
           style={StyleSheet.absoluteFillObject}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 0.6 }}
@@ -539,7 +609,6 @@ export default function SwipeableLayout() {
               <FocusHeroCard
                 currentStreak={currentStreak}
                 isStreakActiveToday={isStreakActiveToday}
-
               />
             </View>
           </>
@@ -547,8 +616,6 @@ export default function SwipeableLayout() {
 
         {/* Dither de píxeles al fondo */}
       </ImageBackground>
-
-
 
       {/* Swipeable Content */}
       <PagerView
@@ -570,7 +637,11 @@ export default function SwipeableLayout() {
           />
         </View>
         <View key="2" style={styles.page}>
-          <TwoScreen key={routinesRefreshKey} selectedDate={selectedDate} onRoutineCompleted={updateStreakOnTaskComplete} />
+          <TwoScreen
+            key={routinesRefreshKey}
+            selectedDate={selectedDate}
+            onRoutineCompleted={updateStreakOnTaskComplete}
+          />
         </View>
       </PagerView>
 
@@ -583,9 +654,16 @@ export default function SwipeableLayout() {
         >
           <CalendarCheck
             size={22}
-            color={currentPage === 0 ? colors.textPrimary : colors.textSecondary}
+            color={
+              currentPage === 0 ? colors.textPrimary : colors.textSecondary
+            }
           />
-          <Text style={[styles.tabLabel, currentPage === 0 && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              currentPage === 0 && styles.tabLabelActive,
+            ]}
+          >
             Tareas
           </Text>
         </Pressable>
@@ -608,9 +686,16 @@ export default function SwipeableLayout() {
         >
           <Grid2x2
             size={22}
-            color={currentPage === 1 ? colors.textPrimary : colors.textSecondary}
+            color={
+              currentPage === 1 ? colors.textPrimary : colors.textSecondary
+            }
           />
-          <Text style={[styles.tabLabel, currentPage === 1 && styles.tabLabelActive]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              currentPage === 1 && styles.tabLabelActive,
+            ]}
+          >
             Rutinas
           </Text>
         </Pressable>
@@ -626,18 +711,14 @@ export default function SwipeableLayout() {
         onCreateRoutine={handleCreateRoutine}
       />
 
-
-
-
-
-
-
       {/* Daily App-Open Streak Screen */}
       <DailyStreakScreen
         visible={shouldShowStreakScreen && !pendingShieldOffer}
         streak={appStreak}
         history={appStreakHistory}
         shieldUsedToday={shieldUsedToday}
+        maxStreak={maxStreak}
+        shieldDates={shieldDates}
         onDismiss={dismissStreakScreen}
       />
 
@@ -654,6 +735,7 @@ export default function SwipeableLayout() {
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
+        source="trial_expired"
       />
     </View>
   );
@@ -672,14 +754,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   fixedHeader: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     zIndex: 1,
     paddingBottom: 100,
   },
   headerLoading: {
     paddingVertical: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   progressWrapper: {
     paddingHorizontal: 20,
@@ -692,23 +774,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBar: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     left: 0,
     right: 0,
     height: 110,
     backgroundColor: colors.glass,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
     paddingBottom: 50,
     paddingTop: 10,
     paddingHorizontal: 8,
   },
   tabItem: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
   },
   tabItemActive: {
@@ -716,7 +798,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 4,
     color: colors.textSecondary,
     opacity: 0.5,
@@ -725,8 +807,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   centralButtonContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
     zIndex: 10000,
   },
@@ -735,10 +817,10 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
-    shadowColor: '#000000',
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -746,16 +828,16 @@ const styles = StyleSheet.create({
   },
   firstTimeOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "flex-end",
+    alignItems: "center",
     paddingBottom: 140,
     zIndex: 9999,
   } as any,
   firstTimeContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
     marginBottom: 20,
     maxWidth: 280,
     paddingHorizontal: 20,
@@ -767,22 +849,22 @@ const styles = StyleSheet.create({
   } as any,
   firstTimeText: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
     marginBottom: 24,
     letterSpacing: 0.3,
     lineHeight: 28,
   } as any,
   firstTimePulseRing: {
-    position: 'absolute',
+    position: "absolute",
     width: 90,
     height: 90,
     borderRadius: 50,
     borderWidth: 3,
     borderColor: colors.success,
-    top: '40%',
-    left: '50%',
+    top: "40%",
+    left: "50%",
     marginTop: 211,
     marginLeft: -26,
   } as any,

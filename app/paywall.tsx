@@ -1,30 +1,37 @@
+import { AppText as Text } from "@/src/components/AppText";
+import { posthog } from "@/src/config/posthog";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
-  Bell,
-  Check,
-  ChevronDown,
-  Crown,
-  Lock,
-  Shield,
-  X,
-  XCircle,
+    Bell,
+    Check,
+    ChevronDown,
+    Crown,
+    Lock,
+    Shield,
+    X,
+    XCircle,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import {
+    Dimensions,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import Animated, {
-  Easing,
-  FadeInDown,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
+    Easing,
+    FadeInDown,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -43,30 +50,30 @@ const GlowingPadlock = ({ streakDays }: { streakDays: number }) => {
     pulseScale.value = withRepeat(
       withSequence(
         withTiming(1.08, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
 
     // Glow pulse
     glowOpacity.value = withRepeat(
       withSequence(
         withTiming(0.7, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) })
+        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
 
     // Subtle 3D rotation
     rotateY.value = withRepeat(
       withSequence(
         withTiming(5, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-5, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+        withTiming(-5, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -114,7 +121,9 @@ const GlowingPadlock = ({ streakDays }: { streakDays: number }) => {
           end={{ x: 1, y: 1 }}
           style={styles.streakBadge}
         >
-          <Text style={styles.streakBadgeText}>🔥 Racha: {streakDays} Días</Text>
+          <Text style={styles.streakBadgeText}>
+            🔥 Racha: {streakDays} Días
+          </Text>
         </LinearGradient>
       </View>
     </View>
@@ -139,7 +148,7 @@ const ShimmerButton = ({
       shimmerPosition.value = -1;
       shimmerPosition.value = withDelay(
         3000,
-        withTiming(2, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        withTiming(2, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
       );
     };
 
@@ -150,10 +159,20 @@ const ShimmerButton = ({
 
   const shimmerStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: interpolate(shimmerPosition.value, [-1, 2], [-200, SCREEN_WIDTH + 200]) },
+      {
+        translateX: interpolate(
+          shimmerPosition.value,
+          [-1, 2],
+          [-200, SCREEN_WIDTH + 200],
+        ),
+      },
       { skewX: "-20deg" },
     ],
-    opacity: interpolate(shimmerPosition.value, [-1, 0, 1, 2], [0, 0.6, 0.6, 0]),
+    opacity: interpolate(
+      shimmerPosition.value,
+      [-1, 0, 1, 2],
+      [0, 0.6, 0.6, 0],
+    ),
   }));
 
   return (
@@ -239,10 +258,15 @@ const FAQItem = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <Pressable onPress={() => setIsExpanded(!isExpanded)} style={styles.faqItem}>
+    <Pressable
+      onPress={() => setIsExpanded(!isExpanded)}
+      style={styles.faqItem}
+    >
       <View style={styles.faqHeader}>
         <Text style={styles.faqQuestion}>{question}</Text>
-        <View style={{ transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] }}>
+        <View
+          style={{ transform: [{ rotate: isExpanded ? "180deg" : "0deg" }] }}
+        >
           <ChevronDown size={20} color="rgba(255,255,255,0.5)" />
         </View>
       </View>
@@ -259,7 +283,9 @@ const FAQItem = ({
 // MAIN PAYWALL COMPONENT
 // ============================================
 export default function PaywallScreen() {
-  const [selectedPlan, setSelectedPlan] = useState<"annual" | "monthly">("annual");
+  const [selectedPlan, setSelectedPlan] = useState<"annual" | "monthly">(
+    "annual",
+  );
   const [isAnnualToggle, setIsAnnualToggle] = useState(true);
   const slideUp = useSharedValue(SCREEN_HEIGHT);
   const backdropOpacity = useSharedValue(0);
@@ -268,6 +294,8 @@ export default function PaywallScreen() {
     // Entrance animation
     backdropOpacity.value = withTiming(1, { duration: 500 });
     slideUp.value = withSpring(0, { damping: 20, stiffness: 90 });
+
+    posthog.capture("paywall_viewed", { default_plan: "annual" });
   }, []);
 
   const containerStyle = useAnimatedStyle(() => ({
@@ -279,12 +307,17 @@ export default function PaywallScreen() {
   }));
 
   const handleClose = () => {
+    posthog.capture("paywall_closed", { selected_plan: selectedPlan });
     backdropOpacity.value = withTiming(0, { duration: 300 });
     slideUp.value = withTiming(SCREEN_HEIGHT, { duration: 400 });
     setTimeout(() => router.back(), 400);
   };
 
   const handleSubscribe = () => {
+    posthog.capture("paywall_subscribe_tapped", {
+      plan: selectedPlan,
+      price: selectedPlan === "annual" ? annualPrice : monthlyPrice,
+    });
     // TODO: Implement subscription logic
     console.log("Subscribing to:", selectedPlan);
     router.back();
@@ -304,7 +337,7 @@ export default function PaywallScreen() {
           <View style={styles.mockCard} />
           <View style={styles.mockCardSmall} />
         </View>
-        
+
         {/* Blur + Dark Overlay */}
         <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
         <View style={styles.darkOverlay} />
@@ -334,9 +367,10 @@ export default function PaywallScreen() {
               style={styles.titleSection}
             >
               <Text style={styles.mainTitle}>No pierdas tu racha.</Text>
-              <Text style={styles.subtitle}>Esperamos hayas disfrutado tu prueba gratis. Elije un plan para seguir tu progreso.</Text>
-
-
+              <Text style={styles.subtitle}>
+                Esperamos hayas disfrutado tu prueba gratis. Elije un plan para
+                seguir tu progreso.
+              </Text>
             </Animated.View>
 
             {/* Plan Toggle */}
@@ -410,15 +444,21 @@ export default function PaywallScreen() {
                   <View style={styles.featuresListCompact}>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
-                      <Text style={styles.featureTextCompact}>Acceso completo</Text>
+                      <Text style={styles.featureTextCompact}>
+                        Acceso completo
+                      </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
-                      <Text style={styles.featureTextCompact}>Cancela cuando quieras</Text>
+                      <Text style={styles.featureTextCompact}>
+                        Cancela cuando quieras
+                      </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
-                      <Text style={styles.featureTextCompact}>Precio reducido</Text>
+                      <Text style={styles.featureTextCompact}>
+                        Precio reducido
+                      </Text>
                     </View>
                   </View>
                 </LiquidBorderCard>
@@ -440,11 +480,15 @@ export default function PaywallScreen() {
                   <View style={styles.featuresListCompact}>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
-                      <Text style={styles.featureTextCompact}>Acceso completo</Text>
+                      <Text style={styles.featureTextCompact}>
+                        Acceso completo
+                      </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
-                      <Text style={styles.featureTextCompact}>Cancela cuando quieras</Text>
+                      <Text style={styles.featureTextCompact}>
+                        Cancela cuando quieras
+                      </Text>
                     </View>
                   </View>
                 </LiquidBorderCard>
@@ -458,9 +502,13 @@ export default function PaywallScreen() {
             >
               <ShimmerButton onPress={handleSubscribe}>
                 <Lock size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.ctaText}>Desbloquear mi Racha y Continuar</Text>
+                <Text style={styles.ctaText}>
+                  Desbloquear mi Racha y Continuar
+                </Text>
               </ShimmerButton>
-              <Text style={styles.microcopy}>Sin sorpresas. Solo claridad.</Text>
+              <Text style={styles.microcopy}>
+                Sin sorpresas. Solo claridad.
+              </Text>
             </Animated.View>
 
             {/* Trust Guarantees */}
@@ -508,10 +556,8 @@ export default function PaywallScreen() {
                 question="¿Puedo cambiar de plan después?"
                 answer="¡Claro! Puedes cambiar entre el plan mensual y anual en cualquier momento desde la configuración."
               />
-
             </Animated.View>
 
-           
             <View style={{ height: 40 }} />
           </ScrollView>
         </SafeAreaView>

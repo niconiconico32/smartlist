@@ -18,6 +18,8 @@ import {
 } from '@/src/utils/dateHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { posthog } from '../config/posthog';
+import { cancelStreakWarningNotification, scheduleStreakWarningNotification } from '../utils/notifications';
 import { useProStore } from './proStore';
 
 const APP_STREAK_KEY = '@smartlist_app_streak';
@@ -27,6 +29,8 @@ export interface AppStreakData {
   lastOpenDate: string | null; // "YYYY-MM-DD"
   history: string[]; // last opens as "YYYY-MM-DD", most recent first
   shieldUsedToday?: boolean; // true when a shield protected the streak today
+  maxStreak?: number; // highest streak ever achieved
+  shieldDates?: string[]; // dates where a shield was used "YYYY-MM-DD"
 }
 
 interface AppStreakStore {
@@ -36,6 +40,10 @@ interface AppStreakStore {
   shouldShowStreakScreen: boolean;
   /** True when a shield was consumed today to protect the streak */
   shieldUsedToday: boolean;
+  /** Highest streak ever achieved (persists across resets) */
+  maxStreak: number;
+  /** Dates where a shield was used to protect the streak */
+  shieldDates: string[];
 
   /**
    * Called once when the app loads.
@@ -80,6 +88,8 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
   history: [],
   shouldShowStreakScreen: false,
   shieldUsedToday: false,
+  maxStreak: 0,
+  shieldDates: [],
 
   initializeAppStreak: async () => {
     try {
@@ -89,15 +99,21 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
       if (stored) {
         const data: AppStreakData = JSON.parse(stored);
 
-        // Already opened today — don't show screen again
+        // Already opened today — update data but never hide an actively visible screen
         if (data.lastOpenDate && isLocalToday(data.lastOpenDate)) {
-          set({
+          set((prev) => ({
             streak: data.count,
             lastOpenDate: data.lastOpenDate,
             history: data.history,
-            shouldShowStreakScreen: false,
+            maxStreak: data.maxStreak ?? data.count,
+            shieldDates: data.shieldDates ?? [],
+            // Preserve shouldShowStreakScreen: if the screen is already showing,
+            // keep it visible. Don't let a re-run of initializeAppStreak close it.
+            shouldShowStreakScreen: prev.shouldShowStreakScreen,
             shieldUsedToday: data.shieldUsedToday ?? false,
-          });
+          }));
+          // Streak already recorded today — cancel any pending warning (belt & suspenders)
+          cancelStreakWarningNotification();
           return;
         }
 
@@ -114,17 +130,30 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
             proState.activateShieldOffer();
             // Keep the old streak suspended — don't reset yet
             newCount = data.count;
+          } else {
+            // Streak lost — no shields available
+            posthog.capture('streak_lost', {
+              streak_length: data.count,
+              last_open_date: data.lastOpenDate,
+              had_shields: false,
+              reason: 'gap_no_shield',
+            });
           }
-          // If no shields or not Pro, newCount stays 1 (reset)
         }
 
         // Update history: add today, keep last 7
         const newHistory = [today, ...data.history.filter((d) => d !== today)].slice(0, 7);
 
+        // Track max streak ever achieved
+        const prevMax = data.maxStreak ?? data.count;
+        const newMaxStreak = Math.max(prevMax, newCount);
+
         const newData: AppStreakData = {
           count: newCount,
           lastOpenDate: today,
           history: newHistory,
+          maxStreak: newMaxStreak,
+          shieldDates: data.shieldDates ?? [],
         };
 
         await AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(newData));
@@ -133,14 +162,22 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
           streak: newCount,
           lastOpenDate: today,
           history: newHistory,
-          shouldShowStreakScreen: true,
+          maxStreak: newMaxStreak,
+          shieldDates: data.shieldDates ?? [],
+          shouldShowStreakScreen: newCount > 1,
         });
+
+        // Cancel today's warning (user is in the app) and schedule for tomorrow
+        cancelStreakWarningNotification();
+        scheduleStreakWarningNotification(newCount);
       } else {
         // First time ever
         const newData: AppStreakData = {
           count: 1,
           lastOpenDate: today,
           history: [today],
+          maxStreak: 1,
+          shieldDates: [],
         };
 
         await AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(newData));
@@ -149,8 +186,13 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
           streak: 1,
           lastOpenDate: today,
           history: [today],
-          shouldShowStreakScreen: true,
+          maxStreak: 1,
+          shieldDates: [],
+          shouldShowStreakScreen: false,
         });
+
+        // First ever open — schedule a warning for tomorrow to keep the streak alive
+        scheduleStreakWarningNotification(1);
       }
     } catch (error) {
       console.error('Error initializing app streak:', error);
@@ -162,12 +204,25 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
   },
 
   markShieldUsed: () => {
-    set({ shieldUsedToday: true });
+    const today = getLocalTodayDateKey();
+    set((prev) => ({
+      shieldUsedToday: true,
+      shieldDates: prev.shieldDates.includes(today)
+        ? prev.shieldDates
+        : [...prev.shieldDates, today],
+    }));
     // Also persist the flag so it survives same-session re-renders
     AsyncStorage.getItem(APP_STREAK_KEY).then((stored) => {
       if (stored) {
         const data: AppStreakData = JSON.parse(stored);
-        const updated: AppStreakData = { ...data, shieldUsedToday: true };
+        const existingShieldDates = data.shieldDates ?? [];
+        const updated: AppStreakData = {
+          ...data,
+          shieldUsedToday: true,
+          shieldDates: existingShieldDates.includes(today)
+            ? existingShieldDates
+            : [...existingShieldDates, today],
+        };
         AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(updated)).catch(
           (e) => console.error('[appStreakStore] Error persisting shieldUsedToday:', e)
         );
@@ -195,6 +250,12 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
         };
         await AsyncStorage.setItem(APP_STREAK_KEY, JSON.stringify(newData));
         set({ streak: 1 });
+        posthog.capture('streak_lost', {
+          streak_length: data.count,
+          last_open_date: data.lastOpenDate,
+          had_shields: true,
+          reason: 'shield_declined',
+        });
         console.log('[appStreakStore] Streak manually reset to 1 (shield declined).');
       }
     } catch (error) {

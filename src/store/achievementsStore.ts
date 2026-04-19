@@ -1,10 +1,11 @@
-import { getLocalDateKey } from '@/src/utils/dateHelpers';
 import { posthog } from '@/src/config/posthog';
+import { supabase } from '@/src/lib/supabase';
+import { getLocalDateKey } from '@/src/utils/dateHelpers';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-  Award, Bell, Clock, Coffee, Crown, Flame, Flower2, Heart,
-  Layers, ListChecks, ShoppingBag, Sparkles, Star, Sun,
-  Target, Trophy, Zap,
+    Award, Bell, Clock, Coffee, Crown, Flame, Flower2, Heart,
+    Layers, ListChecks, ShoppingBag, Sparkles, Star, Sun,
+    Target, Trophy, Zap,
 } from 'lucide-react-native';
 import { create } from 'zustand';
 import { useAppStreakStore } from './appStreakStore';
@@ -333,6 +334,9 @@ interface AchievementsStore {
   // New map to prevent re-awarding coins on the same day simply by unchecking and rechecking tasks
   rewardedRoutines: Record<string, string>;
 
+  // True once loadAchievements has completed at least once
+  _loaded: boolean;
+
   // Actions
   loadAchievements: () => Promise<void>;
   updateAchievement: (id: AchievementId, progress: number) => Promise<void>;
@@ -352,7 +356,7 @@ interface AchievementsStore {
   onPurchaseMade: (type: 'outfit' | 'background', itemId: string) => Promise<void>;
 
   // Shop actions
-  spendCoins: (amount: number) => Promise<boolean>;
+  spendCoins: (amount: number, purchase?: { type: 'outfit' | 'background'; itemId: string }) => Promise<boolean>;
   setActiveBackground: (id: string | null) => Promise<void>;
   setActiveOutfit: (id: string | null) => Promise<void>;
 
@@ -367,39 +371,82 @@ interface AchievementsStore {
 
   awardRoutineCompletionCoins: (routineId: string) => Promise<{ earned: number; isNew: boolean }>;
   awardTaskCompletionCoins: (taskId: string, difficulty: 'easy' | 'moderate' | 'hard', subtaskId?: string) => Promise<{ earned: number; isNew: boolean }>;
+
+  /** Validates a promo code server-side and awards coins on success. */
+  redeemPromoCode: (code: string) => Promise<{ success: boolean; coinsAwarded?: number; error?: string }>;
 }
 
 // =====================================================
 // STORE
 // =====================================================
+const ACHIEVEMENTS_BACKUP_KEY = '@smartlist_achievements_backup';
+
 export const useAchievementsStore = create<AchievementsStore>((set, get) => {
-  // Internal persistence helper — saves ALL tracked state
-  const persist = async () => {
-    try {
-      const s = get();
-      await AsyncStorage.setItem(
-        ACHIEVEMENTS_STORAGE_KEY,
-        JSON.stringify({
-          achievements: s.achievements,
-          totalCoins: s.totalCoins,
-          routineStreak: s.routineStreak,
-          lastRoutineCompletedDate: s.lastRoutineCompletedDate,
-          distinctWeeks: s.distinctWeeks,
-          purchasedOutfits: s.purchasedOutfits,
-          purchasedBackgrounds: s.purchasedBackgrounds,
-          activeBackground: s.activeBackground,
-          activeOutfit: s.activeOutfit,
-          rewardedRoutines: s.rewardedRoutines,
-          rewardedTasks: s.rewardedTasks,
-          todaysRewardedTaskIds: s.todaysRewardedTaskIds,
-          dailyTasksCompletedCount: s.dailyTasksCompletedCount,
-          dailyRoutinesCompletedCount: s.dailyRoutinesCompletedCount,
-          lastRewardDate: s.lastRewardDate,
-        }),
-      );
-    } catch (error) {
-      console.error('Error persisting achievements:', error);
-    }
+  // Serialized persistence queue — prevents concurrent AsyncStorage writes
+  // from overwriting each other
+  let persistQueue: Promise<void> = Promise.resolve();
+
+  // Debounced cloud sync — batches rapid local writes into a single
+  // Supabase upsert after 3 seconds of quiet
+  let cloudSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleCloudSync = () => {
+    if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const json = buildSnapshot();
+        await supabase.from('user_achievements').upsert(
+          { user_id: session.user.id, data: JSON.parse(json) },
+          { onConflict: 'user_id' },
+        );
+      } catch (error) {
+        console.error('Cloud sync failed:', error);
+      }
+    }, 3000);
+  };
+
+  const buildSnapshot = () => {
+    const s = get();
+    return JSON.stringify({
+      achievements: s.achievements,
+      totalCoins: s.totalCoins,
+      routineStreak: s.routineStreak,
+      lastRoutineCompletedDate: s.lastRoutineCompletedDate,
+      distinctWeeks: s.distinctWeeks,
+      purchasedOutfits: s.purchasedOutfits,
+      purchasedBackgrounds: s.purchasedBackgrounds,
+      activeBackground: s.activeBackground,
+      activeOutfit: s.activeOutfit,
+      rewardedRoutines: s.rewardedRoutines,
+      rewardedTasks: s.rewardedTasks,
+      todaysRewardedTaskIds: s.todaysRewardedTaskIds,
+      dailyTasksCompletedCount: s.dailyTasksCompletedCount,
+      dailyRoutinesCompletedCount: s.dailyRoutinesCompletedCount,
+      lastRewardDate: s.lastRewardDate,
+    });
+  };
+
+  const persist = () => {
+    persistQueue = persistQueue.then(async () => {
+      const json = buildSnapshot();
+      try {
+        await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, json);
+        // Write backup after successful primary save
+        AsyncStorage.setItem(ACHIEVEMENTS_BACKUP_KEY, json).catch(() => {});
+      } catch (error) {
+        console.error('Error persisting achievements, retrying...', error);
+        // Retry once
+        try {
+          await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, json);
+        } catch (retryError) {
+          console.error('Persist retry failed:', retryError);
+        }
+      }
+      // Schedule cloud backup (non-blocking)
+      scheduleCloudSync();
+    });
+    return persistQueue;
   };
 
   return {
@@ -419,17 +466,67 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     dailyRoutinesCompletedCount: 0,
     todaysRewardedTaskIds: [],
     lastRewardDate: null,
+    _loaded: false,
     isRoutineModalOpen: false,
 
     // =========================================================
     // LOAD (with backward-compatible migration)
+    // Only applies disk data on the FIRST call. Subsequent calls
+    // are no-ops so in-memory changes are never overwritten.
     // =========================================================
     loadAchievements: async () => {
+      if (get()._loaded) return;
       try {
-        const stored = await AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
-        if (stored) {
-          const data = JSON.parse(stored);
+        let stored = await AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
 
+        // If primary key is missing or corrupted, try backup
+        let data: any = null;
+        if (stored) {
+          try {
+            data = JSON.parse(stored);
+          } catch (parseError) {
+            console.warn('Primary achievements data corrupted, trying backup...');
+          }
+        }
+        if (!data) {
+          const backup = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
+          if (backup) {
+            try {
+              data = JSON.parse(backup);
+              // Restore primary from backup
+              await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, backup);
+              console.log('Restored achievements from backup');
+            } catch {
+              console.error('Backup also corrupted');
+            }
+          }
+        }
+
+        // Last resort: try cloud backup
+        if (!data) {
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+              const { data: cloudRow } = await supabase
+                .from('user_achievements')
+                .select('data')
+                .eq('user_id', session.user.id)
+                .single();
+              if (cloudRow?.data) {
+                data = cloudRow.data;
+                // Restore local from cloud
+                const json = JSON.stringify(data);
+                await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, json);
+                await AsyncStorage.setItem(ACHIEVEMENTS_BACKUP_KEY, json);
+                console.log('Restored achievements from cloud');
+              }
+            }
+          } catch (cloudError) {
+            console.warn('Cloud restore failed:', cloudError);
+          }
+        }
+
+        if (data) {
           // Merge saved achievements with defaults for any new IDs
           const merged = createDefaultAchievements();
           if (data.achievements) {
@@ -441,6 +538,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           }
 
           set({
+            _loaded: true,
             achievements: merged,
             totalCoins: data.totalCoins || 0,
             routineStreak: data.routineStreak || 0,
@@ -457,9 +555,12 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             todaysRewardedTaskIds: data.todaysRewardedTaskIds || [],
             lastRewardDate: data.lastRewardDate || null,
           });
+        } else {
+          set({ _loaded: true });
         }
       } catch (error) {
         console.error('Error loading achievements:', error);
+        set({ _loaded: true });
       }
     },
 
@@ -476,29 +577,25 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
       const newCompleted = progress >= definition.total;
 
-      const newAchievements = {
-        ...state.achievements,
-        [id]: {
-          ...achievement,
-          progress,
-          completed: newCompleted,
-          completedAt: newCompleted ? new Date().toISOString() : undefined,
-        },
-      };
-
       // Apply streak multiplier when awarding coins
-      let coinsToAdd = definition.coins;
+      let coinsToAdd = 0;
       if (newCompleted && !achievement.completed) {
         const multiplier = useAppStreakStore.getState().getMultiplier();
         coinsToAdd = Math.round(definition.coins * multiplier);
       }
 
-      const newTotalCoins =
-        newCompleted && !achievement.completed
-          ? state.totalCoins + coinsToAdd
-          : state.totalCoins;
-
-      set({ achievements: newAchievements, totalCoins: newTotalCoins });
+      set((prev) => ({
+        achievements: {
+          ...prev.achievements,
+          [id]: {
+            ...prev.achievements[id],
+            progress,
+            completed: newCompleted,
+            completedAt: newCompleted ? new Date().toISOString() : undefined,
+          },
+        },
+        totalCoins: prev.totalCoins + coinsToAdd,
+      }));
       await persist();
 
       if (newCompleted && !achievement.completed) {
@@ -670,7 +767,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
       if (!distinctWeeks.includes(weekKey)) {
         const newWeeks = [...distinctWeeks, weekKey];
-        set({ distinctWeeks: newWeeks });
+        set((prev) => ({ distinctWeeks: [...prev.distinctWeeks, weekKey] }));
         await persist();
         await updateAchievement('weekly_4', Math.min(newWeeks.length, 4));
       } else {
@@ -681,36 +778,56 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     // =========================================================
     // PURCHASE MADE (first_outfit, first_skin, three_skins)
     // =========================================================
+    // PURCHASE MADE — handles achievement tracking for purchases.
+    // The item is already in purchasedOutfits/purchasedBackgrounds
+    // (added atomically by spendCoins). This only fires achievements.
+    // Also acts as a fallback: if item wasn't added yet, add it.
+    // =========================================================
     onPurchaseMade: async (type: 'outfit' | 'background', itemId: string) => {
       const { updateAchievement, purchasedOutfits, purchasedBackgrounds } = get();
 
       if (type === 'outfit') {
+        // Fallback: ensure item is recorded
         if (!purchasedOutfits.includes(itemId)) {
-          const newOutfits = [...purchasedOutfits, itemId];
-          set({ purchasedOutfits: newOutfits });
+          set((prev) => ({ purchasedOutfits: [...prev.purchasedOutfits, itemId] }));
           await persist();
-          posthog.capture('shop_item_purchased', { item_type: 'outfit', item_id: itemId });
-          await updateAchievement('first_outfit', 1);
         }
+        await updateAchievement('first_outfit', 1);
       } else if (type === 'background') {
+        // Fallback: ensure item is recorded
         if (!purchasedBackgrounds.includes(itemId)) {
-          const newBgs = [...purchasedBackgrounds, itemId];
-          set({ purchasedBackgrounds: newBgs });
+          set((prev) => ({ purchasedBackgrounds: [...prev.purchasedBackgrounds, itemId] }));
           await persist();
-          posthog.capture('shop_item_purchased', { item_type: 'background', item_id: itemId });
-          await updateAchievement('first_skin', 1);
-          await updateAchievement('three_skins', Math.min(newBgs.length, 3));
         }
+        const bgCount = get().purchasedBackgrounds.length;
+        await updateAchievement('first_skin', 1);
+        await updateAchievement('three_skins', Math.min(bgCount, 3));
       }
     },
 
     // =========================================================
-    // SPEND COINS (returns false if not enough)
+    // SPEND COINS + RECORD PURCHASE (atomic: deducts coins and
+    // adds the item in a single set+persist so neither can be
+    // lost independently)
     // =========================================================
-    spendCoins: async (amount: number) => {
-      const { totalCoins } = get();
-      if (totalCoins < amount) return false;
-      set({ totalCoins: totalCoins - amount });
+    spendCoins: async (amount: number, purchase?: { type: 'outfit' | 'background'; itemId: string }) => {
+      const state = get();
+      if (state.totalCoins < amount) return false;
+
+      if (purchase) {
+        // Atomic: deduct coins + add item in one set()
+        set((prev) => {
+          const update: any = { totalCoins: prev.totalCoins - amount };
+          if (purchase.type === 'outfit' && !prev.purchasedOutfits.includes(purchase.itemId)) {
+            update.purchasedOutfits = [...prev.purchasedOutfits, purchase.itemId];
+          } else if (purchase.type === 'background' && !prev.purchasedBackgrounds.includes(purchase.itemId)) {
+            update.purchasedBackgrounds = [...prev.purchasedBackgrounds, purchase.itemId];
+          }
+          return update;
+        });
+      } else {
+        set((prev) => ({ totalCoins: prev.totalCoins - amount }));
+      }
       await persist();
       return true;
     },
@@ -757,11 +874,11 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       const fadingFactor = Math.pow(0.5, dailyRoutinesCompletedCount);
       const earned = Math.round(baseEarned * fadingFactor * multiplier);
       
-      set({
-        rewardedRoutines: { ...state.rewardedRoutines, [routineId]: today },
+      set((prev) => ({
+        rewardedRoutines: { ...prev.rewardedRoutines, [routineId]: today },
         dailyRoutinesCompletedCount: dailyRoutinesCompletedCount + 1,
-        totalCoins: state.totalCoins + earned,
-      });
+        totalCoins: prev.totalCoins + earned,
+      }));
       await persist();
       
       return { earned, isNew: true };
@@ -815,12 +932,12 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           ? [...todaysRewardedTaskIds, taskId] 
           : todaysRewardedTaskIds;
 
-      set({
-        rewardedTasks: { ...state.rewardedTasks, [exactItemId]: today },
+      set((prev) => ({
+        rewardedTasks: { ...prev.rewardedTasks, [exactItemId]: today },
         todaysRewardedTaskIds: newTodaysRewarded,
         dailyTasksCompletedCount: newTodaysRewarded.length,
-        totalCoins: state.totalCoins + earned,
-      });
+        totalCoins: prev.totalCoins + earned,
+      }));
       await persist();
       
       return { earned, isNew: true };
@@ -828,6 +945,32 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
     setRoutineModalOpen: (isOpen: boolean) => {
       set({ isRoutineModalOpen: isOpen });
-    }
+    },
+
+    // =========================================================
+    // REDEEM PROMO CODE
+    // =========================================================
+    redeemPromoCode: async (code: string) => {
+      try {
+        const { data, error } = await supabase.rpc('redeem_promo_code', { p_code: code });
+        if (error) throw error;
+
+        if (data?.success) {
+          const reward: number = data.reward_coins ?? 0;
+          set((prev) => ({ totalCoins: prev.totalCoins + reward }));
+          await persist();
+          return { success: true, coinsAwarded: reward };
+        }
+
+        const errorMap: Record<string, string> = {
+          invalid_code: 'Código inválido o expirado.',
+          already_used: 'Ya canjeaste este código anteriormente.',
+          not_authenticated: 'Debes iniciar sesión primero.',
+        };
+        return { success: false, error: errorMap[data?.error] ?? 'No se pudo canjear el código.' };
+      } catch {
+        return { success: false, error: 'Error de conexión. Intenta de nuevo.' };
+      }
+    },
   };
 });

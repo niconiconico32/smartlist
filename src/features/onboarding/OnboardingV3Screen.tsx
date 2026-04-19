@@ -6,13 +6,12 @@ import {
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { posthog } from '@/src/config/posthog';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
@@ -26,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import SlideRenderer from './components/SlideRenderer';
 import { SLIDES_V3, TOTAL_SLIDES_V3 } from './slides-v3';
 import { INITIAL_ANSWERS, OnboardingAnswers } from './types';
+import { useOnboardingTracking } from './useOnboardingTracking';
 
 // ============================================
 // ONBOARDING V3 SCREEN (Orchestrator)
@@ -35,8 +35,25 @@ export default function OnboardingV3Screen() {
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
   const buttonScale = useSharedValue(1);
   const { signInAnonymously } = useAuth();
+  const prevSlideRef = useRef(0);
+
+  const { trackStart, trackStepViewed, trackStepCompleted, trackCompleted, trackBack } =
+    useOnboardingTracking();
 
   const config = SLIDES_V3[currentSlide];
+
+  // ── Tracking: start on mount, step viewed on slide change ──
+  useEffect(() => {
+    trackStart();
+    trackStepViewed(0, 'forward');
+  }, []);
+
+  useEffect(() => {
+    if (currentSlide === 0) return; // handled by mount effect
+    const direction = currentSlide > prevSlideRef.current ? 'forward' : 'backward';
+    trackStepViewed(currentSlide, direction);
+    prevSlideRef.current = currentSlide;
+  }, [currentSlide]);
 
   // ── Navigation ──
   const finishOnboarding = useCallback(async () => {
@@ -50,10 +67,7 @@ export default function OnboardingV3Screen() {
 
       await store.completeOnboarding();
 
-      posthog.capture('onboarding_completed', {
-        main_goal: answers.goals.join(', '),
-        adhd_symptoms: answers.adhdSymptoms,
-      });
+      trackCompleted(answers);
     } catch (e) {
       console.error('Error during completeOnboarding:', e);
     } finally {
@@ -66,20 +80,22 @@ export default function OnboardingV3Screen() {
   }, [answers]);
 
   const goToNextSlide = useCallback(() => {
+    trackStepCompleted(currentSlide, answers);
     if (currentSlide < TOTAL_SLIDES_V3 - 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide((s) => s + 1);
     } else {
       finishOnboarding();
     }
-  }, [currentSlide, finishOnboarding]);
+  }, [currentSlide, finishOnboarding, answers, trackStepCompleted]);
 
   const goToPrevSlide = useCallback(() => {
     if (currentSlide > 0) {
+      trackBack();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setCurrentSlide((s) => s - 1);
     }
-  }, [currentSlide]);
+  }, [currentSlide, trackBack]);
 
   // ── Answer handler ──
   const handleAnswer = useCallback(

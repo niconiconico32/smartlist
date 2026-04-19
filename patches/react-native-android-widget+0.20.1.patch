@@ -1,0 +1,53 @@
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
+index 4f5ca01..ebb3ef8 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/widget/ImageWidget.java
+@@ -36,6 +36,18 @@ public class ImageWidget extends BaseWidget<ImageView> {
+             bitmapDrawable.setCornerRadius(dpToPx(props.getDouble("radius")));
+         }
+ 
++        // Allow overriding scaleType (default: FIT_CENTER)
++        if (props.hasKey("scaleType")) {
++            String scaleType = props.getString("scaleType");
++            if ("centerCrop".equals(scaleType)) {
++                view.setScaleType(ImageView.ScaleType.CENTER_CROP);
++            } else if ("fitXY".equals(scaleType)) {
++                view.setScaleType(ImageView.ScaleType.FIT_XY);
++            } else if ("centerInside".equals(scaleType)) {
++                view.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
++            }
++        }
++
+         view.setImageDrawable(bitmapDrawable);
+     }
+ 
+diff --git a/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx b/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
+index 88ad819..79c41dc 100644
+--- a/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
++++ b/node_modules/react-native-android-widget/src/widgets/ImageWidget.tsx
+@@ -15,6 +15,7 @@ interface ImageWidgetInternalProps extends CommonInternalProps {
+   imageWidth: number;
+   imageHeight: number;
+   image: Pick<ImageResolvedAssetSource, 'uri'>;
++  scaleType?: 'centerCrop' | 'fitXY' | 'centerInside';
+ }
+ 
+ type ImageWidgetStyle = CommonStyleProps;
+@@ -45,6 +46,10 @@ export interface ImageWidgetProps extends ClickActionProps {
+    * Image radius
+    */
+   radius?: number;
++  /**
++   * Android ImageView ScaleType. Default is FIT_CENTER.
++   */
++  scaleType?: 'centerCrop' | 'fitXY' | 'centerInside';
+ }
+ 
+ export function ImageWidget(_: ImageWidgetProps) {
+@@ -64,5 +69,6 @@ ImageWidget.convertProps = (
+         ? Image.resolveAssetSource(props.image)
+         : { uri: props.image },
+     ...(props.radius ? { radius: props.radius } : {}),
++    ...(props.scaleType ? { scaleType: props.scaleType } : {}),
+   };
+ };

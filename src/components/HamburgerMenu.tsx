@@ -1,41 +1,50 @@
-import { colors } from '@/constants/theme';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { usePurchases } from '@/src/contexts/PurchasesContext';
-import { supabase } from '@/src/lib/supabase';
-import * as Haptics from 'expo-haptics';
-import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { GoogleButton } from './GoogleButton';
-import { useProStore } from '../store/proStore';
-import { PaywallModal } from './PaywallModal';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { usePurchases } from "@/src/contexts/PurchasesContext";
+import { supabase } from "@/src/lib/supabase";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import {
   Bell,
+  Crown,
   ExternalLink,
+  Gift,
   LogOut,
   Mail,
   Menu,
   RotateCcw,
   Shield,
   Trash2,
-  Crown,
   X,
-} from 'lucide-react-native';
-import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, Pressable, Linking as RNLinking, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import Animated, {
-  FadeOut,
-  SlideOutDown,
-} from 'react-native-reanimated';
+} from "lucide-react-native";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  Linking as RNLinking,
+  StyleSheet,
+  View,
+} from "react-native";
+import Animated, { FadeOut, SlideOutDown } from "react-native-reanimated";
+import { useProStore } from "../store/proStore";
+import { GoogleButton } from "./GoogleButton";
+import { PaywallModal } from "./PaywallModal";
+import { RedeemCodeModal } from "./RedeemCodeModal";
 
 // ─── URLs ───────────────────────────────────────────────────────────────────
-const PRIVACY_POLICY_URL = 'https://suggestions-brainyapp.vercel.app'; // TODO: replace with real URL
-const TERMS_URL = 'https://suggestions-brainyapp.vercel.app'; // TODO: replace with real URL
-const CONTACT_EMAIL = 'smartlist.app.dev@gmail.com'; // TODO: replace with real email
+const PRIVACY_POLICY_URL = "https://suggestions-brainyapp.vercel.app"; // TODO: replace with real URL
+const TERMS_URL = "https://suggestions-brainyapp.vercel.app"; // TODO: replace with real URL
+const CONTACT_EMAIL = "smartlist.app.dev@gmail.com"; // TODO: replace with real email
 const MANAGE_SUBSCRIPTIONS_URL = Platform.select({
-  ios: 'https://apps.apple.com/account/subscriptions',
-  default: 'https://play.google.com/store/account/subscriptions?package=com.brainyahdh.app',
+  ios: "https://apps.apple.com/account/subscriptions",
+  default:
+    "https://play.google.com/store/account/subscriptions?package=com.brainyahdh.app",
 });
 
 // ─── Row component ────────────────────────────────────────────────────────────
@@ -47,17 +56,33 @@ interface MenuRowProps {
   destructive?: boolean;
 }
 
-const MenuRow: React.FC<MenuRowProps> = ({ icon, label, sublabel, onPress, destructive }) => (
+const MenuRow: React.FC<MenuRowProps> = ({
+  icon,
+  label,
+  sublabel,
+  onPress,
+  destructive,
+}) => (
   <Pressable
     style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     onPress={onPress}
   >
-    <View style={[styles.rowIcon, destructive && styles.rowIconDestructive]}>{icon}</View>
+    <View style={[styles.rowIcon, destructive && styles.rowIconDestructive]}>
+      {icon}
+    </View>
     <View style={styles.rowText}>
-      <Text style={[styles.rowLabel, destructive && styles.rowLabelDestructive]}>{label}</Text>
+      <Text
+        style={[styles.rowLabel, destructive && styles.rowLabelDestructive]}
+      >
+        {label}
+      </Text>
       {sublabel ? <Text style={styles.rowSublabel}>{sublabel}</Text> : null}
     </View>
-    <ExternalLink size={14} color={destructive ? '#EF4444' : colors.textSecondary} opacity={0.6} />
+    <ExternalLink
+      size={14}
+      color={destructive ? "#EF4444" : colors.textSecondary}
+      opacity={0.6}
+    />
   </Pressable>
 );
 
@@ -67,6 +92,7 @@ const Divider = () => <View style={styles.divider} />;
 export function HamburgerMenu() {
   const [visible, setVisible] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showRedeemCode, setShowRedeemCode] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const { signOut, isAnonymous, signInWithOAuth } = useAuth();
   const { isPro } = useProStore();
@@ -95,8 +121,8 @@ export function HamburgerMenu() {
 
   const handleContact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const subject = encodeURIComponent('Soporte Brainy');
-    const body = encodeURIComponent('Hola equipo Brainy,\n\n');
+    const subject = encodeURIComponent("Soporte Brainy");
+    const body = encodeURIComponent("Hola equipo Brainy,\n\n");
     Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`);
     close();
   }, []);
@@ -104,30 +130,31 @@ export function HamburgerMenu() {
   const handleGoogleLink = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     close();
-    await signInWithOAuth('google');
+    await signInWithOAuth("google");
   }, [signInWithOAuth]);
 
   const handleDeleteAccount = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
-      'Eliminar cuenta',
-      'Esta acción es permanente. Se eliminarán todos tus datos (tareas, rutinas, logros y suscripción). ¿Estás seguro?',
+      "Eliminar cuenta",
+      "Esta acción es permanente. Se eliminarán todos tus datos (tareas, rutinas, logros y suscripción). ¿Estás seguro?",
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: "Cancelar", style: "cancel" },
         {
-          text: 'Eliminar',
-          style: 'destructive',
+          text: "Eliminar",
+          style: "destructive",
           onPress: async () => {
             try {
               // Call the delete-user Edge Function (uses service_role key server-side)
-              const { error } = await supabase.functions.invoke('delete-user');
+              const { error } = await supabase.functions.invoke("delete-user");
               if (error) throw error;
               await signOut();
               close();
             } catch (e: any) {
               Alert.alert(
-                'Error',
-                e?.message || 'No se pudo eliminar la cuenta. Contactá a soporte.',
+                "Error",
+                e?.message ||
+                  "No se pudo eliminar la cuenta. Contactá a soporte.",
               );
             }
           },
@@ -142,15 +169,21 @@ export function HamburgerMenu() {
     try {
       const restored = await restorePurchases();
       if (restored) {
-        Alert.alert('¡Listo!', 'Tu suscripción Pro ha sido restaurada correctamente.');
+        Alert.alert(
+          "¡Listo!",
+          "Tu suscripción Pro ha sido restaurada correctamente.",
+        );
       } else {
         Alert.alert(
-          'Sin compras previas',
-          'No se encontraron suscripciones asociadas a tu cuenta.',
+          "Sin compras previas",
+          "No se encontraron suscripciones asociadas a tu cuenta.",
         );
       }
     } catch {
-      Alert.alert('Error', 'No se pudieron restaurar las compras. Intenta de nuevo.');
+      Alert.alert(
+        "Error",
+        "No se pudieron restaurar las compras. Intenta de nuevo.",
+      );
     } finally {
       setIsRestoring(false);
     }
@@ -166,7 +199,10 @@ export function HamburgerMenu() {
     <>
       {/* ─── Hamburger Button ─────────────────────────────────────────── */}
       <Pressable
-        style={({ pressed }) => [styles.hamburgerBtn, pressed && styles.hamburgerBtnPressed]}
+        style={({ pressed }) => [
+          styles.hamburgerBtn,
+          pressed && styles.hamburgerBtnPressed,
+        ]}
         onPress={open}
         hitSlop={8}
       >
@@ -182,10 +218,7 @@ export function HamburgerMenu() {
         onRequestClose={close}
       >
         {/* Backdrop */}
-        <Animated.View
-          exiting={FadeOut.duration(200)}
-          style={styles.backdrop}
-        >
+        <Animated.View exiting={FadeOut.duration(200)} style={styles.backdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={close} />
         </Animated.View>
 
@@ -211,30 +244,30 @@ export function HamburgerMenu() {
               <GoogleButton
                 text="Continuar con Google"
                 onPress={handleGoogleLink}
-                style={{ width: '100%', height: 48 }}
+                style={{ width: "100%", height: 48 }}
               />
             </View>
           )}
 
           {!isPro && (
-             <Pressable
-                style={styles.proUpsellButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  close();
-                  setTimeout(() => setShowPaywall(true), 300); // let sheet close first
-                }}
-             >
-                <LinearGradient
-                  colors={['#FCD34D', '#F59E0B', '#D97706']}
-                  style={styles.proUpsellGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <Crown size={20} color="#1A1C20" strokeWidth={2.5} />
-                  <Text style={styles.proUpsellText}>Desbloquea Pro</Text>
-                </LinearGradient>
-             </Pressable>
+            <Pressable
+              style={styles.proUpsellButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                close();
+                setTimeout(() => setShowPaywall(true), 300); // let sheet close first
+              }}
+            >
+              <LinearGradient
+                colors={["#FCD34D", "#F59E0B", "#D97706"]}
+                style={styles.proUpsellGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Crown size={20} color="#1A1C20" strokeWidth={2.5} />
+                <Text style={styles.proUpsellText}>Desbloquea Pro</Text>
+              </LinearGradient>
+            </Pressable>
           )}
 
           {(isAnonymous || !isPro) && <View style={{ height: 16 }} />}
@@ -252,7 +285,11 @@ export function HamburgerMenu() {
           <MenuRow
             icon={<Shield size={18} color="#38BDF8" strokeWidth={2} />}
             label="Gestionar suscripción"
-            sublabel={Platform.OS === 'ios' ? 'Cancelar o modificar en App Store' : 'Cancelar o modificar en Google Play'}
+            sublabel={
+              Platform.OS === "ios"
+                ? "Cancelar o modificar en App Store"
+                : "Cancelar o modificar en Google Play"
+            }
             onPress={() => openLink(MANAGE_SUBSCRIPTIONS_URL)}
           />
 
@@ -273,20 +310,34 @@ export function HamburgerMenu() {
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowLabel}>Restaurar compras</Text>
-              <Text style={styles.rowSublabel}>Recupera tu suscripción en este dispositivo</Text>
+              <Text style={styles.rowSublabel}>
+                Recupera tu suscripción en este dispositivo
+              </Text>
             </View>
           </Pressable>
 
           <Divider />
 
           <MenuRow
-            icon={<ExternalLink size={18} color={colors.textSecondary} strokeWidth={2} />}
+            icon={
+              <ExternalLink
+                size={18}
+                color={colors.textSecondary}
+                strokeWidth={2}
+              />
+            }
             label="Política de privacidad"
             onPress={() => openLink(PRIVACY_POLICY_URL)}
           />
 
           <MenuRow
-            icon={<ExternalLink size={18} color={colors.textSecondary} strokeWidth={2} />}
+            icon={
+              <ExternalLink
+                size={18}
+                color={colors.textSecondary}
+                strokeWidth={2}
+              />
+            }
             label="Términos de uso"
             onPress={() => openLink(TERMS_URL)}
           />
@@ -294,7 +345,9 @@ export function HamburgerMenu() {
           <Divider />
 
           <MenuRow
-            icon={<Mail size={18} color={colors.textSecondary} strokeWidth={2} />}
+            icon={
+              <Mail size={18} color={colors.textSecondary} strokeWidth={2} />
+            }
             label="Reportar problema"
             onPress={handleContact}
           />
@@ -302,7 +355,22 @@ export function HamburgerMenu() {
           <Divider />
 
           <MenuRow
-            icon={<LogOut size={18} color={colors.textSecondary} strokeWidth={2} />}
+            icon={<Gift size={18} color="#C9FD5A" strokeWidth={2} />}
+            label="Canjear código"
+            sublabel="Ingresa un código para recibir coronas"
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              close();
+              setTimeout(() => setShowRedeemCode(true), 300);
+            }}
+          />
+
+          <Divider />
+
+          <MenuRow
+            icon={
+              <LogOut size={18} color={colors.textSecondary} strokeWidth={2} />
+            }
             label="Cerrar sesión"
             onPress={handleSignOut}
           />
@@ -322,7 +390,15 @@ export function HamburgerMenu() {
         </Animated.View>
       </Modal>
 
-      <PaywallModal visible={showPaywall} onClose={() => setShowPaywall(false)} />
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        source="hamburger_menu"
+      />
+      <RedeemCodeModal
+        visible={showRedeemCode}
+        onClose={() => setShowRedeemCode(false)}
+      />
     </>
   );
 }
@@ -335,8 +411,8 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 12,
     backgroundColor: `${colors.primary}18`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   hamburgerBtnPressed: {
     backgroundColor: `${colors.primary}30`,
@@ -346,21 +422,21 @@ const styles = StyleSheet.create({
   // ── Backdrop ──
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
 
   // ── Sheet ──
   sheet: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#16182A',
+    backgroundColor: "#16182A",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -370,35 +446,35 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignSelf: 'center',
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignSelf: "center",
     marginBottom: 16,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   sheetTitle: {
     color: colors.textPrimary,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.3,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   // ── Row ──
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 14,
     gap: 14,
   },
@@ -409,12 +485,12 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowIconDestructive: {
-    backgroundColor: 'rgba(239,68,68,0.12)',
+    backgroundColor: "rgba(239,68,68,0.12)",
   },
   rowText: {
     flex: 1,
@@ -423,22 +499,22 @@ const styles = StyleSheet.create({
   rowLabel: {
     color: colors.textPrimary,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   rowLabelDestructive: {
-    color: '#EF4444',
+    color: "#EF4444",
   },
   rowSublabel: {
     color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     opacity: 0.7,
   },
 
   // ── Divider ──
   divider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: "rgba(255,255,255,0.06)",
     marginHorizontal: -4,
   },
 
@@ -452,11 +528,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   proUpsellButton: {
-    width: '100%',
+    width: "100%",
     height: 48,
     borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#F59E0B',
+    overflow: "hidden",
+    shadowColor: "#F59E0B",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -464,14 +540,14 @@ const styles = StyleSheet.create({
   },
   proUpsellGradient: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   proUpsellText: {
-    color: '#1A1C20',
+    color: "#1A1C20",
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

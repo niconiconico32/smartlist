@@ -1,9 +1,9 @@
+import { posthog } from '@/src/config/posthog';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { PurchasesPackage } from 'react-native-purchases';
-import { posthog } from '@/src/config/posthog';
-import { getOfferings, purchasePackage, configurePurchases } from '../utils/purchases';
 import { useProStore } from '../store/proStore';
+import { configurePurchases, getOfferings, purchasePackage } from '../utils/purchases';
 
 export function useRevenueCat() {
   const [currentPackage, setCurrentPackage] = useState<PurchasesPackage | null>(null);
@@ -16,12 +16,10 @@ export function useRevenueCat() {
     try {
       await configurePurchases(); // Prevent 'singleton not initialized' crash
       const packages = await getOfferings();
-      if (packages) {
-        // En RevenueCat, configuraste 'default' offering y '$rc_monthly' package
+      if (packages && packages.length > 0) {
+        // Pick $rc_monthly if available, otherwise first package
         const monthly = packages.find(pkg => pkg.identifier === '$rc_monthly');
-        if (monthly) {
-          setCurrentPackage(monthly);
-        }
+        setCurrentPackage(monthly ?? packages[0]);
       }
     } catch (e) {
       console.error('[useRevenueCat] Error fetching packages:', e);
