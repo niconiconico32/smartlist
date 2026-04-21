@@ -17,7 +17,6 @@ import { PurchasesProvider } from '@/src/contexts/PurchasesContext';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { useProStore } from '@/src/store/proStore';
 import { useRoutineStreakStore } from '@/src/store/routineStreakStore';
-import { configurePurchases } from '@/src/utils/purchases';
 
 // Suprimir warning de expo-notifications - las notificaciones funcionan en development build
 LogBox.ignoreLogs([
@@ -51,13 +50,11 @@ export default function RootLayout() {
   useEffect(() => {
     /**
      * Startup sequence — ORDER IS CRITICAL:
-     * 1. Configure RevenueCat SDK (must be before any purchase call)
-     * 2. Load Pro state (isPro, shieldCount, trial expiry)
-     * 3. Recharge shields if Monday
-     * 4. Initialize routine streaks
+     * 1. Load Pro state (isPro, shieldCount, trial expiry)
+     * 2. Recharge shields if Monday
+     * 3. Initialize routine streaks
      */
     const bootstrap = async () => {
-      await configurePurchases();
       await loadPro();
       await rechargeShieldsIfNeeded();
       await useOnboardingStore.getState().loadOnboardingStatus();

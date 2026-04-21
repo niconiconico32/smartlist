@@ -103,24 +103,20 @@ export default function LoginScreen() {
                 color={GoogleSigninButton.Color.Light}
                 onPress={handleGoogleSignIn}
                 disabled={isLoading}
-                style={{ width: "100%", height: 56 }}
+                style={styles.googleNativeButton}
               />
             ) : (
               <Pressable
                 onPress={handleGoogleSignIn}
                 disabled={isLoading}
-                style={{
-                  width: "100%",
-                  height: 56,
-                  backgroundColor: "#fff",
-                  borderRadius: 8,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
+                style={({ pressed }) => [
+                  styles.googleFallbackButton,
+                  pressed && styles.googleFallbackButtonPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Continuar con Google"
               >
-                <Text style={{ color: "#333", fontWeight: "600" }}>
-                  Sign in with Google
-                </Text>
+                <Text style={styles.googleFallbackLabel}>Continuar con Google</Text>
               </Pressable>
             )}
           </View>
@@ -260,10 +256,34 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   googleButtonWrapper: {
-    height: 56,
+    height: 52,
     width: "100%",
     alignItems: "center",
     justifyContent: "center",
+  },
+  googleNativeButton: {
+    width: "100%",
+    height: 48,
+  },
+  googleFallbackButton: {
+    width: "100%",
+    height: 48,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#DADCE0",
+  },
+  googleFallbackButtonPressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
+  googleFallbackLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F1F1F",
+    letterSpacing: 0.1,
   },
 
   // ── Apple Sign In (HIG-compliant) ──────────────────────────────────────

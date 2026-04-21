@@ -2,7 +2,7 @@
   "expo": {
     "name": "Brainy",
     "slug": "brainy",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "orientation": "default",
     "icon": "./assets/images/appstorelogo.png",
     "scheme": "brainy",
@@ -22,7 +22,7 @@
         "NSUserTrackingUsageDescription": "This identifier will be used to measure the effectiveness of advertising and improve your experience in the app."
       },
       "bundleIdentifier": "com.brainyahdh.app",
-      "buildNumber": "9"
+      "buildNumber": "11"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,13 +32,14 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.brainyahdh.app",
-      "versionCode": 14,
+      "versionCode": 16,
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "blockedPermissions": ["android.permission.RECEIVE_BOOT_COMPLETED"]
     },
     "web": {
       "bundler": "metro",
@@ -56,7 +57,7 @@
           "android": {
             "newArchEnabled": true,
             "enableJetpackCompose": true,
-            "kotlinVersion": "1.9.24"
+            "kotlinVersion": "2.0.21"
           }
         }
       ],

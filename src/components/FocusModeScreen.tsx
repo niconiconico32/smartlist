@@ -744,18 +744,28 @@ export function FocusModeScreen({
     } catch (error) {}
   }, []);
 
+  // Stable refs so swipeGesture never needs to be recreated mid-gesture
+  // (goToNext/goToPrevious change on every currentIndex/totalElapsedTime update)
+  const goToNextRef = useRef(goToNext);
+  const goToPreviousRef = useRef(goToPrevious);
+  useEffect(() => { goToNextRef.current = goToNext; }, [goToNext]);
+  useEffect(() => { goToPreviousRef.current = goToPrevious; }, [goToPrevious]);
+
+  const stableGoToNext = useCallback(() => goToNextRef.current(), []);
+  const stableGoToPrevious = useCallback(() => goToPreviousRef.current(), []);
+
   const swipeGesture = useMemo(
     () =>
       Gesture.Pan()
         .activeOffsetX([-30, 30])
         .onEnd((e) => {
           if (e.translationX < -50) {
-            runOnJS(goToNext)();
+            runOnJS(stableGoToNext)();
           } else if (e.translationX > 50) {
-            runOnJS(goToPrevious)();
+            runOnJS(stableGoToPrevious)();
           }
         }),
-    [goToNext, goToPrevious],
+    [stableGoToNext, stableGoToPrevious],
   );
 
   return (

@@ -3,37 +3,27 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useProStore } from '@/src/store/proStore';
 import {
-    configurePurchases,
-    getCustomerInfo,
-    getOfferings,
-    isPremiumActive,
-    loginUser,
-    logoutUser,
-    purchasePackage as purchasePackageFn,
-    restorePurchases as restorePurchasesFn,
-    type CustomerInfo,
-    type PurchaseResult,
-    type PurchasesPackage,
+  configurePurchases,
+  getCustomerInfo,
+  getOfferings,
+  isPremiumActive,
+  loginUser,
+  logoutUser,
+  purchasePackage as purchasePackageFn,
+  restorePurchases as restorePurchasesFn,
+  type CustomerInfo,
+  type PurchaseResult,
+  type PurchasesPackage,
 } from '@/src/utils/purchases';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface PurchasesContextType {
-  /** Whether the user has an active premium entitlement */
   isPremium: boolean;
-  /** Whether RevenueCat data is still loading */
   isLoadingPurchases: boolean;
-  /** Available packages from the current offering */
   packages: PurchasesPackage[];
-  /** Purchase a specific package (subscription / trial) */
   purchasePackage: (pkg: PurchasesPackage) => Promise<PurchaseResult>;
-  /** Restore previous purchases */
   restorePurchases: () => Promise<boolean>;
-  /** Force-refresh customer info */
   refreshCustomerInfo: () => Promise<void>;
 }
-
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 const PurchasesContext = createContext<PurchasesContextType>({
   isPremium: false,
@@ -44,8 +34,6 @@ const PurchasesContext = createContext<PurchasesContextType>({
   refreshCustomerInfo: async () => {},
 });
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 export function PurchasesProvider({ children }: { children: React.ReactNode }) {
   const { user, session } = useAuth();
 
@@ -53,22 +41,14 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingPurchases, setIsLoadingPurchases] = useState(true);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
-
-  /**
-   * Update both local React state AND the proStore (AsyncStorage)
-   * so that isPro stays in sync across the two sources of truth.
-   */
   const syncPremiumStatus = useCallback(async (info: CustomerInfo) => {
     const hasPro = isPremiumActive(info);
     setIsPremium(hasPro);
 
-    // Sync proStore with RevenueCat server truth
     const proStore = useProStore.getState();
     if (hasPro && !proStore.isPro) {
       await proStore.activatePermanentPro();
     } else if (!hasPro && proStore.isPro && !proStore.trialExpiresAt) {
-      // No entitlement and no active trial → cancel pro in local store
       await proStore.cancelPermanentPro();
     }
   }, []);
@@ -78,37 +58,31 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
       const info = await getCustomerInfo();
       await syncPremiumStatus(info);
     } catch (error) {
-      console.error('❌ Error refreshing customer info:', error);
+      console.error('Error refreshing customer info:', error);
     }
   }, [syncPremiumStatus]);
-
-  // ── Initialize RevenueCat & sync with Supabase user ─────────────────────
 
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
       try {
-        // 1. Configure SDK (idempotent)
         await configurePurchases();
 
-        // 2. If user is logged in, link to RevenueCat and sync Pro status
         if (user && session) {
           const info = await loginUser(user.id);
           if (mounted) await syncPremiumStatus(info);
         } else {
-          // Even anonymous users: check if there's a cached entitlement
-          try {
-            const info = await getCustomerInfo();
-            if (mounted) await syncPremiumStatus(info);
-          } catch { /* no-op for anonymous */ }
+          const info = await getCustomerInfo();
+          if (mounted) await syncPremiumStatus(info);
         }
 
-        // 3. Load available packages
-        const pkgs = await getOfferings();
-        if (mounted && pkgs) setPackages(pkgs);
+        const nextPackages = await getOfferings();
+        if (mounted && nextPackages) {
+          setPackages(nextPackages);
+        }
       } catch (error) {
-        console.error('❌ Error initializing purchases:', error);
+        console.error('Error initializing purchases:', error);
       } finally {
         if (mounted) setIsLoadingPurchases(false);
       }
@@ -121,16 +95,12 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, session, syncPremiumStatus]);
 
-  // ── Handle sign-out: reset RevenueCat identity ──────────────────────────
-
   useEffect(() => {
     if (!session && !user) {
       logoutUser().catch(() => {});
       setIsPremium(false);
     }
   }, [session, user]);
-
-  // ── Purchase a package ──────────────────────────────────────────────────
 
   const handlePurchase = useCallback(
     async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
@@ -143,15 +113,13 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     [syncPremiumStatus],
   );
 
-  // ── Restore purchases ──────────────────────────────────────────────────
-
   const handleRestore = useCallback(async (): Promise<boolean> => {
     try {
       const info = await restorePurchasesFn();
       await syncPremiumStatus(info);
       return isPremiumActive(info);
     } catch (error) {
-      console.error('❌ Error restoring purchases:', error);
+      console.error('Error restoring purchases:', error);
       return false;
     }
   }, [syncPremiumStatus]);
@@ -172,12 +140,6 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
-export const usePurchases = (): PurchasesContextType => {
-  const context = useContext(PurchasesContext);
-  if (context === undefined) {
-    throw new Error('usePurchases must be used within a PurchasesProvider');
-  }
-  return context;
-};
+export function usePurchases(): PurchasesContextType {
+  return useContext(PurchasesContext);
+}

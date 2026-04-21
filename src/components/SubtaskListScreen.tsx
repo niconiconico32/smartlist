@@ -90,6 +90,7 @@ export function SubtaskListScreen({
   const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks);
   const [difficulty, setDifficulty] = useState<"easy" | "moderate" | "hard">(initialDifficulty || "easy");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Difficulty colors
   const difficultyColors = {
@@ -100,7 +101,7 @@ export function SubtaskListScreen({
 
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const flatListRef = useRef<FlatList<Subtask>>(null);
-  const timeoutRefs = useRef<number[]>([]);
+  const timeoutRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
   // Animation values
   const buttonScale = useSharedValue(1);
@@ -121,10 +122,12 @@ export function SubtaskListScreen({
 
   // Handlers
   const handleDragBegin = useCallback(() => {
+    setIsDragging(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   const handleDragEnd = useCallback(({ data }: { data: Subtask[] }) => {
+    setIsDragging(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSubtasks(data);
   }, []);
@@ -355,11 +358,12 @@ export function SubtaskListScreen({
               }}
               style={styles.actionIcon}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              disabled={isDragging && !isItemEditing}
             >
               {isItemEditing ? (
                 <Check size={18} color={colors.primary} strokeWidth={3} />
               ) : (
-                <Trash2 size={16} color={colors.textSecondary} />
+                <Trash2 size={16} color={isDragging ? colors.textSecondary + "40" : colors.textSecondary} />
               )}
             </Pressable>
           </Pressable>
@@ -382,6 +386,7 @@ export function SubtaskListScreen({
     );
   }, [
     editingId,
+    isDragging,
     handleDelete,
     handleInsertStep,
   ]);

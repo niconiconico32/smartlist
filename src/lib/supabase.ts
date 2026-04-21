@@ -24,11 +24,17 @@ const SecureStoreAdapter = {
 
 // ─── Supabase Client ──────────────────────────────────────────────────────────
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Check your .env file.');
+// Validate at module level without throwing — a top-level throw poisons the
+// entire module dependency tree (AuthContext → _layout → ErrorBoundary = undefined).
+// Invalid config surfaces as an auth/network error at runtime instead.
+if (__DEV__ && (!supabaseUrl || !supabaseAnonKey)) {
+  console.error(
+    '[Supabase] Missing environment variables. ' +
+    'Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your .env file.'
+  );
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

@@ -1,13 +1,19 @@
-import { posthog } from "@/src/config/posthog";
-import Constants from "expo-constants";
-import * as Haptics from "expo-haptics";
-import React, { useEffect, useRef } from "react";
-import Purchases from "react-native-purchases";
-import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
-import { useProStore } from "../store/proStore";
-import { configurePurchases } from "../utils/purchases";
+import { posthog } from '@/src/config/posthog';
+import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef } from 'react';
+import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
-const _isExpoGo = Constants.appOwnership === "expo";
+import {
+  configurePurchases,
+  ENTITLEMENT_ID,
+  getCustomerInfo,
+  getOffering,
+  isPremiumActive,
+} from '@/src/utils/purchases';
+import { useProStore } from '@/src/store/proStore';
+
+const isExpoGo = Constants.appOwnership === 'expo';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -15,15 +21,7 @@ interface PaywallModalProps {
   source?: string;
 }
 
-/**
- * Presents RevenueCat's hosted paywall (designed in the dashboard).
- * Keeps the same visible/onClose interface for backward compatibility.
- */
-export const PaywallModal: React.FC<PaywallModalProps> = ({
-  visible,
-  onClose,
-  source,
-}) => {
+export function PaywallModal({ visible, onClose, source }: PaywallModalProps) {
   const presentingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -34,29 +32,20 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
 
     (async () => {
       try {
-        if (_isExpoGo) {
-          console.warn(
-            "[PaywallModal] Skipping paywall in Expo Go (native RC not available)",
-          );
-          return;
-        }
+        if (isExpoGo) return;
+
         await configurePurchases();
+        const offering = await getOffering();
 
-        // Bust the offerings cache so the latest paywall revision from the
-        // dashboard is always used, not a stale cached version.
-        await Purchases.syncAttributesAndOfferingsIfNeeded();
+        posthog.capture('paywall_viewed', { source: source ?? null });
 
-        // Fire before showing so we know the paywall was actually presented
-        posthog.capture("paywall_viewed", { source: source ?? null });
-
-        // presentPaywallIfNeeded uses the dashboard's current offering directly
-        // and skips presentation if the user already has the entitlement active.
         const result = await RevenueCatUI.presentPaywallIfNeeded({
-          requiredEntitlementIdentifier: "pro",
+          offering: offering ?? undefined,
+          requiredEntitlementIdentifier: ENTITLEMENT_ID,
         });
 
         if (result === PAYWALL_RESULT.NOT_PRESENTED) {
-          posthog.capture("paywall_not_presented", { source: source ?? null });
+          posthog.capture('paywall_not_presented', { source: source ?? null });
           return;
         }
 
@@ -64,27 +53,34 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({
           result === PAYWALL_RESULT.PURCHASED ||
           result === PAYWALL_RESULT.RESTORED
         ) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          await useProStore.getState().activatePermanentPro();
-          posthog.capture(
-            result === PAYWALL_RESULT.PURCHASED
-              ? "purchase_completed"
-              : "purchase_restored",
-            { source: source ?? null },
-          );
-        } else if (result === PAYWALL_RESULT.CANCELLED) {
-          posthog.capture("paywall_dismissed", { source: source ?? null });
-        } else if (result === PAYWALL_RESULT.ERROR) {
-          posthog.capture("paywall_error", { source: source ?? null });
+          const info = await getCustomerInfo();
+          if (isPremiumActive(info)) {
+            await useProStore.getState().activatePermanentPro();
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            posthog.capture(
+              result === PAYWALL_RESULT.PURCHASED
+                ? 'purchase_completed'
+                : 'purchase_restored',
+              { source: source ?? null },
+            );
+          }
+          return;
         }
-      } catch (e) {
-        console.error("❌ Hosted paywall error:", e);
+
+        if (result === PAYWALL_RESULT.CANCELLED) {
+          posthog.capture('paywall_dismissed', { source: source ?? null });
+          return;
+        }
+
+        posthog.capture('paywall_error', { source: source ?? null });
+      } catch (error) {
+        console.error('Paywall error:', error);
       } finally {
         presentingRef.current = false;
         onCloseRef.current();
       }
     })();
-  }, [visible]);
+  }, [visible, source]);
 
   return null;
-};
+}

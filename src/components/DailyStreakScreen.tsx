@@ -34,6 +34,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -193,6 +194,7 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
   shieldDates = [],
   onDismiss,
 }) => {
+  const insets = useSafeAreaInsets();
   const mascotScale = useSharedValue(0);
   const mascotY = useSharedValue(0);
 
@@ -278,12 +280,12 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
         <SunburstRays />
 
         {/* Close button */}
-        <Pressable style={styles.closeButton} onPress={handleDismiss}>
+        <Pressable style={[styles.closeButton, { top: Math.max(insets.top, 16) + 8 }]} onPress={handleDismiss}>
           <X size={28} color="rgba(255,255,255,0.75)" strokeWidth={2.5} />
         </Pressable>
 
         {/* Content */}
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) }]}>
           {/* Mascot */}
           <Animated.View style={[styles.mascotContainer, mascotAnimatedStyle]}>
             <Image
@@ -463,7 +465,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: "absolute",
-    top: 56,
     right: 24,
     zIndex: 10,
     padding: 8,
@@ -473,8 +474,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
-    paddingTop: 60,
-    paddingBottom: 40,
   },
   mascotContainer: {
     alignItems: "center",

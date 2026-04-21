@@ -19,7 +19,10 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAnonymous: boolean;
-  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
+  signInWithOAuth: (
+    provider: OAuthProvider,
+    options?: { forceDirectSignIn?: boolean },
+  ) => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -63,14 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
 
         if (session?.user && !session.user.is_anonymous) {
+          const provider = (session.user.app_metadata?.provider as string | undefined) ?? null;
+          const email = session.user.email ?? null;
+
           // Note: RevenueCat identity sync is handled by PurchasesContext
           // to avoid duplicate loginUser() calls.
 
           // Identify authenticated user in PostHog
           posthog.identify(session.user.id, {
             $set: {
-              email: session.user.email,
-              provider: session.user.app_metadata?.provider,
+              email,
+              provider,
             },
             $set_once: {
               first_sign_in_date: new Date().toISOString(),
@@ -79,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (event === 'SIGNED_IN') {
             posthog.capture('user_signed_in', {
-              provider: session.user.app_metadata?.provider,
+              provider,
             });
           }
         }
@@ -91,7 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── OAuth Sign-In (Google) ─────────────────────────────────────────────────
 
-  const signInWithOAuth = async (provider: OAuthProvider): Promise<void> => {
+  const signInWithOAuth = async (
+    provider: OAuthProvider,
+    options?: { forceDirectSignIn?: boolean },
+  ): Promise<void> => {
     try {
       setIsLoading(true);
 
@@ -101,7 +110,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const redirectUrl = Linking.createURL('/(tabs)');
 
-      const isUpgrading = !!session && session.user?.is_anonymous === true;
+      const isUpgrading =
+        !options?.forceDirectSignIn &&
+        !!session &&
+        session.user?.is_anonymous === true;
       const authMethod = isUpgrading
         ? supabase.auth.linkIdentity.bind(supabase.auth)
         : supabase.auth.signInWithOAuth.bind(supabase.auth);

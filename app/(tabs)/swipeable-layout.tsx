@@ -50,6 +50,7 @@ import {
     View,
 } from "react-native";
 import PagerView from "react-native-pager-view";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import IndexScreen from "./index";
 import TwoScreen from "./two";
 
@@ -86,6 +87,7 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
 };
 
 export default function SwipeableLayout() {
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const {
     onStreakChanged,
@@ -281,13 +283,14 @@ export default function SwipeableLayout() {
           setIsLoadingData(true);
         }
         try {
-          // Load persisted state first — must complete before any
-          // store mutations (trackWeeklyUsage, initializeAppStreak)
-          // so they don't persist default/empty values to disk.
+          // Hydrate achievements first so early mutations from other flows
+          // (routine count, streak tracking, etc.) cannot overwrite
+          // purchased/equipped shop state with defaults.
+          await loadAchievements();
+
           await Promise.all([
             loadRoutines(),
             loadStreak(),
-            loadAchievements(),
             useProStore.getState().load(),
           ]);
           // Now safe to run mutating operations
@@ -578,7 +581,7 @@ export default function SwipeableLayout() {
             ? BG_IMAGES[useAchievementsStore.getState().activeBackground!]
             : DEFAULT_BG
         }
-        style={styles.fixedHeader}
+        style={[styles.fixedHeader, { paddingTop: insets.top }]}
       >
         {/*
           ZONA DE AJUSTE MANUAL DEL GRADIENTE 🎨
@@ -646,7 +649,7 @@ export default function SwipeableLayout() {
       </PagerView>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { paddingBottom: 10 + insets.bottom }]}>
         <Pressable
           style={[styles.tabItem, currentPage === 0 && styles.tabItemActive]}
           onPress={() => handleTabPress(0)}
@@ -775,15 +778,13 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: "absolute",
-    bottom: 10,
+    bottom: 0,
     left: 0,
     right: 0,
-    height: 110,
     backgroundColor: colors.glass,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingBottom: 50,
     paddingTop: 10,
     paddingHorizontal: 8,
   },

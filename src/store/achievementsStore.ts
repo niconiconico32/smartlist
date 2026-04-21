@@ -315,6 +315,138 @@ function createDefaultAchievements(): Record<AchievementId, AchievementProgress>
   return map;
 }
 
+type AchievementsSnapshot = {
+  achievements?: Record<AchievementId, AchievementProgress>;
+  totalCoins?: number;
+  routineStreak?: number;
+  lastRoutineCompletedDate?: string | null;
+  distinctWeeks?: string[];
+  purchasedOutfits?: string[];
+  purchasedBackgrounds?: string[];
+  activeBackground?: string | null;
+  activeOutfit?: string | null;
+  rewardedRoutines?: Record<string, string>;
+  rewardedTasks?: Record<string, string>;
+  todaysRewardedTaskIds?: string[];
+  dailyTasksCompletedCount?: number;
+  dailyRoutinesCompletedCount?: number;
+  lastRewardDate?: string | null;
+  updatedAt?: string;
+};
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === 'string');
+}
+
+function asStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
+function asFiniteNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function parseTimestamp(value?: string): number {
+  if (!value) return 0;
+  const t = Date.parse(value);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function mergeAchievementMaps(
+  local?: Record<AchievementId, AchievementProgress>,
+  cloud?: Record<AchievementId, AchievementProgress>,
+): Record<AchievementId, AchievementProgress> {
+  const merged = createDefaultAchievements();
+  for (const id of ALL_ACHIEVEMENT_IDS) {
+    const base = merged[id];
+    const l = local?.[id];
+    const c = cloud?.[id];
+    if (!l && !c) continue;
+
+    const localProgress = asFiniteNumber(l?.progress, 0);
+    const cloudProgress = asFiniteNumber(c?.progress, 0);
+    const progress = Math.max(localProgress, cloudProgress);
+    const completed = !!l?.completed || !!c?.completed;
+    const completedAt = l?.completedAt || c?.completedAt;
+
+    merged[id] = {
+      ...base,
+      progress,
+      completed,
+      completedAt,
+    };
+  }
+  return merged;
+}
+
+function pickOwnedActive(
+  preferred: string | null | undefined,
+  fallback: string | null | undefined,
+  owned: string[],
+): string | null {
+  if (preferred && owned.includes(preferred)) return preferred;
+  if (fallback && owned.includes(fallback)) return fallback;
+  return null;
+}
+
+function mergeSnapshots(
+  local: AchievementsSnapshot | null,
+  cloud: AchievementsSnapshot | null,
+): AchievementsSnapshot | null {
+  if (!local && !cloud) return null;
+
+  const localTs = parseTimestamp(local?.updatedAt);
+  const cloudTs = parseTimestamp(cloud?.updatedAt);
+  const primary = (localTs >= cloudTs ? local : cloud) || local || cloud;
+  const secondary = primary === local ? cloud : local;
+
+  const purchasedOutfits = Array.from(
+    new Set([
+      ...asStringArray(local?.purchasedOutfits),
+      ...asStringArray(cloud?.purchasedOutfits),
+    ]),
+  );
+  const purchasedBackgrounds = Array.from(
+    new Set([
+      ...asStringArray(local?.purchasedBackgrounds),
+      ...asStringArray(cloud?.purchasedBackgrounds),
+    ]),
+  );
+
+  return {
+    achievements: mergeAchievementMaps(local?.achievements, cloud?.achievements),
+    totalCoins: asFiniteNumber(primary?.totalCoins, 0),
+    routineStreak: asFiniteNumber(primary?.routineStreak, 0),
+    lastRoutineCompletedDate: primary?.lastRoutineCompletedDate || null,
+    distinctWeeks: asStringArray(primary?.distinctWeeks),
+    purchasedOutfits,
+    purchasedBackgrounds,
+    activeBackground: pickOwnedActive(
+      primary?.activeBackground,
+      secondary?.activeBackground,
+      purchasedBackgrounds,
+    ),
+    activeOutfit: pickOwnedActive(
+      primary?.activeOutfit,
+      secondary?.activeOutfit,
+      purchasedOutfits,
+    ),
+    rewardedRoutines: asStringRecord(primary?.rewardedRoutines),
+    rewardedTasks: asStringRecord(primary?.rewardedTasks),
+    todaysRewardedTaskIds: asStringArray(primary?.todaysRewardedTaskIds),
+    dailyTasksCompletedCount: asFiniteNumber(primary?.dailyTasksCompletedCount, 0),
+    dailyRoutinesCompletedCount: asFiniteNumber(primary?.dailyRoutinesCompletedCount, 0),
+    lastRewardDate: primary?.lastRewardDate || null,
+    updatedAt: primary?.updatedAt || new Date().toISOString(),
+  };
+}
+
 // =====================================================
 // STORE INTERFACE
 // =====================================================
@@ -386,10 +518,14 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
   // from overwriting each other
   let persistQueue: Promise<void> = Promise.resolve();
 
+  // Prevent parallel hydration runs; callers can await the same promise.
+  let loadPromise: Promise<void> | null = null;
+
   // Debounced cloud sync — batches rapid local writes into a single
   // Supabase upsert after 3 seconds of quiet
   let cloudSyncTimer: ReturnType<typeof setTimeout> | null = null;
   const scheduleCloudSync = () => {
+    if (!get()._loaded) return;
     if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
     cloudSyncTimer = setTimeout(async () => {
       try {
@@ -409,6 +545,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
   const buildSnapshot = () => {
     const s = get();
     return JSON.stringify({
+      updatedAt: new Date().toISOString(),
       achievements: s.achievements,
       totalCoins: s.totalCoins,
       routineStreak: s.routineStreak,
@@ -428,6 +565,12 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
   };
 
   const persist = () => {
+    if (!get()._loaded) {
+      // Do not persist before hydration completes, or defaults can overwrite
+      // purchased/equipped items from local/cloud backup.
+      return Promise.resolve();
+    }
+
     persistQueue = persistQueue.then(async () => {
       const json = buildSnapshot();
       try {
@@ -476,24 +619,26 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     // =========================================================
     loadAchievements: async () => {
       if (get()._loaded) return;
-      try {
-        let stored = await AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
+      if (loadPromise) return loadPromise;
 
-        // If primary key is missing or corrupted, try backup
-        let data: any = null;
+      loadPromise = (async () => {
+      try {
+        let localData: AchievementsSnapshot | null = null;
+        const stored = await AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
+
         if (stored) {
           try {
-            data = JSON.parse(stored);
-          } catch (parseError) {
+            localData = JSON.parse(stored);
+          } catch {
             console.warn('Primary achievements data corrupted, trying backup...');
           }
         }
-        if (!data) {
+
+        if (!localData) {
           const backup = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
           if (backup) {
             try {
-              data = JSON.parse(backup);
-              // Restore primary from backup
+              localData = JSON.parse(backup);
               await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, backup);
               console.log('Restored achievements from backup');
             } catch {
@@ -502,58 +647,70 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           }
         }
 
-        // Last resort: try cloud backup
-        if (!data) {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-              const { data: cloudRow } = await supabase
-                .from('user_achievements')
-                .select('data')
-                .eq('user_id', session.user.id)
-                .single();
-              if (cloudRow?.data) {
-                data = cloudRow.data;
-                // Restore local from cloud
-                const json = JSON.stringify(data);
-                await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, json);
-                await AsyncStorage.setItem(ACHIEVEMENTS_BACKUP_KEY, json);
-                console.log('Restored achievements from cloud');
-              }
+        let cloudData: AchievementsSnapshot | null = null;
+        let userId: string | null = null;
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          userId = session?.user?.id ?? null;
+          if (userId) {
+            const { data: cloudRow, error: cloudError } = await supabase
+              .from('user_achievements')
+              .select('data')
+              .eq('user_id', userId)
+              .maybeSingle();
+
+            if (cloudError) {
+              console.warn('Cloud restore failed:', cloudError);
+            } else if (cloudRow?.data) {
+              cloudData = cloudRow.data as AchievementsSnapshot;
             }
-          } catch (cloudError) {
-            console.warn('Cloud restore failed:', cloudError);
           }
+        } catch (cloudError) {
+          console.warn('Cloud restore failed:', cloudError);
         }
 
+        const data = mergeSnapshots(localData, cloudData);
+
         if (data) {
-          // Merge saved achievements with defaults for any new IDs
-          const merged = createDefaultAchievements();
-          if (data.achievements) {
-            for (const id of ALL_ACHIEVEMENT_IDS) {
-              if (data.achievements[id]) {
-                merged[id] = data.achievements[id];
-              }
+          const mergedAchievements = mergeAchievementMaps(data.achievements, undefined);
+          const normalizedData: AchievementsSnapshot = {
+            ...data,
+            achievements: mergedAchievements,
+          };
+
+          const normalizedJson = JSON.stringify(normalizedData);
+          await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, normalizedJson);
+          await AsyncStorage.setItem(ACHIEVEMENTS_BACKUP_KEY, normalizedJson);
+
+          if (userId) {
+            const cloudJson = cloudData ? JSON.stringify(cloudData) : null;
+            if (cloudJson !== normalizedJson) {
+              await supabase.from('user_achievements').upsert(
+                { user_id: userId, data: normalizedData },
+                { onConflict: 'user_id' },
+              );
             }
           }
 
           set({
             _loaded: true,
-            achievements: merged,
-            totalCoins: data.totalCoins || 0,
-            routineStreak: data.routineStreak || 0,
-            lastRoutineCompletedDate: data.lastRoutineCompletedDate || null,
-            distinctWeeks: data.distinctWeeks || [],
-            purchasedOutfits: data.purchasedOutfits || [],
-            purchasedBackgrounds: data.purchasedBackgrounds || [],
-            activeBackground: data.activeBackground || null,
-            activeOutfit: data.activeOutfit || null,
-            rewardedRoutines: data.rewardedRoutines || {},
-            rewardedTasks: data.rewardedTasks || {},
-            dailyTasksCompletedCount: data.dailyTasksCompletedCount || 0,
-            dailyRoutinesCompletedCount: data.dailyRoutinesCompletedCount || 0,
-            todaysRewardedTaskIds: data.todaysRewardedTaskIds || [],
-            lastRewardDate: data.lastRewardDate || null,
+            achievements: mergedAchievements,
+            totalCoins: asFiniteNumber(normalizedData.totalCoins, 0),
+            routineStreak: asFiniteNumber(normalizedData.routineStreak, 0),
+            lastRoutineCompletedDate: normalizedData.lastRoutineCompletedDate || null,
+            distinctWeeks: asStringArray(normalizedData.distinctWeeks),
+            purchasedOutfits: asStringArray(normalizedData.purchasedOutfits),
+            purchasedBackgrounds: asStringArray(normalizedData.purchasedBackgrounds),
+            activeBackground: normalizedData.activeBackground || null,
+            activeOutfit: normalizedData.activeOutfit || null,
+            rewardedRoutines: asStringRecord(normalizedData.rewardedRoutines),
+            rewardedTasks: asStringRecord(normalizedData.rewardedTasks),
+            dailyTasksCompletedCount: asFiniteNumber(normalizedData.dailyTasksCompletedCount, 0),
+            dailyRoutinesCompletedCount: asFiniteNumber(normalizedData.dailyRoutinesCompletedCount, 0),
+            todaysRewardedTaskIds: asStringArray(normalizedData.todaysRewardedTaskIds),
+            lastRewardDate: normalizedData.lastRewardDate || null,
           });
         } else {
           set({ _loaded: true });
@@ -561,6 +718,13 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       } catch (error) {
         console.error('Error loading achievements:', error);
         set({ _loaded: true });
+      }
+      })();
+
+      try {
+        await loadPromise;
+      } finally {
+        loadPromise = null;
       }
     },
 

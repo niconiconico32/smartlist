@@ -77,7 +77,7 @@ export function OnboardingSubtaskList({
   
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const flatListRef = useRef<FlatList<Subtask>>(null);
-  const timeoutRefs = useRef<number[]>([]);
+  const timeoutRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   
   // Animation values
   const buttonScale = useSharedValue(1);

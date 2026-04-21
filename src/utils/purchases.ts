@@ -1,131 +1,94 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import Purchases, {
-    LOG_LEVEL,
-    type CustomerInfo,
-    type PurchasesOffering,
-    type PurchasesPackage,
+  LOG_LEVEL,
+  type CustomerInfo,
+  type PurchasesOffering,
+  type PurchasesPackage,
 } from 'react-native-purchases';
 
-// ─── Configuration ────────────────────────────────────────────────────────────
+export const ENTITLEMENT_ID = 'brainy Pro';
+export const OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID ?? 'brainyPRO';
 
-const REVENUECAT_API_KEYS = {
+const API_KEYS = {
   ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '',
   android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '',
 };
 
-/** The entitlement identifier configured in RevenueCat */
-export const ENTITLEMENT_ID = 'pro';
+let configured = false;
 
-// ─── Initialize ───────────────────────────────────────────────────────────────
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo';
+}
 
-let isConfigured = false;
-
-/**
- * Configure RevenueCat SDK. Must be called once at app startup,
- * BEFORE any purchase or customer info calls.
- */
 export async function configurePurchases(): Promise<void> {
-  if (isConfigured) return;
+  if (configured) return;
 
-  if (Constants.appOwnership === 'expo') {
-    console.warn('⚠️ Running in Expo Go: Bypassing RevenueCat setup');
-    isConfigured = true;
+  if (isExpoGo()) {
+    configured = true;
     return;
   }
 
-  const apiKey =
-    Platform.OS === 'ios' ? REVENUECAT_API_KEYS.ios : REVENUECAT_API_KEYS.android;
-
+  const apiKey = Platform.OS === 'ios' ? API_KEYS.ios : API_KEYS.android;
   if (!apiKey) {
-    console.warn('⚠️ RevenueCat API key missing for', Platform.OS);
+    console.warn('RevenueCat API key missing for', Platform.OS);
     return;
   }
 
+  // Modo dios RevenueCat: debug y log handler
   if (__DEV__) {
     Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+    Purchases.setLogHandler((log) => {
+      if (log.logLevel === LOG_LEVEL.ERROR || log.logLevel === LOG_LEVEL.WARN) {
+        console.warn(`[RC DETECTIVE] 🚨: ${log.message}`);
+      } else {
+        // Para ver todo, descomenta:
+        // console.log(`[RC DETECTIVE] ℹ️: ${log.message}`);
+      }
+    });
   }
 
   Purchases.configure({ apiKey });
-  isConfigured = true;
+  configured = true;
 }
 
-// ─── User Identity ────────────────────────────────────────────────────────────
-
-/**
- * Link the RevenueCat anonymous user to a Supabase user ID.
- * Call this immediately after Supabase sign-in.
- */
-export async function loginUser(supabaseUserId: string): Promise<CustomerInfo> {
-  if (Constants.appOwnership === 'expo') {
-    return { entitlements: { active: {} } } as any;
-  }
-  const { customerInfo } = await Purchases.logIn(supabaseUserId);
+export async function loginUser(userId: string): Promise<CustomerInfo> {
+  if (isExpoGo()) return { entitlements: { active: {} } } as CustomerInfo;
+  const { customerInfo } = await Purchases.logIn(userId);
   return customerInfo;
 }
 
-/**
- * Log out the current user from RevenueCat (resets to anonymous).
- * Call this when Supabase signs out.
- */
 export async function logoutUser(): Promise<void> {
-  if (Constants.appOwnership === 'expo') return;
+  if (isExpoGo()) return;
   await Purchases.logOut();
 }
 
-// ─── Entitlement Helpers ──────────────────────────────────────────────────────
+export async function getCustomerInfo(): Promise<CustomerInfo> {
+  if (isExpoGo()) return { entitlements: { active: {} } } as CustomerInfo;
+  return Purchases.getCustomerInfo();
+}
 
-/**
- * Check if the user currently has the premium entitlement.
- */
 export function isPremiumActive(customerInfo: CustomerInfo): boolean {
   return ENTITLEMENT_ID in (customerInfo.entitlements.active ?? {});
 }
 
-/**
- * Fetch the latest customer info from RevenueCat.
- */
-export async function getCustomerInfo(): Promise<CustomerInfo> {
-  if (Constants.appOwnership === 'expo') {
-    return { entitlements: { active: {} } } as any;
-  }
-  return Purchases.getCustomerInfo();
-}
-
-// ─── Offerings / Packages ─────────────────────────────────────────────────────
-
-/** The offering identifier configured in RevenueCat */
-export const OFFERING_ID = 'default';
-
-/**
- * Get the paywall offering's available packages.
- * Fetches the specific offering configured in RevenueCat.
- * Returns null if the offering is not found or has no packages.
- */
-export async function getOfferings(): Promise<PurchasesPackage[] | null> {
-  if (Constants.appOwnership === 'expo') return null;
-  // syncAttributesAndOfferingsIfNeeded bypasses the offerings cache and
-  // fetches fresh data from the RC server (including latest paywall design).
-  const offerings = await Purchases.syncAttributesAndOfferingsIfNeeded();
-  const target = offerings.all[OFFERING_ID] ?? offerings.current;
-  if (!target?.availablePackages.length) {
-    return null;
-  }
-  return target.availablePackages;
-}
-
-/**
- * Get the PurchasesOffering object for the configured offering.
- * Needed by RevenueCatUI.presentPaywall().
- */
 export async function getOffering(): Promise<PurchasesOffering | null> {
-  if (Constants.appOwnership === 'expo') return null;
-  // Force a fresh fetch so the latest paywall template revision is used.
-  const offerings = await Purchases.syncAttributesAndOfferingsIfNeeded();
+  if (isExpoGo()) return null;
+  let offerings;
+  try {
+    // Forzar fetch desde la nube si el SDK lo soporta
+    offerings = await Purchases.getOfferings({ fetchPolicy: 'fetchCurrent' });
+  } catch (e) {
+    // Si la opción no está soportada, fallback a la llamada normal
+    offerings = await Purchases.getOfferings();
+  }
   return offerings.all[OFFERING_ID] ?? offerings.current ?? null;
 }
 
-// ─── Purchase ─────────────────────────────────────────────────────────────────
+export async function getOfferings(): Promise<PurchasesPackage[] | null> {
+  const offering = await getOffering();
+  return offering?.availablePackages ?? null;
+}
 
 export interface PurchaseResult {
   success: boolean;
@@ -134,51 +97,33 @@ export interface PurchaseResult {
   errorMessage?: string;
 }
 
-/**
- * Attempt to purchase a package (subscription / trial).
- * Handles user cancellation gracefully.
- */
-export async function purchasePackage(
-  pkg: PurchasesPackage,
-): Promise<PurchaseResult> {
-  if (Constants.appOwnership === 'expo') {
-    return { success: false, cancelled: false, errorMessage: 'Unavailable in Expo Go' };
+export async function purchasePackage(pkg: PurchasesPackage): Promise<PurchaseResult> {
+  if (isExpoGo()) {
+    return { success: false, errorMessage: 'Unavailable in Expo Go' };
   }
+
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const premium = isPremiumActive(customerInfo);
-
     return {
-      success: premium,
+      success: isPremiumActive(customerInfo),
       customerInfo,
     };
   } catch (error: any) {
-    // RevenueCat error code 1 = user cancelled
-    if (error.userCancelled) {
+    if (error?.userCancelled) {
       return { success: false, cancelled: true };
     }
 
-    console.error('❌ Purchase error:', error.message);
     return {
       success: false,
       cancelled: false,
-      errorMessage: error.message,
+      errorMessage: error?.message ?? 'Purchase failed',
     };
   }
 }
 
-/**
- * Restore previously purchased subscriptions.
- */
 export async function restorePurchases(): Promise<CustomerInfo> {
-  if (Constants.appOwnership === 'expo') {
-    return { entitlements: { active: {} } } as any;
-  }
+  if (isExpoGo()) return { entitlements: { active: {} } } as CustomerInfo;
   return Purchases.restorePurchases();
 }
 
-// ─── Re-exports for convenience ───────────────────────────────────────────────
-
-export { Purchases };
 export type { CustomerInfo, PurchasesOffering, PurchasesPackage };
-

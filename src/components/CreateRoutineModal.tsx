@@ -137,6 +137,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   const taskListRef = useRef<any>(null);
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const insets = useSafeAreaInsets();
 
   const triggerHaptic = (style: "light" | "medium" | "selection" = "light") => {
@@ -388,15 +389,16 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
                 onPress={() => handleRemoveTask(item.id)}
                 style={styles.actionIcon}
                 hitSlop={10}
+                disabled={isDragging || isActive}
               >
-                <Trash2 size={18} color={colors.textSecondary} />
+                <Trash2 size={18} color={isDragging || isActive ? colors.textSecondary + "40" : colors.textSecondary} />
               </Pressable>
             )}
           </View>
         </ScaleDecorator>
       );
     },
-    [tasks, editingTaskId],
+    [tasks, editingTaskId, isDragging],
   );
 
   const isValid =
@@ -614,7 +616,9 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
               <DraggableFlatList
                 ref={taskListRef}
                 data={tasks}
+                onDragBegin={() => setIsDragging(true)}
                 onDragEnd={({ data }) => {
+                  setIsDragging(false);
                   setTasks(data);
                   triggerHaptic("medium");
                 }}

@@ -832,7 +832,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   // Stopwatch effect (counts up)
   useEffect(() => {
-    let interval: number;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (showExecutionModal && !showSuccessScreen) {
       interval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);

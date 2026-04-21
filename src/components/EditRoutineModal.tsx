@@ -137,6 +137,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const taskListRef = useRef<any>(null);
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Cargar datos de la rutina cuando cambia
@@ -455,15 +456,16 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                 onPress={() => handleRemoveTask(item.id)}
                 style={styles.actionIcon}
                 hitSlop={10}
+                disabled={isDragging || isActive}
               >
-                <Trash2 size={18} color={colors.textSecondary} />
+                <Trash2 size={18} color={isDragging || isActive ? colors.textSecondary + "40" : colors.textSecondary} />
               </Pressable>
             )}
           </View>
         </ScaleDecorator>
       );
     },
-    [tasks, editingTaskId],
+    [tasks, editingTaskId, isDragging],
   );
 
   const renderListHeader = (
@@ -688,7 +690,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               <DraggableFlatList
                 ref={taskListRef}
                 data={tasks}
+                onDragBegin={() => setIsDragging(true)}
                 onDragEnd={({ data }) => {
+                  setIsDragging(false);
                   setTasks(data);
                   triggerHaptic("medium");
                 }}

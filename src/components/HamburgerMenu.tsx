@@ -130,7 +130,9 @@ export function HamburgerMenu() {
   const handleGoogleLink = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     close();
-    await signInWithOAuth("google");
+    // From the in-app menu, forcing direct sign-in is more reliable than
+    // linkIdentity for some Google accounts on Android.
+    await signInWithOAuth("google", { forceDirectSignIn: true });
   }, [signInWithOAuth]);
 
   const handleDeleteAccount = useCallback(() => {

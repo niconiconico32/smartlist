@@ -8,41 +8,41 @@ import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { ReviewRequestModal } from "@/src/components/ReviewRequestModal";
 import { posthog } from "@/src/config/posthog";
 import {
-  ACHIEVEMENT_DEFINITIONS,
-  useAchievementsStore,
+    ACHIEVEMENT_DEFINITIONS,
+    useAchievementsStore,
 } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
-  renderRoutinesWidget,
-  WIDGET_BG_ID_KEY,
-  WIDGET_BG_MODE_KEY,
-  WIDGET_OUTFIT_ID_KEY,
+    renderRoutinesWidget,
+    WIDGET_BG_ID_KEY,
+    WIDGET_BG_MODE_KEY,
+    WIDGET_OUTFIT_ID_KEY,
 } from "@/src/widgets/widgetTaskHandler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
 import {
-  Calendar,
-  ChevronLeft,
-  Crown,
-  Flame,
-  Lock,
-  Store,
-  Trophy,
+    Calendar,
+    ChevronLeft,
+    Crown,
+    Flame,
+    Lock,
+    Store,
+    Trophy,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Dimensions,
+    FlatList,
+    Image,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import { SafeAreaView } from "react-native-safe-area-context";

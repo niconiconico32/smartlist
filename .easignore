@@ -1,0 +1,15 @@
+# Keep EAS upload lean to avoid local ENOSPC during tarball creation
+.gradle-local/
+
+# Local/native build caches and outputs
+android/.gradle/
+android/build/
+ios/build/
+ios/Pods/
+
+# General caches
+.expo/
+node_modules/
+
+# VCS metadata
+.git/

@@ -4,16 +4,18 @@
  * quede oculto detrás de la floating island
  */
 
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 export const TAB_BAR_HEIGHT = 64;
-export const TAB_BAR_BOTTOM_MARGIN = 30;
-export const TAB_BAR_TOTAL_INSET = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_MARGIN + 10; // +10 para espacio extra
 
 /**
  * Hook que retorna el padding bottom necesario para evitar que el contenido
- * quede oculto detrás del TabBar flotante
+ * quede oculto detrás del TabBar flotante, adaptándose al inset real del dispositivo
  */
 export function useBottomTabInset() {
-  return TAB_BAR_TOTAL_INSET; // ~104px
+  const insets = useSafeAreaInsets();
+  // TAB_BAR_HEIGHT + system nav bar inset + 10px breathing room
+  return TAB_BAR_HEIGHT + insets.bottom + 10;
 }
 
 /**
