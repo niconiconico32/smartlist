@@ -344,7 +344,7 @@ export function WeeklyCalendar({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "transparent",
-    paddingTop: 40,
+    paddingTop: 8,
     paddingBottom: 20,
     paddingHorizontal: 28,
   },

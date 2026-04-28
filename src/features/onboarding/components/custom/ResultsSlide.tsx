@@ -1,84 +1,62 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from '@/constants/buttons';
 import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
-import Animated, {
-    Easing,
-    FadeInDown,
-    SharedValue,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withTiming,
-} from 'react-native-reanimated';
-
+import * as Haptics from 'expo-haptics';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { slideStyles } from '../../styles/shared';
 import type { OnboardingAnswers } from '../../types';
 
-// ============================================
-// RESULTS SLIDE
-// ============================================
 interface Props {
   answers: OnboardingAnswers;
   onNext: () => void;
 }
 
-const CATEGORIES = [
-  { key: 'focus', label: 'Enfoque', color: '#FF6B6B' },
-  { key: 'memory', label: 'Memoria', color: '#4ECDC4' },
-  { key: 'organization', label: 'Organización', color: '#FFE66D' },
-  { key: 'control', label: 'Control', color: '#A78BFA' },
-];
-
-/** Map agreement string answers to numeric score for bars */
-function agreementToScore(val: string | null): number {
-  switch (val) {
-    case 'strongly_agree': return 5;
-    case 'somewhat_agree': return 3;
-    case 'disagree': return 2;
-    case 'strongly_disagree': return 1;
-    default: return 3;
-  }
-}
-
 const ResultsSlide: React.FC<Props> = ({ answers, onNext }) => {
-  const userName = answers.userName || 'tu perfil';
+  const userName = answers.userName || 'amigo/a';
 
-  // Derive scores from agreement answers
-  const scores = [
-    agreementToScore(answers.statement1),
-    agreementToScore(answers.statement2),
-    agreementToScore(answers.statement3),
-    Math.round((agreementToScore(answers.statement1) + agreementToScore(answers.statement3)) / 2),
+  // 1. Map Main Goal to an empathetic phrase
+  const mainGoalId = answers.mainGoal?.[0];
+  let goalText = '🚀 Lograr consistencia sin pelear contra tu propio cerebro';
+  if (mainGoalId === 'finish_projects') goalText = '🚀 Terminar lo que empiezas, sin agobiarte a la mitad';
+  else if (mainGoalId === 'less_stress') goalText = '🧘 Recuperar la tranquilidad y el control de tu tiempo';
+  else if (mainGoalId === 'lasting_routines') goalText = '📅 Crear hábitos reales que duren más de un par de días';
+  else if (mainGoalId === 'feel_proud') goalText = '✨ Ir a la cama sintiendo que hoy sí lograste avanzar';
+
+  // 2. Map Life Area to current state
+  const lifeAreaId = answers.lifeArea;
+  let areaText = '🎢 Sientes que tu energía y motivación son impredecibles';
+  if (lifeAreaId === 'home') areaText = '🏠 El caos en casa suele consumir tu energía rápidamente';
+  else if (lifeAreaId === 'work') areaText = '💼 El trabajo o estudios se sienten como una montaña rusa';
+  else if (lifeAreaId === 'health') areaText = '🧘 Te cuesta priorizar tu propio bienestar de forma constante';
+
+  // 3. Map Symptoms to the obstacles
+  const symptoms = answers.adhdSymptoms || [];
+  const defaultObstacles = [
+    'Distracciones constantes y "scroll" infinito',
+    'Falta de dopamina para tareas aburridas',
+    'Dificultad para ordenar las prioridades'
   ];
 
-  const maxCat = CATEGORIES.reduce(
-    (max: { key: string; label: string; color: string; score: number }, cat, idx) =>
-      scores[idx] > max.score ? { ...cat, score: scores[idx] } : max,
-    { ...CATEGORIES[0], score: scores[0] },
-  );
+  const symptomMap: Record<string, string> = {
+    paralysis: 'La temida "parálisis por análisis" al empezar',
+    time: 'Ceguera del tiempo (las horas desaparecen)',
+    overwhelm: 'Sobrecarga mental cuando hay demasiados pasos',
+    forget: 'Olvidar cosas importantes al instante',
+    racing_mind: 'Una mente que corre a 1000 km/h sin parar'
+  };
 
-  // Bar height animations
-  const barHeights = CATEGORIES.map(() => useSharedValue(0));
+  const selectedTexts = symptoms.slice(0, 3).map(id => symptomMap[id]).filter(Boolean);
 
-  useEffect(() => {
-    CATEGORIES.forEach((_, idx) => {
-      barHeights[idx].value = withDelay(
-        400 + idx * 200,
-        withTiming((scores[idx] / 5) * 140, {
-          duration: 800,
-          easing: Easing.out(Easing.cubic),
-        }),
-      );
-    });
-  }, []);
+  // Fill array up to exactly 3 items using defaults if needed
+  const symptomsText = [...selectedTexts];
+  let defaultIdx = 0;
+  while (symptomsText.length < 3 && defaultIdx < defaultObstacles.length) {
+    if (!symptomsText.includes(defaultObstacles[defaultIdx])) {
+      symptomsText.push(defaultObstacles[defaultIdx]);
+    }
+    defaultIdx++;
+  }
 
   return (
     <View style={s.container}>
@@ -87,159 +65,168 @@ const ResultsSlide: React.FC<Props> = ({ answers, onNext }) => {
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
-          ¡Plan de {userName} listo!
-        </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.subtitle}>
-          Tus áreas de oportunidad
+        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideTitle, { color: colors.background, marginBottom: 8 }]}>
+          gracias, <Text style={{ color: colors.surface }}>{userName}</Text>.
         </Animated.Text>
 
-        {/* Bar chart */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={s.chartContainer}>
-          {CATEGORIES.map((cat, idx) => (
-            <View key={cat.key} style={s.chartColumn}>
-              <Text style={s.chartValue}>{scores[idx]}/5</Text>
-              <View style={s.chartBarTrack}>
-                <BarFill height={barHeights[idx]} color={cat.color} />
-              </View>
-              <Text style={s.chartLabel}>{cat.label}</Text>
+        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface, marginBottom: 40, textTransform: 'none' }]}>
+          basado en lo que compartiste, veamos juntos tu camino hacia adelante.
+        </Animated.Text>
+
+        <View style={s.cardsContainer}>
+          {/* CARD 1 */}
+          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={s.card}>
+            <View style={s.pill}>
+              <Text style={s.pillText}>a dónde quieres llegar</Text>
             </View>
-          ))}
-        </Animated.View>
+            <Text style={s.cardTextMain}>{goalText}</Text>
+          </Animated.View>
 
-        {/* Result card */}
-        <Animated.View entering={FadeInDown.delay(700).duration(400)} style={s.resultCard}>
-          <Text style={s.resultText}>
-            Hemos detectado que tu mayor reto es{' '}
-            <Text style={s.resultHighlight}>{maxCat.label}</Text>.
-            Tenemos las herramientas exactas para eso.
-          </Text>
-        </Animated.View>
+          {/* CARD 2 */}
+          <Animated.View entering={FadeInDown.delay(450).duration(500)} style={s.card}>
+            <View style={s.pill}>
+              <Text style={s.pillText}>dónde estás ahora</Text>
+            </View>
+            <Text style={s.cardTextMain}>{areaText}</Text>
+          </Animated.View>
+
+          {/* CARD 3 */}
+          <Animated.View entering={FadeInDown.delay(600).duration(500)} style={s.card}>
+            <View style={s.pill}>
+              <Text style={s.pillText}>lo que te detiene</Text>
+            </View>
+            <View style={s.listContainer}>
+              {symptomsText.map((txt, i) => (
+                <View key={i} style={[s.listItem, i === symptomsText.length - 1 && { borderBottomWidth: 0 }]} >
+                  <View style={s.bullet} />
+                  <Text style={s.cardTextList}>{txt}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        </View>
       </ScrollView>
 
-      <View style={s.buttonContainer}>
+      {/* Button to continue */}
+      <Animated.View entering={FadeInDown.delay(800).duration(500)} style={s.footer}>
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onNext();
           }}
-          style={primaryButtonStyles}
+          style={s.button}
         >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>Ver mi solución</Text>
-          </LinearGradient>
+          <Text style={s.buttonText}>Continuar</Text>
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 };
 
-// Animated bar fill sub-component
-function BarFill({ height, color }: { height: SharedValue<number>; color: string }) {
-  const style = useAnimatedStyle(() => ({
-    height: height.value,
-    backgroundColor: color,
-  }));
-  return <Animated.View style={[s.chartBarFill, style]} />;
-}
-
 export default ResultsSlide;
 
-// ============================================
-// STYLES
-// ============================================
 const s = StyleSheet.create({
   container: {
     flex: 1,
+    // Background color is handled by the parent slide wrapper
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    paddingBottom: 20,
-    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.5,
+    fontSize: 34,
+    fontWeight: '800',
+    color: colors.background,
+    marginBottom: 12,
+    letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
+    lineHeight: 22,
   },
-  chartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    width: '100%',
-    height: 200,
-    marginBottom: 32,
-    paddingTop: 20,
+  cardsContainer: {
+    gap: 16,
   },
-  chartColumn: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  chartValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  chartBarTrack: {
-    width: 32,
-    height: 140,
-    backgroundColor: `${colors.textPrimary}0D`,
-    borderRadius: 16,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  chartBarFill: {
-    width: '100%',
-    borderRadius: 16,
-  },
-  chartLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginTop: 8,
-  },
-  resultCard: {
-    backgroundColor: colors.surface,
+  card: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
-    borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
-    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  resultText: {
+  pill: {
+    backgroundColor: `${colors.surface}15`,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  pillText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'lowercase',
+  },
+  cardTextMain: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.background,
+    lineHeight: 24,
+  },
+  listContainer: {
+    gap: 12,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: `${colors.background}10`,
+    paddingBottom: 12,
+  },
+  bullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
+  },
+  cardTextList: {
     fontSize: 15,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    lineHeight: 22,
-    textAlign: 'center',
+    fontWeight: '600',
+    color: colors.background,
+    flex: 1,
   },
-  resultHighlight: {
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  buttonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  footer: {
+    paddingHorizontal: 24,
     paddingBottom: 40,
+    paddingTop: 20,
+  },
+  button: {
+    backgroundColor: colors.surface,
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    shadowColor: colors.surface,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
   },
 });

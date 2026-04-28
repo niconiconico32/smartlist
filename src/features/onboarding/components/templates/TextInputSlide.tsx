@@ -15,11 +15,11 @@ const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
   const value = (answers[config.answerKey!] as string) ?? '';
 
   return (
-    <View style={layoutStyles.slide}>
+    <View style={[layoutStyles.slide, { alignItems: 'flex-start', paddingHorizontal: 24 }]}>
       {config.showLogo && (
         <Animated.View
           entering={FadeInDown.delay(100).duration(500)}
-          style={slideStyles.logoImageContainer}
+          style={[slideStyles.logoImageContainer, { alignSelf: 'center' }]}
         >
           <Image
             source={require('@/assets/images/logomain.png')}
@@ -29,26 +29,39 @@ const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
         </Animated.View>
       )}
 
+      {config.subtitle && (
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={slideStyles.slideSubtitle}
+        >
+          {config.subtitle}
+        </Animated.Text>
+      )}
+
       <Animated.Text
-        entering={FadeInDown.delay(200).duration(500)}
+        entering={FadeInDown.delay(250).duration(500)}
         style={slideStyles.slideTitle}
       >
         {config.title}
       </Animated.Text>
 
-      <Animated.Text
-        entering={FadeInDown.delay(250).duration(500)}
-        style={slideStyles.slideSubtitle}
-      >
-        {config.subtitle}
-      </Animated.Text>
-
       <Animated.View
         entering={FadeInDown.delay(300).duration(500)}
-        style={slideStyles.nameInputContainer}
+        style={[slideStyles.nameInputContainer, { paddingHorizontal: 0 }]}
       >
         <TextInput
-          style={slideStyles.nameInput}
+          style={[
+            slideStyles.nameInput,
+            { 
+              textAlign: 'left', 
+              borderRadius: 12, 
+              backgroundColor: colors.surface, 
+              borderWidth: 0,
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+              fontSize: 16
+            }
+          ]}
           placeholder={config.placeholder}
           placeholderTextColor={colors.textSecondary}
           value={value}

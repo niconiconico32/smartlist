@@ -13,7 +13,7 @@ import {
   X
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, FlatList, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, TextInput, UIManager, View } from 'react-native';
+import { Dimensions, FlatList, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, TextInput, UIManager, View } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
 import DraggableFlatList, {
   RenderItemParams,
@@ -265,65 +265,84 @@ export function SubtaskListScreen({
             isActive && styles.itemContainerActive,
           ]}
         >
-          <Pressable
-            onLongPress={() => {
-              if (!isItemEditing) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                drag();
-              }
-            }}
-            delayLongPress={500}
-            disabled={isActive}
+          <View
             style={[
               styles.taskItem,
               isActive && styles.taskItemDragging
             ]}
           >
-            {/* Drag Handle */}
+            {/* Drag Handle — onPressIn for instant response */}
             <Pressable
-              onLongPress={() => {
+              onPressIn={() => {
                 if (!isItemEditing) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   drag();
                 }
               }}
-              delayLongPress={500}
               style={styles.dragHandle}
               disabled={isItemEditing}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <GripVertical size={18} color={colors.textSecondary} />
             </Pressable>
 
             <View style={styles.cardContent}>
-              {/* Título Editable Directamente */}
-              <TextInput
-                ref={(ref) => {
-                  if (ref) {
-                    taskInputRefs.current[item.id] = ref;
-                  } else {
-                    delete taskInputRefs.current[item.id];
-                  }
-                }}
-                style={[
-                  styles.taskItemText,
-                  item.isCompleted && styles.taskItemTextCompleted,
-                  !item.title && styles.taskItemTextEmpty
-                ]}
-                value={item.title}
-                onChangeText={(text) => {
-                  setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, title: text } : t));
-                }}
-                placeholder="Tarea vacía"
-                placeholderTextColor={colors.textSecondary + '80'}
-                onFocus={() => setEditingId(item.id)}
-                onBlur={() => setEditingId(null)}
-                multiline={false}
-              />
+              {/* Title: Text (display) or TextInput (editing) */}
+              {isItemEditing ? (
+                <TextInput
+                  ref={(ref) => {
+                    if (ref) {
+                      taskInputRefs.current[item.id] = ref;
+                    } else {
+                      delete taskInputRefs.current[item.id];
+                    }
+                  }}
+                  style={[
+                    styles.taskItemText,
+                    item.isCompleted && styles.taskItemTextCompleted,
+                    !item.title && styles.taskItemTextEmpty
+                  ]}
+                  value={item.title}
+                  onChangeText={(text) => {
+                    setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, title: text } : t));
+                  }}
+                  placeholder="Tarea vacía"
+                  placeholderTextColor={colors.textSecondary + '80'}
+                  autoFocus
+                  multiline={false}
+                  onBlur={() => setEditingId(null)}
+                />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <Pressable
+                    onPress={() => {
+                      setEditingId(item.id);
+                      setTimeout(() => {
+                        taskInputRefs.current[item.id]?.focus();
+                      }, 80);
+                    }}
+                    style={{ justifyContent: 'center' }}
+                  >
+                    <Text
+                      style={[
+                        styles.taskItemText,
+                        item.isCompleted && styles.taskItemTextCompleted,
+                        !item.title && styles.taskItemTextEmpty,
+                      ]}
+                    >
+                      {item.title || 'Tarea vacía'}
+                    </Text>
+                  </Pressable>
+                </ScrollView>
+              )}
 
               <View style={styles.cardMeta}>
                 <View style={styles.durationBadge}>
                   <Clock size={12} color={colors.primary} />
-                  {/* Duración Editable Directamente */}
                   <TextInput
                     value={item.duration > 0 ? item.duration.toString() : ''}
                     onChangeText={(text) => {
@@ -348,7 +367,6 @@ export function SubtaskListScreen({
             <Pressable
               onPress={() => {
                 if (isItemEditing) {
-                  // Guardar cambios: cerrar teclado y hacer blur del input actual
                   Keyboard.dismiss();
                   setEditingId(null);
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -366,9 +384,9 @@ export function SubtaskListScreen({
                 <Trash2 size={16} color={isDragging ? colors.textSecondary + "40" : colors.textSecondary} />
               )}
             </Pressable>
-          </Pressable>
+          </View>
 
-          {/* Botón de Insertar - posicionado absolutamente dentro del item */}
+          {/* Botón de Insertar */}
           <View style={styles.insertStepButtonWrapper}>
             <Pressable
               onPress={() => handleInsertStep(index + 1)}
@@ -390,6 +408,7 @@ export function SubtaskListScreen({
     handleDelete,
     handleInsertStep,
   ]);
+
 
   const ListHeaderComponent = useCallback(() => (
     <Animated.View entering={FadeIn.duration(300)} style={styles.header}>

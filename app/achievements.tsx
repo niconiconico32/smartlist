@@ -664,6 +664,20 @@ export default function AchievementsScreen() {
               ⭐ Review
             </Text>
           </Pressable>
+          <Pressable
+            onPress={() => router.push('/onboarding-v3')}
+            style={{
+              flex: 1,
+              backgroundColor: "#10B981",
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
+              🚀 Onboard
+            </Text>
+          </Pressable>
         </View>
       )}
 

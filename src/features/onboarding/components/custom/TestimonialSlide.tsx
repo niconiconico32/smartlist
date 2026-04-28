@@ -5,11 +5,11 @@ import {
   primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { AppText as Text } from '@/src/components/AppText';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   FadeIn,
   FadeInDown
@@ -23,7 +23,7 @@ const TESTIMONIALS = [
     image: require('@/assets/images/user2.png'),
     name: 'Alex',
     age: '29 años',
-    quote: 'Toda la vida juré que era flojo, pero me di cuenta de que solo necesitaba organizarme distinto. Con Brainy al fin avanzo con mis cosas sin que sea una pelea constante contra mi propia cabeza.'
+    quote: 'toda la vida juré que era flojo, pero me di cuenta de que solo necesitaba organizarme distinto. Con Brainy al fin avanzo con mis cosas sin que sea una pelea constante contra mi propia cabeza.'
 
   },
   {
@@ -32,7 +32,7 @@ const TESTIMONIALS = [
     name: 'Camila',
     age: '34 años',
     quote:
-      'Llevo más de dos semanas cumpliendo mi rutina y de verdad no me lo creo (literal no me pasaba desde el colegio jaja). Siento que la app está hecha exactamente para cabezas como la mía.'
+      'llevo más de dos semanas cumpliendo mi rutina y de verdad no me lo creo (literal no me pasaba desde el colegio jaja). Siento que la app está hecha exactamente para cabezas como la mía.'
   },
   {
     initials: 'D',
@@ -40,7 +40,7 @@ const TESTIMONIALS = [
     name: 'Diego',
     age: '26 años',
     quote:
-      'El sistema de rachas te atrapa de la mejor manera. Antes me costaba un mundo empezar, hoy llevo 21 días seguidos cumpliendo.'
+      'el sistema de rachas te atrapa de la mejor manera. Antes me costaba un mundo empezar, hoy llevo 21 días seguidos cumpliendo.'
   },
 ];
 
@@ -74,7 +74,7 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
       >
         {/* Title */}
         <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
-          Escucha lo que{'\n'}otros dicen
+          escucha lo que{'\n'}otros dicen
         </Animated.Text>
 
         {/* Avatar area */}

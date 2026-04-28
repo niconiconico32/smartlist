@@ -29,18 +29,20 @@ const GoalsSlide: React.FC<Props> = ({ config, answers, onAnswer, resolvedOption
       contentContainerStyle={layoutStyles.slideScrollContent}
       showsVerticalScrollIndicator={false}
     >
+      {config.subtitle && (
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={slideStyles.slideSubtitle}
+        >
+          {config.subtitle}
+        </Animated.Text>
+      )}
+
       <Animated.Text
         entering={FadeInDown.delay(200).duration(500)}
         style={slideStyles.slideTitle}
       >
         {config.title}
-      </Animated.Text>
-
-      <Animated.Text
-        entering={FadeInDown.delay(250).duration(500)}
-        style={slideStyles.slideSubtitle}
-      >
-        {config.subtitle}
       </Animated.Text>
 
       <Animated.View

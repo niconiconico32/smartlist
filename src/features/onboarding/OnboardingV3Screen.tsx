@@ -1,10 +1,11 @@
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
 } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { AppText as Text } from '@/src/components/AppText';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { useOnboardingStore } from '@/src/store/onboardingStore';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,13 +13,12 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { BackHandler, Image, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -122,7 +122,7 @@ export default function OnboardingV3Screen() {
   const canContinue = config.canContinue ? config.canContinue(answers) : true;
 
   // Slides that should hide the back button (auto-advancing slides like processing)
-  const hideBackOnSlides = ['welcome', 'processing'];
+  const hideBackOnSlides = ['welcome', 'processing', ...(__DEV__ ? [] : ['dialogue'])];
   const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
 
   // ── hardware back handler ──
@@ -138,74 +138,97 @@ export default function OnboardingV3Screen() {
   }, [showBack, goToPrevSlide]);
 
   return (
-    <SafeAreaView style={s.container}>
-      {/* Disable iOS swipe back and header */}
-      <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
+    <View
+      style={[
+        s.outerContainer,
+        config.backgroundColor ? { backgroundColor: config.backgroundColor } : null,
+        (config.backgroundImage || config.backgroundGradient) ? { backgroundColor: 'transparent' } : null
+      ]}
+    >
+      {config.backgroundGradient && (
+        <LinearGradient
+          colors={config.backgroundGradient as [string, string, ...string[]]}
+          style={s.absoluteGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+        />
+      )}
+      {config.backgroundImage && (
+        <Image
+          source={config.backgroundImage}
+          style={s.absoluteImage}
+          resizeMode="cover"
+        />
+      )}
+      <SafeAreaView style={s.container}>
+        {/* Disable iOS swipe back and header */}
+        <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
 
-      {/* Header: back + progress bar */}
-      {showBack && (
-        <View style={s.headerContainer}>
-          <View style={s.backButtonArea}>
-            <Animated.View entering={FadeInDown.duration(300)}>
+        {/* Header: back + progress bar */}
+        {showBack && (
+          <View style={s.headerContainer}>
+            <View style={s.backButtonArea}>
+              <Animated.View entering={FadeInDown.duration(300)}>
+                <Pressable
+                  onPress={goToPrevSlide}
+                  style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
+                >
+                  <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                </Pressable>
+              </Animated.View>
+            </View>
+
+            <View style={s.progressBarWrapper}>
+              <View style={s.progressBarBackground}>
+                <Animated.View
+                  entering={FadeInDown.duration(400)}
+                  style={[
+                    s.progressBarFill,
+                    { width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Slide content */}
+        <View style={s.slideContainer}>
+          <SlideRenderer
+            config={config}
+            answers={answers}
+            onAnswer={handleAnswer}
+            onNext={goToNextSlide}
+            onBack={goToPrevSlide}
+            onFinish={finishOnboarding}
+          />
+        </View>
+
+        {/* Bottom nav button (only for slides that opt-in via showNavButton) */}
+        {config.showNavButton && (
+          <View style={s.navigationContainer}>
+            <Animated.View style={buttonAnimatedStyle}>
               <Pressable
-                onPress={goToPrevSlide}
-                style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
+                onPress={goToNextSlide}
+                onPressIn={handleButtonPressIn}
+                onPressOut={handleButtonPressOut}
+                disabled={!canContinue}
+                style={[primaryButtonStyles, !canContinue && { opacity: 0.5 }]}
               >
-                <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                <LinearGradient
+                  colors={PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={primaryButtonGradient}
+                >
+                  <Text style={primaryButtonText}>{config.buttonText ?? 'Continuar'}</Text>
+                </LinearGradient>
               </Pressable>
             </Animated.View>
           </View>
-
-          <View style={s.progressBarWrapper}>
-            <View style={s.progressBarBackground}>
-              <Animated.View
-                entering={FadeInDown.duration(400)}
-                style={[
-                  s.progressBarFill,
-                  { width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%` },
-                ]}
-              />
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Slide content */}
-      <View style={s.slideContainer}>
-        <SlideRenderer
-          config={config}
-          answers={answers}
-          onAnswer={handleAnswer}
-          onNext={goToNextSlide}
-          onBack={goToPrevSlide}
-          onFinish={finishOnboarding}
-        />
-      </View>
-
-      {/* Bottom nav button (only for slides that opt-in via showNavButton) */}
-      {config.showNavButton && (
-        <View style={s.navigationContainer}>
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={goToNextSlide}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              disabled={!canContinue}
-              style={[primaryButtonStyles, !canContinue && { opacity: 0.5 }]}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>{config.buttonText ?? 'Continuar'}</Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
-        </View>
-      )}
-    </SafeAreaView>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -213,9 +236,20 @@ export default function OnboardingV3Screen() {
 // STYLES
 // ============================================
 const s = StyleSheet.create({
-  container: {
+  outerContainer: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  absoluteImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  absoluteGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  container: {
+    flex: 1,
   },
   slideContainer: {
     flex: 1,
@@ -236,20 +270,10 @@ const s = StyleSheet.create({
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: `${colors.textPrimary}08`,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: `${colors.textPrimary}15`,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
   },
   backButtonPressed: {
-    backgroundColor: `${colors.textPrimary}15`,
     transform: [{ scale: 0.95 }],
   },
   progressBarWrapper: {

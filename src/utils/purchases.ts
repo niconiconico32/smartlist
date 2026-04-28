@@ -8,7 +8,7 @@ import Purchases, {
 } from 'react-native-purchases';
 
 export const ENTITLEMENT_ID = 'brainy Pro';
-export const OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID ?? 'brainyPRO';
+export const OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID ?? 'default';
 
 const API_KEYS = {
   ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '',
@@ -37,14 +37,9 @@ export async function configurePurchases(): Promise<void> {
 
   // Modo dios RevenueCat: debug y log handler
   if (__DEV__) {
-    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
-    Purchases.setLogHandler((log) => {
-      if (log.logLevel === LOG_LEVEL.ERROR || log.logLevel === LOG_LEVEL.WARN) {
-        console.warn(`[RC DETECTIVE] 🚨: ${log.message}`);
-      } else {
-        // Para ver todo, descomenta:
-        // console.log(`[RC DETECTIVE] ℹ️: ${log.message}`);
-      }
+    Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+    Purchases.setLogHandler((...args: any[]) => {
+      console.log(`[RC DETECTIVE RAW]`, ...args);
     });
   }
 
@@ -127,3 +122,4 @@ export async function restorePurchases(): Promise<CustomerInfo> {
 }
 
 export type { CustomerInfo, PurchasesOffering, PurchasesPackage };
+

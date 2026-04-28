@@ -25,6 +25,7 @@ import SingleSelectSlide from './templates/SingleSelectSlide';
 import TextInputSlide from './templates/TextInputSlide';
 
 // Custom slides
+import AllDoneSlide from './custom/AllDoneSlide';
 import CommitmentSlide from './custom/CommitmentSlide';
 import DialogueSlide from './custom/DialogueSlide';
 import GrowthPotentialSlide from './custom/GrowthPotentialSlide';
@@ -37,6 +38,8 @@ import PremiumBenefitsSlide from './custom/PremiumBenefitsSlide';
 import ProcessingSlide from './custom/ProcessingSlide';
 import ResultsSlide from './custom/ResultsSlide';
 import ReverseTrialSlide from './custom/ReverseTrialSlide';
+import RoutinePickerSlide from './custom/RoutinePickerSlide';
+import SuccessChartSlide from './custom/SuccessChartSlide';
 import SuccessTimelineSlide from './custom/SuccessTimelineSlide';
 import TaskDemoSlide from './custom/TaskDemoSlide';
 import TestimonialSlide from './custom/TestimonialSlide';
@@ -163,6 +166,15 @@ const SlideRenderer: React.FC<Props> = ({
 
     case 'results':
       return <ResultsSlide answers={answers} onNext={onNext} />;
+
+    case 'success-chart':
+      return <SuccessChartSlide onNext={onNext} answers={answers} />;
+
+    case 'routine-picker':
+      return <RoutinePickerSlide onNext={onNext} />;
+
+    case 'all-done':
+      return <AllDoneSlide onNext={onNext} />;
 
     case 'commitment':
       return <CommitmentSlide onNext={onNext} />;

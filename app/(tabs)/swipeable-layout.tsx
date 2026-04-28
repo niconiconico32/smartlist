@@ -3,9 +3,9 @@ import { AppText as Text } from "@/src/components/AppText";
 import { CreateRoutineModal } from "@/src/components/CreateRoutineModal";
 import { DailyStreakScreen } from "@/src/components/DailyStreakScreen";
 import {
-    BG_IMAGES,
-    DEFAULT_BG,
-    FocusHeroCard,
+  BG_IMAGES,
+  DEFAULT_BG,
+  FocusHeroCard,
 } from "@/src/components/FocusHeroCard";
 import { LiquidFAB } from "@/src/components/LiquidFAB";
 import { PaywallModal } from "@/src/components/PaywallModal";
@@ -18,10 +18,10 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
-    getLocalTodayDateKey,
-    hasCountedToday,
-    isLocalToday,
-    isLocalYesterday,
+  getLocalTodayDateKey,
+  hasCountedToday,
+  isLocalToday,
+  isLocalYesterday,
 } from "@/src/utils/dateHelpers";
 import { sendStreakNotification } from "@/src/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,22 +32,22 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CalendarCheck, Grid2x2 } from "lucide-react-native";
 import React, {
-    createRef,
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
+  createRef,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    ImageBackground,
-    Platform,
-    Pressable,
-    StyleSheet,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  ImageBackground,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
 } from "react-native";
 import PagerView from "react-native-pager-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -221,7 +221,7 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) {}
+        } catch (e) { }
       } else {
         // First time ever completing a task
         if (!hasAskedForNotifications) {
@@ -246,7 +246,7 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // 🎁 Pro Trial Offer: show after completing first task/routine if user hasn't seen it yet
@@ -577,7 +577,7 @@ export default function SwipeableLayout() {
       <ImageBackground
         source={
           useAchievementsStore.getState().activeBackground &&
-          BG_IMAGES[useAchievementsStore.getState().activeBackground!]
+            BG_IMAGES[useAchievementsStore.getState().activeBackground!]
             ? BG_IMAGES[useAchievementsStore.getState().activeBackground!]
             : DEFAULT_BG
         }
@@ -648,8 +648,8 @@ export default function SwipeableLayout() {
         </View>
       </PagerView>
 
-      {/* Tab Bar */}
-      <View style={[styles.tabBar, { paddingBottom: 10 + insets.bottom }]}>
+      {/* Tab Bar — slim, no FAB inside */}
+      <View style={[styles.tabBar, { paddingBottom: 6 + insets.bottom }]}>
         <Pressable
           style={[styles.tabItem, currentPage === 0 && styles.tabItemActive]}
           onPress={() => handleTabPress(0)}
@@ -671,16 +671,8 @@ export default function SwipeableLayout() {
           </Text>
         </Pressable>
 
-        <View style={styles.centralButtonContainer}>
-          <LiquidFAB
-            currentPage={currentPage}
-            onHacerTareaPress={handleHacerTareaPress}
-            onProgramarTareaPress={handleProgramarTareaPress}
-            onCreateRoutinePress={handleCreateRoutinePress}
-            onOpenChange={handleFABOpenChange}
-            isOpen={isFABOpen}
-          />
-        </View>
+        {/* Center spacer — reserves visual space for the FAB */}
+        <View style={styles.centralButtonSpacer} />
 
         <Pressable
           style={[styles.tabItem, currentPage === 1 && styles.tabItemActive]}
@@ -702,6 +694,18 @@ export default function SwipeableLayout() {
             Rutinas
           </Text>
         </Pressable>
+      </View>
+
+      {/* FAB — floating absolutely above the tab bar */}
+      <View style={[styles.fabFloating, { bottom: 10 + insets.bottom }]} pointerEvents="box-none">
+        <LiquidFAB
+          currentPage={currentPage}
+          onHacerTareaPress={handleHacerTareaPress}
+          onProgramarTareaPress={handleProgramarTareaPress}
+          onCreateRoutinePress={handleCreateRoutinePress}
+          onOpenChange={handleFABOpenChange}
+          isOpen={isFABOpen}
+        />
       </View>
 
       {/* Create Routine Modal */}
@@ -785,14 +789,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingTop: 10,
+    paddingTop: 0,
     paddingHorizontal: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tabItemActive: {
     // Puedes agregar estilos adicionales para el tab activo
@@ -807,10 +811,21 @@ const styles = StyleSheet.create({
   tabLabelActive: {
     color: colors.textPrimary,
   },
+  centralButtonSpacer: {
+    flex: 1,
+  },
   centralButtonContainer: {
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 12,
+    zIndex: 10000,
+  },
+  fabFloating: {
+    position: "absolute",
+    alignSelf: "center",
+    left: 0,
+    right: 0,
+    alignItems: "center",
     zIndex: 10000,
   },
   centralButton: {

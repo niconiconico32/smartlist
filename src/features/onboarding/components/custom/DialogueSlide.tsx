@@ -1,23 +1,16 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from '@/constants/buttons';
+import { AppText as Text } from '@/src/components/AppText';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
-    Easing,
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming,
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { slideStyles } from '../../styles/shared';
 import { DialogueSlideConfig } from '../../types';
@@ -71,7 +64,7 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
     if (!isLastMessage) {
       setTypewriterDone(false);
       bubbleScale.value = withSequence(
-        withTiming(0.9, { duration: 150 }),
+        withTiming(0.9, { duration: 250 }),
         withSpring(1, { damping: 12, stiffness: 200 }),
       );
       setDialoguePhase((p) => p + 1);
@@ -79,6 +72,23 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
       onNext();
     }
   }, [isLastMessage, onNext]);
+
+  // Auto-advance dialogue phase
+  useEffect(() => {
+    if (typewriterDone) {
+      if (!isLastMessage) {
+        const timer = setTimeout(() => {
+          handleDialogueContinue();
+        }, 2000); // Wait 2 seconds before auto-advancing to the next message
+        return () => clearTimeout(timer);
+      } else if (config.autoAdvanceAtEnd) {
+        const timer = setTimeout(() => {
+          onNext();
+        }, 2000); // Wait 2 seconds before auto-advancing to the next slide
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [typewriterDone, isLastMessage, handleDialogueContinue, config.autoAdvanceAtEnd, onNext]);
 
   const mascotAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -104,7 +114,7 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
       <View style={slideStyles.welcomeDialogueArea}>
         {/* Speech bubble */}
         <Animated.View style={slideStyles.speechBubbleContainer}>
-          <View style={slideStyles.speechBubble}>
+          <View >
             {bubbleReady && (
               <TypewriterText
                 key={`phase-${dialoguePhase}`}
@@ -115,14 +125,15 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
               />
             )}
           </View>
-          <View style={slideStyles.speechBubbleTail} />
         </Animated.View>
 
         {/* Mascot */}
         <Animated.View
           entering={FadeInDown.delay(100).duration(700)}
-          style={[slideStyles.welcomeMascotCenter, mascotAnimatedStyle, { marginBottom: 0, marginTop: 8 }]}
+          style={[slideStyles.welcomeMascotCenter, mascotAnimatedStyle, { marginBottom: 0, marginTop: 8, position: 'relative' }]}
         >
+          {/* Blurred Glow Circle */}
+
           <Image
             source={require('@/assets/images/logomain.png')}
             style={slideStyles.welcomeMascotLarge}
@@ -132,24 +143,33 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
       </View>
 
       {/* Button — always rendered, opacity changes */}
-      <View style={slideStyles.welcomeButtonsContainer}>
-        <Animated.View style={buttonAnimatedStyle}>
-          <Pressable
-            onPress={typewriterDone ? handleDialogueContinue : undefined}
-            onPressIn={typewriterDone ? handleButtonPressIn : undefined}
-            onPressOut={typewriterDone ? handleButtonPressOut : undefined}
-            style={[primaryButtonStyles, { opacity: typewriterDone ? 1 : 0.3 }]}
-          >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={primaryButtonGradient}
+      <View style={[slideStyles.welcomeButtonsContainer, { minHeight: 60 }]}>
+        {isLastMessage && typewriterDone && !config.autoAdvanceAtEnd && (
+          <Animated.View entering={FadeInDown.duration(800).delay(300)}>
+            <Pressable
+              onPress={handleDialogueContinue}
+              style={({ pressed }) => [
+                {
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
+                pressed && { opacity: 0.6 },
+              ]}
             >
-              <Text style={primaryButtonText}>Continuar</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#A0A0A0', // Tenuemente
+                  letterSpacing: 0.5,
+                }}
+              >
+                Toca para empezar
+              </Text>
+            </Pressable>
+          </Animated.View>
+        )}
       </View>
     </View>
   );

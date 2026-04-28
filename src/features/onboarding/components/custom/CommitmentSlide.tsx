@@ -1,16 +1,11 @@
-import {
-  PRIMARY_GRADIENT_COLORS,
-  primaryButtonGradient,
-  primaryButtonStyles,
-  primaryButtonText,
-} from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { AppText as Text } from '@/src/components/AppText';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Check } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { slideStyles } from '../../styles/shared';
 
 // ============================================
 // COMMITMENT SLIDE
@@ -37,54 +32,69 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
   return (
     <View style={s.container}>
       <View style={s.contentArea}>
+        {/* Logo */}
         <Animated.View entering={FadeInDown.delay(50).duration(400)} style={s.logoContainer}>
-          <Image source={require('@/assets/images/brainysign.png')} style={s.logo} />
+          <Image source={require('@/assets/images/brainysign.png')} style={s.logo} resizeMode="contain" />
         </Animated.View>
-        <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
-          Un pequeño trato entre tú y yo
-        </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.subtitle}>
-          Estos compromisos harán toda la diferencia.
+
+        {/* Header */}
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(500)}
+        >
+          <Text style={[slideStyles.slideTitle, s.titleOverride]}>
+            {'un pequeño trato '}{'\n'}
+            <Text style={{ color: colors.primary }}>entre nosotros</Text>
+          </Text>
+        </Animated.View>
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={[slideStyles.slideSubtitle, s.subtitleOverride]}
+        >
+          acepta cada compromiso para finalizar.
         </Animated.Text>
 
-        {COMMITMENTS.map((text, idx) => {
-          const isVisible = idx === 0 || checked[idx - 1];
-          if (!isVisible) return null;
+        {/* Staggered checklist */}
+        <View style={s.checklistContainer}>
+          {COMMITMENTS.map((text, idx) => {
+            const isVisible = idx === 0 || checked[idx - 1];
+            if (!isVisible) return null;
 
-          return (
-            <Animated.View
-              key={idx}
-              entering={FadeInUp.delay(idx === 0 ? 350 : 100).duration(400)}
-            >
-              <Pressable onPress={() => toggleCheck(idx)} style={s.commitRow}>
-                <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
-                  {checked[idx] && <Text style={s.checkmark}>✓</Text>}
-                </View>
-                <Text style={s.commitText}>{text}</Text>
-              </Pressable>
-            </Animated.View>
-          );
-        })}
+            return (
+              <Animated.View
+                key={idx}
+                entering={FadeInUp.delay(idx === 0 ? 350 : 100).duration(400)}
+              >
+                <Pressable
+                  onPress={() => toggleCheck(idx)}
+                  style={[s.commitRow, checked[idx] && s.commitRowActive]}
+                >
+                  <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
+                    {checked[idx] && <Check size={14} color={colors.surface} strokeWidth={3} />}
+                  </View>
+                  <Text style={[s.commitText, checked[idx] && s.commitTextActive]}>
+                    {text}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            );
+          })}
+        </View>
       </View>
 
+      {/* Button */}
       <View style={s.buttonContainer}>
         <Pressable
           onPress={() => {
             if (!allChecked) return;
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onNext();
           }}
-          style={[primaryButtonStyles, { opacity: allChecked ? 1 : 0.4 }]}
+          style={[s.button, !allChecked && s.buttonDisabled]}
           disabled={!allChecked}
         >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>Firmar compromiso ✍️</Text>
-          </LinearGradient>
+          <Text style={s.buttonText}>
+            {allChecked ? 'Firmar compromiso ✍️' : 'Acepta todos los compromisos'}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -102,72 +112,91 @@ const s = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-    paddingHorizontal: 32,
-    paddingTop: 60,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+  titleOverride: {
+    color: '#f2f2f2',
+    textAlign: 'left',
+    marginBottom: 8,
+  },
+  subtitleOverride: {
+    color: '#f2f2f2',
+    textAlign: 'left',
+    textTransform: 'none',
+    marginBottom: 36,
   },
   logoContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logo: {
-    width: 64,
-    height: 64,
-    resizeMode: 'contain',
+    width: 90,
+    height: 90,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+  checklistContainer: {
+    gap: 14,
   },
   commitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: `${colors.textPrimary}0D`,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: 18,
     gap: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  commitRowActive: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   checkbox: {
     width: 28,
     height: 28,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}33`,
+    borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   checkboxActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  checkmark: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.background,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   commitText: {
     flex: 1,
     fontSize: 15,
     fontWeight: '500',
-    color: colors.textPrimary,
+    color: 'rgba(255,255,255,0.75)',
     lineHeight: 22,
   },
+  commitTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   buttonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingHorizontal: 24,
     paddingBottom: 40,
+    paddingTop: 16,
+  },
+  button: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
+  buttonText: {
+    color: colors.surface,
+    fontSize: 17,
+    fontWeight: '800',
   },
 });

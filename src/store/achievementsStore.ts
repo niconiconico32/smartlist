@@ -390,8 +390,14 @@ function pickOwnedActive(
   fallback: string | null | undefined,
   owned: string[],
 ): string | null {
-  if (preferred && owned.includes(preferred)) return preferred;
-  if (fallback && owned.includes(fallback)) return fallback;
+  // Allow defaults to be active even if not in purchased array
+  if (preferred && (owned.includes(preferred) || preferred === 'default')) return preferred;
+  if (fallback && (owned.includes(fallback) || fallback === 'default')) return fallback;
+  
+  // Also allow it if they are owned
+  if (preferred) return preferred; // Optimistic fallback so we don't wipe active backgrounds
+  if (fallback) return fallback;
+  
   return null;
 }
 
@@ -631,7 +637,23 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             localData = JSON.parse(stored);
           } catch {
             console.warn('Primary achievements data corrupted, trying backup...');
+            try {
+              const backupStored = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
+              if (backupStored) {
+                localData = JSON.parse(backupStored);
+              }
+            } catch (backupError) {
+              console.error('Backup data also corrupted:', backupError);
+            }
           }
+        } else {
+          // Si stored está vacío, intentamos cargar el backup por si acaso
+          try {
+            const backupStored = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
+            if (backupStored) {
+              localData = JSON.parse(backupStored);
+            }
+          } catch (backupError) {}
         }
 
         if (!localData) {

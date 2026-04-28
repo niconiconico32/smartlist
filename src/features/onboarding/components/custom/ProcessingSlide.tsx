@@ -1,7 +1,8 @@
+import { slideStyles } from '../../styles/shared';
 import { colors } from '@/constants/theme';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Image } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
@@ -13,6 +14,7 @@ import Animated, {
   withSequence,
   withTiming
 } from 'react-native-reanimated';
+import { Check } from 'lucide-react-native';
 
 import type { OnboardingAnswers } from '../../types';
 
@@ -25,15 +27,14 @@ interface Props {
 }
 
 const STEPS = [
-  'Calculando perfil cognitivo...',
-  'Diseñando ruta de dopamina...',
-  'Ajustando recordatorios inteligentes...',
+  'calculando tu perfil cognitivo',
+  'diseñando tu ruta de dopamina',
+  'ajustando recordatorios',
 ];
 
 const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
   const [currentStep, setCurrentStep] = useState(-1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const mascotY = useSharedValue(0);
 
   // Progress bar widths for each step
   const bar0 = useSharedValue(0);
@@ -42,6 +43,8 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
   const bars = [bar0, bar1, bar2];
 
   // Mascot float animation
+  const mascotY = useSharedValue(0);
+
   useEffect(() => {
     mascotY.value = withRepeat(
       withSequence(
@@ -61,14 +64,16 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
         return;
       }
       setCurrentStep(idx);
-      bars[idx].value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
+      // Increased duration significantly for a more flashy/realistic processing feel
+      bars[idx].value = withTiming(1, { duration: 2500, easing: Easing.out(Easing.cubic) });
+      
       setTimeout(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setCompletedSteps((prev) => [...prev, idx]);
-        setTimeout(() => runStep(idx + 1), 350);
-      }, 950);
+        setTimeout(() => runStep(idx + 1), 500);
+      }, 2600);
     };
-    const timeout = setTimeout(() => runStep(0), 700);
+    const timeout = setTimeout(() => runStep(0), 1000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -76,24 +81,25 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
     transform: [{ translateY: mascotY.value }],
   }));
 
-  const userName = answers.userName || 'amigo/a';
-
   return (
     <View style={s.container}>
-      <Animated.View style={[s.mascotContainer, mascotStyle]}>
-        <Image
-          source={require('@/assets/images/brainycomputing.png')}
-          style={s.mascot}
-          resizeMode="contain"
-        />
-      </Animated.View>
+      <View style={s.headerContainer}>
+        <Animated.View style={[s.mascotContainer, mascotStyle]}>
+          <Image
+            source={require('@/assets/images/brainycomputing.png')}
+            style={s.mascot}
+            resizeMode="contain"
+          />
+        </Animated.View>
 
-      <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.title}>
-        Analizando tus respuestas...
-      </Animated.Text>
-      <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={s.subtitle}>
-        Preparando todo para ti, {userName}
-      </Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
+          analizando respuestas...
+        </Animated.Text>
+        
+        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={slideStyles.slideTitle}>
+          preparando tu sistema
+        </Animated.Text>
+      </View>
 
       <View style={s.stepsContainer}>
         {STEPS.map((step, idx) => {
@@ -104,30 +110,28 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
           return (
             <Animated.View
               key={idx}
-              entering={FadeInDown.delay(500 + idx * 100).duration(300)}
+              entering={FadeInDown.delay(300 + idx * 100).duration(300)}
               style={[s.stepRow, { opacity: isVisible ? 1 : 0.3 }]}
             >
               <View style={s.stepHeader}>
                 {isCompleted ? (
-                  <View style={s.checkCircle}>
-                    <Text style={s.checkMark}>✓</Text>
+                  <View style={[s.circle, s.circleCompleted]}>
+                    <Check size={14} color={colors.background} strokeWidth={3} />
                   </View>
+                ) : isCurrent ? (
+                  <PulseCircle />
                 ) : (
-                  <View
-                    style={[
-                      s.emptyCircle,
-                      isCurrent && { borderColor: colors.primary },
-                    ]}
-                  />
+                  <View style={[s.circle, s.circleEmpty]} />
                 )}
                 <Text
                   style={[
                     s.stepText,
-                    isCurrent && { fontWeight: '600' },
-                    isCompleted && { color: colors.primary },
+                    isCurrent && { fontWeight: '700', color: colors.textPrimary },
+                    isCompleted && { color: colors.textSecondary },
                   ]}
                 >
                   {step}
+                  {isCurrent && <AnimatedDots />}
                 </Text>
               </View>
               <View style={s.barTrack}>
@@ -140,6 +144,43 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
     </View>
   );
 };
+
+// Animated pulsing dot
+function PulseCircle() {
+  const anim = useSharedValue(0);
+
+  useEffect(() => {
+    anim.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.out(Easing.quad) }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + anim.value * 2 }],
+    opacity: 1 - anim.value,
+  }));
+
+  return (
+    <View style={s.pulseContainer}>
+      <Animated.View style={[s.pulseGlow, animatedStyle]} />
+      <View style={s.pulseCore} />
+    </View>
+  );
+}
+
+// Animated trailing dots
+function AnimatedDots() {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+  return <Text>{dots}</Text>;
+}
 
 // Animated bar sub-component
 function StepBar({ sharedValue }: { sharedValue: SharedValue<number> }) {
@@ -157,78 +198,79 @@ export default ProcessingSlide;
 const s = StyleSheet.create({
   container: {
     flex: 1,
+    paddingHorizontal: 20,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
+  },
+  headerContainer: {
+    marginBottom: 40,
   },
   mascotContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
+    alignItems: 'flex-start',
+    marginBottom: 24,
   },
   mascot: {
-    width: 120,
-    height: 120,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 40,
+    width: 100,
+    height: 100,
   },
   stepsContainer: {
-    width: '85%',
-    gap: 20,
+    width: '100%',
+    gap: 32,
   },
   stepRow: {},
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 10,
+    marginBottom: 12,
+    gap: 16,
   },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary,
+  circle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkMark: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.background,
+  circleCompleted: {
+    backgroundColor: colors.surface,
   },
-  emptyCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+  circleEmpty: {
     borderWidth: 2,
-    borderColor: `${colors.textPrimary}33`,
+    borderColor: `${colors.textPrimary}20`,
+  },
+  pulseContainer: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseGlow: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.surface,
+  },
+  pulseCore: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.surface,
   },
   stepText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   barTrack: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: `${colors.textPrimary}15`,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: `${colors.textPrimary}10`,
     overflow: 'hidden',
+    marginLeft: 40,
   },
   barFill: {
     height: '100%',
-    borderRadius: 2,
-    backgroundColor: colors.primary,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
   },
 });

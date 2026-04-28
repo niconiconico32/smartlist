@@ -1,3 +1,4 @@
+import { colors } from '@/constants/theme';
 import type { SlideConfig } from './types';
 
 /**
@@ -43,9 +44,11 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡Hola! Soy Brainy 👋',
-      'Solo unas preguntitas antes de iniciar nuestro viaje.',
+      '¡Bienvenid@!',
+      'Soy Brainy, y desde ahora seré tu compañero :)',
+      'Partamos nuestro viaje con unas simples preguntitas.'
     ],
+    backgroundColor: '#f2f2f2',
   },
 
   // === 2: Name ===
@@ -54,37 +57,37 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'name',
     answerKey: 'userName',
     showNavButton: true,
-    title: '¿Cuál es tu nombre?',
-    subtitle: '¡Me encantaría conocerte mejor!',
+    title: '¿cómo deberíamos llamarte?',
+    subtitle: 'primero lo primero',
     placeholder: 'Tu nombre',
-    showLogo: true,
+    showLogo: false,
     canContinue: (answers) => !!answers.userName.trim(),
     buttonText: 'Continuar',
   },
 
-  // === 3: Age ===
-  {
-    type: 'single-select',
-    id: 'age',
-    answerKey: 'ageRange',
-    showNavButton: true,
-    title: '¿Cuál es tu edad?',
-    subtitle: 'El TDAH se manifiesta de formas únicas en cada etapa de la vida.',
-    options: 'RANGOS_EDAD',
-    canContinue: (answers) => !!answers.ageRange,
-    buttonText: 'Continuar',
-  },
-
-  // === 4: ADHD Diagnosis ===
+  // === 3: ADHD Diagnosis ===
   {
     type: 'single-select',
     id: 'diagnosis',
     answerKey: 'diagnosis',
     showNavButton: true,
-    title: '¿Tienes un diagnóstico oficial?',
-    subtitle: 'Esto nos ayuda a ajustar el tono de nuestras herramientas.',
+    title: '¿estás diagnosticad@ con TDAH?',
+    subtitle: 'todos los cerebros son bienvenidos.',
     options: 'ADHD_DIAGNOSIS',
     canContinue: (answers) => !!answers.diagnosis,
+    buttonText: 'Continuar',
+  },
+
+  // === 4: Age ===
+  {
+    type: 'single-select',
+    id: 'age',
+    answerKey: 'ageRange',
+    showNavButton: true,
+    title: '¿cuál es tu edad?',
+    subtitle: 'esto nos ayudará a entenderte mejor.',
+    options: 'RANGOS_EDAD',
+    canContinue: (answers) => !!answers.ageRange,
     buttonText: 'Continuar',
   },
 
@@ -94,8 +97,8 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'adhd-symptoms',
     answerKey: 'adhdSymptoms',
     showNavButton: true,
-    title: '¿Cómo te afecta el TDAH hoy?',
-    subtitle: 'Selecciona los síntomas que experimentas frecuentemente.',
+    title: '¿cómo te afecta el TDAH hoy?',
+    subtitle: 'selecciona las cosas que sueles experimentar.',
     options: 'ADHD_SYMPTOMS',
     canContinue: (answers) => answers.adhdSymptoms.length > 0,
     buttonText: 'Continuar',
@@ -107,19 +110,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'life-area',
     answerKey: 'lifeArea',
     showNavButton: true,
-    title: '¿Qué área de tu día a día es con la que más te cuesta lidiar?',
-    subtitle: 'Deja que Brainy te ayude con esto. Crearemos un par de tareas por ti.',
+    title: '¿qué área de tu día a día es con la que más te cuesta lidiar?',
+    subtitle: 'es importante diagnosticar que te cuesta más',
     options: 'LIFE_AREAS',
     canContinue: (answers) => !!answers.lifeArea,
     buttonText: 'Continuar',
-  },
-
-  // === 6: Habit Days (custom animation) ===
-  {
-    type: 'habit-days',
-    id: 'habit-days',
-    answerKey: null,
-    showNavButton: false,
   },
 
   // === 7: Main Goal ===
@@ -128,24 +123,25 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'main-goal',
     answerKey: 'mainGoal',
     showNavButton: true,
-    title: '¿Cuál de estas áreas te gustaría dominar?',
-    subtitle: 'Este será nuestro norte. Puedes elegir más de una.',
+    title: '¿qué te gustaría lograr a corto plazo?',
+    subtitle: 'este será nuestro norte.',
     options: 'MAIN_GOAL',
     canContinue: (answers) => answers.mainGoal.length > 0,
     buttonText: 'Continuar',
   },
 
-  // === 8: Goals ===
+  // === 8: Dialogue 2 ===
   {
-    type: 'goals',
-    id: 'goals',
-    answerKey: 'goals',
-    showNavButton: true,
-    title: '¿Qué quieres lograr con Brainy?',
-    subtitle: 'Selecciona tus objetivos para que la IA personalice tu experiencia.',
-    options: 'GOAL_OPTIONS',
-    canContinue: (answers) => answers.goals.length > 0,
-    buttonText: 'Continuar',
+    type: 'dialogue',
+    id: 'dialogue-2',
+    answerKey: null,
+    showNavButton: false,
+    messages: [
+      '¡ya empiezo a conocerte mejor!',
+      'ahora cuéntame...'
+    ],
+    backgroundColor: '#f2f2f2',
+    autoAdvanceAtEnd: true,
   },
 
   // === 8: Statement 1 ===
@@ -178,7 +174,32 @@ export const SLIDES_V3: SlideConfig[] = [
     autoAdvance: true,
   },
 
-  // === 11: Task Demo ===
+
+  {
+    type: 'agreement',
+    id: 'statement4',
+    answerKey: 'statement1',
+    showNavButton: false,
+    statementIndex: 3,
+    autoAdvance: true,
+  },
+
+  // === 11: Dialogue 3 ===
+  {
+    type: 'dialogue',
+    id: 'dialogue-3',
+    answerKey: null,
+    showNavButton: false,
+    messages: [
+      '¡te entiendo muy bien, empezar cuesta mucho!',
+      'pero tranquil@, juntos podemos lograrlo.',
+      'déjame mostrarte cómo puedo ayudar a que te sea más fácil.'
+    ],
+    backgroundColor: '#f2f2f2',
+    autoAdvanceAtEnd: true,
+  },
+
+  // === 12: Task Demo ===
   {
     type: 'task-demo',
     id: 'task-demo',
@@ -186,16 +207,51 @@ export const SLIDES_V3: SlideConfig[] = [
     showNavButton: false,
     canContinue: (answers) => !!answers.taskText.trim(),
     buttonText: 'Generar',
+    backgroundColor: '#f2f2f2',
   },
 
-  // === 14: Neuroscience ===
+  // === 13: Dialogue 4 ===
   {
-    type: 'neuroscience',
-    id: 'neuroscience',
+    type: 'dialogue',
+    id: 'dialogue-4',
     answerKey: null,
-    showNavButton: true,
-    buttonText: 'Continuar',
+    showNavButton: false,
+    messages: [
+      '¡qué bien! ya tienes tu primera tarea dividida.',
+      '¿ves cómo se siente mucho más fácil empezar ahora?',
+      'déjame contarte por qué esto funciona tan bien en tu cerebro...'
+    ],
+    backgroundColor: '#f2f2f2',
+    autoAdvanceAtEnd: true,
   },
+
+  // === 14: Statement 4 ===
+  {
+    type: 'agreement',
+    id: 'statement4',
+    answerKey: 'statement4',
+    showNavButton: false,
+    statementIndex: 4,
+  },
+
+  // === 15: Statement 5 ===
+  {
+    type: 'agreement',
+    id: 'statement5',
+    answerKey: 'statement5',
+    showNavButton: false,
+    statementIndex: 5,
+  },
+
+  // === 16: Statement 6 ===
+  {
+    type: 'agreement',
+    id: 'statement6',
+    answerKey: 'statement6',
+    showNavButton: false,
+    statementIndex: 6,
+  },
+
 
   // ─── NEW: Closing funnel slides ───
 
@@ -213,14 +269,51 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'results',
     answerKey: null,
     showNavButton: false,
+    backgroundColor: '#f2f2f2',
   },
 
-  // === 17: Commitment ===
+  // === 17: Success Chart ===
+  {
+    type: 'success-chart',
+    id: 'success-chart',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: colors.surface,
+  },
+// === 19: Routine Picker ===
+  {
+    type: 'routine-picker',
+    id: 'routine-picker',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: '#f2f2f2',
+  },
+  // === 18: All Done ===
+  {
+    type: 'all-done',
+    id: 'all-done',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: '#f2f2f2',
+  },
+
+  
+
+  // === 20: Testimonial ===
+  {
+    type: 'testimonial',
+    id: 'testimonial',
+    answerKey: null,
+    showNavButton: false,
+  },
+
+  // === 21: Commitment ===
   {
     type: 'commitment',
     id: 'commitment',
     answerKey: null,
     showNavButton: false,
+    backgroundColor: colors.surface,
   },
 
   // === 18: Reverse Trial (Paywall) - REMOVED ===

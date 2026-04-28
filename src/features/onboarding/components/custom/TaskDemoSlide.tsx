@@ -14,6 +14,7 @@ import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleShe
 import { AppText as Text } from '@/src/components/AppText';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { TASK_SUGGESTIONS } from '../../constants';
+import { layoutStyles, slideStyles } from '../../styles/shared';
 import type { OnboardingAnswers } from '../../types';
 
 const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
@@ -142,64 +143,87 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        style={styles.slideScroll}
-        contentContainerStyle={styles.slideScrollContent}
+        style={layoutStyles.slideScroll}
+        contentContainerStyle={layoutStyles.slideScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.mascotRow}>
-          <Image
-            source={require('@/assets/images/logomain.png')}
-            style={styles.mascotImage}
-            resizeMode="contain"
-          />
-          <View style={styles.speechBubble}>
-            <Text style={styles.speechText}>¡Deja mostrarte de qué estoy hecho!</Text>
-          </View>
-        </Animated.View>
-
-        <Animated.Text entering={FadeInDown.delay(250).duration(500)} style={styles.subtitle}>
-          ¿Con qué tarea necesitas ayuda?
+        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
+          hagamos una prueba
         </Animated.Text>
 
-        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.inputContainer}>
+        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={[slideStyles.slideTitle, { color: colors.background }]}>
+          ¿con qué tarea necesitas ayuda?
+        </Animated.Text>
+
+        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.inputContainer}>
           <TextInput
-            style={[styles.input, isGenerating && { opacity: 0.5 }]}
+            style={[
+              { 
+                textAlign: 'left', 
+                borderRadius: 16, 
+                backgroundColor: '#FFFFFF', // Clean white on the light gray background
+                borderWidth: 0,
+                paddingHorizontal: 20,
+                paddingVertical: 20,
+                fontSize: 18, // Larger font
+                color: colors.background, // Dark text
+                minHeight: 200, // Enlarge the input box
+                textAlignVertical: 'top'
+              }, 
+              isGenerating && { opacity: 0.5 }
+            ]}
             placeholder="Escribe tu tarea aquí..."
-            placeholderTextColor={`${colors.textSecondary}CC`}
+            placeholderTextColor={`${colors.surface}80`}
             value={taskText}
             onChangeText={(text) => onAnswer('taskText', text)}
             multiline
-            numberOfLines={4}
+            numberOfLines={6}
             editable={!isGenerating}
           />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(550).duration(500)} style={styles.orDivider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>o elige una opción</Text>
-          <View style={styles.dividerLine} />
+        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.orDivider}>
+          <View style={[styles.dividerLine, { backgroundColor: `${colors.background}1A` }]} />
+          <Text style={[styles.dividerText, { color: colors.surface }]}>o elige una opción rápida</Text>
+          <View style={[styles.dividerLine, { backgroundColor: `${colors.background}1A` }]} />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(600).duration(500)} style={styles.suggestionsGrid}>
-          {TASK_SUGGESTIONS.map((task, index) => (
-            <Animated.View key={task.id} entering={FadeInDown.delay(700 + index * 50).duration(400)}>
-              <Pressable
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onAnswer('taskText', task.text);
-                }}
-                disabled={isGenerating}
-                style={({ pressed }) => [
-                  styles.suggestionPill,
-                  taskText === task.text && styles.suggestionPillSelected,
-                  pressed && { opacity: 0.7 },
-                  isGenerating && { opacity: 0.5 },
-                ]}
-              >
-                <Text style={styles.suggestionLabel}>{task.label}</Text>
-              </Pressable>
-            </Animated.View>
-          ))}
+        <Animated.View entering={FadeInDown.delay(500).duration(500)} style={[styles.suggestionsGrid, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 0 }]}>
+          {TASK_SUGGESTIONS.map((task, index) => {
+            const isSelected = taskText === task.text;
+            return (
+              <Animated.View key={task.id} entering={FadeInDown.delay(600 + index * 50).duration(400)}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onAnswer('taskText', task.text);
+                  }}
+                  disabled={isGenerating}
+                  style={({ pressed }) => [
+                    slideStyles.pill,
+                    {
+                      minHeight: 44, // Smaller height
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      backgroundColor: isSelected ? colors.surface : '#FFFFFF',
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.surface : `${colors.background}1A`,
+                      borderRadius: 22,
+                      paddingHorizontal: 16,
+                      paddingVertical: 8,
+                      flexDirection: 'row',
+                    },
+                    pressed && { opacity: 0.7 },
+                    isGenerating && { opacity: 0.5 },
+                  ]}
+                >
+                  <Text style={[slideStyles.pillLabel, { fontSize: 14, fontWeight: '500', color: isSelected ? '#FFFFFF' : colors.background }]}>
+                    {task.label}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            );
+          })}
         </Animated.View>
       </ScrollView>
 

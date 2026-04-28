@@ -72,6 +72,12 @@ interface BaseSlideConfig {
   buttonText?: string;
   /** Validation: is the slide complete enough to proceed? */
   canContinue?: (answers: OnboardingAnswers) => boolean;
+  /** Optional custom background color for this specific slide */
+  backgroundColor?: string;
+  /** Optional custom background image for this specific slide (e.g. require('@/assets/bg.webp')) */
+  backgroundImage?: any;
+  /** Optional custom background gradient colors (e.g. ['#FFFFFF', '#000000']) */
+  backgroundGradient?: readonly [string, string, ...string[]];
 }
 
 export interface WelcomeSlideConfig extends BaseSlideConfig {
@@ -81,6 +87,7 @@ export interface WelcomeSlideConfig extends BaseSlideConfig {
 export interface DialogueSlideConfig extends BaseSlideConfig {
   type: 'dialogue';
   messages: string[];
+  autoAdvanceAtEnd?: boolean;
 }
 
 export interface TextInputSlideConfig extends BaseSlideConfig {
@@ -135,6 +142,18 @@ export interface GrowthPotentialSlideConfig extends BaseSlideConfig {
 
 export interface SuccessTimelineSlideConfig extends BaseSlideConfig {
   type: 'success-timeline';
+}
+
+export interface SuccessChartSlideConfig extends BaseSlideConfig {
+  type: 'success-chart';
+}
+
+export interface RoutinePickerSlideConfig extends BaseSlideConfig {
+  type: 'routine-picker';
+}
+
+export interface AllDoneSlideConfig extends BaseSlideConfig {
+  type: 'all-done';
 }
 
 export interface ReverseTrialSlideConfig extends BaseSlideConfig {
@@ -192,6 +211,9 @@ export type SlideConfig =
   | TaskDemoSlideConfig
   | HabitDaysSlideConfig
   | GrowthPotentialSlideConfig
+  | SuccessChartSlideConfig
+  | RoutinePickerSlideConfig
+  | AllDoneSlideConfig
   | SuccessTimelineSlideConfig
   | ReverseTrialSlideConfig
   | NeuroscienceSlideConfig
@@ -220,6 +242,9 @@ export interface OnboardingAnswers {
   statement1: string | null;
   statement2: string | null;
   statement3: string | null;
+  statement4: string | null;
+  statement5: string | null;
+  statement6: string | null;
   taskText: string;
 }
 
@@ -234,6 +259,9 @@ export const INITIAL_ANSWERS: OnboardingAnswers = {
   statement1: null,
   statement2: null,
   statement3: null,
+  statement4: null,
+  statement5: null,
+  statement6: null,
   taskText: '',
 };
 

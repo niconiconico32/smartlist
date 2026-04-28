@@ -1,5 +1,6 @@
 import { PRIMARY_GRADIENT_COLORS, primaryButtonGradient, primaryButtonStyles, primaryButtonText } from '@/constants/buttons';
 import { colors } from '@/constants/theme';
+import { AppText as Text } from '@/src/components/AppText';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -11,8 +12,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Keyboard, LayoutAnimation, Platform, Pressable, StyleSheet, TextInput, UIManager, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { FlatList, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, TextInput, UIManager, View } from 'react-native';
 import DraggableFlatList, {
   RenderItemParams,
   ScaleDecorator,
@@ -30,6 +30,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { slideStyles } from '../../styles/shared';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -63,22 +64,15 @@ export function OnboardingSubtaskList({
   initialSubtasks,
   onAddToHome,
 }: OnboardingSubtaskListProps) {
-  
+
   const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks);
   const [difficulty, setDifficulty] = useState<"easy" | "moderate" | "hard">("easy");
   const [editingId, setEditingId] = useState<string | null>(null);
-  
-  // Difficulty colors
-  const difficultyColors = {
-    easy: colors.success,
-    moderate: colors.accent,
-    hard: colors.danger,
-  };
-  
+
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const flatListRef = useRef<FlatList<Subtask>>(null);
   const timeoutRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-  
+
   // Animation values
   const buttonScale = useSharedValue(1);
   const keyboard = useAnimatedKeyboard();
@@ -108,21 +102,21 @@ export function OnboardingSubtaskList({
   const handleInsertStep = useCallback((atIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
+
     const newTask: Subtask = {
       id: generateId(),
       title: '',
       duration: 5,
       isCompleted: false,
     };
-    
+
     setSubtasks(prev => {
       const newSubtasks = [...prev];
       newSubtasks.splice(atIndex, 0, newTask);
       return newSubtasks;
     });
     setEditingId(newTask.id);
-    
+
     registerTimeout(() => {
       if (taskInputRefs.current[newTask.id]) {
         taskInputRefs.current[newTask.id]?.focus();
@@ -143,7 +137,7 @@ export function OnboardingSubtaskList({
       withTiming(0.95, { duration: 100 }),
       withTiming(1, { duration: 100 })
     );
-    
+
     const validSubtasks = subtasks.filter(t => t.title.trim() !== '');
     registerTimeout(() => onAddToHome(validSubtasks, difficulty), 200);
   }, [subtasks, difficulty, onAddToHome, buttonScale, registerTimeout]);
@@ -155,14 +149,14 @@ export function OnboardingSubtaskList({
 
   const buttonsContainerAnimatedStyle = useAnimatedStyle(() => {
     const isEditingTask = editingId !== null;
-    
+
     return {
       transform: [
-        { 
+        {
           translateY: withTiming(
-            isEditingTask ? 150 : 0, 
+            isEditingTask ? 150 : 0,
             { duration: 300 }
-          ) 
+          )
         }
       ],
       opacity: withTiming(isEditingTask ? 0 : 1, { duration: 250 }),
@@ -188,77 +182,82 @@ export function OnboardingSubtaskList({
             isActive && styles.itemContainerActive,
           ]}
         >
-          <Pressable
-            onLongPress={() => {
-              if (!isItemEditing) {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                drag();
-              }
-            }}
-            delayLongPress={500}
-            disabled={isActive}
+          <View
             style={[
               styles.taskItem,
               isActive && styles.taskItemDragging
             ]}
           >
             {/* Drag Handle */}
-            <Pressable 
-              onLongPress={() => {
+            <Pressable
+              onPressIn={() => {
                 if (!isItemEditing) {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   drag();
                 }
               }}
-              delayLongPress={500}
-              style={styles.dragHandle} 
+              style={styles.dragHandle}
               disabled={isItemEditing}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <GripVertical size={18} color={colors.textSecondary} />
+              <GripVertical size={20} color={`${colors.background}66`} />
             </Pressable>
 
             <View style={styles.cardContent}>
-              <TextInput
-                ref={(ref) => {
-                  if (ref) {
-                    taskInputRefs.current[item.id] = ref;
-                  } else {
-                    delete taskInputRefs.current[item.id];
-                  }
-                }}
-                style={[
-                  styles.taskItemText,
-                  !item.title && styles.taskItemTextEmpty
-                ]}
-                value={item.title}
-                onChangeText={(text) => {
-                  setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, title: text } : t));
-                }}
-                placeholder="Tarea vacía"
-                placeholderTextColor={colors.textSecondary + '80'}
-                onFocus={() => setEditingId(item.id)}
-                onBlur={() => setEditingId(null)}
-                multiline={false}
-              />
+              {isItemEditing ? (
+                <TextInput
+                  ref={(ref) => {
+                    if (ref) {
+                      taskInputRefs.current[item.id] = ref;
+                    } else {
+                      delete taskInputRefs.current[item.id];
+                    }
+                  }}
+                  style={[
+                    styles.taskItemText,
+                    !item.title && styles.taskItemTextEmpty
+                  ]}
+                  value={item.title}
+                  onChangeText={(text) => {
+                    setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, title: text } : t));
+                  }}
+                  placeholder="Tarea vacía"
+                  placeholderTextColor={colors.textSecondary + '80'}
+                  multiline={false}
+                />
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <Pressable
+                    onPress={() => {
+                      setEditingId(item.id);
+                      setTimeout(() => {
+                        taskInputRefs.current[item.id]?.focus();
+                      }, 100);
+                    }}
+                    style={{ flexGrow: 1, justifyContent: 'center' }}
+                  >
+                    <Text
+                      style={[
+                        styles.taskItemText,
+                        !item.title && styles.taskItemTextEmpty
+                      ]}
+                    >
+                      {item.title || "Tarea vacía"}
+                    </Text>
+                  </Pressable>
+                </ScrollView>
+              )}
 
               <View style={styles.cardMeta}>
                 <View style={styles.durationBadge}>
-                  <Clock size={12} color={colors.primary} />
-                  <TextInput
-                    value={item.duration > 0 ? item.duration.toString() : ''}
-                    onChangeText={(text) => {
-                      const parsed = parseInt(text, 10);
-                      const newDuration = isNaN(parsed) ? 0 : parsed;
-                      setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, duration: newDuration } : t));
-                    }}
-                    style={styles.cardDurationInput}
-                    placeholder="0"
-                    placeholderTextColor={colors.textSecondary + '80'}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                    onFocus={() => setEditingId(item.id)}
-                    onBlur={() => setEditingId(null)}
-                  />
+                  <Clock size={12} color="#FFFFFF" />
+                  <Text style={styles.cardDurationInput}>
+                    {item.duration > 0 ? item.duration : '0'}
+                  </Text>
                   <Text style={styles.cardDurationLabel}>min</Text>
                 </View>
               </View>
@@ -279,12 +278,12 @@ export function OnboardingSubtaskList({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               {isItemEditing ? (
-                <Check size={18} color={colors.primary} strokeWidth={3} />
+                <Check size={18} color={colors.surface} strokeWidth={3} />
               ) : (
-                <Trash2 size={16} color={colors.textSecondary} />
+                <Trash2 size={18} color={`${colors.background}66`} />
               )}
             </Pressable>
-          </Pressable>
+          </View>
 
           {/* Insert button */}
           <View style={styles.insertStepButtonWrapper}>
@@ -296,117 +295,27 @@ export function OnboardingSubtaskList({
               ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Plus size={16} color={colors.textSecondary} />
+              <Plus size={16} color="#FFFFFF" />
             </Pressable>
           </View>
         </Animated.View>
       </ScaleDecorator>
     );
   }, [
-    editingId, 
+    editingId,
     handleDelete,
     handleInsertStep,
   ]);
 
   const ListHeaderComponent = useCallback(() => (
-    <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-      <View style={styles.taskTitleContainer}>
-        <Text style={styles.taskEmoji}>{taskEmoji}</Text>
-        <Text style={styles.taskTitle} numberOfLines={2}>
-          {taskTitle}
-        </Text>
-      </View>
+    <Animated.View style={styles.header}>
+      <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
+        ¡listo! dividí tu tarea
+      </Animated.Text>
 
-      {/* Mascot speech bubble */}
-      <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.mascotRow}>
-        <Image
-          source={require('@/assets/images/logomain.png')}
-          style={styles.mascotImage}
-          resizeMode="contain"
-        />
-        <View style={styles.speechBubble}>
-          <Text style={styles.speechText}>
-            Por ahora dejaremos esto en Inicio para que puedas completarla después.
-          </Text>
-        </View>
-      </Animated.View>
-
-      {/* Difficulty Selector */}
-      <View style={styles.difficultySection}>
-        <Text style={styles.difficultyLabel}>
-         ¿Qué tan complicada es para ti esta tarea?
-        </Text>
-        <View style={styles.difficultyOptions}>
-          <Pressable
-            onPress={() => {
-              setDifficulty('easy');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={[
-              styles.difficultyOption,
-              difficulty === 'easy' && {
-                backgroundColor: difficultyColors.easy + '20',
-                borderColor: difficultyColors.easy,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.difficultyOptionText,
-                difficulty === 'easy' && { color: difficultyColors.easy },
-              ]}
-            >
-              Fácil
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              setDifficulty('moderate');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={[
-              styles.difficultyOption,
-              difficulty === 'moderate' && {
-                backgroundColor: difficultyColors.moderate + '20',
-                borderColor: difficultyColors.moderate,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.difficultyOptionText,
-                difficulty === 'moderate' && { color: difficultyColors.moderate },
-              ]}
-            >
-              Moderada
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              setDifficulty('hard');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            style={[
-              styles.difficultyOption,
-              difficulty === 'hard' && {
-                backgroundColor: difficultyColors.hard + '20',
-                borderColor: difficultyColors.hard,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.difficultyOptionText,
-                difficulty === 'hard' && { color: difficultyColors.hard },
-              ]}
-            >
-              Difícil
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={[slideStyles.slideTitle, { color: colors.background, marginBottom: 24 }]}>
+        acá tienes el paso a paso para empezar a <Text style={{ color: colors.surface }}>{taskTitle.toLowerCase()}</Text>
+      </Animated.Text>
     </Animated.View>
   ), [taskTitle, taskEmoji, difficulty]);
 
@@ -414,7 +323,7 @@ export function OnboardingSubtaskList({
     <>
       <Animated.View entering={FadeIn.delay(100).duration(300)} style={styles.footer}>
         <View style={styles.tipContainer}>
-          <Sparkles size={14} color={colors.primary} />
+          <Sparkles size={14} color={colors.surface} />
           <Text style={styles.tipText}>
             Mantén presionado y arrastra para reordenar
           </Text>
@@ -455,8 +364,8 @@ export function OnboardingSubtaskList({
 
       {/* Bottom button */}
       <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
-        <Animated.View 
-          entering={FadeIn.duration(300)} 
+        <Animated.View
+          entering={FadeIn.duration(300)}
           style={[styles.buttonsContainer, buttonsContainerAnimatedStyle]}
           pointerEvents={editingId !== null ? 'none' : 'box-none'}
         >
@@ -468,7 +377,7 @@ export function OnboardingSubtaskList({
               style={styles.createButtonGradient}
             >
               <Plus size={20} color="#1E1E2E" style={{ marginRight: 8 }} />
-              <Text style={styles.createButtonText}>Agregar a Inicio</Text>
+              <Text style={styles.createButtonText}>Continuar</Text>
             </LinearGradient>
           </AnimatedPressable>
         </Animated.View>
@@ -480,7 +389,7 @@ export function OnboardingSubtaskList({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#f2f2f2',
   },
   safeArea: {
     flex: 1,
@@ -492,21 +401,22 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 16,
   },
-  taskTitleContainer: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 24,
   },
-  taskEmoji: {
-    fontSize: 22,
+  emojiContainer: {
     paddingLeft: 4,
+  },
+  emoji: {
+    fontSize: 22,
   },
   taskTitle: {
     fontSize: 18,
     fontWeight: '800',
     flex: 1,
-    color: colors.textPrimary,
   },
   footer: {
     paddingTop: 8,
@@ -521,40 +431,9 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: `${colors.background}99`, // Darker color for visibility on light background
     fontStyle: 'italic',
   },
-
-  // Mascot speech bubble
-  mascotRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 4,
-    marginTop: 24,
-    marginBottom: 16,
-    gap: 12,
-  },
-  mascotImage: {
-    width: 60,
-    height: 60,
-    marginTop: 4,
-  },
-  speechBubble: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
-    padding: 14,
-  },
-  speechText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    lineHeight: 20,
-  },
-
-  // Task items
   itemContainer: {
     flexDirection: 'column',
     alignItems: 'stretch',
@@ -568,25 +447,28 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   taskItem: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: 28,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: colors.primary + '20',
+    borderColor: '#EAEAEC',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   taskItemDragging: {
-    backgroundColor: colors.surfaceHighlight,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
   },
   dragHandle: {
     padding: 4,
@@ -597,10 +479,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   taskItemText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.background,
+    marginBottom: 6,
     padding: 0,
   },
   taskItemTextEmpty: {
@@ -615,24 +497,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   cardDurationInput: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
     padding: 0,
     margin: 0,
     minWidth: 15,
     textAlign: 'center',
   },
   cardDurationLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   actionIcon: {
     padding: 6,
@@ -652,7 +534,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -667,10 +549,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: colors.background,
+    backgroundColor: '#f2f2f2',
   },
   bottomSafeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: '#f2f2f2',
   },
   createButton: {
     ...primaryButtonStyles,
@@ -701,9 +583,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.surface,
+    backgroundColor: '#f2f2f2',
+    borderWidth: 1,
+    borderColor: '#f2f2f2',
   },
   difficultyOptionText: {
     fontSize: 14,

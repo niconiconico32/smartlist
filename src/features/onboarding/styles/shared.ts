@@ -9,7 +9,6 @@ export const SCREEN_WIDTH = Dimensions.get('window').width;
 export const layoutStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   slideContainer: {
     flex: 1,
@@ -116,18 +115,20 @@ export const slideStyles = StyleSheet.create({
   slideTitle: {
     fontSize: 32,
     fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 16,
+    color: '#f2f2f2',
+    textAlign: 'left',
+    alignSelf: 'stretch',
+    marginBottom: 24,
     letterSpacing: -0.5,
     lineHeight: 40,
   },
   slideSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
+    color: colors.surface,
+    textAlign: 'left',
+    alignSelf: 'stretch',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
@@ -331,7 +332,6 @@ export const slideStyles = StyleSheet.create({
   // Welcome
   welcomeSlideSimple: {
     flex: 1,
-    backgroundColor: colors.background,
     paddingHorizontal: 32,
     paddingBottom: 40,
   },
@@ -419,9 +419,9 @@ export const slideStyles = StyleSheet.create({
     marginTop: -1,
   },
   speechBubbleText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.background,
     textAlign: 'center',
     lineHeight: 26,
   },
