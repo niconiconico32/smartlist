@@ -184,17 +184,17 @@ export function RoutinesWidget({
           style={{ flex: 1, flexDirection: "column", marginLeft: 8 }}
         >
           <TextWidget
-            text="✨ Únete a PRO"
+            text="Para mostrar tus rutinas acá,"
             maxLines={1}
-            style={{ fontSize: 14, color: C.primary, fontWeight: "800" }}
+            style={{ fontSize: 12, color: "#FFFFFF", fontWeight: "400" }}
           />
           <TextWidget
-            text="para mostrar tus rutinas acá"
+            text="únete a BrainyPRO ✨"
             maxLines={1}
             style={{
-              fontSize: 12,
-              color: C.dimmedText,
-              fontWeight: "400",
+              fontSize: 14,
+              color: C.primary,
+              fontWeight: "800",
               marginTop: 2,
             }}
           />

@@ -45,11 +45,9 @@ const DAY_TO_WEEKDAY: Record<string, number> = {
 
 // Mensajes motivacionales para las notificaciones
 const NOTIFICATION_MESSAGES = [
-  "¡Es hora de tu rutina! 💪",
-  "¡Tu rutina te espera! ✨",
-  "¡Momento de brillar! 🌟",
-  "¡Vamos con todo! 🚀",
-  "¡Tu mejor versión te espera! 🎯",
+  "No mires toda la lista. Toca aquí y hagamos solamente el primer paso uno de tu rutina. 🎯",
+  "No pienses en todo lo que hay que hacer. Entra y revisa tu rutina y completa sólo lo que puedas. ✨",
+  "Tienes una rutina programada. Si te abruma, elije la tarea más sencilla y part por ahí! 🌟",
 ];
 
 interface Routine {

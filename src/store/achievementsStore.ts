@@ -324,7 +324,9 @@ type AchievementsSnapshot = {
   purchasedOutfits?: string[];
   purchasedBackgrounds?: string[];
   activeBackground?: string | null;
+  activeBackgroundUri?: string | null;
   activeOutfit?: string | null;
+  activeOutfitUri?: string | null;
   rewardedRoutines?: Record<string, string>;
   rewardedTasks?: Record<string, string>;
   todaysRewardedTaskIds?: string[];
@@ -438,11 +440,13 @@ function mergeSnapshots(
       secondary?.activeBackground,
       purchasedBackgrounds,
     ),
+    activeBackgroundUri: primary?.activeBackgroundUri || null,
     activeOutfit: pickOwnedActive(
       primary?.activeOutfit,
       secondary?.activeOutfit,
       purchasedOutfits,
     ),
+    activeOutfitUri: primary?.activeOutfitUri || null,
     rewardedRoutines: asStringRecord(primary?.rewardedRoutines),
     rewardedTasks: asStringRecord(primary?.rewardedTasks),
     todaysRewardedTaskIds: asStringArray(primary?.todaysRewardedTaskIds),
@@ -467,7 +471,9 @@ interface AchievementsStore {
   purchasedOutfits: string[];
   purchasedBackgrounds: string[];
   activeBackground: string | null;
+  activeBackgroundUri: string | null;
   activeOutfit: string | null;
+  activeOutfitUri: string | null;
 
   // New map to prevent re-awarding coins on the same day simply by unchecking and rechecking tasks
   rewardedRoutines: Record<string, string>;
@@ -495,8 +501,8 @@ interface AchievementsStore {
 
   // Shop actions
   spendCoins: (amount: number, purchase?: { type: 'outfit' | 'background'; itemId: string }) => Promise<boolean>;
-  setActiveBackground: (id: string | null) => Promise<void>;
-  setActiveOutfit: (id: string | null) => Promise<void>;
+  setActiveBackground: (id: string | null, uri?: string | null) => Promise<void>;
+  setActiveOutfit: (id: string | null, uri?: string | null) => Promise<void>;
 
   isRoutineModalOpen: boolean;
   setRoutineModalOpen: (isOpen: boolean) => void;
@@ -560,7 +566,9 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       purchasedOutfits: s.purchasedOutfits,
       purchasedBackgrounds: s.purchasedBackgrounds,
       activeBackground: s.activeBackground,
+      activeBackgroundUri: s.activeBackgroundUri,
       activeOutfit: s.activeOutfit,
+      activeOutfitUri: s.activeOutfitUri,
       rewardedRoutines: s.rewardedRoutines,
       rewardedTasks: s.rewardedTasks,
       todaysRewardedTaskIds: s.todaysRewardedTaskIds,
@@ -608,7 +616,9 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     purchasedOutfits: [],
     purchasedBackgrounds: [],
     activeBackground: null,
+    activeBackgroundUri: null,
     activeOutfit: null,
+    activeOutfitUri: null,
     rewardedRoutines: {},
     rewardedTasks: {},
     dailyTasksCompletedCount: 0,
@@ -726,7 +736,9 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             purchasedOutfits: asStringArray(normalizedData.purchasedOutfits),
             purchasedBackgrounds: asStringArray(normalizedData.purchasedBackgrounds),
             activeBackground: normalizedData.activeBackground || null,
+            activeBackgroundUri: normalizedData.activeBackgroundUri || null,
             activeOutfit: normalizedData.activeOutfit || null,
+            activeOutfitUri: normalizedData.activeOutfitUri || null,
             rewardedRoutines: asStringRecord(normalizedData.rewardedRoutines),
             rewardedTasks: asStringRecord(normalizedData.rewardedTasks),
             dailyTasksCompletedCount: asFiniteNumber(normalizedData.dailyTasksCompletedCount, 0),
@@ -1021,13 +1033,13 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     // =========================================================
     // SET ACTIVE BACKGROUND / OUTFIT
     // =========================================================
-    setActiveBackground: async (id: string | null) => {
-      set({ activeBackground: id });
+    setActiveBackground: async (id: string | null, uri?: string | null) => {
+      set({ activeBackground: id, activeBackgroundUri: uri ?? null });
       await persist();
     },
 
-    setActiveOutfit: async (id: string | null) => {
-      set({ activeOutfit: id });
+    setActiveOutfit: async (id: string | null, uri?: string | null) => {
+      set({ activeOutfit: id, activeOutfitUri: uri ?? null });
       await persist();
     },
 
@@ -1099,7 +1111,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       
       // Contar límite por Tarea general, NO por subtarea
       const isNewTaskToday = !todaysRewardedTaskIds.includes(taskId);
-      if (isNewTaskToday && todaysRewardedTaskIds.length >= 2) {
+      if (isNewTaskToday && todaysRewardedTaskIds.length >= 10) {
         return { earned: 0, isNew: true };
       }
       

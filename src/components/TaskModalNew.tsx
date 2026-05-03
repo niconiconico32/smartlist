@@ -706,6 +706,7 @@ const styles = StyleSheet.create({
   },
   hintText: {
     fontSize: 12,
+    fontFamily: "Jersey10",
     color: colors.textSecondary,
     textAlign: "center",
     marginTop: 16,

@@ -1,14 +1,14 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
+import { Copilot } from "@/src/components/Copilot";
 import { CreateRoutineModal } from "@/src/components/CreateRoutineModal";
 import { DailyStreakScreen } from "@/src/components/DailyStreakScreen";
 import {
-  BG_IMAGES,
-  DEFAULT_BG,
-  FocusHeroCard,
+    BG_IMAGES,
+    DEFAULT_BG,
+    FocusHeroCard,
 } from "@/src/components/FocusHeroCard";
 import { LiquidFAB } from "@/src/components/LiquidFAB";
-import { PaywallModal } from "@/src/components/PaywallModal";
 import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { StreakShieldModal } from "@/src/components/StreakShieldModal";
 import { WeeklyCalendar } from "@/src/components/WeeklyCalendar";
@@ -18,10 +18,10 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
-  getLocalTodayDateKey,
-  hasCountedToday,
-  isLocalToday,
-  isLocalYesterday,
+    getLocalTodayDateKey,
+    hasCountedToday,
+    isLocalToday,
+    isLocalYesterday,
 } from "@/src/utils/dateHelpers";
 import { sendStreakNotification } from "@/src/utils/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,22 +32,22 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CalendarCheck, Grid2x2 } from "lucide-react-native";
 import React, {
-  createRef,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
+    createRef,
+    useCallback,
+    useRef,
+    useState
 } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  ImageBackground,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    ImageBackground,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
 import PagerView from "react-native-pager-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -113,8 +113,7 @@ export default function SwipeableLayout() {
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
   const [showTrialOffer, setShowTrialOffer] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const paywallCheckedRef = useRef(false);
+  const [showCopilot, setShowCopilot] = useState(false);
 
   const [routines, setRoutines] = useState<
     Array<{
@@ -221,7 +220,7 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) { }
+        } catch (e) {}
       } else {
         // First time ever completing a task
         if (!hasAskedForNotifications) {
@@ -246,7 +245,7 @@ export default function SwipeableLayout() {
         // Celebration haptic
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        } catch (e) { }
+        } catch (e) {}
       }
 
       // 🎁 Pro Trial Offer: show after completing first task/routine if user hasn't seen it yet
@@ -307,19 +306,6 @@ export default function SwipeableLayout() {
       loadAll();
     }, [loadRoutines, loadStreak]),
   );
-
-  // Auto-trigger Day 8 Paywall Reverse Trial (only for expired trials)
-  useEffect(() => {
-    if (!isLoadingData && !paywallCheckedRef.current) {
-      paywallCheckedRef.current = true;
-      if (hasSeenTrialOffer && !isPro) {
-        // Trial expired — show paywall
-        setShowPaywall(true);
-      }
-      // NOTE: ProTrialOfferModal is NOT shown here.
-      // It fires inside updateStreakOnTaskComplete, after the user's first task/routine completion.
-    }
-  }, [isLoadingData, hasSeenTrialOffer, isPro]);
 
   // Calculate real completed tasks history from activities
   const calculateCompletedTasksHistory = () => {
@@ -468,13 +454,7 @@ export default function SwipeableLayout() {
   };
 
   const handleHacerTareaPress = () => {
-    // Abrir modal de agregar tarea sin opción de programar
-    addTaskRef.current?.openTaskModal(false);
-  };
-
-  const handleProgramarTareaPress = () => {
-    // Abrir modal de programación primero, luego la tarea
-    addTaskRef.current?.openProgramScheduleModal();
+    setShowCopilot(true);
   };
 
   const handleCreateRoutinePress = () => {
@@ -575,12 +555,12 @@ export default function SwipeableLayout() {
       )}
 
       <ImageBackground
-        source={
-          useAchievementsStore.getState().activeBackground &&
-            BG_IMAGES[useAchievementsStore.getState().activeBackground!]
-            ? BG_IMAGES[useAchievementsStore.getState().activeBackground!]
-            : DEFAULT_BG
-        }
+        source={(() => {
+          const s = useAchievementsStore.getState();
+          if (s.activeBackground && BG_IMAGES[s.activeBackground]) return BG_IMAGES[s.activeBackground];
+          if (s.activeBackground && s.activeBackgroundUri) return { uri: s.activeBackgroundUri };
+          return DEFAULT_BG;
+        })()}
         style={[styles.fixedHeader, { paddingTop: insets.top }]}
       >
         {/*
@@ -612,6 +592,10 @@ export default function SwipeableLayout() {
               <FocusHeroCard
                 currentStreak={currentStreak}
                 isStreakActiveToday={isStreakActiveToday}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setShowCopilot(true);
+                }}
               />
             </View>
           </>
@@ -697,11 +681,13 @@ export default function SwipeableLayout() {
       </View>
 
       {/* FAB — floating absolutely above the tab bar */}
-      <View style={[styles.fabFloating, { bottom: 10 + insets.bottom }]} pointerEvents="box-none">
+      <View
+        style={[styles.fabFloating, { bottom: 10 + insets.bottom }]}
+        pointerEvents="box-none"
+      >
         <LiquidFAB
           currentPage={currentPage}
           onHacerTareaPress={handleHacerTareaPress}
-          onProgramarTareaPress={handleProgramarTareaPress}
           onCreateRoutinePress={handleCreateRoutinePress}
           onOpenChange={handleFABOpenChange}
           isOpen={isFABOpen}
@@ -738,12 +724,28 @@ export default function SwipeableLayout() {
         onClose={() => setShowTrialOffer(false)}
       />
 
-      {/* Paywall Reverse Trial (Day 8+) */}
-      <PaywallModal
-        visible={showPaywall}
-        onClose={() => setShowPaywall(false)}
-        source="trial_expired"
-      />
+      {/* Copilot Modal */}
+      <Modal
+        visible={showCopilot}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowCopilot(false)}
+      >
+        <Copilot
+          onClose={() => setShowCopilot(false)}
+          onAddTask={(title, emoji, subtasks, difficulty, startImmediately) => {
+            if (addTaskRef.current?.addActivityFromCopilot) {
+              addTaskRef.current.addActivityFromCopilot(
+                title,
+                emoji,
+                subtasks,
+                difficulty,
+                startImmediately,
+              );
+            }
+          }}
+        />
+      </Modal>
     </View>
   );
 }

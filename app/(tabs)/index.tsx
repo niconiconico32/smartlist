@@ -48,17 +48,18 @@ function getRandomIconColor() {
 // Dummy fallback for ConfettiCannon if not imported
 const ConfettiCannon = (props: any) => null;
 import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
-import { DEV_MODE, SHOW_TEST_BUTTONS } from "@/constants/config";
+import { DEV_MODE } from "@/constants/config";
 import { colors } from "@/constants/theme";
-import { posthog } from "@/src/config/posthog";
 import { ActivityButton } from "@/src/components/ActivityButton";
+import { AppText as Text } from '@/src/components/AppText';
 import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
-import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
-import { TaskCelebration } from "@/src/components/TaskCelebration";
-import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
-import { TaskModalNew } from "@/src/components/TaskModalNew";
 import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
+import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
+import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
+import { TaskCelebration } from "@/src/components/TaskCelebration";
+import { TaskModalNew } from "@/src/components/TaskModalNew";
+import { posthog } from "@/src/config/posthog";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
 import {
@@ -69,7 +70,6 @@ import {
 import { supabase } from "@/src/lib/supabase";
 import { fetchActivitiesFromCloud, syncActivitiesToCloud } from "@/src/lib/syncService";
 import { calculateStreak, useAchievementsStore } from "@/src/store/achievementsStore";
-import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
   ONBOARDING_BUTTONS,
@@ -92,7 +92,6 @@ import { useRouter } from "expo-router";
 import { CalendarClock, Check, Clock, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Dimensions, Image, Modal, Pressable, Animated as RNAnimated, ScrollView, StyleSheet, Switch, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -183,7 +182,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const [showFocusMode, setShowFocusMode] = useState(false);
   const [focusModeSubtasks, setFocusModeSubtasks] = useState<Subtask[]>([]);
   const [currentFocusModeActivityId, setCurrentFocusModeActivityId] = useState<string | null>(null);
-  
+
   // Streak Success Screen State (Dev Testing)
   const [showStreakSuccess, setShowStreakSuccess] = useState(false);
   const [testStreakDays, setTestStreakDays] = useState(1);
@@ -250,6 +249,35 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       setShowScheduleModal(true);
       setShouldShowTaskModalAfterSchedule(true);
     },
+    addActivityFromCopilot: (title: string, emoji: string, subtasks: Subtask[], difficulty: "easy" | "moderate" | "hard", startImmediately: boolean) => {
+      const newActivity: Activity = {
+        id: Date.now().toString(),
+        title: title,
+        emoji: emoji,
+        metric: `${subtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
+        color: "#A6E3A1",
+        iconColor: getRandomIconColor(),
+        action: "play",
+        completed: false,
+        subtasks: subtasks,
+        difficulty: difficulty,
+        recurrence: { type: "once" },
+        completedDates: [],
+        scheduledDate: getLocalDateKey(selectedDate || new Date()),
+      };
+
+      setActivities((prev) => [newActivity, ...prev]);
+      
+      if (startImmediately) {
+        setGeneratedTaskTitle(title);
+        setGeneratedEmoji(emoji);
+        setFocusModeSubtasks(subtasks || []);
+        setCurrentFocusModeActivityId(newActivity.id);
+        setTimeout(() => {
+          setShowFocusMode(true);
+        }, 300); // Slight delay for smoother transition out of Copilot
+      }
+    },
   }));
 
   // Load activities from AsyncStorage
@@ -301,7 +329,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       try {
         const lastWeeklyCleanup = await AsyncStorage.getItem('lastWeeklyCleanup');
         const currentWeekStart = getLocalWeekStart(); // Monday of current week
-        
+
         // Si es una nueva semana (lunes), limpiar según tipo de tarea
         if (lastWeeklyCleanup !== currentWeekStart) {
           setActivities((prev) => {
@@ -329,10 +357,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         console.error('Error cleaning weekly tasks:', error);
       }
     };
-    
+
     // Check on mount
     checkAndCleanWeeklyTasks();
-    
+
     // Check every minute (in case app stays open overnight)
     const interval = setInterval(checkAndCleanWeeklyTasks, 60000);
     return () => clearInterval(interval);
@@ -486,14 +514,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           scheduledDate: activity.scheduledDate || realToday, // Asignar fecha actual a tareas sin scheduledDate
         }));
         setActivities(migratedActivities);
-        
+
         // Reprogramar notificaciones de tareas que tengan reminder habilitado
         try {
           await rescheduleAllTaskReminders(migratedActivities as any);
         } catch (error) {
           console.error('Error rescheduling task notifications:', error);
         }
-        
+
         if (migratedActivities.length > 0) {
           setLocalIsFirstTime(false);
           if (setIsFirstTime) {
@@ -607,18 +635,20 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const addTaskToList = async (finalSubtasks?: Subtask[], difficulty?: "easy" | "moderate" | "hard") => {
+  const addTaskToList = async (finalSubtasks?: Subtask[], difficulty?: "easy" | "moderate" | "hard", titleOverride?: string, emojiOverride?: string) => {
     const tasksToUse = finalSubtasks || subtasks;
+    const finalTitle = titleOverride || generatedTaskTitle;
+    const finalEmoji = emojiOverride || generatedEmoji;
 
-    if (!generatedTaskTitle || tasksToUse.length === 0) {
+    if (!finalTitle || tasksToUse.length === 0) {
       Alert.alert("Error", "Genera subtareas primero");
       return;
     }
 
     const newActivity: Activity = {
       id: Date.now().toString(),
-      title: generatedTaskTitle,
-      emoji: generatedEmoji,
+      title: finalTitle,
+      emoji: finalEmoji,
       metric: `${tasksToUse.reduce((sum, t) => sum + t.duration, 0)} min`,
       color: "#A6E3A1",
       iconColor: getRandomIconColor(),
@@ -628,18 +658,18 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       difficulty: difficulty || "easy",
       recurrence: isScheduled
         ? {
-            type: recurrenceType,
-            days: recurrenceType === "weekly" ? selectedDays : undefined,
-            time: scheduledTime
-              ? `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`
-              : undefined,
-          }
+          type: recurrenceType,
+          days: recurrenceType === "weekly" ? selectedDays : undefined,
+          time: scheduledTime
+            ? `${scheduledTime.getHours().toString().padStart(2, '0')}:${scheduledTime.getMinutes().toString().padStart(2, '0')}`
+            : undefined,
+        }
         : { type: "once" },
       reminder: (reminderEnabled && scheduledTime)
         ? {
-            enabled: true,
-            minutesBefore: reminderTime,
-          }
+          enabled: true,
+          minutesBefore: reminderTime,
+        }
         : undefined,
       completedDates: [],
       scheduledDate: (() => {
@@ -670,7 +700,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         console.error('Error scheduling task notification:', error);
       }
     }
-    
+
     // Reset scheduling state for next task
     setIsScheduled(false);
     setRecurrenceType('once');
@@ -678,7 +708,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     setScheduledTime(null);
     setReminderEnabled(true);
     setReminderTime(15);
-    
+
     // Return the new activity ID so it can be used in Focus Mode
     return newActivity.id;
 
@@ -718,48 +748,49 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     }
   };
 
-  const handleUpdateTask = async (activityId: string, newSubtasks: Subtask[], difficulty: "easy" | "moderate" | "hard") => {
+  const handleUpdateTask = async (activityId: string, newSubtasks: Subtask[], title: string, emoji: string) => {
     const allCompleted = areAllSubtasksCompleted(newSubtasks);
     const targetDate = selectedDate || new Date();
     const todayStr = getLocalDateKey(targetDate);
-    
+
     // Reward logic for manual completions
     const currentActivity = activities.find(a => a.id === activityId);
     if (currentActivity && allCompleted) {
       const isRecurrent = currentActivity.recurrence?.type !== "once";
-      const alreadyCompletedToday = isRecurrent 
-        ? currentActivity.completedDates?.includes(todayStr) 
+      const alreadyCompletedToday = isRecurrent
+        ? currentActivity.completedDates?.includes(todayStr)
         : currentActivity.completed;
 
       if (!alreadyCompletedToday) {
         const { earned, isNew } = await useAchievementsStore.getState().awardTaskCompletionCoins(
           currentActivity.id,
-          difficulty || "easy"
+          currentActivity.difficulty || "easy"
         );
 
         if (isNew && earned > 0) {
           setEarnedTaskCoins(earned);
-          setCelebratedTaskName(currentActivity.title || "Tarea completada");
+          setCelebratedTaskName(title || "Tarea completada");
           setShowTaskCelebration(true);
         }
       }
     }
-    
+
     setActivities((prev) =>
       prev.map((activity) => {
         if (activity.id !== activityId) return activity;
-        
+
         const updatedActivity = {
           ...activity,
+          title: title,
+          emoji: emoji,
           subtasks: newSubtasks,
-          difficulty: difficulty,
           metric: `${newSubtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
         };
-        
+
         // Si todas las subtareas están completadas, marcar la actividad como completada
         if (allCompleted) {
           const isRecurrent = activity.recurrence?.type !== "once";
-          
+
           if (isRecurrent) {
             const alreadyCompletedToday = activity.completedDates?.includes(todayStr);
             if (!alreadyCompletedToday && onTaskCompleted) {
@@ -775,18 +806,18 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             if (!activity.completed && onTaskCompleted) {
               onTaskCompleted();
             }
-            
+
             // Cancelar notificaciones de tareas "once" cuando se completan
             if (activity.recurrence?.type === "once" && activity.reminder?.enabled) {
               cancelTaskReminders(activity.id).catch((error) => {
                 console.error('Error canceling task notification:', error);
               });
             }
-            
+
             return { ...updatedActivity, completed: true };
           }
         }
-        
+
         return updatedActivity;
       })
     );
@@ -797,7 +828,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     cancelTaskReminders(activityId).catch((error) => {
       console.error('Error canceling task notifications:', error);
     });
-    
+
     setActivities((prev) => prev.filter((activity) => activity.id !== activityId));
   };
 
@@ -906,12 +937,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           // Para tareas recurrentes, agregar fecha a completedDates
           const alreadyCompletedToday =
             activity.completedDates?.includes(todayStr);
-          
+
           // If completing (not uncompleting), trigger streak
           if (!alreadyCompletedToday && onTaskCompleted) {
             onTaskCompleted();
           }
-          
+
           return {
             ...activity,
             completedDates: alreadyCompletedToday
@@ -924,7 +955,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           if (!activity.completed && onTaskCompleted) {
             onTaskCompleted();
           }
-          
+
           return { ...activity, completed: !activity.completed };
         }
       });
@@ -944,26 +975,26 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const today = getLocalDateKey(targetDate); // ✅ TIMEZONE SAFE
   const todayDayOfWeek = targetDate.getDay(); // 0 = Domingo, 1 = Lunes, etc.
   const adjustedDayOfWeek = todayDayOfWeek === 0 ? 6 : todayDayOfWeek - 1; // Ajustar para que 0 = Lunes, 6 = Domingo
-  
+
   // Filtrar todas las actividades de la semana actual (completadas y pendientes)
   const weekActivities = activities.filter((a) => {
     const recurrenceType = a.recurrence?.type || "once";
-    
+
     // Tareas diarias: mostrar siempre
     if (recurrenceType === "daily") {
       return true;
     }
-    
+
     // Tareas semanales: mostrar si hoy es uno de los días programados
     if (recurrenceType === "weekly") {
       return a.recurrence?.days?.includes(adjustedDayOfWeek);
     }
-    
+
     // Tareas de una vez: verificar que scheduledDate sea de esta semana
     if (a.scheduledDate) {
       return isInCurrentWeek(a.scheduledDate);
     }
-    
+
     // Tareas sin scheduledDate (caso edge): no mostrar
     return false;
   }).sort((a, b) => {
@@ -972,12 +1003,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     const bRecurrence = b.recurrence?.type || "once";
     const aCompleted = aRecurrence !== "once" ? a.completedDates?.includes(today) : a.completed;
     const bCompleted = bRecurrence !== "once" ? b.completedDates?.includes(today) : b.completed;
-    
+
     // Pendientes primero (false < true)
     if (aCompleted !== bCompleted) {
       return aCompleted ? 1 : -1;
     }
-    
+
     // Entre pendientes: más reciente primero (ID mayor primero)
     // Entre completadas: primera completada al fondo (ID menor primero)
     if (aCompleted) {
@@ -1005,12 +1036,9 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           entering={FadeInDown.duration(400).springify()}
           style={styles.header}
         >
-          <Text style={styles.title}>¡Tú puedes!</Text>
-          <Text style={styles.subtitle}>
-            {weekActivities.length > 0
-              ? `${weekActivities.length} tarea${weekActivities.length > 1 ? "s" : ""} esta semana`
-              : "Sin tareas esta semana"}
-          </Text>
+          <Text style={styles.title}>{weekActivities.length > 0
+            ? `${weekActivities.length} tarea${weekActivities.length > 1 ? "s" : ""} esta semana`
+            : "Sin tareas esta semana"}</Text>
         </Animated.View>
 
         <ScrollView
@@ -1026,69 +1054,74 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 <Text style={styles.loadingText}>Cargando tareas...</Text>
               </View>
             ) : weekActivities.length === 0 ? (
+              <Animated.View
+                entering={FadeIn.delay(200).duration(500)}
+                style={styles.emptyState}
+              >
                 <Animated.View
-                  entering={FadeIn.delay(200).duration(500)}
-                  style={styles.emptyState}
+                  entering={FadeInUp.delay(300).springify()}
+                  style={styles.emptyIconContainer}
                 >
-                  <Animated.View
-                    entering={FadeInUp.delay(300).springify()}
-                    style={styles.emptyIconContainer}
-                  >
-                    <Sparkles size={48} color={colors.primary} />
-                  </Animated.View>
-                  <Animated.Text
-                    entering={FadeInUp.delay(400).springify()}
-                    style={styles.emptyTitle}
-                  >
-                    Sin tareas esta semana
-                  </Animated.Text>
-                  <Animated.Text
-                    entering={FadeInUp.delay(500).springify()}
-                    style={styles.emptySubtitle}
-                  >
-                    Toca el botón + para agregar tu primera tarea de la semana
-                  </Animated.Text>
+                  <Sparkles size={48} color={colors.primary} />
                 </Animated.View>
-              ) : (
-                weekActivities.map((activity, index) => {
-                  // Determinar si está completada
-                  const recurrenceType = activity.recurrence?.type || "once";
-                  const isCompleted =
-                    recurrenceType !== "once"
-                      ? activity.completedDates?.includes(today)
-                      : activity.completed;
-                  
-                  return (
-                    <ActivityButton
-                      key={activity.id}
-                        title={activity.title}
-                        emoji={activity.emoji}
-                        metric={activity.metric}
-                        color={activity.color}
-                        iconColor={activity.iconColor}
-                        action={activity.action}
-                        completed={isCompleted || false}
-                        difficulty={activity.difficulty}
-                        hasSubtasks={
-                          activity.subtasks ? activity.subtasks.length > 0 : false
+                <Animated.Text
+                  entering={FadeInUp.delay(400).springify()}
+                  style={styles.emptyTitle}
+                >
+                  Sin tareas esta semana
+                </Animated.Text>
+                <Animated.Text
+                  entering={FadeInUp.delay(500).springify()}
+                  style={styles.emptySubtitle}
+                >
+                  Toca el botón + para agregar tu primera tarea de la semana
+                </Animated.Text>
+              </Animated.View>
+            ) : (
+              weekActivities.map((activity, index) => {
+                // Determinar si está completada
+                const recurrenceType = activity.recurrence?.type || "once";
+                const isCompleted =
+                  recurrenceType !== "once"
+                    ? activity.completedDates?.includes(today)
+                    : activity.completed;
+
+                return (
+                  <ActivityButton
+                    key={activity.id}
+                    title={activity.title}
+                    emoji={activity.emoji}
+                    metric={activity.metric}
+                    color={activity.color}
+                    iconColor={activity.iconColor}
+                    action={activity.action}
+                    completed={isCompleted || false}
+                    difficulty={activity.difficulty}
+                    hasSubtasks={
+                      activity.subtasks ? activity.subtasks.length > 0 : false
+                    }
+                    subtasksProgress={
+                      activity.subtasks && activity.subtasks.length > 0
+                        ? {
+                          completed: activity.subtasks.filter(s => s.isCompleted).length,
+                          total: activity.subtasks.length,
                         }
-                        subtasksProgress={
-                          activity.subtasks && activity.subtasks.length > 0
-                            ? {
-                                completed: activity.subtasks.filter(s => s.isCompleted).length,
-                                total: activity.subtasks.length,
-                              }
-                            : undefined
-                        }
-                        onPress={() => handleActivityPress(activity)}
-                        onEditPress={() => handleEditSubtasks(activity)}
-                        onDeletePress={() => handleDeleteTaskFromList(activity.id)}
-                        onResetPress={isCompleted ? () => handleResetTask(activity.id) : undefined}
-                        index={index}
-                      />
-                  );
-                })
-              )
+                        : undefined
+                    }
+                    nextSubtaskName={
+                      activity.subtasks
+                        ? activity.subtasks.find(s => !s.isCompleted)?.title
+                        : undefined
+                    }
+                    onPress={() => handleActivityPress(activity)}
+                    onEditPress={() => handleEditSubtasks(activity)}
+                    onDeletePress={() => handleDeleteTaskFromList(activity.id)}
+                    onResetPress={isCompleted ? () => handleResetTask(activity.id) : undefined}
+                    index={index}
+                  />
+                );
+              })
+            )
             }
           </View>
 
@@ -1124,17 +1157,17 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                       style={
                         index === onboardingStep - 1
                           ? {
-                              width: 16,
-                              height: 14,
-                              borderRadius: 25,
-                              backgroundColor: colors.primary,
-                            }
+                            width: 16,
+                            height: 14,
+                            borderRadius: 25,
+                            backgroundColor: colors.primary,
+                          }
                           : {
-                              width: 9,
-                              height: 9,
-                              borderRadius: 55,
-                              backgroundColor: colors.primary,
-                            }
+                            width: 9,
+                            height: 9,
+                            borderRadius: 55,
+                            backgroundColor: colors.primary,
+                          }
                       }
                     />
                   ))}
@@ -1190,34 +1223,34 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                     onboardingStep === 4 ||
                     onboardingStep === 5 ||
                     onboardingStep === 6) && (
-                    <View style={styles.optionsContainer}>
-                      {[
-                        "Yes, I've been diagnosed with ADHD",
-                        "I think I might have it",
-                        "No, but I'd like to improve my focus and productivity",
-                      ].map((option, idx) => (
-                        <Pressable
-                          key={idx}
-                          style={[
-                            styles.optionButton,
-                            selectedOption === idx && {
-                              borderColor: colors.primary,
-                              borderWidth: 3,
-                            },
-                          ]}
-                          onPress={() => {
-                            setSelectedOption(idx);
-                            setTimeout(() => {
-                              setSelectedOption(null);
-                              goToNextStep();
-                            }, 200);
-                          }}
-                        >
-                          <Text style={styles.optionText}>{option}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
+                      <View style={styles.optionsContainer}>
+                        {[
+                          "Yes, I've been diagnosed with ADHD",
+                          "I think I might have it",
+                          "No, but I'd like to improve my focus and productivity",
+                        ].map((option, idx) => (
+                          <Pressable
+                            key={idx}
+                            style={[
+                              styles.optionButton,
+                              selectedOption === idx && {
+                                borderColor: colors.primary,
+                                borderWidth: 3,
+                              },
+                            ]}
+                            onPress={() => {
+                              setSelectedOption(idx);
+                              setTimeout(() => {
+                                setSelectedOption(null);
+                                goToNextStep();
+                              }, 200);
+                            }}
+                          >
+                            <Text style={styles.optionText}>{option}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
                 </View>
               </View>
 
@@ -1273,28 +1306,29 @@ const PlanScreen = React.forwardRef(function PlanScreen(
             taskTitle={generatedTaskTitle}
             taskEmoji={generatedEmoji}
             initialSubtasks={subtasks}
-            initialDifficulty={editingActivityId ? activities.find(a => a.id === editingActivityId)?.difficulty : "easy"}
             isEditing={!!editingActivityId}
             activityId={editingActivityId || undefined}
             onUpdateTask={handleUpdateTask}
             onDeleteTask={handleDeleteTaskFromList}
-            onStart={async (finalSubtasks, difficulty) => {
+            onStart={async (finalSubtasks, title, emoji) => {
               let activityId: string;
-              
+
               // Si estamos editando, actualizar primero y luego abrir Focus Mode
               if (editingActivityId) {
-                handleUpdateTask(editingActivityId, finalSubtasks, difficulty);
+                handleUpdateTask(editingActivityId, finalSubtasks, title, emoji);
                 activityId = editingActivityId;
               } else {
                 // Si es nueva, agregar a la lista
-                const newId = await addTaskToList(finalSubtasks, difficulty);
+                const newId = await addTaskToList(finalSubtasks, "easy", title, emoji);
                 activityId = newId!;
               }
-              
+
               // Establecer el ID de la actividad en Focus Mode
               setCurrentFocusModeActivityId(activityId);
-              
+
               // Then open Focus Mode
+              setGeneratedTaskTitle(title);
+              setGeneratedEmoji(emoji);
               setFocusModeSubtasks(finalSubtasks);
               setShowSubtasksModal(false);
               setEditingActivityId(null);
@@ -1302,6 +1336,19 @@ const PlanScreen = React.forwardRef(function PlanScreen(
               setTimeout(() => {
                 setShowFocusMode(true);
               }, 300);
+            }}
+            onAddToList={async (title, emoji, finalSubtasks) => {
+              if (editingActivityId) {
+                handleUpdateTask(editingActivityId, finalSubtasks, title, emoji);
+              } else {
+                await addTaskToList(finalSubtasks, "easy", title, emoji);
+              }
+              setShowSubtasksModal(false);
+              setSubtasks([]);
+              setGeneratedTaskTitle("");
+              setGeneratedEmoji("✨");
+              setEditingActivityId(null);
+              setPendingActivityToStart(null);
             }}
             onClose={() => {
               setShowSubtasksModal(false);
@@ -1329,14 +1376,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 scheduledDate: getLocalDateKey(selectedDate || new Date()), // ✅ TIMEZONE SAFE
               };
               setActivities((prev) => [newActivity, ...prev]);
-              
+
               // Programar notificación si está habilitada (aunque para tareas rápidas sin reminder normalmente)
               if (newActivity.reminder?.enabled) {
                 scheduleTaskReminders(newActivity as any).catch((error) => {
                   console.error('Error scheduling task notification:', error);
                 });
               }
-              
+
               setShowSubtasksModal(false);
               setSubtasks([]);
               setGeneratedTaskTitle("");
@@ -1374,7 +1421,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 const allCompleted = areAllSubtasksCompleted(updatedSubtasks);
                 const targetDate = selectedDate || new Date();
                 const todayStr = getLocalDateKey(targetDate);
-                
+
                 // Extraer la actividad para rewards antes de procesar
                 const currentActivity = activities.find(
                   (a) => a.id === currentFocusModeActivityId
@@ -1382,8 +1429,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
                 if (currentActivity && allCompleted) {
                   const isRecurrent = currentActivity.recurrence?.type !== "once";
-                  const alreadyCompletedToday = isRecurrent 
-                    ? currentActivity.completedDates?.includes(todayStr) 
+                  const alreadyCompletedToday = isRecurrent
+                    ? currentActivity.completedDates?.includes(todayStr)
                     : currentActivity.completed;
 
                   if (!alreadyCompletedToday) {
@@ -1408,13 +1455,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 setActivities((prevActivities) =>
                   prevActivities.map((activity) => {
                     if (activity.id !== currentFocusModeActivityId) return activity;
-                    
+
                     const updatedActivity = { ...activity, subtasks: updatedSubtasks };
-                    
+
                     // Si todas las subtareas están completadas, marcar la actividad como completada
                     if (allCompleted) {
                       const isRecurrent = activity.recurrence?.type !== "once";
-                      
+
                       if (isRecurrent) {
                         const alreadyCompletedToday = activity.completedDates?.includes(todayStr);
                         return {
@@ -1427,7 +1474,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                         return { ...updatedActivity, completed: true };
                       }
                     }
-                    
+
                     return updatedActivity;
                   })
                 );
@@ -1493,7 +1540,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                   <CalendarClock size={22} color={colors.primary} />
                   <Text style={styles.modalTitle}>Programar Tarea</Text>
                 </View>
-                <Pressable 
+                <Pressable
                   style={styles.modalCloseButton}
                   onPress={() => setShowScheduleModal(false)}
                 >
@@ -1569,7 +1616,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                           style={[
                             styles.dayChip,
                             selectedDays.includes(index) &&
-                              styles.dayChipActive,
+                            styles.dayChipActive,
                           ]}
                           onPress={() => {
                             setSelectedDays((prev) =>
@@ -1583,7 +1630,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                             style={[
                               styles.dayChipText,
                               selectedDays.includes(index) &&
-                                styles.dayChipTextActive,
+                              styles.dayChipTextActive,
                             ]}
                           >
                             {day}
@@ -1774,9 +1821,9 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                         style={[
                           styles.progressDot,
                           index === currentSubtaskIndex &&
-                            styles.progressDotActive,
+                          styles.progressDotActive,
                           index < currentSubtaskIndex &&
-                            styles.progressDotCompleted,
+                          styles.progressDotCompleted,
                         ]}
                       />
                     ),
@@ -1947,10 +1994,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           </View>
         </Modal>
       </View>
-      
+
       {/* Debug Panel - Solo en modo developer */}
       {DEV_MODE && (
-        <DebugPanel 
+        <DebugPanel
           onTriggerStreak={(days) => {
             setTestStreakDays(days);
             setShowStreakSuccess(true);
@@ -2003,7 +2050,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     paddingHorizontal: 0,
   } as any,
-  activitiesContainer: { 
+  activitiesContainer: {
     gap: 12,
   } as any,
   testOnboardingButton: {

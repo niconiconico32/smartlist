@@ -1,9 +1,10 @@
 import { colors } from '@/constants/theme';
+import { AppText as Text } from '@/src/components/AppText';
+import { useAppStreakStore } from '@/src/store/appStreakStore';
 import * as Haptics from 'expo-haptics';
-import { Edit2, RotateCcw, Trash2 } from 'lucide-react-native';
+import { Crown, Edit2, RotateCcw, Trash2 } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Svg, { Circle } from 'react-native-svg';
 
 interface ActivityButtonProps {
@@ -25,6 +26,7 @@ interface ActivityButtonProps {
     completed: number;
     total: number;
   };
+  nextSubtaskName?: string;
 }
 
 const BORDER_COLORS = ['#C9FD5A', '#CBA6F7', '#A6E3A1']; // Peach, Lavender, Matcha
@@ -79,7 +81,11 @@ const CircularProgress = ({ percentage, color }: { percentage: number; color: st
   );
 };
 
-export function ActivityButton({ title, emoji, metric, color, iconColor, action, onPress, onEditPress, onDeletePress, onResetPress, hasSubtasks = false, completed = false, index = 0, difficulty = "easy", subtasksProgress }: ActivityButtonProps) {
+export function ActivityButton({ title, emoji, metric, color, iconColor, action, onPress, onEditPress, onDeletePress, onResetPress, hasSubtasks = false, completed = false, index = 0, difficulty = "easy", subtasksProgress, nextSubtaskName }: ActivityButtonProps) {
+  const multiplier = useAppStreakStore((state) => state.getMultiplier());
+  // El cálculo base para coronas de subtareas según achievementsStore es entre 15 y 20 por subtarea. Usaremos 20 como máximo para mostrar en UI.
+  const coinsPerSubtask = Math.round(20 * multiplier);
+
   const cardIndex = (index || 0) % CARD_COLORS.length;
   const borderColor = difficulty ? difficultyColors[difficulty] : colors.primary;
   const cardColor = CARD_COLORS[cardIndex];
@@ -98,7 +104,7 @@ export function ActivityButton({ title, emoji, metric, color, iconColor, action,
   const handleLongPress = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (e) {}
+    } catch (e) { }
     setShowMenu(true);
   };
 
@@ -138,65 +144,55 @@ export function ActivityButton({ title, emoji, metric, color, iconColor, action,
       <Pressable
         style={({ pressed }) => [
           styles.card,
-          { backgroundColor: completedCardColor },
-completed && {
-  // 1. CRÍTICO: Un fondo sólido. 
-  // Usa el color gris oscuro de tu app mezclado con un mínimo de verde para que no se cuele la sombra por detrás.
-  backgroundColor: colors.background, // Ajusta este hexadecimal al color base oscuro de tus tarjetas
-  
-  // 2. Borde de luz (El tubo de neón)
-  borderWidth: 1.5,
-  borderColor: colors.primary, // Verde brillante puro
-
-  // 3. El resplandor (Glow hacia afuera)
-  shadowColor: colors.primary,
-  shadowOffset: { width: 0, height: 0 },
-  shadowOpacity: 0.9,     // Sube la opacidad para que brille más
-  shadowRadius: 20,       // Difuminado más amplio y suave
-
-  // 4. Glow para Android
-  elevation: 15,
-  
-  // 5. Opacidad 50% para tareas completadas
-  opacity: 0.5,
-
-          },
+          completed && styles.cardCompleted,
           pressed && styles.pressed,
         ]}
         onPress={onPress}
         onLongPress={handleLongPress}
         delayLongPress={500}
       >
- 
-
-        {/* Horizontal Layout Container */}
-        <View style={styles.horizontalContainer}>
-          {/* Circular Progress */}
-          <View style={styles.progressContainer}>
-            <CircularProgress 
-              percentage={progressPercentage} 
-              color={borderColor}
-            />
+        <View style={styles.topRow}>
+          {/* Icon Box Izquierdo */}
+          <View style={[styles.iconBox, { backgroundColor: iconColor || '#E9D5FF' }]}>
+            <Text style={styles.emojiText}>{emoji}</Text>
           </View>
 
-          {/* Content Container */}
-          <View style={styles.contentContainer}>
-            {/* Category/Emoji */}
-            <View style={styles.categoryContainer}>
-              <Text style={[styles.categoryText, completed && styles.completedText]}>{emoji}</Text>
-            </View>
-
-            {/* Title */}
+          {/* Center Content */}
+          <View style={styles.titleContainer}>
             <Text style={[styles.cardTitle, completed && styles.completedText]} numberOfLines={2}>
-              {title}
+              {title.toUpperCase()}
             </Text>
-
-            {/* Badge */}
-            <View style={[styles.badge, { backgroundColor: completed ? completedBorderColor : borderColor }]}>
-              <Text style={[styles.badgeText, completed && styles.completedBadgeText]}>{difficultyLabels[difficulty]}</Text>
-            </View>
           </View>
         </View>
+
+        {/* Subtasks Bottom Section */}
+        {hasSubtasks && subtasksProgress && (
+          <View style={styles.subtasksContainer}>
+            <View style={styles.subtasksHeader}>
+              <Text style={styles.nextSubtaskTitle} numberOfLines={1}>
+                {nextSubtaskName ? `CONTINUAR CON: ${nextSubtaskName.toUpperCase()}` : "COMPLETADO"}
+              </Text>
+              <View style={styles.progressTextRow}>
+                <Text style={styles.progressText}>
+                  {subtasksProgress.completed * coinsPerSubtask} / {subtasksProgress.total * coinsPerSubtask}
+                </Text>
+                <Crown size={14} color={colors.surface} strokeWidth={2.5} style={{ marginLeft: 2, marginTop: -4 }} />
+              </View>
+            </View>
+
+            <View style={styles.progressBarContainer}>
+              {Array.from({ length: subtasksProgress.total }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.progressSegment,
+                    i < subtasksProgress.completed && styles.progressSegmentFilled
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        )}
       </Pressable>
 
       {/* Menu Modal */}
@@ -206,7 +202,7 @@ completed && {
         animationType="fade"
         onRequestClose={() => setShowMenu(false)}
       >
-        <Pressable 
+        <Pressable
           style={styles.menuOverlay}
           onPress={() => setShowMenu(false)}
         >
@@ -221,9 +217,9 @@ completed && {
                   <RotateCcw size={20} color={colors.textPrimary} />
                   <Text style={styles.menuOptionText}>Reiniciar</Text>
                 </Pressable>
-                
+
                 <View style={styles.menuDivider} />
-                
+
                 <Pressable
                   style={styles.menuOption}
                   onPress={handleDelete}
@@ -242,9 +238,9 @@ completed && {
                   <Edit2 size={20} color={colors.textPrimary} />
                   <Text style={styles.menuOptionText}>Editar</Text>
                 </Pressable>
-                
+
                 <View style={styles.menuDivider} />
-                
+
                 <Pressable
                   style={styles.menuOption}
                   onPress={handleDelete}
@@ -263,75 +259,96 @@ completed && {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 50,
-    padding: 10,
-    minHeight: 70,
+    backgroundColor: colors.surface,
+    borderWidth: 3,
+    borderColor: '#000000',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
     position: 'relative',
-    borderWidth: 1,
-    borderColor: colors.textRoutineCard ,
+    marginBottom: 12,
+  },
+  cardCompleted: {
+    opacity: 0.5,
   },
   pressed: {
-    transform: [{ scale: 0.97 }],
-    opacity: 0.9,
+    transform: [{ scale: 0.98 }, { translateY: 2 }, { translateX: 2 }], // Brutalist click feel
   },
-  menuButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 10,
-    padding: 4,
-  },
-  horizontalContainer: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    alignItems: 'stretch',
+    minHeight: 64,
   },
-  progressContainer: {
-    alignItems: 'center',
+  iconBox: {
+    width: 64,
+    borderRightWidth: 3,
+    borderColor: '#000000',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  contentContainer: {
+  emojiText: {
+    fontSize: 24,
+  },
+  titleContainer: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  categoryContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  categoryDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    marginRight: 8,
-  },
-  categoryText: {
-    fontSize: 20,
-    color: '#FFFFFF',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   cardTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 20,
+    fontFamily: 'Jersey10',
     color: '#FFFFFF',
-    lineHeight: 20,
+    letterSpacing: 0.5,
   },
-  badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  subtasksContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    borderTopWidth: 3,
+    borderColor: '#000000',
+    backgroundColor: '#FFFFFF', // Blanco abajo para contrastar brutalista
   },
-  badgeText: {
-    fontSize:9,
-    fontWeight: '600',
-    color: '#2E3440',
+  subtasksHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  nextSubtaskTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#333333',
+    letterSpacing: 1,
+    flex: 1,
+    marginRight: 8,
+  },
+  progressTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  progressText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#6600FF',
+  },
+  progressBarContainer: {
+    flexDirection: 'row',
+    height: 18,
+    borderWidth: 2,
+    borderColor: '#000000',
+    backgroundColor: '#FFFFFF',
+    padding: 2,
+    gap: 2,
+  },
+  progressSegment: {
+    flex: 1,
+    backgroundColor: '#D1D5DB', // gris
+  },
+  progressSegmentFilled: {
+    backgroundColor: colors.surface, // púrpura
   },
   menuOverlay: {
     flex: 1,

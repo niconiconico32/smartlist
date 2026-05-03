@@ -1,18 +1,21 @@
 import { colors } from "@/constants/theme";
+import { AppText as Text } from '@/src/components/AppText';
+import { useAchievementsStore } from "@/src/store/achievementsStore";
+import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import LottieView from "lottie-react-native";
 import {
   Activity,
-  Bell,
   Bike,
   Book,
   Brain,
   Briefcase,
   Calendar,
+  Check,
   Circle,
   Coffee,
+  Crown,
   Dumbbell,
   Flower2,
   GraduationCap,
@@ -26,11 +29,10 @@ import {
   Sparkles,
   Sun,
   Target,
-  Utensils,
+  Utensils
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
   Easing,
   FadeIn,
@@ -106,9 +108,9 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   const backgroundColor = ROUTINE_BACKGROUND_COLORS[colorIndex % ROUTINE_BACKGROUND_COLORS.length];
   const IconComponent = getIconComponent(icon);
 
-  // Streak logic
-  const { getStreak } = useRoutineStreakStore();
-  const streakCount = getStreak(id);
+  // Nivel logic
+  const { getLevel } = useRoutineStreakStore();
+  const routineLevel = getLevel(id);
   const lottieRef = useRef<LottieView>(null);
 
   // Cálculo de progreso
@@ -170,97 +172,57 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
       ? "Todos los días"
       : days.map((d) => d.slice(0, 3)).join(", ");
 
+  // Lógica de recompensa
+  const multiplier = useAppStreakStore((state) => state.getMultiplier());
+  const dailyRoutinesCompletedCount = useAchievementsStore((state) => state.dailyRoutinesCompletedCount);
+  const fadingFactor = Math.pow(0.5, dailyRoutinesCompletedCount);
+  const xpReward = Math.round(100 * fadingFactor * multiplier);
+
   return (
     <Animated.View
       entering={FadeIn.duration(300)}
       layout={Layout.duration(250)}
-      style={[styles.container, { backgroundColor }, cardAnimatedStyle]}
+      style={[cardAnimatedStyle, { marginBottom: 8, marginTop: 6 }]}
     >
-      {/* Borde superior con gradiente */}
-      <LinearGradient
-        colors={[color, `${color}50`]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.topBorder}
-      />
-
-      {/* Header */}
       <Animated.View style={headerAnimatedStyle}>
         <Pressable
           onPress={handleCardPress}
           onPressIn={onHeaderPressIn}
           onPressOut={onHeaderPressOut}
-          style={styles.header}
+          style={[styles.container, progressPercent === 100 && styles.containerCompleted]}
         >
-          <View style={styles.headerContent}>
-            {/* Icono con color */}
-            <Animated.View
-              style={[styles.iconContainer, { backgroundColor: `${color}20` }]}
-            >
-              <IconComponent size={18} color={color} />
-            </Animated.View>
-
-            {/* Información */}
-            <View style={styles.infoContainer}>
-              <Text style={styles.title} numberOfLines={1}>
-                {name}
-              </Text>
-              <View style={styles.metaRow}>
-                {reminderEnabled && reminderTime && (
-                  <View style={styles.reminderBadge}>
-                    <Bell size={10} color={colors.textRoutineCard} />
-                    <Text style={styles.reminderText}>{reminderTime}</Text>
-                  </View>
-                )}
-              </View>
+          {/* Medalla de Nivel (Acumulativo) */}
+          {routineLevel > 0 && (
+            <View style={styles.medalBadge}>
+              <Text style={styles.medalText}>Nivel {routineLevel}</Text>
             </View>
+          )}
 
-            {/* Fuego (Lottie) */}
-            <View style={styles.streakContainer}>
-              {streakCount > 0 ? (
-                <>
-                  <LottieView
-                    ref={lottieRef}
-                    source={require("@/assets/images/lottie/Fire animation.json")}
-                    autoPlay
-                    loop
-                    style={styles.lottieFire}
-                  />
-                  <Text style={styles.streakNumberActive}>{streakCount}</Text>
-                </>
-              ) : (
-                <>
-                  <LottieView
-                    source={require("@/assets/images/lottie/Fire animation.json")}
-                    autoPlay={false}
-                    loop={false}
-                    colorFilters={[{ keypath: "**", color: "#666666" }]}
-                    style={[styles.lottieFire, { opacity: 0.4 }]}
-                  />
-                  <Text style={styles.streakNumberInactive}>{streakCount}</Text>
-                </>
-              )}
+          {/* Icon Box Izquierdo */}
+          <View style={styles.iconBox}>
+            <IconComponent size={24} color={color} />
+          </View>
+
+          {/* Información Central */}
+          <View style={styles.infoContainer}>
+            <Text style={styles.title} numberOfLines={2}>
+              {name}
+            </Text>
+            <View style={styles.rewardRow}>
+              <Text style={styles.rewardText}>
+                +{xpReward}
+              </Text>
+              <Crown size={13} color={colors.surface} strokeWidth={2.5} style={{ marginLeft: 0, marginTop: -2 }} />
+              <Text style={styles.rewardText}>
+                {initialTasks.length > 0 ? `  • ${completedCount}/${initialTasks.length}` : ""}
+              </Text>
             </View>
           </View>
 
-          {/* Barra de progreso */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressInfo}>
-              <Text style={styles.progressText}>
-                {completedCount}/{initialTasks.length} tareas
-              </Text>
-              <Text style={[styles.progressPercent, { color }]}>
-                {Math.round(progressPercent)}%
-              </Text>
-            </View>
-            <View style={styles.progressBar}>
-              <Animated.View
-                style={[
-                  styles.progressFill,
-                  { backgroundColor: color },
-                  progressAnimatedStyle,
-                ]}
-              />
+          {/* Checkbox Box Derecho */}
+          <View style={styles.checkboxBox}>
+            <View style={[styles.checkboxCircle, progressPercent === 100 && styles.checkboxCircleCompleted]}>
+              {progressPercent === 100 && <Check size={14} color="#000000" strokeWidth={3} />}
             </View>
           </View>
         </Pressable>
@@ -271,121 +233,107 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    overflow: "hidden",
-    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: '#000000',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
+    position: 'relative',
   },
-  topBorder: {
-    height: 3,
-    width: "100%",
+  containerCompleted: {
+    backgroundColor: '#F8F9FA',
   },
-  header: {
-    padding: 12,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  iconContainer: {
-    width: 38,
-    height: 38,
+  medalBadge: {
+    position: 'absolute',
+    top: -14,
+    right: -8,
+    backgroundColor: '#FFD700', // Dorado para la medalla
+    borderWidth: 2,
+    borderColor: '#000000',
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+    zIndex: 10,
+  },
+  medalText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#000000',
+    letterSpacing: 0.5,
+  },
+  iconBox: {
+    width: 48,
+    height: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+    marginRight: 16,
   },
   infoContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.textRoutineCard,
-    marginBottom: 2,
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontFamily: "Jersey10",
+    color: '#1A202C',
+    marginBottom: 4,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  rewardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  daysText: {
+  rewardText: {
     fontSize: 12,
-    color: colors.textRoutineCard,
-    fontWeight: "500",
+    fontWeight: '600',
+    color: '#718096',
+    textTransform: 'uppercase',
   },
-  reminderBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 10,
-    backgroundColor: "rgba(71, 69, 73, 0.1)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+  checkboxBox: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+    marginLeft: 16,
   },
-  reminderText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginLeft: 3,
-    fontWeight: "600",
+  checkboxCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#CBD5E0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  progressSection: {
-    marginTop: 10,
-  },
-  progressInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  progressPercent: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: colors.textSecondary,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  streakContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 48,
-    height: 48,
-    position: "relative",
-  },
-  lottieFire: {
-    width: 60,
-    height: 60,
-    position: 'absolute',
-    top: -12,
-  },
-  streakNumberActive: {
-    position: 'absolute',
-    bottom: 0,
-
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textSecondary,
-    textShadowColor: 'rgba(255,100,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  streakNumberInactive: {
-    position: 'absolute',
-    bottom: -0,
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.textSecondary,
-    opacity: 0.6,
+  checkboxCircleCompleted: {
+    borderColor: '#000000',
+    backgroundColor: '#C9FD5A', // Verde acento cuando está completado
   },
 });

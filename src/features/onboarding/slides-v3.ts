@@ -316,9 +316,6 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: colors.surface,
   },
 
-  // === 18: Reverse Trial (Paywall) - REMOVED ===
-  // (El onboarding ahora finaliza en Commitment per user request)
-
   /* 
   --- DRAFTED SLIDES FOR LATER ---
   

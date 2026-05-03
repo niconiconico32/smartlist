@@ -34,7 +34,7 @@ export const BG_IMAGES: Record<string, any> = {
   bg_w10: require('../../assets/images/pixelbgs/10.webp'),
 };
 
-const OUTFIT_IMAGES: Record<string, any> = {
+export const OUTFIT_IMAGES: Record<string, any> = {
   outfit_1_1: require('../../assets/images/outfits/1_1.png'),
   outfit_1_2: require('../../assets/images/outfits/1_2.png'),
   outfit_1_3: require('../../assets/images/outfits/1_3.png'),
@@ -61,24 +61,28 @@ interface FocusHeroCardProps {
   currentStreak?: number;
   isStreakActiveToday?: boolean;
   onTripleTap?: () => void;
+  onPress?: () => void;
 }
 
 export function FocusHeroCard({ 
   currentStreak = 0, 
   isStreakActiveToday = false,
   onTripleTap,
+  onPress,
 }: FocusHeroCardProps) {
   const flameScale = useSharedValue(1);
   const mascotY = useSharedValue(0);
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { activeBackground, activeOutfit } = useAchievementsStore();
+  const { activeBackground, activeBackgroundUri, activeOutfit, activeOutfitUri } = useAchievementsStore();
 
   // Resolve background image source
   const bgSource = activeBackground && BG_IMAGES[activeBackground]
     ? BG_IMAGES[activeBackground]
-    : DEFAULT_BG;
+    : activeBackground && activeBackgroundUri
+      ? { uri: activeBackgroundUri }
+      : DEFAULT_BG;
 
   // Animación de "Fuego Vivo" para el streak badge
   useEffect(() => {
@@ -152,6 +156,7 @@ export function FocusHeroCard({
 
         <Pressable
           onPress={() => {
+            if (onPress) onPress();
             if (!onTripleTap) return;
             tapCountRef.current += 1;
             if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
@@ -170,6 +175,12 @@ export function FocusHeroCard({
             {activeOutfit && OUTFIT_IMAGES[activeOutfit] ? (
               <Image
                 source={OUTFIT_IMAGES[activeOutfit]}
+                style={styles.mascot}
+                resizeMode="contain"
+              />
+            ) : activeOutfit && activeOutfitUri ? (
+              <Image
+                source={{ uri: activeOutfitUri }}
                 style={styles.mascot}
                 resizeMode="contain"
               />

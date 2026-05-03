@@ -287,7 +287,7 @@ export default function RoutinesScreen({
   const handleEditRoutine = (id: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) {}
+    } catch (e) { }
 
     const routineToEdit = routines.find((r) => r.id === id);
     if (routineToEdit) {
@@ -301,7 +301,7 @@ export default function RoutinesScreen({
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) {}
+    } catch (e) { }
 
     // Detect changes for achievements
     const originalRoutine = editingRoutine;
@@ -471,10 +471,9 @@ export default function RoutinesScreen({
         entering={FadeInDown.duration(400).springify()}
         style={styles.header}
       >
-        <Text style={styles.title}>Rutinas</Text>
-        <Text style={styles.subtitle}>
+        <Text style={styles.title}>
           {filteredRoutines.length > 0
-            ? `${filteredRoutines.length} rutina${filteredRoutines.length > 1 ? "s" : ""} para ${currentDayAbbrev}`
+            ? `${filteredRoutines.length} rutina${filteredRoutines.length > 1 ? "s" : ""} para hoy`
             : routines.length > 0
               ? `Sin rutinas para ${currentDayAbbrev}`
               : "Crea tu primera rutina"}

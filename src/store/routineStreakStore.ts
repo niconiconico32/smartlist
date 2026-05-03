@@ -11,6 +11,7 @@ const ROUTINE_STREAK_KEY = '@smartlist_routine_streaks';
 export interface RoutineStreakData {
   count: number;
   lastCompletedDate: string | null; // "YYYY-MM-DD"
+  level?: number; // Accumulated level that never resets
 }
 
 export type RoutineStreaksMap = Record<string, RoutineStreakData>;
@@ -44,6 +45,11 @@ interface RoutineStreakStore {
    * validation really happens on record or when we explicitly check validity.
    */
   getStreak: (routineId: string) => number;
+
+  /**
+   * Gets the accumulated level for a routine. Never goes down.
+   */
+  getLevel: (routineId: string) => number;
 }
 
 export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
@@ -73,17 +79,20 @@ export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
       }
 
       let newCount = 1;
+      let newLevel = (currentData.level ?? currentData.count) + 1;
+
       if (currentData.lastCompletedDate && isLocalYesterday(currentData.lastCompletedDate)) {
         // Consecutive day
         newCount = currentData.count + 1;
       }
-      // If gap > 1 day (or null), streak resets to 1
+      // If gap > 1 day (or null), streak resets to 1, but level keeps growing
 
       const newStreaks = {
         ...streaks,
         [routineId]: {
           count: newCount,
           lastCompletedDate: today,
+          level: newLevel,
         },
       };
 
@@ -110,6 +119,7 @@ export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
         // It's not a perfect history track, but works perfectly for day-of toggling.
         
         let prevCount = Math.max(0, currentData.count - 1);
+        let prevLevel = Math.max(0, (currentData.level ?? currentData.count) - 1);
         
         // Let's format 'yesterday'. For an exact robust undo, we'd store history.
         // But simply reducing by 1 and leaving the date as 'maybe yesterday' is good enough.
@@ -123,6 +133,7 @@ export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
           [routineId]: {
             count: prevCount,
             lastCompletedDate: prevCount > 0 ? yesterdayStr : null,
+            level: prevLevel,
           },
         };
 
@@ -148,5 +159,12 @@ export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
     }
     
     return data.count;
+  },
+
+  getLevel: (routineId: string) => {
+    const { streaks } = get();
+    const data = streaks[routineId];
+    if (!data) return 0;
+    return data.level ?? data.count; // Fallback to count if level doesn't exist yet
   },
 }));

@@ -126,11 +126,16 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
         }
       } else {
         console.warn('No task data returned from transcription');
+        if (onTranscribed) onTranscribed('');
       }
 
     } catch (error) {
       console.error('Error procesando audio:', error);
-      alert('Error al crear tarea por voz. Por favor intenta de nuevo.');
+      if (onTranscribed) {
+        onTranscribed('');
+      } else {
+        alert('Error al crear tarea por voz. Por favor intenta de nuevo.');
+      }
     } finally {
       setIsStopping(false);
       setIsProcessing(false);

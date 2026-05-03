@@ -7,6 +7,8 @@ import { PaywallModal } from "@/src/components/PaywallModal";
 import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { ReviewRequestModal } from "@/src/components/ReviewRequestModal";
 import { posthog } from "@/src/config/posthog";
+import { ShopItem } from "@/src/config/shopItems";
+import { useShopItems } from "@/src/hooks/useShopItems";
 import {
     ACHIEVEMENT_DEFINITIONS,
     useAchievementsStore,
@@ -31,11 +33,10 @@ import {
     Store,
     Trophy,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Alert,
     Dimensions,
-    FlatList,
     Image,
     Modal,
     Platform,
@@ -53,236 +54,115 @@ const GRID_GAP = 12;
 const NUM_COLUMNS = 3;
 const ITEM_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2) / NUM_COLUMNS - GRID_GAP;
 
-// Prices
-const BG_PRICE = 500;
-const OUTFIT_PRICE = 650;
-
-// Shop items from assets
-const SHOP_ITEMS = [
-  // Backgrounds (PNG - originales)
-  {
-    id: "bg_spring",
-    name: "Primavera",
-    price: BG_PRICE,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/spring.png"),
-  },
-  {
-    id: "bg_beach",
-    name: "Playa",
-    price: BG_PRICE,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/beach.png"),
-  },
-  {
-    id: "bg_autumn",
-    name: "Otoño",
-    price: BG_PRICE,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/autumm.png"),
-  },
-  {
-    id: "bg_winter",
-    name: "Invierno",
-    price: BG_PRICE,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/winter.png"),
-  },
-  {
-    id: "bg_woods",
-    name: "Bosque",
-    price: BG_PRICE,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/woods.png"),
-  },
-  // Backgrounds (WEBP - nuevos)
-  {
-    id: "bg_w1",
-    name: "Fondo 1",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/1.webp"),
-  },
-  {
-    id: "bg_w2",
-    name: "Fondo 2",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/2.webp"),
-  },
-  {
-    id: "bg_w3",
-    name: "Fondo 3",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/3.webp"),
-  },
-  {
-    id: "bg_w4",
-    name: "Fondo 4",
-    price: 1250,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/4.webp"),
-  },
-  {
-    id: "bg_w5",
-    name: "Fondo 5",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/5.webp"),
-  },
-  {
-    id: "bg_w6",
-    name: "Fondo 6",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/6.webp"),
-  },
-  {
-    id: "bg_w7",
-    name: "Fondo 7",
-    price: 1250,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/7.webp"),
-  },
-  {
-    id: "bg_w8",
-    name: "Fondo 8",
-    price: 1250,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/8.webp"),
-  },
-  {
-    id: "bg_w9",
-    name: "Fondo 9",
-    price: 1650,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/9.webp"),
-  },
-  {
-    id: "bg_w10",
-    name: "Fondo 10",
-    price: 1650,
-    isPro: true,
-    type: "background" as const,
-    image: require("@/assets/images/pixelbgs/10.webp"),
-  },
-  // Outfits (PNG - originales)
-  {
-    id: "outfit_1_1",
-    name: "Outfit 1",
-    price: OUTFIT_PRICE,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/1_1.png"),
-  },
-  {
-    id: "outfit_1_2",
-    name: "Outfit 2",
-    price: OUTFIT_PRICE,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/1_2.png"),
-  },
-  {
-    id: "outfit_1_3",
-    name: "Outfit 3",
-    price: OUTFIT_PRICE,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/1_3.png"),
-  },
-  {
-    id: "outfit_1_4",
-    name: "Outfit 4",
-    price: OUTFIT_PRICE,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/1_4.png"),
-  },
-  // Outfits (WEBP - nuevos)
-  {
-    id: "outfit_w5",
-    name: "Outfit 5",
-    price: 1600,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/5.webp"),
-  },
-  {
-    id: "outfit_w6",
-    name: "Outfit 6",
-    price: 1750,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/6.webp"),
-  },
-  {
-    id: "outfit_w7",
-    name: "Outfit 7",
-    price: 1900,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/7.webp"),
-  },
-  {
-    id: "outfit_w8",
-    name: "Outfit 8",
-    price: 1750,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/8.webp"),
-  },
-  {
-    id: "outfit_w9",
-    name: "Outfit 9",
-    price: 1750,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/9.webp"),
-  },
-  {
-    id: "outfit_w10",
-    name: "Outfit 10",
-    price: 1750,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/10.webp"),
-  },
-  {
-    id: "outfit_w11",
-    name: "Outfit 11",
-    price: 1750,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/11.webp"),
-  },
-  {
-    id: "outfit_w12",
-    name: "Outfit 12",
-    price: 2200,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/12.webp"),
-  },
-  {
-    id: "outfit_w13",
-    name: "Outfit 13",
-    price: 1750,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/13.webp"),
-  },
-  {
-    id: "outfit_w14",
-    name: "Outfit 14",
-    price: 1750,
-    isPro: true,
-    type: "outfit" as const,
-    image: require("@/assets/images/outfits/14.webp"),
-  },
-];
-
-type ShopItem = (typeof SHOP_ITEMS)[number];
 type TabType = "logros" | "tienda";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Memoized shop item card — only re-renders when its specific props change.
+// This prevents all 39 cards from re-rendering whenever totalCoins changes.
+// ─────────────────────────────────────────────────────────────────────────────
+type ShopItemCardProps = {
+  item: ShopItem;
+  owned: boolean;
+  active: boolean;
+  canAfford: boolean;
+  proLocked: boolean;
+  onItemPress: (item: ShopItem) => void;
+  onApply: (item: ShopItem) => void;
+};
+
+const ShopItemCard = React.memo(function ShopItemCard({
+  item,
+  owned,
+  active,
+  canAfford,
+  proLocked,
+  onItemPress,
+  onApply,
+}: ShopItemCardProps) {
+  return (
+    <View style={styles.shopItemCard}>
+      <View
+        style={[
+          styles.shopImageContainer,
+          active && styles.shopImageContainerActive,
+        ]}
+      >
+        <Image
+          source={item.imageUri ? { uri: item.imageUri } : item.image}
+          style={
+            item.type === "outfit" ? styles.shopOutfitImage : styles.shopImage
+          }
+          resizeMode={item.type === "outfit" ? "contain" : "cover"}
+        />
+        {!!item.isPro && (
+          <View style={styles.proBadge}>
+            <Crown size={12} color="#FFD700" fill="#FFD700" strokeWidth={2.5} />
+          </View>
+        )}
+      </View>
+      <View style={styles.shopItemDetails}>
+        {!owned ? (
+          proLocked ? (
+            <Pressable
+              style={[styles.actionButton, styles.proLockedButton]}
+              onPress={() => onItemPress(item)}
+            >
+              <Crown
+                size={14}
+                color="#FFD700"
+                fill="#FFD700"
+                strokeWidth={2.5}
+              />
+              <Text style={styles.proLockedButtonText}>PRO</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={[
+                styles.actionButton,
+                canAfford ? styles.buyButtonAffordable : styles.buyButtonLocked,
+              ]}
+              onPress={() => onItemPress(item)}
+              disabled={!canAfford}
+            >
+              {!canAfford ? (
+                <Lock size={14} color="#9CA3AF" strokeWidth={2.5} />
+              ) : (
+                <Crown size={14} color="#FFFFFF" strokeWidth={2.5} />
+              )}
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  canAfford
+                    ? styles.buyButtonTextAffordable
+                    : styles.buyButtonTextLocked,
+                ]}
+              >
+                {item.price}
+              </Text>
+            </Pressable>
+          )
+        ) : (
+          <Pressable
+            style={[
+              styles.actionButton,
+              active ? styles.applyButtonActive : styles.applyButton,
+            ]}
+            onPress={() => onApply(item)}
+          >
+            <Text
+              style={[
+                styles.actionButtonText,
+                active ? styles.applyButtonTextActive : styles.applyButtonText,
+              ]}
+            >
+              {active ? "Equipado" : "Equipar"}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+});
 
 export default function AchievementsScreen() {
   const {
@@ -300,6 +180,7 @@ export default function AchievementsScreen() {
   } = useAchievementsStore();
   const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const { isPro } = useProStore();
+  const shopItems = useShopItems();
   const [activeTab, setActiveTab] = useState<TabType>("logros");
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -311,52 +192,64 @@ export default function AchievementsScreen() {
     void loadAchievements();
   }, []);
 
-  const handleTabPress = (tab: TabType) => {
-    if (tab === activeTab) return;
-    if (Platform.OS === "ios") {
-      Haptics.selectionAsync();
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setActiveTab(tab);
-  };
+  const handleTabPress = useCallback(
+    (tab: TabType) => {
+      if (tab === activeTab) return;
+      if (Platform.OS === "ios") {
+        Haptics.selectionAsync();
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      setActiveTab(tab);
+    },
+    [activeTab],
+  );
 
-  const isOwned = (item: ShopItem) => {
-    if (item.type === "background")
-      return purchasedBackgrounds.includes(item.id);
-    return purchasedOutfits.includes(item.id);
-  };
+  const isOwned = useCallback(
+    (item: ShopItem) => {
+      if (item.type === "background")
+        return purchasedBackgrounds.includes(item.id);
+      return purchasedOutfits.includes(item.id);
+    },
+    [purchasedBackgrounds, purchasedOutfits],
+  );
 
-  const isActive = (item: ShopItem) => {
-    if (item.type === "background") return activeBackground === item.id;
-    return activeOutfit === item.id;
-  };
+  const isActive = useCallback(
+    (item: ShopItem) => {
+      if (item.type === "background") return activeBackground === item.id;
+      return activeOutfit === item.id;
+    },
+    [activeBackground, activeOutfit],
+  );
 
-  const handleItemPress = (item: ShopItem) => {
-    if (isOwned(item)) return; // owned items use the "Aplicar" button
+  const handleItemPress = useCallback(
+    (item: ShopItem) => {
+      if (isOwned(item)) return; // owned items use the "Aplicar" button
 
-    // Pro-exclusive gate: non-pro users see the paywall
-    if (item.isPro && !isPro) {
-      posthog.capture("shop_pro_item_tapped", {
-        item_type: item.type,
-        item_id: item.id,
-        is_pro: false,
-      });
-      setShowPaywall(true);
-      return;
-    }
+      // Pro-exclusive gate: non-pro users see the paywall
+      if (item.isPro && !isPro) {
+        posthog.capture("shop_pro_item_tapped", {
+          item_type: item.type,
+          item_id: item.id,
+          is_pro: false,
+        });
+        setShowPaywall(true);
+        return;
+      }
 
-    if (totalCoins < item.price) {
-      Alert.alert(
-        "Coronas insuficientes",
-        `Necesitas ${item.price - totalCoins} coronas más para comprar "${item.name}".`,
-      );
-      return;
-    }
-    setConfirmItem(item);
-  };
+      if (totalCoins < item.price) {
+        Alert.alert(
+          "Coronas insuficientes",
+          `Necesitas ${item.price - totalCoins} coronas más para comprar "${item.name}".`,
+        );
+        return;
+      }
+      setConfirmItem(item);
+    },
+    [isPro, totalCoins, isOwned],
+  );
 
-  const handleConfirmPurchase = async () => {
+  const handleConfirmPurchase = useCallback(async () => {
     if (!confirmItem) return;
     // Safety: block pro-only items for non-pro users
     if (confirmItem.isPro && !isPro) {
@@ -383,183 +276,92 @@ export default function AchievementsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     setConfirmItem(null);
-  };
+  }, [confirmItem, isPro, totalCoins, spendCoins, onPurchaseMade]);
 
-  const handleApply = async (item: ShopItem) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (item.type === "background") {
-      // Toggle: if already active, deactivate
-      const isDeactivatingBg = activeBackground === item.id;
-      if (isDeactivatingBg) {
-        await setActiveBackground(null);
+  const handleApply = useCallback(
+    async (item: ShopItem) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (item.type === "background") {
+        // Toggle: if already active, deactivate
+        const isDeactivatingBg = activeBackground === item.id;
+        if (isDeactivatingBg) {
+          await setActiveBackground(null, null);
+        } else {
+          await setActiveBackground(item.id, item.imageUri ?? null);
+        }
+
+        // Sync background to Android widget immediately (two.tsx may be unmounted)
+        if (Platform.OS === "android") {
+          try {
+            await AsyncStorage.setItem(
+              WIDGET_BG_ID_KEY,
+              isDeactivatingBg ? "" : item.id,
+            );
+            await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, "user");
+            requestWidgetUpdate({
+              widgetName: "RoutinesWidget",
+              renderWidget: renderRoutinesWidget,
+            });
+          } catch (e) {
+            console.warn("Widget: could not sync background change", e);
+          }
+        }
       } else {
-        await setActiveBackground(item.id);
-      }
+        const isDeactivating = activeOutfit === item.id;
+        if (isDeactivating) {
+          await setActiveOutfit(null, null);
+        } else {
+          await setActiveOutfit(item.id, item.imageUri ?? null);
+        }
 
-      // Sync background to Android widget immediately (two.tsx may be unmounted)
-      if (Platform.OS === "android") {
-        try {
-          await AsyncStorage.setItem(
-            WIDGET_BG_ID_KEY,
-            isDeactivatingBg ? "" : item.id,
-          );
-          await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, "user");
-          requestWidgetUpdate({
-            widgetName: "RoutinesWidget",
-            renderWidget: renderRoutinesWidget,
-          });
-        } catch (e) {
-          console.warn("Widget: could not sync background change", e);
+        // Sync outfit to Android widget immediately (two.tsx may be unmounted)
+        if (Platform.OS === "android") {
+          try {
+            await AsyncStorage.setItem(
+              WIDGET_OUTFIT_ID_KEY,
+              isDeactivating ? "" : item.id,
+            );
+            requestWidgetUpdate({
+              widgetName: "RoutinesWidget",
+              renderWidget: renderRoutinesWidget,
+            });
+          } catch (e) {
+            console.warn("Widget: could not sync outfit change", e);
+          }
         }
       }
-    } else {
-      const isDeactivating = activeOutfit === item.id;
-      if (isDeactivating) {
-        await setActiveOutfit(null);
-      } else {
-        await setActiveOutfit(item.id);
-      }
+    },
+    [activeBackground, activeOutfit, setActiveBackground, setActiveOutfit],
+  );
 
-      // Sync outfit to Android widget immediately (two.tsx may be unmounted)
-      if (Platform.OS === "android") {
-        try {
-          await AsyncStorage.setItem(
-            WIDGET_OUTFIT_ID_KEY,
-            isDeactivating ? "" : item.id,
-          );
-          requestWidgetUpdate({
-            widgetName: "RoutinesWidget",
-            renderWidget: renderRoutinesWidget,
-          });
-        } catch (e) {
-          console.warn("Widget: could not sync outfit change", e);
-        }
-      }
-    }
-  };
+  // Memoized derived data — avoids recomputation on unrelated renders
+  const achievementsList = useMemo<Achievement[]>(
+    () =>
+      Object.values(ACHIEVEMENT_DEFINITIONS).map((def) => {
+        const progress = achievements[def.id];
+        return {
+          id: def.id,
+          title: def.title,
+          icon: def.icon,
+          gradient: def.gradient,
+          progress: progress?.progress || 0,
+          total: def.total,
+          completed: progress?.completed || false,
+          coins: def.coins,
+        };
+      }),
+    [achievements],
+  );
 
-  // Convert store achievements to display format
-  const achievementsList: Achievement[] = Object.values(
-    ACHIEVEMENT_DEFINITIONS,
-  ).map((def) => {
-    const progress = achievements[def.id];
-    return {
-      id: def.id,
-      title: def.title,
-      icon: def.icon,
-      gradient: def.gradient,
-      progress: progress?.progress || 0,
-      total: def.total,
-      completed: progress?.completed || false,
-      coins: def.coins,
-    };
-  });
+  const bgItems = useMemo(
+    () => shopItems.filter((i) => i.type === "background"),
+    [shopItems],
+  );
 
-  const renderShopItem = ({ item }: { item: ShopItem }) => {
-    const owned = isOwned(item);
-    const active = isActive(item);
-    const canAfford = totalCoins >= item.price;
-    const isOutfit = item.type === "outfit";
-    const proExclusive = !!item.isPro;
-    // Non-pro users can't buy pro items (but can still use already-owned ones)
-    const proLocked = proExclusive && !isPro && !owned;
-
-    return (
-      <View key={item.id} style={styles.shopItemCard}>
-        <View
-          style={[
-            styles.shopImageContainer,
-            active && styles.shopImageContainerActive,
-          ]}
-        >
-          <Image
-            source={item.image}
-            style={
-              item.type === "outfit" ? styles.shopOutfitImage : styles.shopImage
-            }
-            resizeMode={item.type === "outfit" ? "contain" : "cover"}
-          />
-          {/* Pro badge – always visible on pro-exclusive items */}
-          {proExclusive && (
-            <View style={styles.proBadge}>
-              <Crown
-                size={12}
-                color="#FFD700"
-                fill="#FFD700"
-                strokeWidth={2.5}
-              />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.shopItemDetails}>
-          {!owned ? (
-            proLocked ? (
-              /* Non-pro: show PRO lock button */
-              <Pressable
-                style={[styles.actionButton, styles.proLockedButton]}
-                onPress={() => handleItemPress(item)}
-              >
-                <Crown
-                  size={14}
-                  color="#FFD700"
-                  fill="#FFD700"
-                  strokeWidth={2.5}
-                />
-                <Text style={styles.proLockedButtonText}>PRO</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[
-                  styles.actionButton,
-                  totalCoins >= item.price
-                    ? styles.buyButtonAffordable
-                    : styles.buyButtonLocked,
-                ]}
-                onPress={() => handleItemPress(item)}
-                disabled={totalCoins < item.price}
-              >
-                {totalCoins < item.price ? (
-                  <Lock size={14} color="#9CA3AF" strokeWidth={2.5} />
-                ) : (
-                  <Crown size={14} color="#FFFFFF" strokeWidth={2.5} />
-                )}
-                <Text
-                  style={[
-                    styles.actionButtonText,
-                    totalCoins >= item.price
-                      ? styles.buyButtonTextAffordable
-                      : styles.buyButtonTextLocked,
-                  ]}
-                >
-                  {item.price}
-                </Text>
-              </Pressable>
-            )
-          ) : (
-            <Pressable
-              style={[
-                styles.actionButton,
-                active ? styles.applyButtonActive : styles.applyButton,
-              ]}
-              onPress={() => handleApply(item)}
-            >
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  active
-                    ? styles.applyButtonTextActive
-                    : styles.applyButtonText,
-                ]}
-              >
-                {active ? "Equipado" : "Equipar"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    );
-  };
+  const outfitItems = useMemo(
+    () => shopItems.filter((i) => i.type === "outfit"),
+    [shopItems],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -665,7 +467,7 @@ export default function AchievementsScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => router.push('/onboarding-v3')}
+            onPress={() => router.push("/onboarding-v3")}
             style={{
               flex: 1,
               backgroundColor: "#10B981",
@@ -768,26 +570,45 @@ export default function AchievementsScreen() {
           >
             {/* Backgrounds Section */}
             <Text style={styles.shopSectionTitle}>Fondos</Text>
-            <FlatList
-              data={SHOP_ITEMS.filter((i) => i.type === "background")}
-              renderItem={renderShopItem}
-              keyExtractor={(item) => item.id}
-              numColumns={NUM_COLUMNS}
-              scrollEnabled={false}
-              columnWrapperStyle={styles.shopFlatListRow}
-              contentContainerStyle={{ marginBottom: 24 }}
-            />
+            <View style={[styles.shopGrid, { marginBottom: 24 }]}>
+              {bgItems.map((item) => (
+                <ShopItemCard
+                  key={item.id}
+                  item={item}
+                  owned={purchasedBackgrounds.includes(item.id)}
+                  active={activeBackground === item.id}
+                  canAfford={totalCoins >= item.price}
+                  proLocked={
+                    !!item.isPro &&
+                    !isPro &&
+                    !purchasedBackgrounds.includes(item.id)
+                  }
+                  onItemPress={handleItemPress}
+                  onApply={handleApply}
+                />
+              ))}
+            </View>
 
             {/* Outfits Section */}
             <Text style={styles.shopSectionTitle}>Outfits</Text>
-            <FlatList
-              data={SHOP_ITEMS.filter((i) => i.type === "outfit")}
-              renderItem={renderShopItem}
-              keyExtractor={(item) => item.id}
-              numColumns={NUM_COLUMNS}
-              scrollEnabled={false}
-              columnWrapperStyle={styles.shopFlatListRow}
-            />
+            <View style={styles.shopGrid}>
+              {outfitItems.map((item) => (
+                <ShopItemCard
+                  key={item.id}
+                  item={item}
+                  owned={purchasedOutfits.includes(item.id)}
+                  active={activeOutfit === item.id}
+                  canAfford={totalCoins >= item.price}
+                  proLocked={
+                    !!item.isPro &&
+                    !isPro &&
+                    !purchasedOutfits.includes(item.id)
+                  }
+                  onItemPress={handleItemPress}
+                  onApply={handleApply}
+                />
+              ))}
+            </View>
           </ScrollView>
         )}
 
@@ -805,7 +626,11 @@ export default function AchievementsScreen() {
                   {/* Large image area at top */}
                   <View style={styles.modalImageArea}>
                     <Image
-                      source={confirmItem.image}
+                      source={
+                        confirmItem.imageUri
+                          ? { uri: confirmItem.imageUri }
+                          : confirmItem.image
+                      }
                       style={styles.modalImageFull}
                       resizeMode={
                         confirmItem.type === "outfit" ? "contain" : "cover"
