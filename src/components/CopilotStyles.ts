@@ -215,7 +215,7 @@ export const copilotStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    backgroundColor: C.background,
+    backgroundColor: C.surface,
     zIndex: 10,
   },
   recordingRedDot: {

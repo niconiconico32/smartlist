@@ -2,8 +2,16 @@
   "expo": {
     "name": "Brainy",
     "slug": "brainy",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "orientation": "default",
+    "updates": {
+      "url": "https://u.expo.dev/0025faea-a07f-4447-9b45-fd5edb5469a9",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "icon": "./assets/images/appstorelogo.png",
     "scheme": "brainy",
     "userInterfaceStyle": "automatic",
@@ -22,7 +30,7 @@
         "NSUserTrackingUsageDescription": "This identifier will be used to measure the effectiveness of advertising and improve your experience in the app."
       },
       "bundleIdentifier": "com.brainyahdh.app",
-      "buildNumber": "11"
+      "buildNumber": "12"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +40,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.brainyahdh.app",
-      "versionCode": 17,
+      "versionCode": 18,
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",

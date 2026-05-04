@@ -300,6 +300,18 @@ function BreathingMicButton({
     }
   }, [isRecording, isProcessing]);
 
+  // Must be defined before any conditional return to follow Rules of Hooks
+  const compactMicStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: withSpring(isRecording ? 1.5 : 1, {
+          damping: 12,
+          stiffness: 100,
+        }),
+      },
+    ],
+  }));
+
   const handlePressIn = () => {
     isActuallyRecording.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -329,17 +341,6 @@ function BreathingMicButton({
 
   // Compact mode: simple inline mic button for inside the text input bar
   if (compact) {
-    const compactMicStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          scale: withSpring(isRecording ? 1.5 : 1, {
-            damping: 12,
-            stiffness: 100,
-          }),
-        },
-      ],
-    }));
-
     return (
       <Pressable
         onPressIn={handlePressIn}

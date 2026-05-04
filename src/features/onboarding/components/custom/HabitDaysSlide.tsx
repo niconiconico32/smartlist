@@ -9,7 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Flame } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
 import Animated, {
     FadeInDown,
@@ -142,6 +142,12 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
       <Animated.View entering={FadeInDown.delay(0).duration(500)} style={styles.logoContainer}>
         <Image
           source={require('@/assets/images/streak.png')}
@@ -182,6 +188,7 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
           duraderos
         </Text>
       </Animated.View>
+      </ScrollView>
 
       {showButton && (
         <Animated.View style={[styles.buttonContainer, buttonStyle]}>
@@ -212,9 +219,15 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
     paddingHorizontal: 32,
     paddingTop: 60,
     alignItems: 'center',
+    paddingBottom: 16,
   },
   logoContainer: {
     alignItems: 'center',
@@ -299,9 +312,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   buttonContainer: {
-    marginTop: 32,
+    marginTop: 0,
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 52,
+    paddingBottom: 40,
+    paddingTop: 16,
   },
 });
 

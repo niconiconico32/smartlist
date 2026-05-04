@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 // ─── DEV BYPASS ──────────────────────────────────────────────────────────────
 // Set to true to disable the force-update gate while developing the screen.
-const FORCE_UPDATE_DISABLED = true;
+const FORCE_UPDATE_DISABLED = false;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
