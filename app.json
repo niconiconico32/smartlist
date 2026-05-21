@@ -25,6 +25,7 @@
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "We convert your voice to text for rapid task creation. This helps users with ADHD capture ideas instantly before distractions cause a loss of focus.",
         "NSMicrophoneUsageDescription": "Usamos el micrófono para que dictes tus tareas y tu mascota las organice.",
+        "NSPhotoLibraryUsageDescription": "Brainy necesita acceso a tu galería para que puedas personalizar tu perfil con una foto.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.brainyahdh.app",
