@@ -4,8 +4,7 @@
 # Local/native build caches and outputs
 android/.gradle/
 android/build/
-ios/build/
-ios/Pods/
+ios/
 
 # General caches
 .expo/
