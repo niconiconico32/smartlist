@@ -1,11 +1,12 @@
-import { Audio } from 'expo-av';
+import { useAudioRecorder, setAudioModeAsync, requestRecordingPermissionsAsync, RecordingPresets } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTaskStore } from '../store/taskStore';
 
 export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -13,13 +14,13 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
 
   const cleanup = async () => {
     try {
-      if (recording) {
-        await recording.stopAndUnloadAsync().catch(() => {});
-        setRecording(null);
+      if (isRecording) {
+        await recorder.stop().catch(() => {});
+        setIsRecording(false);
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
       }).catch(() => {});
       setIsStarting(false);
       setIsStopping(false);
@@ -31,7 +32,7 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
 
   const startRecording = async () => {
     // Evitar iniciar múltiples grabaciones simultáneamente
-    if (recording || isStarting || isProcessing || isStopping) {
+    if (isRecording || isStarting || isProcessing || isStopping) {
       console.warn('Recording already active or in process');
       return;
     }
@@ -41,22 +42,21 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
 
     setIsStarting(true);
     try {
-      const { status } = await Audio.requestPermissionsAsync();
+      const { status } = await requestRecordingPermissionsAsync();
       if (status !== 'granted') {
         console.warn('Audio recording permission not granted');
         setIsStarting(false);
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(newRecording);
+      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
+      recorder.record();
+      setIsRecording(true);
     } catch (err) {
       console.error('Error al iniciar grabación', err);
       await cleanup();
@@ -67,28 +67,27 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
 
   const stopRecordingAndCreateTask = async () => {
     // Proteger contra múltiples llamadas simultáneas
-    if (!recording || isProcessing || isStopping || isStarting) {
+    if (!isRecording || isProcessing || isStopping || isStarting) {
       console.warn('No active recording or already processing');
       return;
     }
 
     setIsStopping(true);
     setIsProcessing(true);
-    const recordingToStop = recording;
-    setRecording(null);
+    setIsRecording(false);
 
     try {
-      // Detener y descargar la grabación
-      await recordingToStop.stopAndUnloadAsync();
+      // Detener la grabación
+      await recorder.stop();
       
       // Reset audio mode para liberar recursos
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: false,
       });
       
       // Obtener URI del archivo
-      const uri = recordingToStop.getURI();
+      const uri = recorder.uri;
 
       if (!uri) {
         console.error('No audio URI found');
@@ -143,7 +142,7 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
   };
 
   return {
-    recording: !!recording,
+    recording: isRecording,
     isProcessing,
     startRecording,
     stopRecording: stopRecordingAndCreateTask,
