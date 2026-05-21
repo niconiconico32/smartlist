@@ -9,9 +9,7 @@
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.15",
     "icon": "./assets/images/appstorelogo.png",
     "scheme": "brainy",
     "userInterfaceStyle": "automatic",
@@ -25,11 +23,29 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use the microphone.",
-        "NSUserTrackingUsageDescription": "This identifier will be used to measure the effectiveness of advertising and improve your experience in the app."
+        "NSSpeechRecognitionUsageDescription": "We convert your voice to text for rapid task creation. This helps users with ADHD capture ideas instantly before distractions cause a loss of focus.",
+        "NSMicrophoneUsageDescription": "Usamos el micrófono para que dictes tus tareas y tu mascota las organice."
       },
       "bundleIdentifier": "com.brainyahdh.app",
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeHealthAndFitness",
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ],
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false
+          }
+        ],
+        "NSPrivacyTracking": false
+      },
       "buildNumber": "12"
     },
     "android": {
@@ -55,6 +71,21 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.brainyahdh.app.widgets",
+          "groupIdentifier": "group.com.vstefanello.adhdapp",
+          "widgets": [
+            {
+              "name": "RoutinesWidget",
+              "displayName": "Brainy Rutinas",
+              "description": "Tus rutinas del día con Brainy",
+              "supportedFamilies": ["systemSmall", "systemMedium"]
+            }
+          ]
+        }
+      ],
       "expo-router",
       [
         "expo-build-properties",
