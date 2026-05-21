@@ -123,7 +123,7 @@
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Necesitamos acceso a tu micrófono para que puedas dictar nuevas tareas."
         }
