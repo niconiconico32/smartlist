@@ -24,17 +24,34 @@
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "We convert your voice to text for rapid task creation. This helps users with ADHD capture ideas instantly before distractions cause a loss of focus.",
-        "NSMicrophoneUsageDescription": "Usamos el micrófono para que dictes tus tareas y tu mascota las organice."
+        "NSMicrophoneUsageDescription": "Usamos el micrófono para que dictes tus tareas y tu mascota las organice.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.brainyahdh.app",
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           }
         ],
         "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeHealthAndFitness",
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ],
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false
+          },
           {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeHealthAndFitness",
             "NSPrivacyCollectedDataTypePurposes": [
@@ -63,7 +80,9 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "blockedPermissions": ["android.permission.RECEIVE_BOOT_COMPLETED"]
+      "blockedPermissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -74,14 +93,17 @@
       [
         "expo-widgets",
         {
-          "bundleIdentifier": "com.brainyahdh.app.widgets",
-          "groupIdentifier": "group.com.vstefanello.adhdapp",
+          "bundleIdentifier": "com.brainyahdh.app.ExpoWidgetsTarget",
+          "groupIdentifier": "group.com.brainyahdh.app",
           "widgets": [
             {
               "name": "RoutinesWidget",
               "displayName": "Brainy Rutinas",
               "description": "Tus rutinas del día con Brainy",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium"
+              ]
             }
           ]
         }
