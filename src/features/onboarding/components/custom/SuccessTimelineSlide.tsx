@@ -3,14 +3,15 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Crown, Flame, Sparkles } from 'lucide-react-native';
-import React, { useEffect } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Crown, Flame, Sparkles } from "lucide-react-native";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -21,7 +22,7 @@ import Animated, {
     withSequence,
     withSpring,
     withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 // ============================================
 // TIMELINE NODE (internal)
@@ -52,12 +53,18 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
   const nodeScale = useSharedValue(0);
 
   useEffect(() => {
-    nodeScale.value = withDelay(delay, withSpring(1, { damping: 12, stiffness: 100 }));
+    nodeScale.value = withDelay(
+      delay,
+      withSpring(1, { damping: 12, stiffness: 100 }),
+    );
     if (isFirst) {
       glowOpacity.value = withDelay(
         delay + 300,
         withRepeat(
-          withSequence(withTiming(1, { duration: 1200 }), withTiming(0.4, { duration: 1200 })),
+          withSequence(
+            withTiming(1, { duration: 1200 }),
+            withTiming(0.4, { duration: 1200 }),
+          ),
           -1,
           true,
         ),
@@ -65,13 +72,17 @@ const TimelineNode: React.FC<TimelineNodeProps> = ({
     }
   }, []);
 
-  const nodeStyle = useAnimatedStyle(() => ({ transform: [{ scale: nodeScale.value }] }));
+  const nodeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: nodeScale.value }],
+  }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
 
   return (
     <Animated.View style={[s.nodeContainer, nodeStyle]}>
       {isFirst && (
-        <Animated.View style={[s.nodeGlow, { backgroundColor: glowColor }, glowStyle]} />
+        <Animated.View
+          style={[s.nodeGlow, { backgroundColor: glowColor }, glowStyle]}
+        />
       )}
       <View style={[s.nodeCircle, { borderColor: color }]}>
         <LinearGradient colors={[color, glowColor]} style={s.nodeGradient}>
@@ -95,6 +106,7 @@ interface Props {
 }
 
 const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const mascotY = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
@@ -109,7 +121,9 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
     );
   }, []);
 
-  const mascotStyle = useAnimatedStyle(() => ({ transform: [{ translateY: mascotY.value }] }));
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
@@ -122,20 +136,29 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
   };
 
   return (
-    <LinearGradient colors={[colors.background, '#16213E']} style={s.container}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={s.title}>
-          Tu Cronología de Éxito
+    <LinearGradient colors={[colors.background, "#16213E"]} style={s.container}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={s.title}
+        >
+          {t("onboarding.success_timeline.title")}
         </Animated.Text>
 
-        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={s.subtitle}>
-          No es magia. Es neurociencia aplicada a tus tiempos.
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={s.subtitle}
+        >
+          {t("onboarding.success_timeline.subtitle")}
         </Animated.Text>
 
         <View style={s.timelineContainer}>
           <View style={s.pathContainer}>
             <LinearGradient
-              colors={[colors.textPrimary, '#FAB387', '#CBA6F7']}
+              colors={[colors.textPrimary, "#FAB387", "#CBA6F7"]}
               start={{ x: 0, y: 1 }}
               end={{ x: 0, y: 0 }}
               style={s.pathLine}
@@ -146,12 +169,12 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
           <Animated.View style={[s.mascotContainer, mascotStyle]}>
             <View style={s.speechBubble}>
               <Text style={s.speechBubbleText}>
-                ¡Tu nuevo yo está más cerca de lo que crees!
+                {t("onboarding.success_timeline.mascot_speech")}
               </Text>
               <View style={s.speechBubbleArrow} />
             </View>
             <Image
-              source={require('@/assets/images/logomain.png')}
+              source={require("@/assets/images/logomain.png")}
               style={s.mascot}
               resizeMode="contain"
             />
@@ -159,38 +182,53 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
 
           <View style={s.nodesContainer}>
             <TimelineNode
-              day="Día 30"
-              title="Control Total"
-              description="La procrastinación ya no es tu jefe. Tú mandas."
+              day={t("onboarding.success_timeline.nodes.day30.day")}
+              title={t("onboarding.success_timeline.nodes.day30.title")}
+              description={t(
+                "onboarding.success_timeline.nodes.day30.description",
+              )}
               color="#CBA6F7"
               glowColor="#9D4EDD"
-              icon={<Crown size={20} color={colors.textPrimary} strokeWidth={2} />}
+              icon={
+                <Crown size={20} color={colors.textPrimary} strokeWidth={2} />
+              }
               delay={1800}
               isLast
             />
             <TimelineNode
-              day="Día 7"
-              title="Inercia Positiva"
-              description="Tus primeras rachas se sienten naturales, no forzadas."
+              day={t("onboarding.success_timeline.nodes.day7.day")}
+              title={t("onboarding.success_timeline.nodes.day7.title")}
+              description={t(
+                "onboarding.success_timeline.nodes.day7.description",
+              )}
               color="#FAB387"
               glowColor="#FF8C42"
-              icon={<Flame size={20} color={colors.textPrimary} strokeWidth={2} />}
+              icon={
+                <Flame size={20} color={colors.textPrimary} strokeWidth={2} />
+              }
               delay={1200}
             />
             <TimelineNode
-              day="Día 1 (Hoy)"
-              title="Alivio Mental"
-              description="Dejas de guardar todo en tu cabeza. Tu ansiedad baja hoy mismo."
+              day={t("onboarding.success_timeline.nodes.day1.day")}
+              title={t("onboarding.success_timeline.nodes.day1.title")}
+              description={t(
+                "onboarding.success_timeline.nodes.day1.description",
+              )}
               color={colors.textPrimary}
               glowColor="#A6E3A1"
-              icon={<Sparkles size={20} color={colors.background} strokeWidth={2} />}
+              icon={
+                <Sparkles size={20} color={colors.background} strokeWidth={2} />
+              }
               delay={600}
               isFirst
             />
           </View>
         </View>
 
-        <Animated.View entering={FadeInDown.delay(2200).duration(500)} style={s.buttonContainer}>
+        <Animated.View
+          entering={FadeInDown.delay(2200).duration(500)}
+          style={s.buttonContainer}
+        >
           <Animated.View style={buttonAnimatedStyle}>
             <Pressable
               onPress={() => {
@@ -207,7 +245,9 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
                 end={{ x: 1, y: 0 }}
                 style={primaryButtonGradient}
               >
-                <Text style={primaryButtonText}>Ver mi Regalo de Bienvenida</Text>
+                <Text style={primaryButtonText}>
+                  {t("onboarding.success_timeline.cta")}
+                </Text>
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -226,36 +266,36 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
   },
   timelineContainer: {
-    position: 'relative',
+    position: "relative",
     minHeight: 450,
     marginBottom: 24,
   },
   pathContainer: {
-    position: 'absolute',
+    position: "absolute",
     left: 27,
     top: 60,
     bottom: 60,
     width: 6,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   pathLine: { flex: 1, borderRadius: 3 },
   pathGlow: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: -4,
     right: -4,
@@ -264,11 +304,11 @@ const s = StyleSheet.create({
     borderRadius: 8,
   },
   mascotContainer: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     bottom: -10,
-    display: 'flex',
-    flexDirection: 'row',
+    display: "flex",
+    flexDirection: "row",
   },
   mascot: { width: 60, height: 60 },
   speechBubble: {
@@ -278,8 +318,8 @@ const s = StyleSheet.create({
     borderRadius: 16,
     maxWidth: 160,
     marginRight: 8,
-    position: 'relative',
-    shadowColor: '#CBA6F7',
+    position: "relative",
+    shadowColor: "#CBA6F7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -287,34 +327,34 @@ const s = StyleSheet.create({
   },
   speechBubbleText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.background,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 16,
   },
   speechBubbleArrow: {
-    position: 'absolute',
+    position: "absolute",
     right: -8,
-    top: '50%',
+    top: "50%",
     marginTop: -6,
     width: 0,
     height: 0,
     borderTopWidth: 6,
     borderBottomWidth: 6,
     borderLeftWidth: 8,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
+    borderTopColor: "transparent",
+    borderBottomColor: "transparent",
     borderLeftColor: `${colors.textPrimary}F2`,
   },
   nodesContainer: { paddingLeft: 0, gap: 24 },
   nodeContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingLeft: 0,
-    position: 'relative',
+    position: "relative",
   },
   nodeGlow: {
-    position: 'absolute',
+    position: "absolute",
     left: 4,
     top: 4,
     width: 52,
@@ -326,26 +366,26 @@ const s = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     borderWidth: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
     backgroundColor: `${colors.background}CC`,
   },
-  nodeGradient: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  nodeGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
   nodeContent: { flex: 1, marginLeft: 16, paddingTop: 4 },
   nodeDay: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 1,
     marginBottom: 4,
   },
   nodeTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
     marginBottom: 4,
   },
   nodeDescription: {
     fontSize: 13,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
     lineHeight: 18,
   },

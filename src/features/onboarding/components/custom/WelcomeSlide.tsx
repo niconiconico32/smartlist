@@ -1,158 +1,264 @@
+import { AppText as Text } from "@/src/components/AppText";
+import { GoogleButton } from "@/src/components/GoogleButton";
+import { useAuth } from "@/src/contexts/AuthContext";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Haptics from "expo-haptics";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { useAuth } from '@/src/contexts/AuthContext';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useEffect } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import { GoogleButton } from '@/src/components/GoogleButton';
-import { useOnboardingStore } from '@/src/store/onboardingStore';
-import Animated, {
-    Easing,
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSpring,
-    withTiming,
-} from 'react-native-reanimated';
-import { slideStyles } from '../../styles/shared';
+  ActivityIndicator,
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  Text as RNText,
+  StyleSheet,
+  View,
+} from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+const BUTTON_HEIGHT = 52;
+const BUTTON_RADIUS = BUTTON_HEIGHT / 2;
 
 interface Props {
   onNext: () => void;
 }
 
 const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
-  const breathingAnim = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
-  const { signInWithOAuth, signInAnonymously, session, isLoading } = useAuth();
+  const { t } = useTranslation();
+  const {
+    signInWithOAuth,
+    signInWithApple,
+    signInAnonymously,
+    session,
+    isLoading,
+  } = useAuth();
 
   useEffect(() => {
-    // Si inicia sesión (o ya tiene una sesión activa por estar testeando), continuar el flujo automáticamente.
     if (session) {
       onNext();
     }
   }, [session, onNext]);
 
-  useEffect(() => {
-    breathingAnim.value = withRepeat(
-      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  }, []);
-
-  const mascotAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: breathingAnim.value * -12 },
-      { scale: 1 + breathingAnim.value * 0.03 },
-    ],
-  }));
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   return (
-    <View style={slideStyles.welcomeSlideSimple}>
-      <View style={slideStyles.welcomeContentArea}>
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        {/* ── Hero ─────────────────────────────────────────────── */}
         <Animated.View
-          entering={FadeInDown.delay(100).duration(700)}
-          style={[slideStyles.welcomeMascotCenter, mascotAnimatedStyle]}
+          entering={FadeInUp.duration(600).delay(200)}
+          style={styles.heroSection}
         >
           <Image
-            source={require('@/assets/images/logomain.png')}
-            style={slideStyles.welcomeMascotLarge}
+            source={require("@/assets/images/logomain.png")}
+            style={styles.logo}
             resizeMode="contain"
           />
+          <Text style={styles.title}>{t("onboarding.welcome_header")}</Text>
         </Animated.View>
 
-        <Animated.Text
-          entering={FadeInDown.delay(400).duration(600)}
-          style={slideStyles.welcomeTitleCenter}
+        {/* ── Buttons ──────────────────────────────────────────── */}
+        <Animated.View
+          entering={FadeInDown.duration(600).delay(400)}
+          style={styles.buttonsSection}
         >
-          ¡Bienvenid@ a Brainy!
-        </Animated.Text>
-
-        <Animated.Text
-          entering={FadeInDown.delay(550).duration(600)}
-          style={slideStyles.welcomeSubtitleCenter}
-        >
-          Tu cerebro no está roto.{'\n'}Solo necesita un copiloto.
-        </Animated.Text>
-      </View>
-
-      <Animated.View
-        entering={FadeInDown.delay(700).duration(500)}
-        style={slideStyles.welcomeButtonsContainer}
-      >
-        <Animated.View style={buttonAnimatedStyle}>
-          <View style={styles.googleButtonWrapper}>
-            <GoogleButton
+          {/* Apple — iOS only. System-provided native button (HIG-compliant).
+              BLACK style on light background per Apple guidelines. */}
+          {Platform.OS === "ios" && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={
+                AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+              }
+              buttonStyle={
+                AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+              }
+              cornerRadius={BUTTON_RADIUS}
+              style={styles.appleButton}
               onPress={async () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                await signInWithOAuth('google');
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                await signInWithApple();
               }}
-              disabled={isLoading}
-              style={{ width: '100%', height: 56, borderRadius: 28 }}
             />
-          </View>
-          <Pressable
+          )}
+
+          {/* Google — custom button matching Apple's dimensions */}
+          <GoogleButton
+            text={t("login.continue_with_google")}
             onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              await signInWithOAuth("google");
+            }}
+            disabled={isLoading}
+            theme="light"
+            style={styles.googleButton}
+          />
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t("login.or")}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Guest / Continue without account */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.skipButton,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               await signInAnonymously();
             }}
             disabled={isLoading}
-            style={({ pressed }) => [
-              styles.guestButton,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
           >
-            <Text style={styles.guestButtonText}>Continuar como invitado</Text>
+            <View style={styles.skipButtonInner}>
+              {isLoading ? (
+                <ActivityIndicator color="#1A1C20" />
+              ) : (
+                <Text style={styles.skipButtonText}>
+                  {t("onboarding.continue_as_guest")}
+                </Text>
+              )}
+            </View>
           </Pressable>
+
+          {/* Disclaimer */}
+          <RNText style={styles.disclaimer}>
+            {"By continuing, you agree to our "}
+            <RNText
+              style={[styles.disclaimer, styles.link]}
+              onPress={() =>
+                Linking.openURL("https://brainyadhd.com/terms.html")
+              }
+              accessibilityRole="link"
+            >
+              {"Terms of Service"}
+            </RNText>
+            {" and "}
+            <RNText
+              style={[styles.disclaimer, styles.link]}
+              onPress={() =>
+                Linking.openURL("https://brainyadhd.com/privacy.html")
+              }
+              accessibilityRole="link"
+            >
+              {"Privacy Policy"}
+            </RNText>
+            {"."}
+          </RNText>
         </Animated.View>
-      </Animated.View>
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  googleButtonWrapper: {
-    height: 56,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: {
+    flex: 1,
+    backgroundColor: "#ECF0ED",
   },
-  guestButton: {
-    backgroundColor: 'transparent',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 56,
+  safeArea: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 28,
+    paddingBottom: 24,
+  },
+
+  // Hero
+  heroSection: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 42,
+    fontWeight: "900",
+    color: "#1A1C20",
+    letterSpacing: -1.5,
+    paddingBottom: 42,
+  },
+
+  // Buttons
+  buttonsSection: {
+    gap: 12,
+    paddingBottom: 8,
+  },
+
+  // Apple Sign In — native system button (HIG: BLACK on light bg)
+  appleButton: {
+    width: "100%",
+    height: BUTTON_HEIGHT,
+  },
+
+  // Google — matches Apple button dimensions exactly
+  googleButton: {
+    width: "100%",
+    height: BUTTON_HEIGHT,
+    borderRadius: BUTTON_RADIUS,
+  },
+
+  buttonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+
+  // Divider
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(0,0,0,0.1)",
+  },
+  dividerText: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+
+  // Skip / Guest
+  skipButton: {
     borderRadius: 28,
+    overflow: "hidden",
     borderWidth: 1.5,
-    borderColor: `${colors.textPrimary}33`,
-    marginTop: 12,
+    borderColor: "rgba(0,0,0,0.1)",
   },
-  guestButtonText: {
+  skipButtonInner: {
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ECF0ED",
+  },
+  skipButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontWeight: "700",
+    color: "#1A1C20",
+  },
+
+  // Disclaimer
+  disclaimer: {
+    fontSize: 11,
+    fontWeight: "400",
+    color: "rgba(0,0,0,0.4)",
+    textAlign: "center",
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  link: {
+    color: "#1A1C20",
+    textDecorationLine: "underline",
+    fontWeight: "500",
   },
 });
 

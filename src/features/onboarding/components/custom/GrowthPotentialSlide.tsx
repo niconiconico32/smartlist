@@ -3,14 +3,15 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Brain, Sparkles, Zap } from 'lucide-react-native';
-import React, { useEffect } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Brain, Sparkles, Zap } from "lucide-react-native";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -21,7 +22,7 @@ import Animated, {
     withSequence,
     withSpring,
     withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 // ============================================
 // GROWTH BAR (internal)
@@ -34,18 +35,29 @@ interface GrowthBarProps {
   delay: number;
 }
 
-const GrowthBar: React.FC<GrowthBarProps> = ({ value, maxValue, isPotential = false, delay }) => {
+const GrowthBar: React.FC<GrowthBarProps> = ({
+  value,
+  maxValue,
+  isPotential = false,
+  delay,
+}) => {
   const barHeight = useSharedValue(0);
   const glowOpacity = useSharedValue(0);
   const targetHeight = (value / maxValue) * 160;
 
   useEffect(() => {
-    barHeight.value = withDelay(delay, withSpring(targetHeight, { damping: 12, stiffness: 80 }));
+    barHeight.value = withDelay(
+      delay,
+      withSpring(targetHeight, { damping: 12, stiffness: 80 }),
+    );
     if (isPotential) {
       glowOpacity.value = withDelay(
         delay + 400,
         withRepeat(
-          withSequence(withTiming(0.8, { duration: 1500 }), withTiming(0.3, { duration: 1500 })),
+          withSequence(
+            withTiming(0.8, { duration: 1500 }),
+            withTiming(0.3, { duration: 1500 }),
+          ),
           -1,
           true,
         ),
@@ -61,10 +73,12 @@ const GrowthBar: React.FC<GrowthBarProps> = ({ value, maxValue, isPotential = fa
       <View style={s.barContainer}>
         {isPotential ? (
           <>
-            <Animated.View style={[s.barGlow, glowStyle, { height: targetHeight }]} />
+            <Animated.View
+              style={[s.barGlow, glowStyle, { height: targetHeight }]}
+            />
             <Animated.View style={[s.barAnimated, barStyle]}>
               <LinearGradient
-                colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+                colors={["#FF9A9E", "#FECFEF", "#D4A5FF"]}
                 start={{ x: 0, y: 1 }}
                 end={{ x: 0, y: 0 }}
                 style={s.barGradient}
@@ -89,6 +103,7 @@ interface Props {
 }
 
 const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const mascotY = useSharedValue(0);
   const buttonScale = useSharedValue(1);
 
@@ -103,7 +118,9 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
     );
   }, []);
 
-  const mascotStyle = useAnimatedStyle(() => ({ transform: [{ translateY: mascotY.value }] }));
+  const mascotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: mascotY.value }],
+  }));
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
   }));
@@ -121,38 +138,67 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
       contentContainerStyle={s.container}
       showsVerticalScrollIndicator={false}
     >
-      <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={s.title}>
-        Tu Potencial Desbloqueable
+      <Animated.Text
+        entering={FadeInDown.delay(100).duration(500)}
+        style={s.title}
+      >
+        {t("onboarding.growth_potential.title")}
       </Animated.Text>
 
-      <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={s.subtitle}>
-        Mira lo que puedes lograr con el sistema correcto
+      <Animated.Text
+        entering={FadeInDown.delay(200).duration(500)}
+        style={s.subtitle}
+      >
+        {t("onboarding.growth_potential.subtitle")}
       </Animated.Text>
 
-      <Animated.View entering={FadeInDown.delay(300).duration(600)} style={s.chartContainer}>
+      <Animated.View
+        entering={FadeInDown.delay(300).duration(600)}
+        style={s.chartContainer}
+      >
         <View style={s.barsRow}>
           <View style={s.barColumnActual}>
             <Text style={s.barValueActual}>35%</Text>
-            <GrowthBar label="Actual" value={35} maxValue={100} delay={400} />
-            <Text style={s.barLabel}>Actual</Text>
+            <GrowthBar
+              label={t("onboarding.growth_potential.current")}
+              value={35}
+              maxValue={100}
+              delay={400}
+            />
+            <Text style={s.barLabel}>
+              {t("onboarding.growth_potential.current")}
+            </Text>
           </View>
           <View style={s.barColumnPotential}>
             <Text style={s.barValuePotentialTop}>+85%</Text>
-            <GrowthBar label="Con Brainy" value={100} maxValue={100} isPotential delay={700} />
-            <Text style={[s.barLabel, s.barLabelPotential]}>Con Brainy</Text>
+            <GrowthBar
+              label={t("onboarding.growth_potential.with_brainy")}
+              value={100}
+              maxValue={100}
+              isPotential
+              delay={700}
+            />
+            <Text style={[s.barLabel, s.barLabelPotential]}>
+              {t("onboarding.growth_potential.with_brainy")}
+            </Text>
           </View>
         </View>
         <Animated.View style={[s.mascotContainer, mascotStyle]}>
           <Image
-            source={require('@/assets/images/logomain.png')}
+            source={require("@/assets/images/logomain.png")}
             style={s.mascot}
             resizeMode="contain"
           />
-          <Text style={s.mascotSpeech}>¡Tu potencial es enorme!</Text>
+          <Text style={s.mascotSpeech}>
+            {t("onboarding.growth_potential.mascot_speech")}
+          </Text>
         </Animated.View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(500).duration(500)} style={s.statsContainer}>
+      <Animated.View
+        entering={FadeInDown.delay(500).duration(500)}
+        style={s.statsContainer}
+      >
         {/* Stat card 1 */}
         <View style={s.statCard}>
           <LinearGradient
@@ -160,16 +206,25 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
             style={s.statCardGradient}
           >
             <View style={s.statCardHeader}>
-              <View style={[s.statIconBg, { backgroundColor: `${colors.success}40` }]}>
+              <View
+                style={[
+                  s.statIconBg,
+                  { backgroundColor: `${colors.success}40` },
+                ]}
+              >
                 <Sparkles size={18} color={colors.success} strokeWidth={2} />
               </View>
-              <Text style={s.statCardTitle}>Margen de Mejora</Text>
+              <Text style={s.statCardTitle}>
+                {t("onboarding.growth_potential.cards.improvement.title")}
+              </Text>
               <View style={s.statBadge}>
-                <Text style={s.statBadgeText}>ALTO</Text>
+                <Text style={s.statBadgeText}>
+                  {t("onboarding.growth_potential.cards.improvement.badge")}
+                </Text>
               </View>
             </View>
             <Text style={s.statCardDescription}>
-              Tu mente creativa solo necesita la estructura correcta para brillar.
+              {t("onboarding.growth_potential.cards.improvement.description")}
             </Text>
           </LinearGradient>
         </View>
@@ -181,16 +236,30 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
             style={s.statCardGradient}
           >
             <View style={s.statCardHeader}>
-              <View style={[s.statIconBg, { backgroundColor: `${colors.primary}40` }]}>
+              <View
+                style={[
+                  s.statIconBg,
+                  { backgroundColor: `${colors.primary}40` },
+                ]}
+              >
                 <Zap size={18} color={colors.primary} strokeWidth={2} />
               </View>
-              <Text style={s.statCardTitle}>Productividad Estimada</Text>
-              <View style={[s.statBadge, { backgroundColor: `${colors.primary}33` }]}>
-                <Text style={[s.statBadgeText, { color: colors.primary }]}>+3x</Text>
+              <Text style={s.statCardTitle}>
+                {t("onboarding.growth_potential.cards.productivity.title")}
+              </Text>
+              <View
+                style={[
+                  s.statBadge,
+                  { backgroundColor: `${colors.primary}33` },
+                ]}
+              >
+                <Text style={[s.statBadgeText, { color: colors.primary }]}>
+                  +3x
+                </Text>
               </View>
             </View>
             <Text style={s.statCardDescription}>
-              Usuarios similares triplican su productividad en 4 semanas.
+              {t("onboarding.growth_potential.cards.productivity.description")}
             </Text>
           </LinearGradient>
         </View>
@@ -202,22 +271,36 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
             style={s.statCardGradient}
           >
             <View style={s.statCardHeader}>
-              <View style={[s.statIconBg, { backgroundColor: `${colors.accent}40` }]}>
+              <View
+                style={[
+                  s.statIconBg,
+                  { backgroundColor: `${colors.accent}40` },
+                ]}
+              >
                 <Brain size={18} color={colors.accent} strokeWidth={2} />
               </View>
-              <Text style={s.statCardTitle}>Claridad Mental</Text>
-              <View style={[s.statBadge, { backgroundColor: `${colors.accent}33` }]}>
-                <Text style={[s.statBadgeText, { color: colors.accent }]}>ALTA</Text>
+              <Text style={s.statCardTitle}>
+                {t("onboarding.growth_potential.cards.clarity.title")}
+              </Text>
+              <View
+                style={[s.statBadge, { backgroundColor: `${colors.accent}33` }]}
+              >
+                <Text style={[s.statBadgeText, { color: colors.accent }]}>
+                  {t("onboarding.growth_potential.cards.clarity.badge")}
+                </Text>
               </View>
             </View>
             <Text style={s.statCardDescription}>
-              Reduce el ruido mental y enfócate en lo que realmente importa.
+              {t("onboarding.growth_potential.cards.clarity.description")}
             </Text>
           </LinearGradient>
         </View>
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(700).duration(500)} style={s.buttonContainer}>
+      <Animated.View
+        entering={FadeInDown.delay(700).duration(500)}
+        style={s.buttonContainer}
+      >
         <Animated.View style={buttonAnimatedStyle}>
           <Pressable
             onPress={() => {
@@ -234,7 +317,9 @@ const GrowthPotentialSlide: React.FC<Props> = ({ onNext }) => {
               end={{ x: 1, y: 0 }}
               style={primaryButtonGradient}
             >
-              <Text style={primaryButtonText}>Empezar mi Transformación</Text>
+              <Text style={primaryButtonText}>
+                {t("onboarding.growth_potential.cta")}
+              </Text>
             </LinearGradient>
           </Pressable>
         </Animated.View>
@@ -252,17 +337,17 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
   },
   chartContainer: {
@@ -270,82 +355,86 @@ const s = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     marginBottom: 24,
-    position: 'relative',
+    position: "relative",
   },
   barsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "flex-end",
     gap: 40,
   },
   barColumnActual: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: "center",
+    justifyContent: "flex-end",
     height: 220,
   },
   barColumnPotential: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: "center",
+    justifyContent: "flex-end",
     height: 220,
   },
-  barWrapper: { alignItems: 'center', width: 70 },
+  barWrapper: { alignItems: "center", width: 70 },
   barContainer: {
     width: 60,
     height: 160,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    position: 'relative',
+    justifyContent: "flex-end",
+    alignItems: "center",
+    position: "relative",
   },
-  barAnimated: { width: 60, borderRadius: 12, overflow: 'hidden' },
+  barAnimated: { width: 60, borderRadius: 12, overflow: "hidden" },
   barGradient: { flex: 1, borderRadius: 12 },
-  barDimmed: { flex: 1, backgroundColor: `${colors.textPrimary}26`, borderRadius: 12 },
+  barDimmed: {
+    flex: 1,
+    backgroundColor: `${colors.textPrimary}26`,
+    borderRadius: 12,
+  },
   barGlow: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: -5,
     width: 70,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 154, 158, 0.3)',
+    backgroundColor: "rgba(255, 154, 158, 0.3)",
   },
   barLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
   },
   barLabelPotential: { color: colors.textPrimary },
   barValueActual: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: -95,
   },
   barValuePotentialTop: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#FF9A9E',
-    textAlign: 'center',
+    fontWeight: "800",
+    color: "#FF9A9E",
+    textAlign: "center",
     marginBottom: 8,
   },
   mascotContainer: {
-    position: 'absolute',
+    position: "absolute",
     right: 10,
     top: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   mascot: { width: 70, height: 70 },
   mascotSpeech: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.warning,
     maxWidth: 80,
-    justifyContent: 'center',
-    textAlign: 'center',
+    justifyContent: "center",
+    textAlign: "center",
   },
   statsContainer: { gap: 12, marginBottom: 24 },
-  statCard: { borderRadius: 16, overflow: 'hidden' },
+  statCard: { borderRadius: 16, overflow: "hidden" },
   statCardGradient: {
     padding: 16,
     borderRadius: 16,
@@ -353,8 +442,8 @@ const s = StyleSheet.create({
     borderColor: `${colors.textPrimary}14`,
   },
   statCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     marginBottom: 8,
   },
@@ -362,13 +451,13 @@ const s = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   statCardTitle: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   statBadge: {
@@ -379,12 +468,12 @@ const s = StyleSheet.create({
   },
   statBadgeText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.success,
   },
   statCardDescription: {
     fontSize: 13,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
     lineHeight: 18,
     marginLeft: 42,

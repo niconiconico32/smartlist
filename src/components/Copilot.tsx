@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -122,12 +123,42 @@ function ExpandedGradientOrb({ visible }: { visible: boolean }) {
 
 // --- Bento Quick Actions ---
 const BENTO_PILLS = [
-  { id: "laundry", label: "Lavar la Ropa", icon: Shirt },
-  { id: "room", label: "Limpiar mi cuarto", icon: Sparkles },
-  { id: "study", label: "Estudiar para el examen", icon: BookOpen },
-  { id: "breathe", label: "Respiración 4-7-8", icon: Wind },
-  { id: "focus", label: "Entrar en Modo Foco", icon: Target },
-  { id: "water", label: "Tomar más agua", icon: Droplets },
+  {
+    id: "laundry",
+    labelKey: "copilot.pills.laundry_label",
+    textKey: "copilot.pills.laundry",
+    icon: Shirt,
+  },
+  {
+    id: "room",
+    labelKey: "copilot.pills.room_label",
+    textKey: "copilot.pills.room",
+    icon: Sparkles,
+  },
+  {
+    id: "study",
+    labelKey: "copilot.pills.study_label",
+    textKey: "copilot.pills.study",
+    icon: BookOpen,
+  },
+  {
+    id: "breathe",
+    labelKey: "copilot.pills.breathe_label",
+    textKey: "copilot.pills.breathe",
+    icon: Wind,
+  },
+  {
+    id: "focus",
+    labelKey: "copilot.pills.focus_label",
+    textKey: "copilot.pills.focus",
+    icon: Target,
+  },
+  {
+    id: "water",
+    labelKey: "copilot.pills.water_label",
+    textKey: "copilot.pills.water",
+    icon: Droplets,
+  },
 ];
 
 // --- Interfaces ---
@@ -312,6 +343,8 @@ function BreathingMicButton({
     ],
   }));
 
+  const { t } = useTranslation();
+
   const handlePressIn = () => {
     isActuallyRecording.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -416,10 +449,10 @@ function BreathingMicButton({
         ]}
       >
         {isRecording
-          ? "Suelta para enviar"
+          ? t("copilot.mic_hint_recording")
           : isProcessing
-            ? "Procesando audio..."
-            : "Mantén presionado para hablar"}
+            ? t("copilot.mic_hint_processing")
+            : t("copilot.mic_hint_idle")}
       </Text>
     </View>
   );
@@ -440,6 +473,7 @@ interface CopilotProps {
 }
 
 export function Copilot({ onClose, onAddTask }: CopilotProps) {
+  const { t, i18n } = useTranslation();
   const [inputText, setInputText] = useState("");
   const [phase, setPhase] = useState<CopilotPhase>("idle");
   const [taskResult, setTaskResult] = useState<TaskDivisionResult | null>(null);
@@ -490,8 +524,8 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
       expandUserInput(transcribedText.trim());
     } else {
       Alert.alert(
-        "¡Ups!",
-        "No pudimos escucharte bien. ¿Podrías intentarlo de nuevo?",
+        t("copilot.voice_error_title"),
+        t("copilot.voice_error_message"),
       );
     }
   });
@@ -548,17 +582,16 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
 
     try {
       const { data, error } = await supabase.functions.invoke("copilot-chat", {
-        body: { task: text },
+        body: { task: text, locale: i18n?.language ?? "en" },
       });
 
-      if (error)
-        throw new Error(error.message || "Error al conectar con el copiloto");
+      if (error) throw new Error(error.message || t("copilot.error_connect"));
 
       setExpandedParagraph(data?.expanded_task || text);
       setPhase("expanded");
     } catch (err: any) {
       console.error("[Copilot] Error expand:", err);
-      setExpandedParagraph("Necesito " + text + ".");
+      setExpandedParagraph(t("copilot.expand_fallback_prefix") + text + ".");
       setPhase("expanded");
     }
   }, []);
@@ -569,18 +602,17 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
 
     try {
       const { data, error } = await supabase.functions.invoke("divide-task", {
-        body: { task: expandedParagraph },
+        body: { task: expandedParagraph, locale: i18n?.language ?? "en" },
       });
 
-      if (error)
-        throw new Error(error.message || "Error al conectar con el copiloto");
+      if (error) throw new Error(error.message || t("copilot.error_connect"));
 
       setTaskResult(data as TaskDivisionResult);
       setPhase("result");
     } catch (err: any) {
       console.error("[Copilot] Error divide:", err);
       setTaskResult({
-        title: "Error al conectar. ¿Intentamos de nuevo?",
+        title: t("copilot.error_divide_title"),
         emoji: "⚠️",
         tasks: [],
       });
@@ -710,7 +742,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                   <View>
                     {bubbleReady && (
                       <TypewriterText
-                        text="¿Qué tarea te esta agobiando hoy?"
+                        text={t("copilot.idle_prompt")}
                         style={styles.speechBubbleText}
                         delay={300}
                         onComplete={() => setTypewriterDone(true)}
@@ -780,8 +812,8 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                 />
                 <Text style={styles.processingText}>
                   {phase === "processing_expansion"
-                    ? "Expandiendo tu misión..."
-                    : "Dividiendo en pasos..."}
+                    ? t("copilot.processing_expanding")
+                    : t("copilot.processing_dividing")}
                 </Text>
                 {phase === "processing_expansion" && (
                   <Text style={styles.processingSubtext}>"{userInput}"</Text>
@@ -811,7 +843,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                     <View>
                       {phase === "expanded" && (
                         <TypewriterText
-                          text="Ok, esto es lo que haremos..."
+                          text={t("copilot.expanded_prompt")}
                           style={[
                             styles.speechBubbleText,
                             { color: C.deepNight },
@@ -879,7 +911,9 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                           color={themeColors.textSecondary}
                           style={{ marginRight: 8, marginTop: 1 }}
                         />
-                        <Text style={styles.startButtonText}>Dividir Tarea</Text>
+                        <Text style={styles.startButtonText}>
+                          {t("copilot.divide_button")}
+                        </Text>
                       </View>
                     </Pressable>
 
@@ -892,8 +926,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                         fontSize: 11,
                       }}
                     >
-                      Puedes modificar el texto para adaptarlo más a tu
-                      contexto.
+                      {t("copilot.divide_hint")}
                     </Text>
                   </Animated.View>
                 </Animated.View>
@@ -937,7 +970,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                                   styles.bentoPill,
                                   pressed && styles.bentoPillPressed,
                                 ]}
-                                onPress={() => handleBentoPill(pill.label)}
+                                onPress={() => handleBentoPill(t(pill.textKey))}
                               >
                                 <pill.icon
                                   size={12}
@@ -945,7 +978,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                                   style={styles.bentoPillIcon}
                                 />
                                 <Text style={styles.bentoPillText}>
-                                  {pill.label}
+                                  {t(pill.labelKey)}
                                 </Text>
                               </Pressable>
                             ),
@@ -968,7 +1001,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                       style={[styles.recordingRedDot, blinkingDotStyle]}
                     />
                     <Text style={styles.recordingOverlayText}>
-                      Grabando audio... suelta para enviar
+                      {t("copilot.recording_overlay")}
                     </Text>
                   </Animated.View>
                 )}
@@ -979,7 +1012,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                     styles.altInput,
                     (isRecordingActive || recording) && { opacity: 0 },
                   ]}
-                  placeholder="Escribe o sostén para dictar..."
+                  placeholder={t("copilot.input_placeholder")}
                   placeholderTextColor={C.textDim}
                   value={inputText}
                   onChangeText={setInputText}

@@ -3,23 +3,24 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { requestNotificationPermissions } from '@/src/lib/notificationService';
-import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { requestNotificationPermissions } from "@/src/lib/notificationService";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  Easing,
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+    Easing,
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withTiming,
+} from "react-native-reanimated";
 
 // ============================================
 // NOTIFICATIONS SLIDE
@@ -29,6 +30,7 @@ interface Props {
 }
 
 const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const [granted, setGranted] = useState(false);
 
   const mascotY = useSharedValue(0);
@@ -39,10 +41,10 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
     mascotY.value = withRepeat(
       withSequence(
         withTiming(-10, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) })
+        withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
-      true
+      true,
     );
     // Bell wiggle
     bellRotate.value = withRepeat(
@@ -51,10 +53,10 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
         withTiming(-15, { duration: 200, easing: Easing.inOut(Easing.ease) }),
         withTiming(10, { duration: 150, easing: Easing.inOut(Easing.ease) }),
         withTiming(0, { duration: 150, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 2000 }) // pause
+        withTiming(0, { duration: 2000 }), // pause
       ),
       -1,
-      false
+      false,
     );
   }, []);
 
@@ -69,13 +71,13 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
   const requestPermission = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const success = await requestNotificationPermissions();
-    
+
     if (success) {
       setGranted(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setTimeout(onNext, 700);
     } else {
-      // Si el usuario deniega los permisos en el OS, avanzamos igual 
+      // Si el usuario deniega los permisos en el OS, avanzamos igual
       // para que no se quede bloqueado en esta pantalla
       onNext();
     }
@@ -90,24 +92,35 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
           style={[s.mascotContainer, mascotStyle]}
         >
           <Image
-            source={require('@/assets/images/logomain.png')}
+            source={require("@/assets/images/logomain.png")}
             style={s.mascot}
             resizeMode="contain"
           />
           <Animated.Text style={[s.bell, bellStyle]}>🔔</Animated.Text>
         </Animated.View>
 
-        <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.title}>
-          Déjame ser tu memoria externa
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(400)}
+          style={s.title}
+        >
+          {t("onboarding.notifications.title")}
         </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(350).duration(400)} style={s.subtitle}>
-          Necesito permiso para avisarte cuando sea momento de brillar. Prometo no ser pesado.
+        <Animated.Text
+          entering={FadeInDown.delay(350).duration(400)}
+          style={s.subtitle}
+        >
+          {t("onboarding.notifications.subtitle")}
         </Animated.Text>
 
         {granted && (
-          <Animated.View entering={FadeInDown.duration(300)} style={s.successRow}>
+          <Animated.View
+            entering={FadeInDown.duration(300)}
+            style={s.successRow}
+          >
             <Text style={s.successIcon}>✓</Text>
-            <Text style={s.successText}>¡Notificaciones activadas!</Text>
+            <Text style={s.successText}>
+              {t("onboarding.notifications.success")}
+            </Text>
           </Animated.View>
         )}
       </View>
@@ -122,7 +135,9 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
                 end={{ x: 1, y: 0 }}
                 style={primaryButtonGradient}
               >
-                <Text style={primaryButtonText}>    Activar notificaciones 🔔   </Text>
+                <Text style={primaryButtonText}>
+                  {t("onboarding.notifications.activate_cta")}
+                </Text>
               </LinearGradient>
             </Pressable>
             <Pressable
@@ -132,7 +147,9 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
               }}
               style={s.skipButton}
             >
-              <Text style={s.skipText}>Quizás más tarde</Text>
+              <Text style={s.skipText}>
+                {t("onboarding.notifications.skip")}
+              </Text>
             </Pressable>
           </>
         ) : (
@@ -149,7 +166,7 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
               end={{ x: 1, y: 0 }}
               style={primaryButtonGradient}
             >
-              <Text style={primaryButtonText}>Continuar</Text>
+              <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
             </LinearGradient>
           </Pressable>
         )}
@@ -171,11 +188,11 @@ const s = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   mascotContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 24,
   },
   mascot: {
@@ -183,30 +200,30 @@ const s = StyleSheet.create({
     height: 140,
   },
   bell: {
-    position: 'absolute',
+    position: "absolute",
     right: -10,
     bottom: 20,
     fontSize: 32,
   },
   title: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 16,
   },
   successRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     marginTop: 20,
     backgroundColor: `${colors.primary}1A`,
@@ -216,19 +233,19 @@ const s = StyleSheet.create({
   },
   successIcon: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
   },
   successText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.primary,
   },
   buttonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   skipButton: {
     marginTop: 14,
@@ -236,7 +253,7 @@ const s = StyleSheet.create({
   },
   skipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
 });

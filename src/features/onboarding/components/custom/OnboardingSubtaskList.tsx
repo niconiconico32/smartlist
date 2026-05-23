@@ -1,44 +1,65 @@
-import { PRIMARY_GRADIENT_COLORS, primaryButtonGradient, primaryButtonStyles, primaryButtonText } from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
-  Check,
-  Clock,
-  GripVertical,
-  Plus,
-  Sparkles,
-  Trash2,
-} from 'lucide-react-native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Keyboard, LayoutAnimation, Platform, Pressable, ScrollView, StyleSheet, TextInput, UIManager, View } from 'react-native';
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+    Check,
+    Clock,
+    GripVertical,
+    Plus,
+    Sparkles,
+    Trash2,
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+    FlatList,
+    Keyboard,
+    LayoutAnimation,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    UIManager,
+    View,
+} from "react-native";
 import DraggableFlatList, {
-  RenderItemParams,
-  ScaleDecorator,
-} from 'react-native-draggable-flatlist';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+    RenderItemParams,
+    ScaleDecorator,
+} from "react-native-draggable-flatlist";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
-  FadeIn,
-  FadeInDown,
-  Layout,
-  SlideInRight,
-  useAnimatedKeyboard,
-  useAnimatedStyle,
-  useSharedValue,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { slideStyles } from '../../styles/shared';
+    FadeIn,
+    FadeInDown,
+    Layout,
+    SlideInRight,
+    useAnimatedKeyboard,
+    useAnimatedStyle,
+    useSharedValue,
+    withSequence,
+    withTiming,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { slideStyles } from "../../styles/shared";
 
 // Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
 // Utility para generar IDs seguros
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+const generateId = () =>
+  `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
 // Types
 export type Subtask = {
@@ -52,7 +73,10 @@ interface OnboardingSubtaskListProps {
   taskTitle: string;
   taskEmoji: string;
   initialSubtasks: Subtask[];
-  onAddToHome: (subtasks: Subtask[], difficulty: "easy" | "moderate" | "hard") => void;
+  onAddToHome: (
+    subtasks: Subtask[],
+    difficulty: "easy" | "moderate" | "hard",
+  ) => void;
 }
 
 // Animated Pressable
@@ -64,9 +88,12 @@ export function OnboardingSubtaskList({
   initialSubtasks,
   onAddToHome,
 }: OnboardingSubtaskListProps) {
+  const { t } = useTranslation();
 
   const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks);
-  const [difficulty, setDifficulty] = useState<"easy" | "moderate" | "hard">("easy");
+  const [difficulty, setDifficulty] = useState<"easy" | "moderate" | "hard">(
+    "easy",
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
@@ -99,35 +126,38 @@ export function OnboardingSubtaskList({
     setSubtasks(data);
   }, []);
 
-  const handleInsertStep = useCallback((atIndex: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+  const handleInsertStep = useCallback(
+    (atIndex: number) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
-    const newTask: Subtask = {
-      id: generateId(),
-      title: '',
-      duration: 5,
-      isCompleted: false,
-    };
+      const newTask: Subtask = {
+        id: generateId(),
+        title: "",
+        duration: 5,
+        isCompleted: false,
+      };
 
-    setSubtasks(prev => {
-      const newSubtasks = [...prev];
-      newSubtasks.splice(atIndex, 0, newTask);
-      return newSubtasks;
-    });
-    setEditingId(newTask.id);
+      setSubtasks((prev) => {
+        const newSubtasks = [...prev];
+        newSubtasks.splice(atIndex, 0, newTask);
+        return newSubtasks;
+      });
+      setEditingId(newTask.id);
 
-    registerTimeout(() => {
-      if (taskInputRefs.current[newTask.id]) {
-        taskInputRefs.current[newTask.id]?.focus();
-      }
-    }, 100);
-  }, [registerTimeout]);
+      registerTimeout(() => {
+        if (taskInputRefs.current[newTask.id]) {
+          taskInputRefs.current[newTask.id]?.focus();
+        }
+      }, 100);
+    },
+    [registerTimeout],
+  );
 
   const handleDelete = useCallback((id: string) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setSubtasks(prev => prev.filter(task => task.id !== id));
+    setSubtasks((prev) => prev.filter((task) => task.id !== id));
     delete taskInputRefs.current[id];
   }, []);
 
@@ -135,10 +165,10 @@ export function OnboardingSubtaskList({
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     buttonScale.value = withSequence(
       withTiming(0.95, { duration: 100 }),
-      withTiming(1, { duration: 100 })
+      withTiming(1, { duration: 100 }),
     );
 
-    const validSubtasks = subtasks.filter(t => t.title.trim() !== '');
+    const validSubtasks = subtasks.filter((t) => t.title.trim() !== "");
     registerTimeout(() => onAddToHome(validSubtasks, difficulty), 200);
   }, [subtasks, difficulty, onAddToHome, buttonScale, registerTimeout]);
 
@@ -153,11 +183,8 @@ export function OnboardingSubtaskList({
     return {
       transform: [
         {
-          translateY: withTiming(
-            isEditingTask ? 150 : 0,
-            { duration: 300 }
-          )
-        }
+          translateY: withTiming(isEditingTask ? 150 : 0, { duration: 300 }),
+        },
       ],
       opacity: withTiming(isEditingTask ? 0 : 1, { duration: 250 }),
     };
@@ -168,175 +195,196 @@ export function OnboardingSubtaskList({
   }));
 
   // Render Item
-  const renderItem = useCallback(({ item, drag, isActive, getIndex }: RenderItemParams<Subtask>) => {
-    const index = getIndex() ?? 0;
-    const isItemEditing = editingId === item.id;
+  const renderItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Subtask>) => {
+      const index = getIndex() ?? 0;
+      const isItemEditing = editingId === item.id;
 
-    return (
-      <ScaleDecorator>
-        <Animated.View
-          entering={SlideInRight.delay(index * 30).duration(300)}
-          layout={Layout.springify().damping(15)}
-          style={[
-            styles.itemContainer,
-            isActive && styles.itemContainerActive,
-          ]}
-        >
-          <View
+      return (
+        <ScaleDecorator>
+          <Animated.View
+            entering={SlideInRight.delay(index * 30).duration(300)}
+            layout={Layout.springify().damping(15)}
             style={[
-              styles.taskItem,
-              isActive && styles.taskItemDragging
+              styles.itemContainer,
+              isActive && styles.itemContainerActive,
             ]}
           >
-            {/* Drag Handle */}
-            <Pressable
-              onPressIn={() => {
-                if (!isItemEditing) {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  drag();
-                }
-              }}
-              style={styles.dragHandle}
-              disabled={isItemEditing}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <View
+              style={[styles.taskItem, isActive && styles.taskItemDragging]}
             >
-              <GripVertical size={20} color={`${colors.background}66`} />
-            </Pressable>
+              {/* Drag Handle */}
+              <Pressable
+                onPressIn={() => {
+                  if (!isItemEditing) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    drag();
+                  }
+                }}
+                style={styles.dragHandle}
+                disabled={isItemEditing}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <GripVertical size={20} color={`${colors.background}66`} />
+              </Pressable>
 
-            <View style={styles.cardContent}>
-              {isItemEditing ? (
-                <TextInput
-                  ref={(ref) => {
-                    if (ref) {
-                      taskInputRefs.current[item.id] = ref;
-                    } else {
-                      delete taskInputRefs.current[item.id];
-                    }
-                  }}
-                  style={[
-                    styles.taskItemText,
-                    !item.title && styles.taskItemTextEmpty
-                  ]}
-                  value={item.title}
-                  onChangeText={(text) => {
-                    setSubtasks(prev => prev.map(t => t.id === item.id ? { ...t, title: text } : t));
-                  }}
-                  placeholder="Tarea vacía"
-                  placeholderTextColor={colors.textSecondary + '80'}
-                  multiline={false}
-                />
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <Pressable
-                    onPress={() => {
-                      setEditingId(item.id);
-                      setTimeout(() => {
-                        taskInputRefs.current[item.id]?.focus();
-                      }, 100);
+              <View style={styles.cardContent}>
+                {isItemEditing ? (
+                  <TextInput
+                    ref={(ref) => {
+                      if (ref) {
+                        taskInputRefs.current[item.id] = ref;
+                      } else {
+                        delete taskInputRefs.current[item.id];
+                      }
                     }}
-                    style={{ flexGrow: 1, justifyContent: 'center' }}
+                    style={[
+                      styles.taskItemText,
+                      !item.title && styles.taskItemTextEmpty,
+                    ]}
+                    value={item.title}
+                    onChangeText={(text) => {
+                      setSubtasks((prev) =>
+                        prev.map((t) =>
+                          t.id === item.id ? { ...t, title: text } : t,
+                        ),
+                      );
+                    }}
+                    placeholder={t("onboarding.subtask_list.empty_task")}
+                    placeholderTextColor={colors.textSecondary + "80"}
+                    multiline={false}
+                  />
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <Text
-                      style={[
-                        styles.taskItemText,
-                        !item.title && styles.taskItemTextEmpty
-                      ]}
+                    <Pressable
+                      onPress={() => {
+                        setEditingId(item.id);
+                        setTimeout(() => {
+                          taskInputRefs.current[item.id]?.focus();
+                        }, 100);
+                      }}
+                      style={{ flexGrow: 1, justifyContent: "center" }}
                     >
-                      {item.title || "Tarea vacía"}
-                    </Text>
-                  </Pressable>
-                </ScrollView>
-              )}
+                      <Text
+                        style={[
+                          styles.taskItemText,
+                          !item.title && styles.taskItemTextEmpty,
+                        ]}
+                      >
+                        {item.title || t("onboarding.subtask_list.empty_task")}
+                      </Text>
+                    </Pressable>
+                  </ScrollView>
+                )}
 
-              <View style={styles.cardMeta}>
-                <View style={styles.durationBadge}>
-                  <Clock size={12} color="#FFFFFF" />
-                  <Text style={styles.cardDurationInput}>
-                    {item.duration > 0 ? item.duration : '0'}
-                  </Text>
-                  <Text style={styles.cardDurationLabel}>min</Text>
+                <View style={styles.cardMeta}>
+                  <View style={styles.durationBadge}>
+                    <Clock size={12} color="#FFFFFF" />
+                    <Text style={styles.cardDurationInput}>
+                      {item.duration > 0 ? item.duration : "0"}
+                    </Text>
+                    <Text style={styles.cardDurationLabel}>min</Text>
+                  </View>
                 </View>
               </View>
+
+              {/* Action button: Check when editing, Trash when not */}
+              <Pressable
+                onPress={() => {
+                  if (isItemEditing) {
+                    Keyboard.dismiss();
+                    setEditingId(null);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  } else {
+                    handleDelete(item.id);
+                  }
+                }}
+                style={styles.actionIcon}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {isItemEditing ? (
+                  <Check size={18} color={colors.surface} strokeWidth={3} />
+                ) : (
+                  <Trash2 size={18} color={`${colors.background}66`} />
+                )}
+              </Pressable>
             </View>
 
-            {/* Action button: Check when editing, Trash when not */}
-            <Pressable
-              onPress={() => {
-                if (isItemEditing) {
-                  Keyboard.dismiss();
-                  setEditingId(null);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                } else {
-                  handleDelete(item.id);
-                }
-              }}
-              style={styles.actionIcon}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              {isItemEditing ? (
-                <Check size={18} color={colors.surface} strokeWidth={3} />
-              ) : (
-                <Trash2 size={18} color={`${colors.background}66`} />
-              )}
-            </Pressable>
-          </View>
+            {/* Insert button */}
+            <View style={styles.insertStepButtonWrapper}>
+              <Pressable
+                onPress={() => handleInsertStep(index + 1)}
+                style={({ pressed }) => [
+                  styles.insertStepButton,
+                  pressed && styles.insertStepButtonPressed,
+                ]}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Plus size={16} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </Animated.View>
+        </ScaleDecorator>
+      );
+    },
+    [editingId, handleDelete, handleInsertStep],
+  );
 
-          {/* Insert button */}
-          <View style={styles.insertStepButtonWrapper}>
-            <Pressable
-              onPress={() => handleInsertStep(index + 1)}
-              style={({ pressed }) => [
-                styles.insertStepButton,
-                pressed && styles.insertStepButtonPressed
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Plus size={16} color="#FFFFFF" />
-            </Pressable>
+  const ListHeaderComponent = useCallback(
+    () => (
+      <Animated.View style={styles.header}>
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={[slideStyles.slideSubtitle, { color: colors.surface }]}
+        >
+          {t("onboarding.subtask_list.subtitle")}
+        </Animated.Text>
+
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={[
+            slideStyles.slideTitle,
+            { color: colors.background, marginBottom: 24 },
+          ]}
+        >
+          {t("onboarding.subtask_list.title_prefix")}{" "}
+          <Text style={{ color: colors.surface }}>
+            {taskTitle.toLowerCase()}
+          </Text>
+        </Animated.Text>
+      </Animated.View>
+    ),
+    [difficulty, t, taskEmoji, taskTitle],
+  );
+
+  const ListFooterComponent = useCallback(
+    () => (
+      <>
+        <Animated.View
+          entering={FadeIn.delay(100).duration(300)}
+          style={styles.footer}
+        >
+          <View style={styles.tipContainer}>
+            <Sparkles size={14} color={colors.surface} />
+            <Text style={styles.tipText}>
+              {t("onboarding.subtask_list.reorder_hint")}
+            </Text>
           </View>
         </Animated.View>
-      </ScaleDecorator>
-    );
-  }, [
-    editingId,
-    handleDelete,
-    handleInsertStep,
-  ]);
 
-  const ListHeaderComponent = useCallback(() => (
-    <Animated.View style={styles.header}>
-      <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
-        ¡listo! dividí tu tarea
-      </Animated.Text>
-
-      <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={[slideStyles.slideTitle, { color: colors.background, marginBottom: 24 }]}>
-        acá tienes el paso a paso para empezar a <Text style={{ color: colors.surface }}>{taskTitle.toLowerCase()}</Text>
-      </Animated.Text>
-    </Animated.View>
-  ), [taskTitle, taskEmoji, difficulty]);
-
-  const ListFooterComponent = useCallback(() => (
-    <>
-      <Animated.View entering={FadeIn.delay(100).duration(300)} style={styles.footer}>
-        <View style={styles.tipContainer}>
-          <Sparkles size={14} color={colors.surface} />
-          <Text style={styles.tipText}>
-            Mantén presionado y arrastra para reordenar
-          </Text>
-        </View>
-      </Animated.View>
-
-      <Animated.View style={footerSpacerStyle} />
-    </>
-  ), [footerSpacerStyle]);
+        <Animated.View style={footerSpacerStyle} />
+      </>
+    ),
+    [footerSpacerStyle, t],
+  );
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <View style={{ flex: 1 }}>
           <DraggableFlatList
             // @ts-ignore
@@ -363,13 +411,16 @@ export function OnboardingSubtaskList({
       </SafeAreaView>
 
       {/* Bottom button */}
-      <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
+      <SafeAreaView edges={["bottom"]} style={styles.bottomSafeArea}>
         <Animated.View
           entering={FadeIn.duration(300)}
           style={[styles.buttonsContainer, buttonsContainerAnimatedStyle]}
-          pointerEvents={editingId !== null ? 'none' : 'box-none'}
+          pointerEvents={editingId !== null ? "none" : "box-none"}
         >
-          <AnimatedPressable onPress={handleAddToHomePress} style={[buttonAnimatedStyle, styles.createButton]}>
+          <AnimatedPressable
+            onPress={handleAddToHomePress}
+            style={[buttonAnimatedStyle, styles.createButton]}
+          >
             <LinearGradient
               colors={PRIMARY_GRADIENT_COLORS}
               start={{ x: 0, y: 0 }}
@@ -377,7 +428,9 @@ export function OnboardingSubtaskList({
               style={styles.createButtonGradient}
             >
               <Plus size={20} color="#1E1E2E" style={{ marginRight: 8 }} />
-              <Text style={styles.createButtonText}>Continuar</Text>
+              <Text style={styles.createButtonText}>
+                {t("onboarding.continue")}
+              </Text>
             </LinearGradient>
           </AnimatedPressable>
         </Animated.View>
@@ -389,7 +442,7 @@ export function OnboardingSubtaskList({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
   },
   safeArea: {
     flex: 1,
@@ -402,8 +455,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginBottom: 24,
   },
@@ -415,7 +468,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     flex: 1,
   },
   footer: {
@@ -423,48 +476,48 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   tipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     marginTop: 20,
   },
   tipText: {
     fontSize: 12,
     color: `${colors.background}99`, // Darker color for visibility on light background
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   itemContainer: {
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    flexDirection: "column",
+    alignItems: "stretch",
     marginBottom: 0,
-    position: 'relative',
+    position: "relative",
     zIndex: 1,
-    overflow: 'visible',
+    overflow: "visible",
     paddingBottom: 12,
   },
   itemContainerActive: {
     zIndex: 100,
   },
   taskItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: '#EAEAEC',
-    shadowColor: '#000',
+    borderColor: "#EAEAEC",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
   },
   taskItemDragging: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderColor: colors.surface,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -480,22 +533,22 @@ const styles = StyleSheet.create({
   },
   taskItemText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.background,
     marginBottom: 6,
     padding: 0,
   },
   taskItemTextEmpty: {
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   cardMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   durationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     backgroundColor: colors.surface,
     paddingHorizontal: 10,
@@ -504,29 +557,29 @@ const styles = StyleSheet.create({
   },
   cardDurationInput: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
     padding: 0,
     margin: 0,
     minWidth: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   cardDurationLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   actionIcon: {
     padding: 6,
     marginRight: 6,
   },
   insertStepButtonWrapper: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     marginBottom: -8,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
     zIndex: 999,
   },
   insertStepButton: {
@@ -534,14 +587,14 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: colors.surface,
     elevation: 10,
   },
   insertStepButtonPressed: {
-    backgroundColor: colors.primary + '30',
+    backgroundColor: colors.primary + "30",
     borderColor: colors.primary,
     transform: [{ scale: 0.92 }],
   },
@@ -549,10 +602,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
   },
   bottomSafeArea: {
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
   },
   createButton: {
     ...primaryButtonStyles,
@@ -572,24 +625,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   difficultyOptions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 12,
   },
   difficultyOption: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: "#f2f2f2",
     borderWidth: 1,
-    borderColor: '#f2f2f2',
+    borderColor: "#f2f2f2",
   },
   difficultyOptionText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   },
 });

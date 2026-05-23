@@ -1,3 +1,4 @@
+import i18n from '@/src/config/i18n';
 import Constants from 'expo-constants';
 import { requestNotificationPermissions } from '../lib/notificationService';
 
@@ -57,23 +58,23 @@ export async function sendStreakNotification(streakCount: number): Promise<void>
 
     if (streakCount === 1) {
       message = {
-        title: '🎉 ¡Primera racha!',
-        body: 'Has empezado tu viaje. Mañana será el día 2. ¡Sigue así!',
+        title: i18n.t('notifications.streak.first_title'),
+        body: i18n.t('notifications.streak.first_body'),
       };
     } else if (streakCount === 7) {
       message = {
-        title: '🔥 ¡Una semana completa!',
-        body: '7 días seguidos. Esto ya es un hábito. Increíble.',
+        title: i18n.t('notifications.streak.week_title'),
+        body: i18n.t('notifications.streak.week_body'),
       };
     } else if (streakCount === 30) {
       message = {
-        title: '🏆 ¡UN MES ENTERO!',
-        body: '30 días. Ya eres otra persona. Esto es transformación real.',
+        title: i18n.t('notifications.streak.month_title'),
+        body: i18n.t('notifications.streak.month_body'),
       };
     } else if (streakCount % 7 === 0) {
       message = {
-        title: `🔥 ${streakCount} días seguidos`,
-        body: 'Tu consistencia es inspiradora. Sigue adelante.',
+        title: i18n.t('notifications.streak.multiple_title', { count: streakCount }),
+        body: i18n.t('notifications.streak.multiple_body'),
       };
     } else {
       return; // No enviar notificación para otros días
@@ -123,8 +124,8 @@ export async function scheduleTrialExpirationNotification(
     await Notifications.scheduleNotificationAsync({
       identifier: 'smartlist-trial-expiration',
       content: {
-        title: '✨ ¿Te está gustando Brainy?',
-        body: 'Tu prueba premium termina en 2 días. ¡Sigue organizando tu vida sin límites!',
+        title: i18n.t('notifications.trial_expiration.title'),
+        body: i18n.t('notifications.trial_expiration.body'),
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: { type: 'trial_expiration' },
@@ -169,8 +170,8 @@ export async function scheduleStreakWarningNotification(streak: number): Promise
     await Notifications.scheduleNotificationAsync({
       identifier: STREAK_WARNING_ID,
       content: {
-        title: '¡Salva tu racha!',
-        body: `Si hoy no hay energía, no pasa nada 💙. Pero si te quedan 2 minutos de batería, presiona acá para salvar tu racha de ${streak} día${streak === 1 ? '' : 's'}.`,
+        title: i18n.t('notifications.streak_warning.title'),
+        body: i18n.t('notifications.streak_warning.body', { count: streak }),
         sound: 'default',
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: { type: 'streak_warning' },

@@ -1,56 +1,64 @@
 import {
-  PRIMARY_GRADIENT_COLORS,
-  primaryButtonGradient,
-  primaryButtonStyles,
-  primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { useOnboardingStore } from '@/src/store/onboardingStore';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BackHandler, Image, Pressable, StyleSheet, View } from 'react-native';
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { useOnboardingStore } from "@/src/store/onboardingStore";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router, Stack } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { BackHandler, Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import SlideRenderer from './components/SlideRenderer';
-import { SLIDES_V3, TOTAL_SLIDES_V3 } from './slides-v3';
-import { INITIAL_ANSWERS, OnboardingAnswers } from './types';
-import { useOnboardingTracking } from './useOnboardingTracking';
+import SlideRenderer from "./components/SlideRenderer";
+import { SLIDES_V3, TOTAL_SLIDES_V3 } from "./slides-v3";
+import { INITIAL_ANSWERS, OnboardingAnswers } from "./types";
+import { useOnboardingTracking } from "./useOnboardingTracking";
 
 // ============================================
 // ONBOARDING V3 SCREEN (Orchestrator)
 // ============================================
 export default function OnboardingV3Screen() {
+  const { t, i18n } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
   const buttonScale = useSharedValue(1);
   const { signInAnonymously } = useAuth();
   const prevSlideRef = useRef(0);
 
-  const { trackStart, trackStepViewed, trackStepCompleted, trackCompleted, trackBack } =
-    useOnboardingTracking();
+  const {
+    trackStart,
+    trackStepViewed,
+    trackStepCompleted,
+    trackCompleted,
+    trackBack,
+  } = useOnboardingTracking();
 
   const config = SLIDES_V3[currentSlide];
 
   // ── Tracking: start on mount, step viewed on slide change ──
   useEffect(() => {
     trackStart();
-    trackStepViewed(0, 'forward');
+    trackStepViewed(0, "forward");
   }, []);
 
   useEffect(() => {
     if (currentSlide === 0) return; // handled by mount effect
-    const direction = currentSlide > prevSlideRef.current ? 'forward' : 'backward';
+    const direction =
+      currentSlide > prevSlideRef.current ? "forward" : "backward";
     trackStepViewed(currentSlide, direction);
     prevSlideRef.current = currentSlide;
   }, [currentSlide]);
@@ -63,19 +71,19 @@ export default function OnboardingV3Screen() {
       const store = useOnboardingStore.getState();
       store.setName(answers.userName);
       store.setSymptoms(answers.adhdSymptoms);
-      store.setGoal(answers.goals.join(', '));
+      store.setGoal(answers.goals.join(", "));
 
       await store.completeOnboarding();
 
       trackCompleted(answers);
     } catch (e) {
-      console.error('Error during completeOnboarding:', e);
+      console.error(t("onboarding.logs.complete_onboarding_error"), e);
     } finally {
       // ALWAYS navigate off the onboarding regardless of db errors
       if (router.canGoBack()) {
         router.dismissAll();
       }
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [answers]);
 
@@ -99,7 +107,10 @@ export default function OnboardingV3Screen() {
 
   // ── Answer handler ──
   const handleAnswer = useCallback(
-    <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => {
+    <K extends keyof OnboardingAnswers>(
+      key: K,
+      value: OnboardingAnswers[K],
+    ) => {
       setAnswers((prev) => ({ ...prev, [key]: value }));
     },
     [],
@@ -122,7 +133,11 @@ export default function OnboardingV3Screen() {
   const canContinue = config.canContinue ? config.canContinue(answers) : true;
 
   // Slides that should hide the back button (auto-advancing slides like processing)
-  const hideBackOnSlides = ['welcome', 'processing', ...(__DEV__ ? [] : ['dialogue'])];
+  const hideBackOnSlides = [
+    "welcome",
+    "processing",
+    ...(__DEV__ ? [] : ["dialogue"]),
+  ];
   const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
 
   // ── hardware back handler ──
@@ -133,7 +148,10 @@ export default function OnboardingV3Screen() {
       }
       return true; // ALWAYS prevent native back navigation
     };
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress,
+    );
     return () => subscription.remove();
   }, [showBack, goToPrevSlide]);
 
@@ -141,8 +159,12 @@ export default function OnboardingV3Screen() {
     <View
       style={[
         s.outerContainer,
-        config.backgroundColor ? { backgroundColor: config.backgroundColor } : null,
-        (config.backgroundImage || config.backgroundGradient) ? { backgroundColor: 'transparent' } : null
+        config.backgroundColor
+          ? { backgroundColor: config.backgroundColor }
+          : null,
+        config.backgroundImage || config.backgroundGradient
+          ? { backgroundColor: "transparent" }
+          : null,
       ]}
     >
       {config.backgroundGradient && (
@@ -171,9 +193,16 @@ export default function OnboardingV3Screen() {
               <Animated.View entering={FadeInDown.duration(300)}>
                 <Pressable
                   onPress={goToPrevSlide}
-                  style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
+                  style={({ pressed }) => [
+                    s.backButton,
+                    pressed && s.backButtonPressed,
+                  ]}
                 >
-                  <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
+                  <Ionicons
+                    name="chevron-back"
+                    size={24}
+                    color={colors.textPrimary}
+                  />
                 </Pressable>
               </Animated.View>
             </View>
@@ -184,7 +213,9 @@ export default function OnboardingV3Screen() {
                   entering={FadeInDown.duration(400)}
                   style={[
                     s.progressBarFill,
-                    { width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%` },
+                    {
+                      width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%`,
+                    },
                   ]}
                 />
               </View>
@@ -192,7 +223,6 @@ export default function OnboardingV3Screen() {
           </View>
         )}
 
-        {/* Slide content */}
         <View style={s.slideContainer}>
           <SlideRenderer
             config={config}
@@ -221,7 +251,9 @@ export default function OnboardingV3Screen() {
                   end={{ x: 1, y: 0 }}
                   style={primaryButtonGradient}
                 >
-                  <Text style={primaryButtonText}>{config.buttonText ?? 'Continuar'}</Text>
+                  <Text style={primaryButtonText}>
+                    {t(config.buttonText ?? "onboarding.continue")}
+                  </Text>
                 </LinearGradient>
               </Pressable>
             </Animated.View>
@@ -242,8 +274,8 @@ const s = StyleSheet.create({
   },
   absoluteImage: {
     ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   absoluteGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -255,8 +287,8 @@ const s = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
@@ -265,29 +297,29 @@ const s = StyleSheet.create({
   backButtonArea: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   backButton: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   backButtonPressed: {
     transform: [{ scale: 0.95 }],
   },
   progressBarWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   progressBarBackground: {
     height: 6,
     backgroundColor: `${colors.textPrimary}1A`,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     borderRadius: 3,
   },
@@ -295,5 +327,30 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
+  },
+  devLanguageSwitcher: {
+    position: "absolute",
+    right: 16,
+    top: 10,
+    zIndex: 1000,
+    flexDirection: "row",
+    gap: 8,
+  },
+  devLanguageButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}55`,
+    backgroundColor: `${colors.background}CC`,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  devLanguageButtonActive: {
+    backgroundColor: colors.surface,
+    borderColor: colors.surface,
+  },
+  devLanguageText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textPrimary,
   },
 });

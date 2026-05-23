@@ -1,18 +1,19 @@
-import { supabase } from '@/src/lib/supabase';
-import { posthog } from '@/src/config/posthog';
-import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
-import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import i18n from "@/src/config/i18n";
+import { posthog } from "@/src/config/posthog";
+import { supabase } from "@/src/lib/supabase";
+import { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { Alert, Platform } from "react-native";
 
 // Ensures an active WebBrowser session resolves instead of returning 'auth session in progress'
 WebBrowser.maybeCompleteAuthSession();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type OAuthProvider = 'google';
+type OAuthProvider = "google";
 
 interface AuthContextType {
   user: User | null;
@@ -59,14 +60,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // 2. Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
 
         if (session?.user && !session.user.is_anonymous) {
-          const provider = (session.user.app_metadata?.provider as string | undefined) ?? null;
+          const provider =
+            (session.user.app_metadata?.provider as string | undefined) ?? null;
           const email = session.user.email ?? null;
 
           // Note: RevenueCat identity sync is handled by PurchasesContext
@@ -83,8 +87,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
           });
 
-          if (event === 'SIGNED_IN') {
-            posthog.capture('user_signed_in', {
+          if (event === "SIGNED_IN") {
+            posthog.capture("user_signed_in", {
               provider,
             });
           }
@@ -104,11 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         WebBrowser.dismissBrowser();
       }
 
-      const redirectUrl = Linking.createURL('/(tabs)');
+      const redirectUrl = Linking.createURL("/(tabs)");
 
       const isUpgrading =
         !options?.forceDirectSignIn &&
@@ -124,27 +128,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           redirectTo: redirectUrl,
           skipBrowserRedirect: true,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: "offline",
+            prompt: "consent",
           },
         },
       });
 
       if (error) {
-        if (error.message.includes('already linked') || error.message.includes('Identity is already linked')) {
+        if (
+          error.message.includes("already linked") ||
+          error.message.includes("Identity is already linked")
+        ) {
           Alert.alert(
-            'Cuenta ya en uso',
-            'La cuenta de Google que seleccionaste ya fue registrada previamente. Para usarla, debes cerrar tu sesión anónima actual (los datos no respaldados se perderán). ¿Deseas cerrar sesión ahora?',
+            i18n.t("auth.account_in_use_title"),
+            i18n.t("auth.account_in_use_message"),
             [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Cerrar sesión', style: 'destructive', onPress: () => signOut() }
-            ]
+              { text: i18n.t("auth.cancel"), style: "cancel" },
+              {
+                text: i18n.t("auth.sign_out"),
+                style: "destructive",
+                onPress: () => signOut(),
+              },
+            ],
           );
           return;
         }
         throw error;
       }
-      if (!data.url) throw new Error('No OAuth URL returned');
+      if (!data.url) throw new Error("No OAuth URL returned");
 
       // Open the OAuth flow in an in-app browser
       const result = await WebBrowser.openAuthSessionAsync(
@@ -153,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { showInRecents: true },
       );
 
-      if (result.type === 'success' && result.url) {
+      if (result.type === "success" && result.url) {
         // Extract tokens from the redirect URL
         const url = new URL(result.url);
         // Tokens can be in hash fragment or query params
@@ -161,15 +172,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           url.hash ? url.hash.substring(1) : url.search.substring(1),
         );
 
-        const error = params.get('error');
-        const errorDescription = params.get('error_description');
+        const error = params.get("error");
+        const errorDescription = params.get("error_description");
 
         if (error) {
-          throw new Error(errorDescription ? errorDescription.replace(/\+/g, ' ') : error);
+          throw new Error(
+            errorDescription ? errorDescription.replace(/\+/g, " ") : error,
+          );
         }
 
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
 
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({
@@ -181,8 +194,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error(`❌ OAuth error (${provider}):`, error.message);
       Alert.alert(
-        'Error de inicio de sesión',
-        'No se pudo completar el inicio de sesión. Intenta de nuevo.',
+        i18n.t("auth.sign_in_error_title"),
+        i18n.t("auth.sign_in_error_message"),
       );
     } finally {
       setIsLoading(false);
@@ -204,12 +217,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!credential.identityToken) {
-        throw new Error('No identity token returned from Apple');
+        throw new Error("No identity token returned from Apple");
       }
 
       // Exchange Apple's identity token with Supabase
       const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
+        provider: "apple",
         token: credential.identityToken,
       });
 
@@ -220,7 +233,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const displayName = [
           credential.fullName.givenName,
           credential.fullName.familyName,
-        ].filter(Boolean).join(' ');
+        ]
+          .filter(Boolean)
+          .join(" ");
 
         await supabase.auth.updateUser({
           data: { full_name: displayName },
@@ -228,13 +243,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error: any) {
       // ERR_REQUEST_CANCELED = user dismissed the Apple sheet
-      if (error.code === 'ERR_REQUEST_CANCELED') {
+      if (error.code === "ERR_REQUEST_CANCELED") {
         return;
       }
-      console.error('❌ Apple Sign-In error:', error.message);
+      console.error("❌ Apple Sign-In error:", error.message);
       Alert.alert(
-        'Error de inicio de sesión',
-        'No se pudo completar el inicio de sesión con Apple. Intenta de nuevo.',
+        i18n.t("auth.sign_in_error_title"),
+        i18n.t("auth.apple_sign_in_error_message"),
       );
     } finally {
       setIsLoading(false);
@@ -249,11 +264,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInAnonymously();
 
       if (error) {
-        console.error('❌ Error signing in anonymously:', error.message);
-        Alert.alert('Error', 'No se pudo iniciar sesión. Intenta de nuevo.');
+        console.error("❌ Error signing in anonymously:", error.message);
+        Alert.alert(
+          i18n.t("auth.error_title"),
+          i18n.t("auth.anonymous_sign_in_error_message"),
+        );
       }
     } catch (error) {
-      console.error('❌ Unexpected error during anonymous sign in:', error);
+      console.error("❌ Unexpected error during anonymous sign in:", error);
     } finally {
       setIsLoading(false);
     }
@@ -263,17 +281,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async (): Promise<void> => {
     try {
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         WebBrowser.dismissBrowser();
       }
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error('❌ Error signing out:', error.message);
+        console.error("❌ Error signing out:", error.message);
       } else {
         posthog.reset();
       }
     } catch (error) {
-      console.error('❌ Unexpected error during sign out:', error);
+      console.error("❌ Unexpected error during sign out:", error);
     }
   };
 
@@ -300,7 +318,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

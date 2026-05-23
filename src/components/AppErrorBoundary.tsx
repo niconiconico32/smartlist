@@ -1,7 +1,8 @@
-import { colors } from '@/constants/theme';
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import i18n from "@/src/config/i18n";
+import React, { Component, ErrorInfo, ReactNode } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
 interface Props {
   children: ReactNode;
@@ -24,7 +25,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     if (__DEV__) {
-      console.error('AppErrorBoundary caught:', error, errorInfo);
+      console.error("AppErrorBoundary caught:", error, errorInfo);
     }
   }
 
@@ -37,11 +38,8 @@ export class AppErrorBoundary extends Component<Props, State> {
       return (
         <View style={styles.container}>
           <Text style={styles.emoji}>😵</Text>
-          <Text style={styles.title}>¡Algo salió mal!</Text>
-          <Text style={styles.message}>
-            La app encontró un error inesperado.{'\n'}
-            No te preocupes, tus datos están seguros.
-          </Text>
+          <Text style={styles.title}>{i18n.t("error_boundary.title")}</Text>
+          <Text style={styles.message}>{i18n.t("error_boundary.message")}</Text>
 
           <Pressable
             style={({ pressed }) => [
@@ -50,7 +48,9 @@ export class AppErrorBoundary extends Component<Props, State> {
             ]}
             onPress={this.handleRestart}
           >
-            <Text style={styles.buttonText}>Reiniciar App</Text>
+            <Text style={styles.buttonText}>
+              {i18n.t("error_boundary.restart")}
+            </Text>
           </Pressable>
 
           {__DEV__ && this.state.error && (
@@ -71,8 +71,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 32,
   },
   emoji: {
@@ -81,16 +81,16 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   message: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 32,
   },
@@ -106,25 +106,25 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.background,
   },
   devInfo: {
     marginTop: 32,
     padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 12,
-    width: '100%',
+    width: "100%",
   },
   devTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
     marginBottom: 4,
   },
   devText: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontFamily: 'SpaceMono',
+    fontFamily: "SpaceMono",
   },
 });

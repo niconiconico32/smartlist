@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React from "react";
+import { Platform } from "react-native";
 import type { WidgetTaskHandlerProps } from "react-native-android-widget";
+import i18n from "../config/i18n";
 import type { Routine } from "../types/routine";
 import { RoutinesWidget, type BgMode } from "./RoutinesWidget";
 
@@ -9,11 +11,13 @@ export const WIDGET_DATA_KEY = "@widget_routines";
 export const WIDGET_INDEX_KEY = "@widget_current_routine_index";
 export const WIDGET_TASK_IDX_KEY = "@widget_task_visible_index";
 export const WIDGET_USER_KEY = "@widget_user_id";
-/** @deprecated Use WIDGET_OUTFIT_ID_KEY instead */
+// Remote URI for outfit — populated when user equips a Supabase Storage asset
 export const WIDGET_OUTFIT_URI_KEY = "@widget_outfit_uri";
 export const WIDGET_OUTFIT_ID_KEY = "@widget_outfit_id";
 export const WIDGET_BG_MODE_KEY = "@widget_bg_mode";
 export const WIDGET_BG_ID_KEY = "@widget_bg_id";
+// Remote URI for background — populated when user equips a Supabase Storage asset
+export const WIDGET_BG_URI_KEY = "@widget_bg_uri";
 export const WIDGET_PENDING_KEY = "@widget_pending_toggles";
 export const WIDGET_PRO_KEY = "@widget_is_pro";
 
@@ -73,8 +77,10 @@ async function syncToggleInBackground(
   routineIdx: number,
   taskIdx: number,
   outfitId: string | null,
+  outfitUri: string | null,
   bgMode: BgMode,
   bgId: string | null,
+  bgUri: string | null,
   isPro: boolean,
 ): Promise<void> {
   const userId = await readString(WIDGET_USER_KEY);
@@ -175,8 +181,10 @@ async function syncToggleInBackground(
           totalRoutines={updatedRoutines.length}
           taskVisibleIndex={freshTaskIdx}
           outfitId={outfitId}
+          outfitUri={outfitUri}
           bgMode={bgMode}
           bgId={bgId}
+          bgUri={bgUri}
           earnedCoins={earnedCoins}
           isPro={isPro}
         />,
@@ -196,6 +204,29 @@ async function syncToggleInBackground(
   } catch (e) {
     console.warn("Widget: error computing routine completion", e);
   }
+
+  // ── iOS widget snapshot update ────────────────────────────────────────────
+  if (Platform.OS === "ios") {
+    try {
+      const { default: RoutinesIOSWidget } =
+        await import("./RoutinesIOSWidget");
+      const { useRoutineStreakStore: streakStore } =
+        await import("../store/routineStreakStore");
+      const allComplete = r?.tasks.every((task) => task.completed) ?? false;
+      const currentTask = r?.tasks.find((task) => !task.completed);
+      RoutinesIOSWidget.updateSnapshot({
+        isPro,
+        currentRoutineName: r?.name ?? null,
+        currentTaskTitle: currentTask?.title ?? i18n.t("widgets.no_tasks"),
+        allComplete,
+        completedCount: r?.tasks.filter((task) => task.completed).length ?? 0,
+        totalCount: r?.tasks.length ?? 0,
+        streak: streakStore.getState().streaks[routineId]?.count ?? 0,
+      });
+    } catch (e) {
+      console.warn("Widget iOS: Error updating snapshot", e);
+    }
+  }
 }
 
 // ── renderRoutinesWidget ─────────────────────────────────────────────────────
@@ -208,9 +239,11 @@ export async function renderRoutinesWidget(): Promise<React.JSX.Element> {
   const rawIdx = await readNumber(WIDGET_INDEX_KEY);
   const rawTask = await readNumber(WIDGET_TASK_IDX_KEY);
   const outfitId = await readString(WIDGET_OUTFIT_ID_KEY);
+  const outfitUri = await readString(WIDGET_OUTFIT_URI_KEY);
   const bgModeRaw = await readString(WIDGET_BG_MODE_KEY);
   const bgMode = (bgModeRaw as BgMode | null) ?? "user";
   const bgId = await readString(WIDGET_BG_ID_KEY);
+  const bgUri = await readString(WIDGET_BG_URI_KEY);
   const isPro = (await readString(WIDGET_PRO_KEY)) === "true";
 
   const routineIdx = clamp(rawIdx, routines.length - 1);
@@ -227,8 +260,10 @@ export async function renderRoutinesWidget(): Promise<React.JSX.Element> {
       totalRoutines={routines.length}
       taskVisibleIndex={taskIdx}
       outfitId={outfitId}
+      outfitUri={outfitUri}
       bgMode={bgMode}
       bgId={bgId}
+      bgUri={bgUri}
       earnedCoins={earnedCoins}
       isPro={isPro}
     />
@@ -241,10 +276,12 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     let routines = await readRoutines();
     let routineIdx = await readNumber(WIDGET_INDEX_KEY);
     let taskIdx = await readNumber(WIDGET_TASK_IDX_KEY);
-    const outfitUri = await readString(WIDGET_OUTFIT_ID_KEY);
+    const outfitUri = await readString(WIDGET_OUTFIT_ID_KEY); // holds outfit ID
+    const outfitRemoteUri = await readString(WIDGET_OUTFIT_URI_KEY);
     const bgModeRaw = await readString(WIDGET_BG_MODE_KEY);
     let bgMode = (bgModeRaw as BgMode | null) ?? "user";
     const bgId = await readString(WIDGET_BG_ID_KEY);
+    const bgUri = await readString(WIDGET_BG_URI_KEY);
     const isPro = (await readString(WIDGET_PRO_KEY)) === "true";
 
     // Sanity-clamp indices
@@ -332,8 +369,10 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
               totalRoutines={routines.length}
               taskVisibleIndex={freshTaskIdxOptimistic}
               outfitId={outfitUri}
+              outfitUri={outfitRemoteUri}
               bgMode={bgMode}
               bgId={bgId}
+              bgUri={bgUri}
               earnedCoins={optimisticCoins}
               isPro={isPro}
             />,
@@ -349,8 +388,10 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             routineIdx,
             taskIdx,
             outfitUri, // variable holds outfit ID after the rename above
+            outfitRemoteUri,
             bgMode,
             bgId,
+            bgUri,
             isPro,
           ).catch((e) => console.warn("Widget: background sync error", e));
         }
@@ -383,8 +424,10 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         totalRoutines={routines.length}
         taskVisibleIndex={taskIdx}
         outfitId={outfitUri}
+        outfitUri={outfitRemoteUri}
         bgMode={bgMode}
         bgId={bgId}
+        bgUri={bgUri}
         earnedCoins={earnedCoins}
         isPro={isPro}
       />,

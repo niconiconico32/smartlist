@@ -1,40 +1,39 @@
 import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { ArrowLeft, Sparkles, Target, Zap } from "lucide-react-native";
 import React from "react";
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
-const BENEFITS = [
-  {
-    id: 1,
-    icon: Zap,
-    iconColor: colors.accent, // #FAB387
-    title: "Reduce el estrés",
-    description:
-      "Las afirmaciones diarias te ayudan a calmar tu mente y reducir la ansiedad del día a día.",
-  },
-  {
-    id: 2,
-    icon: Sparkles,
-    iconColor: colors.primary, // #CBA6F7
-    title: "Aumenta la positividad",
-    description:
-      "Reprograma tu mente con pensamientos positivos y atrae mejores experiencias a tu vida.",
-  },
-  {
-    id: 3,
-    icon: Target,
-    iconColor: colors.success, // #A6E3A1
-    title: "Alcanza tus metas",
-    description:
-      "Mantén el foco en tus objetivos y construye la mentalidad necesaria para alcanzarlos.",
-  },
-];
-
 export default function BenefitsScreen() {
+  const { t } = useTranslation();
+
+  const BENEFITS = [
+    {
+      id: 1,
+      icon: Zap,
+      iconColor: colors.accent,
+      title: t("benefits.items.stress.title"),
+      description: t("benefits.items.stress.description"),
+    },
+    {
+      id: 2,
+      icon: Sparkles,
+      iconColor: colors.primary,
+      title: t("benefits.items.positivity.title"),
+      description: t("benefits.items.positivity.description"),
+    },
+    {
+      id: 3,
+      icon: Target,
+      iconColor: colors.success,
+      title: t("benefits.items.goals.title"),
+      description: t("benefits.items.goals.description"),
+    },
+  ];
   const handleBack = () => {
     router.back();
   };
@@ -50,9 +49,9 @@ export default function BenefitsScreen() {
       <View style={styles.header}>
         <Pressable onPress={handleBack} style={styles.backButton}>
           <ArrowLeft size={20} color={colors.textSecondary} />
-          <Text style={styles.backText}>Atrás</Text>
+          <Text style={styles.backText}>{t("benefits.back")}</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Beneficios</Text>
+        <Text style={styles.headerTitle}>{t("benefits.header")}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -77,7 +76,7 @@ export default function BenefitsScreen() {
           entering={FadeInDown.delay(200).duration(400)}
           style={styles.mainTitle}
         >
-          Los beneficios de las{"\n"}afirmaciones diarias
+          {t("benefits.title")}
         </Animated.Text>
 
         {/* Benefits Cards */}
@@ -122,7 +121,7 @@ export default function BenefitsScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.nextButton}
           >
-            <Text style={styles.nextButtonText}>Continuar</Text>
+            <Text style={styles.nextButtonText}>{t("benefits.next")}</Text>
           </LinearGradient>
         </Pressable>
       </Animated.View>

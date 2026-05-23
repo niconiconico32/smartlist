@@ -1,7 +1,8 @@
-import { AppText as Text } from '@/src/components/AppText';
-import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import React, { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, View } from "react-native";
 import Animated, {
   Easing,
   FadeInDown,
@@ -11,10 +12,10 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-} from 'react-native-reanimated';
-import { slideStyles } from '../../styles/shared';
-import { DialogueSlideConfig } from '../../types';
-import TypewriterText from '../TypewriterText';
+} from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import { DialogueSlideConfig } from "../../types";
+import TypewriterText from "../TypewriterText";
 
 interface Props {
   config: DialogueSlideConfig;
@@ -22,6 +23,7 @@ interface Props {
 }
 
 const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
+  const { t } = useTranslation();
   const [dialoguePhase, setDialoguePhase] = useState(0);
   const [typewriterDone, setTypewriterDone] = useState(false);
   const [bubbleReady, setBubbleReady] = useState(false);
@@ -88,7 +90,13 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
         return () => clearTimeout(timer);
       }
     }
-  }, [typewriterDone, isLastMessage, handleDialogueContinue, config.autoAdvanceAtEnd, onNext]);
+  }, [
+    typewriterDone,
+    isLastMessage,
+    handleDialogueContinue,
+    config.autoAdvanceAtEnd,
+    onNext,
+  ]);
 
   const mascotAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -109,16 +117,18 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
     buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
   };
 
+  const translatedMessage = t(messages[dialoguePhase]);
+
   return (
     <View style={slideStyles.welcomeSlideSimple}>
       <View style={slideStyles.welcomeDialogueArea}>
         {/* Speech bubble */}
         <Animated.View style={slideStyles.speechBubbleContainer}>
-          <View >
+          <View>
             {bubbleReady && (
               <TypewriterText
                 key={`phase-${dialoguePhase}`}
-                text={messages[dialoguePhase]}
+                text={translatedMessage}
                 style={slideStyles.speechBubbleText}
                 delay={dialoguePhase === 0 ? 200 : 100}
                 onComplete={() => setTypewriterDone(true)}
@@ -130,12 +140,16 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
         {/* Mascot */}
         <Animated.View
           entering={FadeInDown.delay(100).duration(700)}
-          style={[slideStyles.welcomeMascotCenter, mascotAnimatedStyle, { marginBottom: 0, marginTop: 8, position: 'relative' }]}
+          style={[
+            slideStyles.welcomeMascotCenter,
+            mascotAnimatedStyle,
+            { marginBottom: 0, marginTop: 8, position: "relative" },
+          ]}
         >
           {/* Blurred Glow Circle */}
 
           <Image
-            source={require('@/assets/images/logomain.png')}
+            source={require("@/assets/images/logomain.png")}
             style={slideStyles.welcomeMascotLarge}
             resizeMode="contain"
           />
@@ -151,8 +165,8 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
               style={({ pressed }) => [
                 {
                   paddingVertical: 16,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  alignItems: "center",
+                  justifyContent: "center",
                 },
                 pressed && { opacity: 0.6 },
               ]}
@@ -160,12 +174,12 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
               <Text
                 style={{
                   fontSize: 16,
-                  fontWeight: '600',
-                  color: '#A0A0A0', // Tenuemente
+                  fontWeight: "600",
+                  color: "#A0A0A0", // Tenuemente
                   letterSpacing: 0.5,
                 }}
               >
-                Toca para empezar
+                {t("onboarding.tap_to_start")}
               </Text>
             </Pressable>
           </Animated.View>

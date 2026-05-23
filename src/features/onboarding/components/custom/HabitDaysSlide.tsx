@@ -3,14 +3,15 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Flame } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Flame } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
@@ -18,9 +19,9 @@ import Animated, {
     withDelay,
     withSequence,
     withSpring,
-    withTiming
-} from 'react-native-reanimated';
-import { HABIT_DAYS } from '../../constants';
+    withTiming,
+} from "react-native-reanimated";
+import { HABIT_DAYS } from "../../constants";
 
 // ============================================
 // ANIMATED DAY CIRCLE
@@ -58,9 +59,10 @@ const AnimatedDayCircle = ({
       fillProgress.value > 0
         ? `${colors.success}${Math.round(fillProgress.value * 255)
             .toString(16)
-            .padStart(2, '0')}`
+            .padStart(2, "0")}`
         : colors.surface,
-    borderColor: fillProgress.value > 0 ? colors.success : `${colors.textPrimary}1A`,
+    borderColor:
+      fillProgress.value > 0 ? colors.success : `${colors.textPrimary}1A`,
   }));
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -73,7 +75,9 @@ const AnimatedDayCircle = ({
 
   return (
     <Animated.View style={[styles.dayCircle, circleStyle]}>
-      <Animated.Text style={[styles.dayLabel, labelStyle]}>{label}</Animated.Text>
+      <Animated.Text style={[styles.dayLabel, labelStyle]}>
+        {label}
+      </Animated.Text>
       <Animated.Text style={[styles.checkMark, checkStyle]}>✓</Animated.Text>
     </Animated.View>
   );
@@ -87,6 +91,7 @@ interface Props {
 }
 
 const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const [filledCount, setFilledCount] = useState(0);
   const [showButton, setShowButton] = useState(false);
   const titleOpacity = useSharedValue(0);
@@ -148,46 +153,57 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-      <Animated.View entering={FadeInDown.delay(0).duration(500)} style={styles.logoContainer}>
-        <Image
-          source={require('@/assets/images/streak.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </Animated.View>
-
-      <Animated.Text style={[styles.title, titleStyle]}>
-        Construye tu hábito diario
-      </Animated.Text>
-
-      <Animated.Text style={[styles.subtitle, subtitleStyle]}>
-        La consistencia es clave para el cambio duradero
-      </Animated.Text>
-
-      <View style={styles.daysRow}>
-        {HABIT_DAYS.map((day, index) => (
-          <AnimatedDayCircle
-            key={day.id}
-            label={day.label}
-            delay={getDelay(index)}
-            onFilled={index === 6 ? undefined : () => setFilledCount((prev) => prev + 1)}
+        <Animated.View
+          entering={FadeInDown.delay(0).duration(500)}
+          style={styles.logoContainer}
+        >
+          <Image
+            source={require("@/assets/images/streak.png")}
+            style={styles.logo}
+            resizeMode="contain"
           />
-        ))}
-      </View>
+        </Animated.View>
 
-      <Animated.Text style={styles.progressText}>
-        Empieza pequeño y mantén la consistencia
-      </Animated.Text>
+        <Animated.Text style={[styles.title, titleStyle]}>
+          {t("onboarding.habit_days.title")}
+        </Animated.Text>
 
-      <Animated.View style={[styles.factCard, factStyle]}>
-        <View style={styles.factIconContainer}>
-          <Flame size={20} color={colors.accent} strokeWidth={2} fill={colors.accent} />
+        <Animated.Text style={[styles.subtitle, subtitleStyle]}>
+          {t("onboarding.habit_days.subtitle")}
+        </Animated.Text>
+
+        <View style={styles.daysRow}>
+          {HABIT_DAYS.map((day, index) => (
+            <AnimatedDayCircle
+              key={day.id}
+              label={day.label}
+              delay={getDelay(index)}
+              onFilled={
+                index === 6
+                  ? undefined
+                  : () => setFilledCount((prev) => prev + 1)
+              }
+            />
+          ))}
         </View>
-        <Text style={styles.factText}>
-          Las personas con rachas de 7 días tienen 3x más probabilidades de formar hábitos
-          duraderos
-        </Text>
-      </Animated.View>
+
+        <Animated.Text style={styles.progressText}>
+          {t("onboarding.habit_days.progress_text")}
+        </Animated.Text>
+
+        <Animated.View style={[styles.factCard, factStyle]}>
+          <View style={styles.factIconContainer}>
+            <Flame
+              size={20}
+              color={colors.accent}
+              strokeWidth={2}
+              fill={colors.accent}
+            />
+          </View>
+          <Text style={styles.factText}>
+            {t("onboarding.habit_days.fact_text")}
+          </Text>
+        </Animated.View>
       </ScrollView>
 
       {showButton && (
@@ -207,7 +223,7 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
               end={{ x: 1, y: 0 }}
               style={primaryButtonGradient}
             >
-              <Text style={primaryButtonText}>Continuar</Text>
+              <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
             </LinearGradient>
           </Pressable>
         </Animated.View>
@@ -226,11 +242,11 @@ const styles = StyleSheet.create({
   scrollContentContainer: {
     paddingHorizontal: 32,
     paddingTop: 60,
-    alignItems: 'center',
+    alignItems: "center",
     paddingBottom: 16,
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   logo: {
@@ -240,22 +256,22 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
     letterSpacing: -0.5,
     lineHeight: 40,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
   },
   daysRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 24,
   },
@@ -264,34 +280,34 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
     borderColor: `${colors.textPrimary}1A`,
-    position: 'relative',
+    position: "relative",
   },
   dayLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
-    position: 'absolute',
+    position: "absolute",
   },
   checkMark: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.background,
-    position: 'absolute',
+    position: "absolute",
   },
   progressText: {
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
   },
   factCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: `${colors.accent}26`,
     borderRadius: 16,
     padding: 16,
@@ -301,19 +317,19 @@ const styles = StyleSheet.create({
   factIconContainer: {
     width: 32,
     height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   factText: {
     flex: 1,
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
     lineHeight: 18,
   },
   buttonContainer: {
     marginTop: 0,
-    width: '100%',
+    width: "100%",
     paddingHorizontal: 52,
     paddingBottom: 40,
     paddingTop: 16,

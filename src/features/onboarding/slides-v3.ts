@@ -44,9 +44,9 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡Bienvenid@!',
-      'Soy Brainy, y desde ahora seré tu compañero :)',
-      'Partamos nuestro viaje con unas simples preguntitas.'
+      'onboarding.dialogue_intro_1',
+      'onboarding.dialogue_intro_2',
+      'onboarding.dialogue_intro_3'
     ],
     backgroundColor: '#f2f2f2',
   },
@@ -57,12 +57,12 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'name',
     answerKey: 'userName',
     showNavButton: true,
-    title: '¿cómo deberíamos llamarte?',
-    subtitle: 'primero lo primero',
-    placeholder: 'Tu nombre',
+    title: 'onboarding.v3.name_title',
+    subtitle: 'onboarding.v3.name_subtitle',
+    placeholder: 'onboarding.name_placeholder',
     showLogo: false,
     canContinue: (answers) => !!answers.userName.trim(),
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 3: ADHD Diagnosis ===
@@ -71,11 +71,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'diagnosis',
     answerKey: 'diagnosis',
     showNavButton: true,
-    title: '¿estás diagnosticad@ con TDAH?',
-    subtitle: 'todos los cerebros son bienvenidos.',
+    title: 'onboarding.v3.diagnosis_title',
+    subtitle: 'onboarding.v3.diagnosis_subtitle',
     options: 'ADHD_DIAGNOSIS',
     canContinue: (answers) => !!answers.diagnosis,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 4: Age ===
@@ -84,11 +84,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'age',
     answerKey: 'ageRange',
     showNavButton: true,
-    title: '¿cuál es tu edad?',
-    subtitle: 'esto nos ayudará a entenderte mejor.',
+    title: 'onboarding.v3.age_title',
+    subtitle: 'onboarding.v3.age_subtitle',
     options: 'RANGOS_EDAD',
     canContinue: (answers) => !!answers.ageRange,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 5: ADHD Symptoms ===
@@ -97,11 +97,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'adhd-symptoms',
     answerKey: 'adhdSymptoms',
     showNavButton: true,
-    title: '¿cómo te afecta el TDAH hoy?',
-    subtitle: 'selecciona las cosas que sueles experimentar.',
+    title: 'onboarding.v3.adhd_symptoms_title',
+    subtitle: 'onboarding.v3.adhd_symptoms_subtitle',
     options: 'ADHD_SYMPTOMS',
     canContinue: (answers) => answers.adhdSymptoms.length > 0,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 5: Life Area ===
@@ -110,11 +110,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'life-area',
     answerKey: 'lifeArea',
     showNavButton: true,
-    title: '¿qué área de tu día a día es con la que más te cuesta lidiar?',
-    subtitle: 'es importante diagnosticar que te cuesta más',
+    title: 'onboarding.v3.life_area_title',
+    subtitle: 'onboarding.v3.life_area_subtitle',
     options: 'LIFE_AREAS',
     canContinue: (answers) => !!answers.lifeArea,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 7: Main Goal ===
@@ -123,11 +123,11 @@ export const SLIDES_V3: SlideConfig[] = [
     id: 'main-goal',
     answerKey: 'mainGoal',
     showNavButton: true,
-    title: '¿qué te gustaría lograr a corto plazo?',
-    subtitle: 'este será nuestro norte.',
+    title: 'onboarding.v3.main_goal_title',
+    subtitle: 'onboarding.v3.main_goal_subtitle',
     options: 'MAIN_GOAL',
     canContinue: (answers) => answers.mainGoal.length > 0,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 8: Dialogue 2 ===
@@ -137,8 +137,8 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡ya empiezo a conocerte mejor!',
-      'ahora cuéntame...'
+      'onboarding.dialogue_mid_1',
+      'onboarding.dialogue_mid_2'
     ],
     backgroundColor: '#f2f2f2',
     autoAdvanceAtEnd: true,
@@ -191,9 +191,9 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡te entiendo muy bien, empezar cuesta mucho!',
-      'pero tranquil@, juntos podemos lograrlo.',
-      'déjame mostrarte cómo puedo ayudar a que te sea más fácil.'
+      'onboarding.dialogue_support_1',
+      'onboarding.dialogue_support_2',
+      'onboarding.dialogue_support_3'
     ],
     backgroundColor: '#f2f2f2',
     autoAdvanceAtEnd: true,
@@ -206,7 +206,7 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: 'taskText',
     showNavButton: false,
     canContinue: (answers) => !!answers.taskText.trim(),
-    buttonText: 'Generar',
+    buttonText: 'onboarding.generate',
     backgroundColor: '#f2f2f2',
   },
 
@@ -217,9 +217,9 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡qué bien! ya tienes tu primera tarea dividida.',
-      '¿ves cómo se siente mucho más fácil empezar ahora?',
-      'déjame contarte por qué esto funciona tan bien en tu cerebro...'
+      'onboarding.dialogue_progress_1',
+      'onboarding.dialogue_progress_2',
+      'onboarding.dialogue_progress_3'
     ],
     backgroundColor: '#f2f2f2',
     autoAdvanceAtEnd: true,

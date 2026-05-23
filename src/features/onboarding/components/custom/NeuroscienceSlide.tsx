@@ -1,20 +1,22 @@
-import { colors } from '@/constants/theme';
-import React, { useEffect } from 'react';
-import { Dimensions, Image, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Dimensions, Image, StyleSheet, View } from "react-native";
 import Animated, {
-  Easing,
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+    Easing,
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSpring,
+    withTiming,
+} from "react-native-reanimated";
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const NeuroscienceSlide: React.FC = () => {
+  const { t } = useTranslation();
   const breathingAnim = useSharedValue(0);
   const bubbleScale = useSharedValue(0);
 
@@ -48,9 +50,11 @@ const NeuroscienceSlide: React.FC = () => {
         <Animated.View style={[s.bubbleContainer, bubbleStyle]}>
           <View style={s.bubble}>
             <Text style={s.bubbleText}>
-              La neurociencia confirma que lograr{' '}
-              <Text style={s.bubbleHighlight}>'micro-victorias'</Text> libera la dopamina
-              necesaria para mantener tu motivación.
+              {t("onboarding.neuroscience.bubble_prefix")}{" "}
+              <Text style={s.bubbleHighlight}>
+                {t("onboarding.neuroscience.bubble_highlight")}
+              </Text>{" "}
+              {t("onboarding.neuroscience.bubble_suffix")}
             </Text>
           </View>
           <View style={s.bubbleTail} />
@@ -62,7 +66,7 @@ const NeuroscienceSlide: React.FC = () => {
           style={[s.mascotContainer, mascotStyle]}
         >
           <Image
-            source={require('@/assets/images/brainyscience.png')}
+            source={require("@/assets/images/brainyscience.png")}
             style={s.mascot}
             resizeMode="contain"
           />
@@ -70,8 +74,11 @@ const NeuroscienceSlide: React.FC = () => {
       </View>
 
       {/* Subtitle — positioned just above the Continuar button area */}
-      <Animated.Text entering={FadeInDown.delay(400).duration(500)} style={s.subtitle}>
-        Respaldado por investigaciones enfocadas en la Terapia Cognitivo-Conductual (TCC)
+      <Animated.Text
+        entering={FadeInDown.delay(400).duration(500)}
+        style={s.subtitle}
+      >
+        {t("onboarding.neuroscience.subtitle")}
       </Animated.Text>
     </View>
   );
@@ -84,12 +91,12 @@ const s = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   // ── Speech Bubble ──
   bubbleContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 0,
   },
   bubble: {
@@ -108,25 +115,25 @@ const s = StyleSheet.create({
     borderLeftWidth: 12,
     borderRightWidth: 12,
     borderTopWidth: 14,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
     borderTopColor: colors.textRoutineCard,
     marginTop: -1,
   },
   bubbleText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 26,
   },
   bubbleHighlight: {
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.primary,
   },
   // ── Mascot ──
   mascotContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   mascot: {
@@ -136,9 +143,9 @@ const s = StyleSheet.create({
   // ── Subtitle ──
   subtitle: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 32,
     lineHeight: 20,
     marginBottom: 2,

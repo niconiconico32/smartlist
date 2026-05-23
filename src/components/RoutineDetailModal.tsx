@@ -4,40 +4,52 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import * as routineService from "@/src/lib/routineService";
 import type { CompletionHistory } from "@/src/types/routine";
 import { addDays, format } from "date-fns";
-import { es } from "date-fns/locale";
+import { enUS, es } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
 import {
-    Bell,
-    Calendar,
-    Check,
-    ChevronLeft,
-    Edit3,
-    Trash2,
+  Bell,
+  Calendar,
+  Check,
+  ChevronLeft,
+  Edit3,
+  Trash2,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Animated, {
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-    withTiming,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ROUTINE_COLORS } from "@/constants/routineColors";
 
+// Internal data keys for days (stored in DB as Spanish abbrs)
 const DAYS_OF_WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+// Mapping from stored key to i18n display key
+const DAY_DISPLAY_KEYS: Record<string, string> = {
+  Lun: "days.mon_abbr",
+  Mar: "days.tue_abbr",
+  Mié: "days.wed_abbr",
+  Jue: "days.thu_abbr",
+  Vie: "days.fri_abbr",
+  Sáb: "days.sat_abbr",
+  Dom: "days.sun_abbr",
+};
 
 // JS day (0=Sun) -> index in DAYS_OF_WEEK
 const JS_DAY_TO_INDEX: Record<number, number> = {
@@ -148,6 +160,7 @@ const CalendarDay = ({
   completedToday: boolean;
   completionHistory: CompletionHistory;
 }) => {
+  const { t } = useTranslation();
   // Usar hora del mediodía para evitar problemas de zona horaria
   const dayDate = new Date(currentYear, currentMonth, day, 12, 0, 0);
   const isPast = isPastDay(currentYear, currentMonth, day, now);
@@ -209,7 +222,7 @@ const CalendarDay = ({
           <Text style={styles.emojiText}>😢</Text>
         ) : (
           <Text style={[styles.dayNumber, getTextStyle()]}>
-            {isToday ? "Hoy" : day}
+            {isToday ? t("routine_detail.today") : day}
           </Text>
         )}
       </View>
@@ -352,6 +365,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   onDelete,
   onEdit,
 }) => {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -360,12 +374,13 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     {},
   );
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
+  const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
 
   // Next scheduled day for read-only banner
   const nextRoutineDate =
     isReadOnly && routine ? getNextRoutineDate(routine.days) : null;
   const nextDayLabel = nextRoutineDate
-    ? format(nextRoutineDate, "EEEE d 'de' MMMM", { locale: es })
+    ? format(nextRoutineDate, "EEEE d 'de' MMMM", { locale: dateLocale })
     : null;
 
   // Obtener mes y año actuales
@@ -373,21 +388,6 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
   const calendarDays = getCalendarDays(currentYear, currentMonth);
-
-  const monthNames = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
 
   // Actualizar tareas cuando cambie la rutina o se abra el modal
   useEffect(() => {
@@ -471,12 +471,12 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     } catch (e) {}
 
     Alert.alert(
-      "Eliminar Rutina",
-      `¿Estás seguro que deseas eliminar "${routine.name}"?`,
+      t("routine_detail.delete_title"),
+      t("routine_detail.delete_message", { name: routine.name }),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("routine_detail.cancel"), style: "cancel" },
         {
-          text: "Eliminar",
+          text: t("routine_detail.delete"),
           style: "destructive",
           onPress: () => {
             try {
@@ -494,7 +494,9 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
 
   // Formatear días para mostrar
   const daysText =
-    routine.days.length === 7 ? "Todos los días" : routine.days.join(", ");
+    routine.days.length === 7
+      ? t("routine_card.all_days")
+      : routine.days.join(", ");
 
   return (
     <Modal
@@ -545,7 +547,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
             {isReadOnly && nextDayLabel && (
               <View style={styles.readOnlyBanner}>
                 <Text style={styles.readOnlyBannerText}>
-                  🔒 No te toca esta rutina hoy. Vuelve el{" "}
+                  {t("routine_detail.read_only_banner_prefix")}{" "}
                   <Text style={styles.readOnlyBannerDay}>{nextDayLabel}</Text>.
                 </Text>
               </View>
@@ -583,7 +585,10 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
             <View style={styles.progressSection}>
               <View style={styles.progressInfo}>
                 <Text style={styles.progressText}>
-                  {completedCount} de {tasks.length} completadas
+                  {t("routine_detail.progress", {
+                    done: completedCount,
+                    total: tasks.length,
+                  })}
                 </Text>
                 <Text style={[styles.progressPercent, { color }]}>
                   {Math.round(progressPercent)}%
@@ -601,7 +606,9 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
 
             {/* Tasks List */}
             <View style={styles.tasksSection}>
-              <Text style={styles.sectionTitle}>Tareas</Text>
+              <Text style={styles.sectionTitle}>
+                {t("routine_detail.tasks")}
+              </Text>
               {tasks.map((task, index) => (
                 <TaskRow
                   key={task.id}
@@ -617,14 +624,18 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
             {/* Calendar Section */}
             <View style={styles.calendarSection}>
               <Text style={styles.sectionTitle}>
-                {monthNames[currentMonth]} {currentYear}
+                {format(new Date(currentYear, currentMonth, 1), "MMMM yyyy", {
+                  locale: dateLocale,
+                })}
               </Text>
 
               {/* Days of week header */}
               <View style={styles.calendarHeader}>
                 {DAYS_OF_WEEK.map((day) => (
                   <View key={day} style={styles.dayHeaderCell}>
-                    <Text style={styles.dayHeaderText}>{day}</Text>
+                    <Text style={styles.dayHeaderText}>
+                      {t(DAY_DISPLAY_KEYS[day] ?? day)}
+                    </Text>
                   </View>
                 ))}
               </View>

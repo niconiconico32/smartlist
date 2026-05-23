@@ -10,37 +10,38 @@ import { useKeepAwake } from "expo-keep-awake";
 import { LinearGradient } from "expo-linear-gradient";
 import { ChevronRight, Clock, Crown } from "lucide-react-native";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    AppState,
-    Dimensions,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  AppState,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import {
-    Gesture,
-    GestureDetector,
-    GestureHandlerRootView,
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
 } from "react-native-gesture-handler";
 import Animated, {
-    Easing,
-    interpolate,
-    interpolateColor,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withDelay,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming,
+  Easing,
+  interpolate,
+  interpolateColor,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -323,6 +324,8 @@ const SwipeToCompleteSlider = ({
     };
   });
 
+  const { t } = useTranslation();
+
   return (
     <View style={styles.sliderContainer}>
       <BlurView intensity={35} tint="dark" style={styles.sliderTrack}>
@@ -331,7 +334,9 @@ const SwipeToCompleteSlider = ({
 
         {/* Text */}
         <Animated.Text style={[styles.sliderText, textStyle]}>
-          {isLastTask ? "Finalizar..." : "Desliza para completar..."}
+          {isLastTask
+            ? t("focus_mode.slider_finish")
+            : t("focus_mode.slider_swipe")}
         </Animated.Text>
 
         {/* Big Neon Thumb */}
@@ -428,6 +433,7 @@ export function FocusModeScreen({
 }: FocusModeScreenProps) {
   // Mantener la pantalla activa durante el modo focus
   useKeepAwake();
+  const { t } = useTranslation();
 
   const [subtasks, setSubtasks] = useState(initialSubtasks);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -748,8 +754,12 @@ export function FocusModeScreen({
   // (goToNext/goToPrevious change on every currentIndex/totalElapsedTime update)
   const goToNextRef = useRef(goToNext);
   const goToPreviousRef = useRef(goToPrevious);
-  useEffect(() => { goToNextRef.current = goToNext; }, [goToNext]);
-  useEffect(() => { goToPreviousRef.current = goToPrevious; }, [goToPrevious]);
+  useEffect(() => {
+    goToNextRef.current = goToNext;
+  }, [goToNext]);
+  useEffect(() => {
+    goToPreviousRef.current = goToPrevious;
+  }, [goToPrevious]);
 
   const stableGoToNext = useCallback(() => goToNextRef.current(), []);
   const stableGoToPrevious = useCallback(() => goToPreviousRef.current(), []);
@@ -846,7 +856,10 @@ export function FocusModeScreen({
 
             {/* Progress Right */}
             <Text style={[styles.progressText, { textAlign: "right" }]}>
-              {completedCount} / {subtasks.length} completados
+              {t("focus_mode.progress", {
+                completed: completedCount,
+                total: subtasks.length,
+              })}
             </Text>
           </View>
         </View>
@@ -881,7 +894,7 @@ export function FocusModeScreen({
         {/* Footer - Swipe Slider */}
         <View style={styles.footer}>
           {/* Tip */}
-          <Text style={styles.tipText}>💡 Enfócate solo en este paso</Text>
+          <Text style={styles.tipText}>{t("focus_mode.tip")}</Text>
 
           <SwipeToCompleteSlider
             onComplete={handleCompleteTask}
@@ -908,12 +921,13 @@ export function FocusModeScreen({
               colors={["rgba(49, 50, 68, 0.95)", "rgba(30, 30, 46, 0.95)"]}
               style={styles.modalGradient}
             >
-              <Text style={styles.modalTitle}>¿Salir del Focus Mode?</Text>
+              <Text style={styles.modalTitle}>
+                {t("focus_mode.exit_title")}
+              </Text>
               <Text style={styles.modalSubtitle}>
-                {subtasks.filter((s) => !s.isCompleted).length} subtarea
-                {subtasks.filter((s) => !s.isCompleted).length !== 1 ? "s" : ""}{" "}
-                pendiente
-                {subtasks.filter((s) => !s.isCompleted).length !== 1 ? "s" : ""}
+                {t("focus_mode.exit_subtitle", {
+                  count: subtasks.filter((s) => !s.isCompleted).length,
+                })}
               </Text>
 
               <View style={styles.modalButtons}>
@@ -927,7 +941,9 @@ export function FocusModeScreen({
                     end={{ x: 1, y: 1 }}
                     style={styles.modalButtonGradient}
                   >
-                    <Text style={styles.modalButtonText}>Guardar y Salir</Text>
+                    <Text style={styles.modalButtonText}>
+                      {t("focus_mode.exit_confirm")}
+                    </Text>
                   </LinearGradient>
                 </Pressable>
 
@@ -936,7 +952,7 @@ export function FocusModeScreen({
                   style={styles.modalSecondaryButton}
                 >
                   <Text style={styles.modalSecondaryButtonText}>
-                    Seguir Aquí
+                    {t("focus_mode.exit_cancel")}
                   </Text>
                 </Pressable>
               </View>

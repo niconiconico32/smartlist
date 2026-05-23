@@ -1,53 +1,82 @@
-import { PRIMARY_GRADIENT_COLORS, primaryButtonGradient, primaryButtonStyles, primaryButtonText } from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { OnboardingSubtaskList } from './OnboardingSubtaskList';
-import type { Subtask } from './OnboardingSubtaskList';
-import { supabase } from '@/src/lib/supabase';
-import { getLocalDateKey } from '@/src/utils/dateHelpers';
-import { fetchActivitiesFromCloud, syncActivitiesToCloud } from '@/src/lib/syncService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Sparkles } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { TASK_SUGGESTIONS } from '../../constants';
-import { layoutStyles, slideStyles } from '../../styles/shared';
-import type { OnboardingAnswers } from '../../types';
+import {
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { supabase } from "@/src/lib/supabase";
+import {
+  fetchActivitiesFromCloud,
+  syncActivitiesToCloud,
+} from "@/src/lib/syncService";
+import { getLocalDateKey } from "@/src/utils/dateHelpers";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Sparkles } from "lucide-react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { TASK_SUGGESTIONS } from "../../constants";
+import { layoutStyles, slideStyles } from "../../styles/shared";
+import type { OnboardingAnswers } from "../../types";
+import type { Subtask } from "./OnboardingSubtaskList";
+import { OnboardingSubtaskList } from "./OnboardingSubtaskList";
 
-const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
+const ACTIVITIES_STORAGE_KEY = "@smartlist_activities";
 
 // Fallback random icon color (same palette as index.tsx)
 function getRandomIconColor() {
   const palette = [
-    '#CBA6F7', '#FAB387', '#F38BA8', '#F9E2AF',
-    '#A6E3A1', '#89B4FA', '#F5C2E7',
+    "#CBA6F7",
+    "#FAB387",
+    "#F38BA8",
+    "#F9E2AF",
+    "#A6E3A1",
+    "#89B4FA",
+    "#F5C2E7",
   ];
   return palette[Math.floor(Math.random() * palette.length)];
 }
 
 interface Props {
   answers: OnboardingAnswers;
-  onAnswer: <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => void;
+  onAnswer: <K extends keyof OnboardingAnswers>(
+    key: K,
+    value: OnboardingAnswers[K],
+  ) => void;
   onNext: () => void;
 }
 
 const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
+  const { t, i18n } = useTranslation();
   const taskText = answers.taskText;
 
   // Generation & subtask state
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSubtaskList, setShowSubtaskList] = useState(false);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
-  const [generatedTitle, setGeneratedTitle] = useState('');
-  const [generatedEmoji, setGeneratedEmoji] = useState('✨');
+  const [generatedTitle, setGeneratedTitle] = useState("");
+  const [generatedEmoji, setGeneratedEmoji] = useState("✨");
 
   const handleGenerate = async () => {
     const text = taskText?.trim();
     if (!text) {
-      Alert.alert('Error', 'Escribe una tarea primero');
+      Alert.alert(
+        t("onboarding.common_error_title"),
+        t("onboarding.task_demo.errors.write_task_first"),
+      );
       return;
     }
 
@@ -55,31 +84,37 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('divide-task', {
-        body: { task: text },
+      const { data, error } = await supabase.functions.invoke("divide-task", {
+        body: { task: text, locale: i18n?.language ?? "en" },
       });
 
       if (error) {
-        console.error('Error calling divide-task:', error);
+        console.error("Error calling divide-task:", error);
         throw new Error(error.message);
       }
 
       if (!data || data.error) {
-        throw new Error(data?.error || 'Error desconocido');
+        throw new Error(
+          data?.error || t("onboarding.task_demo.errors.unknown_error"),
+        );
       }
 
-      if (!data.tasks || !Array.isArray(data.tasks) || data.tasks.length === 0) {
-        throw new Error('No se pudieron generar subtareas');
+      if (
+        !data.tasks ||
+        !Array.isArray(data.tasks) ||
+        data.tasks.length === 0
+      ) {
+        throw new Error(t("onboarding.task_demo.errors.no_subtasks_generated"));
       }
 
       // Title
       let finalTitle = data.title || text;
       if (finalTitle.length > 50) {
-        finalTitle = finalTitle.substring(0, 47) + '...';
+        finalTitle = finalTitle.substring(0, 47) + "...";
       }
 
       setGeneratedTitle(finalTitle);
-      setGeneratedEmoji(data.emoji || '✨');
+      setGeneratedEmoji(data.emoji || "✨");
 
       // Transform subtasks
       const transformedSubtasks: Subtask[] = data.tasks.map(
@@ -88,14 +123,17 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
           title: task.title,
           duration: task.duration,
           isCompleted: false,
-        })
+        }),
       );
 
       setSubtasks(transformedSubtasks);
       setShowSubtaskList(true);
     } catch (error) {
-      console.error('Error generando subtareas:', error);
-      Alert.alert('Error', 'No se pudieron generar las subtareas. Intenta de nuevo.');
+      console.error("Error generando subtareas:", error);
+      Alert.alert(
+        t("onboarding.common_error_title"),
+        t("onboarding.task_demo.errors.generate_failed"),
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -103,7 +141,7 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
 
   const handleAddToHome = async (
     finalSubtasks: Subtask[],
-    difficulty: 'easy' | 'moderate' | 'hard'
+    difficulty: "easy" | "moderate" | "hard",
   ) => {
     // Create the Activity object (same shape as index.tsx)
     const newActivity = {
@@ -111,13 +149,13 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
       title: generatedTitle,
       emoji: generatedEmoji,
       metric: `${finalSubtasks.reduce((sum, t) => sum + t.duration, 0)} min`,
-      color: '#A6E3A1',
+      color: "#A6E3A1",
       iconColor: getRandomIconColor(),
-      action: 'play' as const,
+      action: "play" as const,
       completed: false,
       subtasks: finalSubtasks,
       difficulty: difficulty,
-      recurrence: { type: 'once' as const },
+      recurrence: { type: "once" as const },
       completedDates: [] as string[],
       scheduledDate: getLocalDateKey(new Date()),
     };
@@ -135,8 +173,11 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onNext();
     } catch (error) {
-      console.error('Error saving activity:', error);
-      Alert.alert('Error', 'No se pudo guardar la tarea. Intenta de nuevo.');
+      console.error("Error saving activity:", error);
+      Alert.alert(
+        t("onboarding.common_error_title"),
+        t("onboarding.task_demo.errors.save_failed"),
+      );
     }
   };
 
@@ -147,78 +188,128 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
         contentContainerStyle={layoutStyles.slideScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
-          hagamos una prueba
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={[slideStyles.slideSubtitle, { color: colors.surface }]}
+        >
+          {t("onboarding.task_demo.subtitle")}
         </Animated.Text>
 
-        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={[slideStyles.slideTitle, { color: colors.background }]}>
-          ¿con qué tarea necesitas ayuda?
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={[slideStyles.slideTitle, { color: colors.background }]}
+        >
+          {t("onboarding.task_demo.title")}
         </Animated.Text>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.inputContainer}>
+        <Animated.View
+          entering={FadeInDown.delay(300).duration(500)}
+          style={styles.inputContainer}
+        >
           <TextInput
             style={[
-              { 
-                textAlign: 'left', 
-                borderRadius: 16, 
-                backgroundColor: '#FFFFFF', // Clean white on the light gray background
+              {
+                textAlign: "left",
+                borderRadius: 16,
+                backgroundColor: "#FFFFFF", // Clean white on the light gray background
                 borderWidth: 0,
                 paddingHorizontal: 20,
                 paddingVertical: 20,
                 fontSize: 18, // Larger font
                 color: colors.background, // Dark text
                 minHeight: 200, // Enlarge the input box
-                textAlignVertical: 'top'
-              }, 
-              isGenerating && { opacity: 0.5 }
+                textAlignVertical: "top",
+              },
+              isGenerating && { opacity: 0.5 },
             ]}
-            placeholder="Escribe tu tarea aquí..."
+            placeholder={t("onboarding.task_demo.placeholder")}
             placeholderTextColor={`${colors.surface}80`}
             value={taskText}
-            onChangeText={(text) => onAnswer('taskText', text)}
+            onChangeText={(text) => onAnswer("taskText", text)}
             multiline
             numberOfLines={6}
             editable={!isGenerating}
           />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(400).duration(500)} style={styles.orDivider}>
-          <View style={[styles.dividerLine, { backgroundColor: `${colors.background}1A` }]} />
-          <Text style={[styles.dividerText, { color: colors.surface }]}>o elige una opción rápida</Text>
-          <View style={[styles.dividerLine, { backgroundColor: `${colors.background}1A` }]} />
+        <Animated.View
+          entering={FadeInDown.delay(400).duration(500)}
+          style={styles.orDivider}
+        >
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: `${colors.background}1A` },
+            ]}
+          />
+          <Text style={[styles.dividerText, { color: colors.surface }]}>
+            {t("onboarding.task_demo.quick_option")}
+          </Text>
+          <View
+            style={[
+              styles.dividerLine,
+              { backgroundColor: `${colors.background}1A` },
+            ]}
+          />
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(500).duration(500)} style={[styles.suggestionsGrid, { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 0 }]}>
+        <Animated.View
+          entering={FadeInDown.delay(500).duration(500)}
+          style={[
+            styles.suggestionsGrid,
+            {
+              flexDirection: "row",
+              flexWrap: "wrap",
+              justifyContent: "center",
+              paddingHorizontal: 0,
+            },
+          ]}
+        >
           {TASK_SUGGESTIONS.map((task, index) => {
-            const isSelected = taskText === task.text;
+            const suggestedText = t(task.text);
+            const isSelected = taskText === suggestedText;
             return (
-              <Animated.View key={task.id} entering={FadeInDown.delay(600 + index * 50).duration(400)}>
+              <Animated.View
+                key={task.id}
+                entering={FadeInDown.delay(600 + index * 50).duration(400)}
+              >
                 <Pressable
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onAnswer('taskText', task.text);
+                    onAnswer("taskText", suggestedText);
                   }}
                   disabled={isGenerating}
                   style={({ pressed }) => [
                     slideStyles.pill,
                     {
                       minHeight: 44, // Smaller height
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      backgroundColor: isSelected ? colors.surface : '#FFFFFF',
+                      justifyContent: "center",
+                      alignItems: "center",
+                      backgroundColor: isSelected ? colors.surface : "#FFFFFF",
                       borderWidth: 1,
-                      borderColor: isSelected ? colors.surface : `${colors.background}1A`,
+                      borderColor: isSelected
+                        ? colors.surface
+                        : `${colors.background}1A`,
                       borderRadius: 22,
                       paddingHorizontal: 16,
                       paddingVertical: 8,
-                      flexDirection: 'row',
+                      flexDirection: "row",
                     },
                     pressed && { opacity: 0.7 },
                     isGenerating && { opacity: 0.5 },
                   ]}
                 >
-                  <Text style={[slideStyles.pillLabel, { fontSize: 14, fontWeight: '500', color: isSelected ? '#FFFFFF' : colors.background }]}>
-                    {task.label}
+                  <Text
+                    style={[
+                      slideStyles.pillLabel,
+                      {
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: isSelected ? "#FFFFFF" : colors.background,
+                      },
+                    ]}
+                  >
+                    {t(task.label)}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -228,11 +319,17 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
       </ScrollView>
 
       {/* Bottom "Generar" button */}
-      <Animated.View entering={FadeInDown.delay(700).duration(500)} style={styles.bottomButtonContainer}>
+      <Animated.View
+        entering={FadeInDown.delay(700).duration(500)}
+        style={styles.bottomButtonContainer}
+      >
         <Pressable
           onPress={handleGenerate}
           disabled={isGenerating || !taskText?.trim()}
-          style={[primaryButtonStyles, (!taskText?.trim() && !isGenerating) && { opacity: 0.5 }]}
+          style={[
+            primaryButtonStyles,
+            !taskText?.trim() && !isGenerating && { opacity: 0.5 },
+          ]}
         >
           <LinearGradient
             colors={PRIMARY_GRADIENT_COLORS}
@@ -241,12 +338,23 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
             style={primaryButtonGradient}
           >
             {isGenerating ? (
-              <ActivityIndicator size="small" color={colors.background} style={{ marginRight: 8 }} />
+              <ActivityIndicator
+                size="small"
+                color={colors.background}
+                style={{ marginRight: 8 }}
+              />
             ) : (
-              <Sparkles size={18} color={colors.background} strokeWidth={2.5} style={{ marginRight: 8 }} />
+              <Sparkles
+                size={18}
+                color={colors.background}
+                strokeWidth={2.5}
+                style={{ marginRight: 8 }}
+              />
             )}
             <Text style={primaryButtonText}>
-              {isGenerating ? 'Generando...' : 'Generar'}
+              {isGenerating
+                ? t("onboarding.task_demo.generating")
+                : t("onboarding.generate")}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -260,8 +368,8 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
         onRequestClose={() => {
           setShowSubtaskList(false);
           setSubtasks([]);
-          setGeneratedTitle('');
-          setGeneratedEmoji('✨');
+          setGeneratedTitle("");
+          setGeneratedEmoji("✨");
         }}
       >
         <OnboardingSubtaskList
@@ -285,8 +393,8 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   mascotRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingHorizontal: 20,
     marginBottom: 32,
     gap: 12,
@@ -303,24 +411,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: `${colors.textPrimary}1A`,
     padding: 16,
-    position: 'relative',
+    position: "relative",
   },
   speechText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
     lineHeight: 24,
   },
   subtitle: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 24,
     letterSpacing: -0.5,
   },
   inputContainer: {
-    width: '100%',
+    width: "100%",
     marginBottom: 24,
   },
   input: {
@@ -332,7 +440,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: colors.primary,
     minHeight: 180,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     marginTop: 12,
   },
   bottomButtonContainer: {
@@ -341,8 +449,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   orDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     marginBottom: 24,
     gap: 12,
@@ -354,19 +462,19 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
   suggestionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
     gap: 12,
     paddingHorizontal: 20,
   },
   suggestionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
     borderRadius: 24,
     paddingVertical: 12,
@@ -381,7 +489,7 @@ const styles = StyleSheet.create({
   },
   suggestionLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
   },
 });

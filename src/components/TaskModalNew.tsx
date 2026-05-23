@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   Keyboard,
@@ -54,14 +55,14 @@ interface TaskModalProps {
 
 // Sugerencias de tareas para el carrusel
 const SUGGESTION_PILLS = [
-  { emoji: "🧹", title: "Limpieza profunda a mi habitación" },
-  { emoji: "🧳", title: "Desempacar la maleta después de un viaje" },
-  { emoji: "🌱", title: "Empezar un huerto en el balcón" },
-  { emoji: "💰", title: "Armar el presupuesto de este mes y pagar cuentas" },
-  { emoji: "📄", title: "Actualizar mi currículum y portafolio" },
-  { emoji: "📚", title: "Estudiar para un examen importante" },
-  { emoji: "🍖", title: "Organizar un asado o cena para amigos" },
-  { emoji: "💸", title: "Vender algo que ya no uso por internet" },
+  { emoji: "🧹", key: "task_modal.suggestions.0" },
+  { emoji: "🧳", key: "task_modal.suggestions.1" },
+  { emoji: "🌱", key: "task_modal.suggestions.2" },
+  { emoji: "💰", key: "task_modal.suggestions.3" },
+  { emoji: "📄", key: "task_modal.suggestions.4" },
+  { emoji: "📚", key: "task_modal.suggestions.5" },
+  { emoji: "🍖", key: "task_modal.suggestions.6" },
+  { emoji: "💸", key: "task_modal.suggestions.7" },
 ];
 
 export function TaskModalNew({
@@ -74,6 +75,7 @@ export function TaskModalNew({
   isProcessing = false,
   transcribedText = "",
 }: TaskModalProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [pillIndex, setPillIndex] = useState(0);
@@ -311,7 +313,9 @@ export function TaskModalNew({
                 <View style={styles.header}>
                   <View style={styles.headerLeft}>
                     <Sparkles size={32} color={colors.primary} />
-                    <Text style={styles.headerTitle}>Rompe la Parálisis</Text>
+                    <Text style={styles.headerTitle}>
+                      {t("task_modal.title")}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     onPress={handleClose}
@@ -329,7 +333,9 @@ export function TaskModalNew({
                         style={[styles.listeningText, glowStyle]}
                         entering={FadeIn.duration(200)}
                       >
-                        {isProcessing ? "Analizando..." : "Escuchando..."}
+                        {isProcessing
+                          ? t("task_modal.processing")
+                          : t("task_modal.listening")}
                       </Animated.Text>
                       <View style={styles.waveContainer}>
                         {waveBarStyles.map((style, i) => (
@@ -341,7 +347,7 @@ export function TaskModalNew({
                       </View>
                       {isProcessing && (
                         <Text style={styles.processingHint}>
-                          La IA está desglosando tu tarea...
+                          {t("task_modal.processing_hint")}
                         </Text>
                       )}
                     </View>
@@ -349,7 +355,7 @@ export function TaskModalNew({
                     <TextInput
                       ref={inputRef}
                       multiline
-                      placeholder="¿Qué tarea te está abrumando hoy? Funciona mejor si incluyes más detalles..."
+                      placeholder={t("task_modal.placeholder")}
                       placeholderTextColor={colors.textTertiary}
                       value={text}
                       onChangeText={setText}
@@ -366,7 +372,7 @@ export function TaskModalNew({
                 {!isActive && (
                   <View style={styles.pillCarouselContainer}>
                     <Text style={styles.hintText}>
-                      Tal vez esto te puede ayudar a empezar:
+                      {t("task_modal.suggestions_hint")}
                     </Text>
                     <View style={styles.pillRow}>
                       <Pressable
@@ -388,7 +394,7 @@ export function TaskModalNew({
                       <Pressable
                         onPress={() => {
                           const pill = SUGGESTION_PILLS[pillIndex];
-                          setText(pill.title);
+                          setText(t(pill.key));
                           Haptics.impactAsync(
                             Haptics.ImpactFeedbackStyle.Medium,
                           );
@@ -400,7 +406,7 @@ export function TaskModalNew({
                           {SUGGESTION_PILLS[pillIndex].emoji}
                         </Text>
                         <Text style={styles.pillTitle} numberOfLines={2}>
-                          {SUGGESTION_PILLS[pillIndex].title}
+                          {t(SUGGESTION_PILLS[pillIndex].key)}
                         </Text>
                       </Pressable>
 
@@ -470,8 +476,8 @@ export function TaskModalNew({
                           </Animated.View>
                           <Text style={styles.submitButtonTextActive}>
                             {isProcessing
-                              ? "Generando..."
-                              : "Crear Tarea Focus"}
+                              ? t("task_modal.generating")
+                              : t("task_modal.create_focus_task")}
                           </Text>
                         </LinearGradient>
                       ) : (
@@ -485,8 +491,8 @@ export function TaskModalNew({
                           </Animated.View>
                           <Text style={styles.submitButtonTextDisabled}>
                             {isProcessing
-                              ? "Generando..."
-                              : "Crear Tarea Focus"}
+                              ? t("task_modal.generating")
+                              : t("task_modal.create_focus_task")}
                           </Text>
                         </>
                       )}
@@ -496,8 +502,8 @@ export function TaskModalNew({
 
                 <Text style={styles.hintText}>
                   {isActive
-                    ? "Toca para detener"
-                    : "Usa el micrófono para dictar tus pensamientos"}
+                    ? t("task_modal.tap_to_stop")
+                    : t("task_modal.use_mic_hint")}
                 </Text>
               </View>
             </Animated.View>

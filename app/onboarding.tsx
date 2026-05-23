@@ -1,11 +1,13 @@
-import { useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
-import React from 'react';
-import { Pressable, SafeAreaView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { AppText as Text } from "@/src/components/AppText";
+import { useRouter } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, SafeAreaView, StyleSheet, View } from "react-native";
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -15,7 +17,7 @@ export default function OnboardingScreen() {
         </Pressable>
       </View>
       <View style={styles.content}>
-        <Text style={styles.title}>Onboarding</Text>
+        <Text style={styles.title}>{t("onboarding.welcome_title")}</Text>
       </View>
     </SafeAreaView>
   );
@@ -24,7 +26,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F5F5F5",
   },
   header: {
     paddingHorizontal: 20,
@@ -33,17 +35,17 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   title: {
     fontSize: 22,
-    fontWeight: '900',
-    color: '#121212',
+    fontWeight: "900",
+    color: "#121212",
   },
 });

@@ -6,6 +6,7 @@ import {
   OverlapWidget,
   TextWidget,
 } from "react-native-android-widget";
+import i18n from "../config/i18n";
 import type { Routine } from "../types/routine";
 
 // Static outfit image map — require() must be static, cannot be dynamic
@@ -52,7 +53,7 @@ const WIDGET_BG_IMAGES: Record<string, number> = {
 export type BgMode = "user" | "solid" | "surface";
 
 // Colors — rgba() strings work: the library converts them to #AARRGGBB
-const C = {
+const C: Record<string, any> = {
   primary: "#ECF230",
   textPrimary: "#FAF9F6",
   textTertiary: "#9399B2",
@@ -100,8 +101,12 @@ interface RoutinesWidgetProps {
   totalRoutines: number;
   taskVisibleIndex: number;
   outfitId?: string | null;
+  /** Remote CDN URL for outfit — used when outfitId is not in the local static map */
+  outfitUri?: string | null;
   bgMode: BgMode;
   bgId?: string | null;
+  /** Remote CDN URL for background — used when bgId is not in the local static map */
+  bgUri?: string | null;
   earnedCoins?: number | null;
   isPro?: boolean;
 }
@@ -112,8 +117,10 @@ export function RoutinesWidget({
   totalRoutines,
   taskVisibleIndex,
   outfitId,
+  outfitUri,
   bgMode,
   bgId,
+  bgUri,
   earnedCoins,
   isPro = false,
 }: RoutinesWidgetProps) {
@@ -122,24 +129,37 @@ export function RoutinesWidget({
   const gradient = resolveGradient(bgId || null, bgMode);
 
   // Resolve background image:
-  // - "user" mode with a valid purchased bgId → use that bg
-  // - "user" mode without bgId (no purchase) → use default spring.png
+  // - "user" mode with a valid purchased bgId in local map → use static asset
+  // - "user" mode with a remote bgUri (Supabase Storage) → use CDN URL directly
+  // - "user" mode without either → use default spring.png
   // - "solid" / "surface" modes → gradient only, no image
-  const hasPurchasedBg = bgMode === "user" && !!bgId && !!WIDGET_BG_IMAGES[bgId];
-  const useDefaultBg = bgMode === "user" && !hasPurchasedBg;
-  const bgImageSource = hasPurchasedBg
+  const hasPurchasedBg =
+    bgMode === "user" && !!bgId && !!WIDGET_BG_IMAGES[bgId];
+  const hasRemoteBg =
+    !hasPurchasedBg &&
+    bgMode === "user" &&
+    !!bgUri &&
+    (bgUri.startsWith("https:") || bgUri.startsWith("http:"));
+  const useDefaultBg = bgMode === "user" && !hasPurchasedBg && !hasRemoteBg;
+  const bgImageSource:
+    | import("react-native-android-widget").ImageWidgetSource
+    | null = hasPurchasedBg
     ? WIDGET_BG_IMAGES[bgId!]
-    : useDefaultBg
-      ? WIDGET_DEFAULT_BG
-      : null;
+    : hasRemoteBg
+      ? (bgUri as `https:${string}`)
+      : useDefaultBg
+        ? WIDGET_DEFAULT_BG
+        : null;
 
   // Background image: use centerCrop scaleType (patched native) so the image
   // fills the widget completely, cropping any overflow. We decode the bitmap
   // at ~320dp wide preserving aspect ratio — centerCrop handles the rest.
+  // For remote (https:) sources we don't know dimensions ahead of time;
+  // the square fallback is fine because centerCrop fills the widget regardless.
   const BG_DECODE_WIDTH = 320;
   let bgRenderWidth = BG_DECODE_WIDTH;
   let bgRenderHeight = BG_DECODE_WIDTH; // fallback square
-  if (bgImageSource) {
+  if (bgImageSource && typeof bgImageSource === "number") {
     const asset = Image.resolveAssetSource(bgImageSource);
     if (asset?.width && asset?.height && asset.width > 0 && asset.height > 0) {
       bgRenderHeight = Math.round(
@@ -149,10 +169,15 @@ export function RoutinesWidget({
   }
 
   // ── Avatar (compact for 4×1) ─────────────────────────────────────────────
-  const outfitSource =
+  // For remote outfits (not in static map), fall back to the CDN URL directly.
+  // ImageWidgetSource supports 'https:' strings natively.
+  const outfitSource: import("react-native-android-widget").ImageWidgetSource =
     outfitId && WIDGET_OUTFIT_IMAGES[outfitId]
       ? WIDGET_OUTFIT_IMAGES[outfitId]
-      : WIDGET_DEFAULT_OUTFIT;
+      : outfitUri &&
+          (outfitUri.startsWith("https:") || outfitUri.startsWith("http:"))
+        ? (outfitUri as `https:${string}`)
+        : WIDGET_DEFAULT_OUTFIT;
   const avatarEl = (
     <ImageWidget image={outfitSource} imageWidth={88} imageHeight={88} />
   );
@@ -180,16 +205,14 @@ export function RoutinesWidget({
         }}
       >
         {avatarEl}
-        <FlexWidget
-          style={{ flex: 1, flexDirection: "column", marginLeft: 8 }}
-        >
+        <FlexWidget style={{ flex: 1, flexDirection: "column", marginLeft: 8 }}>
           <TextWidget
-            text="Para mostrar tus rutinas acá,"
+            text={i18n.t("widgets.pro_line_1")}
             maxLines={1}
             style={{ fontSize: 12, color: "#FFFFFF", fontWeight: "400" }}
           />
           <TextWidget
-            text="únete a BrainyPRO ✨"
+            text={i18n.t("widgets.pro_line_2")}
             maxLines={1}
             style={{
               fontSize: 14,
@@ -216,18 +239,23 @@ export function RoutinesWidget({
       >
         {bgImageSource ? (
           <ImageWidget
-            image={bgImageSource}
-            imageWidth={bgRenderWidth}
-            imageHeight={bgRenderHeight}
-            scaleType="centerCrop"
-            style={{ width: "match_parent", height: "match_parent" }}
+            {...({
+              image: bgImageSource,
+              imageWidth: bgRenderWidth,
+              imageHeight: bgRenderHeight,
+              scaleType: "centerCrop",
+              style: { width: "match_parent", height: "match_parent" },
+            } as any)}
           />
         ) : (
           <FlexWidget
             style={{
               width: "match_parent",
               height: "match_parent",
-              backgroundGradient: { ...gradient, orientation: "LEFT_RIGHT" },
+              backgroundGradient: {
+                ...(gradient as any),
+                orientation: "LEFT_RIGHT",
+              } as any,
             }}
           />
         )}
@@ -258,12 +286,12 @@ export function RoutinesWidget({
             style={{ flex: 1, flexDirection: "column", marginLeft: 8 }}
           >
             <TextWidget
-              text="¡No tienes rutinas hoy!"
+              text={i18n.t("widgets.no_routines_title")}
               maxLines={1}
               style={{ fontSize: 16, color: "#FFFFFF", fontWeight: "800" }}
             />
             <TextWidget
-              text="Las rutinas que crees en la app aparecerán aquí"
+              text={i18n.t("widgets.no_routines_subtitle")}
               maxLines={2}
               style={{
                 fontSize: 12,
@@ -302,18 +330,23 @@ export function RoutinesWidget({
     >
       {bgImageSource ? (
         <ImageWidget
-          image={bgImageSource}
-          imageWidth={bgRenderWidth}
-          imageHeight={bgRenderHeight}
-          scaleType="centerCrop"
-          style={{ width: "match_parent", height: "match_parent" }}
+          {...({
+            image: bgImageSource,
+            imageWidth: bgRenderWidth,
+            imageHeight: bgRenderHeight,
+            scaleType: "centerCrop",
+            style: { width: "match_parent", height: "match_parent" },
+          } as any)}
         />
       ) : (
         <FlexWidget
           style={{
             width: "match_parent",
             height: "match_parent",
-            backgroundGradient: { ...gradient, orientation: "LEFT_RIGHT" },
+            backgroundGradient: {
+              ...(gradient as any),
+              orientation: "LEFT_RIGHT",
+            } as any,
           }}
         />
       )}
@@ -372,7 +405,7 @@ export function RoutinesWidget({
         {/* Hint — only when no tasks completed yet */}
         {completedCount === 0 && !allComplete && tasks.length > 0 ? (
           <TextWidget
-            text="Toca el nombre de la tarea para completar"
+            text={i18n.t("widgets.tap_task_hint")}
             maxLines={1}
             style={{ fontSize: 8, color: C.dimmedText }}
           />
@@ -437,7 +470,7 @@ export function RoutinesWidget({
                 }}
               >
                 <TextWidget
-                  text="¡Completada!"
+                  text={i18n.t("widgets.completed")}
                   maxLines={1}
                   truncate="END"
                   style={{
@@ -473,7 +506,7 @@ export function RoutinesWidget({
               </FlexWidget>
             ) : (
               <TextWidget
-                text="Sin tareas"
+                text={i18n.t("widgets.no_tasks")}
                 style={{ fontSize: 11, color: C.textTertiary, marginTop: 2 }}
               />
             )}

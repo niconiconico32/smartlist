@@ -1,28 +1,38 @@
-import { colors } from '@/constants/theme';
-import React from 'react';
-import { Image, TextInput, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { layoutStyles, slideStyles } from '../../styles/shared';
-import { OnboardingAnswers, TextInputSlideConfig } from '../../types';
+import { colors } from "@/constants/theme";
+import { useTranslation } from "react-i18next";
+import React from "react";
+import { Image, TextInput, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { layoutStyles, slideStyles } from "../../styles/shared";
+import { OnboardingAnswers, TextInputSlideConfig } from "../../types";
 
 interface Props {
   config: TextInputSlideConfig;
   answers: OnboardingAnswers;
-  onAnswer: <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => void;
+  onAnswer: <K extends keyof OnboardingAnswers>(
+    key: K,
+    value: OnboardingAnswers[K],
+  ) => void;
 }
 
 const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
-  const value = (answers[config.answerKey!] as string) ?? '';
+  const { t } = useTranslation();
+  const value = (answers[config.answerKey!] as string) ?? "";
 
   return (
-    <View style={[layoutStyles.slide, { alignItems: 'flex-start', paddingHorizontal: 24 }]}>
+    <View
+      style={[
+        layoutStyles.slide,
+        { alignItems: "flex-start", paddingHorizontal: 24 },
+      ]}
+    >
       {config.showLogo && (
         <Animated.View
           entering={FadeInDown.delay(100).duration(500)}
-          style={[slideStyles.logoImageContainer, { alignSelf: 'center' }]}
+          style={[slideStyles.logoImageContainer, { alignSelf: "center" }]}
         >
           <Image
-            source={require('@/assets/images/logomain.png')}
+            source={require("@/assets/images/logomain.png")}
             style={slideStyles.logoImageSmall}
             resizeMode="contain"
           />
@@ -34,7 +44,7 @@ const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
           entering={FadeInDown.delay(200).duration(500)}
           style={slideStyles.slideSubtitle}
         >
-          {config.subtitle}
+          {t(config.subtitle)}
         </Animated.Text>
       )}
 
@@ -42,7 +52,7 @@ const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
         entering={FadeInDown.delay(250).duration(500)}
         style={slideStyles.slideTitle}
       >
-        {config.title}
+        {t(config.title)}
       </Animated.Text>
 
       <Animated.View
@@ -52,22 +62,22 @@ const TextInputSlide: React.FC<Props> = ({ config, answers, onAnswer }) => {
         <TextInput
           style={[
             slideStyles.nameInput,
-            { 
-              textAlign: 'left', 
-              borderRadius: 12, 
-              backgroundColor: colors.surface, 
+            {
+              textAlign: "left",
+              borderRadius: 12,
+              backgroundColor: colors.surface,
               borderWidth: 0,
               paddingHorizontal: 16,
               paddingVertical: 16,
-              fontSize: 16
-            }
+              fontSize: 16,
+            },
           ]}
-          placeholder={config.placeholder}
+          placeholder={t(config.placeholder)}
           placeholderTextColor={colors.textSecondary}
           value={value}
           onChangeText={(text) => {
             const key = config.answerKey!;
-            onAnswer(key as 'userName', text);
+            onAnswer(key as "userName", text);
           }}
           autoFocus
         />

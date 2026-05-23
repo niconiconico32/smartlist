@@ -1,17 +1,18 @@
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { Check, Plus } from 'lucide-react-native';
-import React from 'react';
-import { Pressable } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { Check, Plus } from "lucide-react-native";
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable } from "react-native";
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
-} from 'react-native-reanimated';
-import { slideStyles } from '../styles/shared';
-import { GoalOption } from '../types';
+} from "react-native-reanimated";
+import { slideStyles } from "../styles/shared";
+import { GoalOption } from "../types";
 
 interface GoalPillProps {
   goal: GoalOption;
@@ -20,7 +21,13 @@ interface GoalPillProps {
   delay: number;
 }
 
-const GoalPill: React.FC<GoalPillProps> = ({ goal, selected, onPress, delay }) => {
+const GoalPill: React.FC<GoalPillProps> = ({
+  goal,
+  selected,
+  onPress,
+  delay,
+}) => {
+  const { t } = useTranslation();
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -37,7 +44,10 @@ const GoalPill: React.FC<GoalPillProps> = ({ goal, selected, onPress, delay }) =
   };
 
   return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(400)} style={animatedStyle}>
+    <Animated.View
+      entering={FadeInDown.delay(delay).duration(400)}
+      style={animatedStyle}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -45,7 +55,7 @@ const GoalPill: React.FC<GoalPillProps> = ({ goal, selected, onPress, delay }) =
         style={[slideStyles.goalPill, selected && slideStyles.goalPillSelected]}
       >
         <Text style={slideStyles.goalEmoji}>{goal.emoji}</Text>
-        <Text style={slideStyles.goalLabel}>{goal.label}</Text>
+        <Text style={slideStyles.goalLabel}>{t(goal.label)}</Text>
         {selected ? (
           <Check size={16} color={colors.primary} strokeWidth={3} />
         ) : (

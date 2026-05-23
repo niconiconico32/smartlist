@@ -3,33 +3,35 @@ import { AppText as Text } from "@/src/components/AppText";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { usePurchases } from "@/src/contexts/PurchasesContext";
 import { supabase } from "@/src/lib/supabase";
+import * as AppleAuthentication from "expo-apple-authentication";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import {
-  Bell,
-  Crown,
-  ExternalLink,
-  Gift,
-  LogOut,
-  Mail,
-  Menu,
-  RotateCcw,
-  Shield,
-  Trash2,
-  X,
+    Bell,
+    Crown,
+    ExternalLink,
+    Gift,
+    LogOut,
+    Mail,
+    Menu,
+    RotateCcw,
+    Shield,
+    Trash2,
+    X,
 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  Linking as RNLinking,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    Pressable,
+    Linking as RNLinking,
+    StyleSheet,
+    View,
 } from "react-native";
 import Animated, { FadeOut, SlideOutDown } from "react-native-reanimated";
 import { useProStore } from "../store/proStore";
@@ -38,9 +40,9 @@ import { PaywallModal } from "./PaywallModal";
 import { RedeemCodeModal } from "./RedeemCodeModal";
 
 // ─── URLs ───────────────────────────────────────────────────────────────────
-const PRIVACY_POLICY_URL = "https://suggestions-brainyapp.vercel.app"; // TODO: replace with real URL
-const TERMS_URL = "https://suggestions-brainyapp.vercel.app"; // TODO: replace with real URL
-const CONTACT_EMAIL = "smartlist.app.dev@gmail.com"; // TODO: replace with real email
+const PRIVACY_POLICY_URL = "https://brainyadhd.com/privacy.html";
+const TERMS_URL = "https://brainyadhd.com/terms.html";
+const CONTACT_EMAIL = "support@brainyadhd.com";
 const MANAGE_SUBSCRIPTIONS_URL = Platform.select({
   ios: "https://apps.apple.com/account/subscriptions",
   default:
@@ -90,11 +92,13 @@ const Divider = () => <View style={styles.divider} />;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function HamburgerMenu() {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showRedeemCode, setShowRedeemCode] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
-  const { signOut, isAnonymous, signInWithOAuth } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { signOut, isAnonymous, signInWithOAuth, signInWithApple } = useAuth();
   const { isPro } = useProStore();
   const { restorePurchases } = usePurchases();
   const router = useRouter();
@@ -121,11 +125,17 @@ export function HamburgerMenu() {
 
   const handleContact = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const subject = encodeURIComponent("Soporte Brainy");
-    const body = encodeURIComponent("Hola equipo Brainy,\n\n");
+    const subject = encodeURIComponent(t("menu.contact_subject"));
+    const body = encodeURIComponent(t("menu.contact_body"));
     Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`);
     close();
-  }, []);
+  }, [t]);
+
+  const handleAppleLink = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    close();
+    await signInWithApple();
+  }, [signInWithApple]);
 
   const handleGoogleLink = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -138,32 +148,41 @@ export function HamburgerMenu() {
   const handleDeleteAccount = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
-      "Eliminar cuenta",
-      "Esta acción es permanente. Se eliminarán todos tus datos (tareas, rutinas, logros y suscripción). ¿Estás seguro?",
+      t("menu.delete_confirm_title"),
+      t("menu.delete_confirm_message"),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("menu.cancel"), style: "cancel" },
         {
-          text: "Eliminar",
+          text: t("menu.delete"),
           style: "destructive",
           onPress: async () => {
+            close(); // close sheet immediately so user sees feedback
+            setIsDeleting(true);
+            let accountDeleted = false;
             try {
-              // Call the delete-user Edge Function (uses service_role key server-side)
               const { error } = await supabase.functions.invoke("delete-user");
               if (error) throw error;
+              accountDeleted = true;
               await signOut();
-              close();
             } catch (e: any) {
-              Alert.alert(
-                "Error",
-                e?.message ||
-                  "No se pudo eliminar la cuenta. Contactá a soporte.",
-              );
+              // If the account was deleted server-side but we got a network error,
+              // sign out anyway to clear the stale local session.
+              if (accountDeleted) {
+                await signOut();
+              } else {
+                Alert.alert(
+                  t("menu.delete_error"),
+                  e?.message || t("menu.delete_error"),
+                );
+              }
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
       ],
     );
-  }, [signOut]);
+  }, [signOut, t]);
 
   const handleRestorePurchases = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -171,25 +190,19 @@ export function HamburgerMenu() {
     try {
       const restored = await restorePurchases();
       if (restored) {
-        Alert.alert(
-          "¡Listo!",
-          "Tu suscripción Pro ha sido restaurada correctamente.",
-        );
+        Alert.alert(t("menu.restored_title"), t("menu.restored_message"));
       } else {
         Alert.alert(
-          "Sin compras previas",
-          "No se encontraron suscripciones asociadas a tu cuenta.",
+          t("menu.no_purchases_title"),
+          t("menu.no_purchases_message"),
         );
       }
     } catch {
-      Alert.alert(
-        "Error",
-        "No se pudieron restaurar las compras. Intenta de nuevo.",
-      );
+      Alert.alert(t("menu.delete_error"), t("menu.restore_error"));
     } finally {
       setIsRestoring(false);
     }
-  }, [restorePurchases]);
+  }, [restorePurchases, t]);
 
   const handleSignOut = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -234,7 +247,7 @@ export function HamburgerMenu() {
 
           {/* Header */}
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Menú</Text>
+            <Text style={styles.sheetTitle}>{t("menu.title")}</Text>
             <Pressable onPress={close} style={styles.closeBtn} hitSlop={8}>
               <X size={20} color={colors.textSecondary} />
             </Pressable>
@@ -243,8 +256,21 @@ export function HamburgerMenu() {
           {/* ── Promo Actions ── */}
           {isAnonymous && (
             <View style={styles.promoActionContainer}>
+              {Platform.OS === "ios" && (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={
+                    AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
+                  }
+                  buttonStyle={
+                    AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                  }
+                  cornerRadius={24}
+                  style={{ width: "100%", height: 48, marginBottom: 10 }}
+                  onPress={handleAppleLink}
+                />
+              )}
               <GoogleButton
-                text="Continuar con Google"
+                text={t("menu.continue_with_google")}
                 onPress={handleGoogleLink}
                 style={{ width: "100%", height: 48 }}
               />
@@ -267,7 +293,7 @@ export function HamburgerMenu() {
                 end={{ x: 1, y: 1 }}
               >
                 <Crown size={20} color="#1A1C20" strokeWidth={2.5} />
-                <Text style={styles.proUpsellText}>Desbloquea Pro</Text>
+                <Text style={styles.proUpsellText}>{t("menu.unlock_pro")}</Text>
               </LinearGradient>
             </Pressable>
           )}
@@ -277,8 +303,8 @@ export function HamburgerMenu() {
           {/* ── Rows ── */}
           <MenuRow
             icon={<Bell size={18} color={colors.primary} strokeWidth={2} />}
-            label="Notificaciones"
-            sublabel="Gestionar permisos de notificación"
+            label={t("menu.notifications")}
+            sublabel={t("menu.notifications_sublabel")}
             onPress={handleNotifications}
           />
 
@@ -286,11 +312,11 @@ export function HamburgerMenu() {
 
           <MenuRow
             icon={<Shield size={18} color="#38BDF8" strokeWidth={2} />}
-            label="Gestionar suscripción"
+            label={t("menu.manage_subscription")}
             sublabel={
               Platform.OS === "ios"
-                ? "Cancelar o modificar en App Store"
-                : "Cancelar o modificar en Google Play"
+                ? t("menu.manage_subscription_ios")
+                : t("menu.manage_subscription_android")
             }
             onPress={() => openLink(MANAGE_SUBSCRIPTIONS_URL)}
           />
@@ -311,9 +337,9 @@ export function HamburgerMenu() {
               )}
             </View>
             <View style={styles.rowText}>
-              <Text style={styles.rowLabel}>Restaurar compras</Text>
+              <Text style={styles.rowLabel}>{t("menu.restore_purchases")}</Text>
               <Text style={styles.rowSublabel}>
-                Recupera tu suscripción en este dispositivo
+                {t("menu.restore_purchases_sublabel")}
               </Text>
             </View>
           </Pressable>
@@ -328,7 +354,7 @@ export function HamburgerMenu() {
                 strokeWidth={2}
               />
             }
-            label="Política de privacidad"
+            label={t("menu.privacy_policy")}
             onPress={() => openLink(PRIVACY_POLICY_URL)}
           />
 
@@ -340,7 +366,7 @@ export function HamburgerMenu() {
                 strokeWidth={2}
               />
             }
-            label="Términos de uso"
+            label={t("menu.terms")}
             onPress={() => openLink(TERMS_URL)}
           />
 
@@ -350,7 +376,7 @@ export function HamburgerMenu() {
             icon={
               <Mail size={18} color={colors.textSecondary} strokeWidth={2} />
             }
-            label="Reportar problema"
+            label={t("menu.report_issue")}
             onPress={handleContact}
           />
 
@@ -358,8 +384,8 @@ export function HamburgerMenu() {
 
           <MenuRow
             icon={<Gift size={18} color="#C9FD5A" strokeWidth={2} />}
-            label="Canjear código"
-            sublabel="Ingresa un código para recibir coronas"
+            label={t("menu.redeem_code")}
+            sublabel={t("menu.redeem_code_sublabel")}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               close();
@@ -373,19 +399,39 @@ export function HamburgerMenu() {
             icon={
               <LogOut size={18} color={colors.textSecondary} strokeWidth={2} />
             }
-            label="Cerrar sesión"
+            label={t("menu.sign_out")}
             onPress={handleSignOut}
           />
 
           <Divider />
 
-          <MenuRow
-            icon={<Trash2 size={18} color="#EF4444" strokeWidth={2} />}
-            label="Eliminar cuenta"
-            sublabel="Esta acción es permanente e irreversible"
+          <Pressable
+            style={({ pressed }) => [
+              styles.row,
+              pressed && styles.rowPressed,
+              isDeleting && { opacity: 0.5 },
+            ]}
             onPress={handleDeleteAccount}
-            destructive
-          />
+            disabled={isDeleting}
+          >
+            <View style={[styles.rowIcon, styles.rowIconDestructive]}>
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#EF4444" />
+              ) : (
+                <Trash2 size={18} color="#EF4444" strokeWidth={2} />
+              )}
+            </View>
+            <View style={styles.rowText}>
+              <Text style={[styles.rowLabel, styles.rowLabelDestructive]}>
+                {t("menu.delete_account")}
+              </Text>
+              <Text style={styles.rowSublabel}>
+                {isDeleting
+                  ? t("menu.deleting")
+                  : t("menu.delete_account_sublabel")}
+              </Text>
+            </View>
+          </Pressable>
 
           {/* Safe area bottom padding */}
           <View style={styles.bottomSafeArea} />

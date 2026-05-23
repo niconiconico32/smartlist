@@ -14,6 +14,7 @@ import {
     XCircle,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Dimensions,
     Pressable,
@@ -41,6 +42,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 // GLOWING PADLOCK COMPONENT
 // ============================================
 const GlowingPadlock = ({ streakDays }: { streakDays: number }) => {
+  const { t } = useTranslation();
   const pulseScale = useSharedValue(1);
   const glowOpacity = useSharedValue(0.4);
   const rotateY = useSharedValue(0);
@@ -122,7 +124,7 @@ const GlowingPadlock = ({ streakDays }: { streakDays: number }) => {
           style={styles.streakBadge}
         >
           <Text style={styles.streakBadgeText}>
-            🔥 Racha: {streakDays} Días
+            {t("paywall.streak_badge", { count: streakDays })}
           </Text>
         </LinearGradient>
       </View>
@@ -212,6 +214,7 @@ const LiquidBorderCard = ({
   onPress: () => void;
   isSelected: boolean;
 }) => {
+  const { t } = useTranslation();
   return (
     <Pressable onPress={onPress}>
       <View
@@ -230,7 +233,9 @@ const LiquidBorderCard = ({
               style={styles.bestValueBadgeGradient}
             >
               <Crown size={12} color="#1E1E2E" />
-              <Text style={styles.bestValueText}>Tu mejor opción</Text>
+              <Text style={styles.bestValueText}>
+                {t("paywall.best_value")}
+              </Text>
             </LinearGradient>
           </View>
         )}
@@ -283,6 +288,7 @@ const FAQItem = ({
 // MAIN PAYWALL COMPONENT
 // ============================================
 export default function PaywallScreen() {
+  const { t } = useTranslation();
   const [selectedPlan, setSelectedPlan] = useState<"annual" | "monthly">(
     "annual",
   );
@@ -366,11 +372,8 @@ export default function PaywallScreen() {
               entering={FadeInDown.delay(400).duration(600)}
               style={styles.titleSection}
             >
-              <Text style={styles.mainTitle}>No pierdas tu racha.</Text>
-              <Text style={styles.subtitle}>
-                Esperamos hayas disfrutado tu prueba gratis. Elije un plan para
-                seguir tu progreso.
-              </Text>
+              <Text style={styles.mainTitle}>{t("paywall.title")}</Text>
+              <Text style={styles.subtitle}>{t("paywall.subtitle")}</Text>
             </Animated.View>
 
             {/* Plan Toggle */}
@@ -394,7 +397,7 @@ export default function PaywallScreen() {
                     !isAnnualToggle && styles.toggleTextActive,
                   ]}
                 >
-                  Mensual
+                  {t("paywall.monthly_toggle")}
                 </Text>
               </Pressable>
               <Pressable
@@ -413,7 +416,7 @@ export default function PaywallScreen() {
                     isAnnualToggle && styles.toggleTextActive,
                   ]}
                 >
-                  Anual
+                  {t("paywall.annual_toggle")}
                 </Text>
                 <View style={styles.savingsBadge}>
                   <Text style={styles.savingsText}>-33%</Text>
@@ -433,31 +436,37 @@ export default function PaywallScreen() {
                   isSelected={selectedPlan === "annual"}
                   onPress={() => setSelectedPlan("annual")}
                 >
-                  <Text style={styles.planName}>Maestría Anual</Text>
+                  <Text style={styles.planName}>
+                    {t("paywall.annual_plan")}
+                  </Text>
                   <View style={styles.priceRow}>
                     <Text style={styles.priceAmount}>${annualPrice}</Text>
-                    <Text style={styles.pricePeriod}>/ mes</Text>
+                    <Text style={styles.pricePeriod}>
+                      {t("paywall.per_month")}
+                    </Text>
                   </View>
                   <Text style={styles.billingNote}>
-                    Facturado anualmente (${(annualPrice * 12).toFixed(2)}/año)
+                    {t("paywall.billed_yearly", {
+                      price: (annualPrice * 12).toFixed(2),
+                    })}
                   </Text>
                   <View style={styles.featuresListCompact}>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
                       <Text style={styles.featureTextCompact}>
-                        Acceso completo
+                        {t("paywall.feature_full_access")}
                       </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
                       <Text style={styles.featureTextCompact}>
-                        Cancela cuando quieras
+                        {t("paywall.feature_cancel_anytime")}
                       </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
                       <Text style={styles.featureTextCompact}>
-                        Precio reducido
+                        {t("paywall.feature_reduced_price")}
                       </Text>
                     </View>
                   </View>
@@ -471,23 +480,29 @@ export default function PaywallScreen() {
                   isSelected={selectedPlan === "monthly"}
                   onPress={() => setSelectedPlan("monthly")}
                 >
-                  <Text style={styles.planName}>Plan Mensual</Text>
+                  <Text style={styles.planName}>
+                    {t("paywall.monthly_plan")}
+                  </Text>
                   <View style={styles.priceRow}>
                     <Text style={styles.priceAmount}>${monthlyPrice}</Text>
-                    <Text style={styles.pricePeriod}>/ mes</Text>
+                    <Text style={styles.pricePeriod}>
+                      {t("paywall.per_month")}
+                    </Text>
                   </View>
-                  <Text style={styles.billingNote}>Facturado mensualmente</Text>
+                  <Text style={styles.billingNote}>
+                    {t("paywall.billed_monthly")}
+                  </Text>
                   <View style={styles.featuresListCompact}>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
                       <Text style={styles.featureTextCompact}>
-                        Acceso completo
+                        {t("paywall.feature_full_access")}
                       </Text>
                     </View>
                     <View style={styles.featureItemCompact}>
                       <Check size={14} color="#A6E3A1" />
                       <Text style={styles.featureTextCompact}>
-                        Cancela cuando quieras
+                        {t("paywall.feature_cancel_anytime")}
                       </Text>
                     </View>
                   </View>
@@ -502,13 +517,9 @@ export default function PaywallScreen() {
             >
               <ShimmerButton onPress={handleSubscribe}>
                 <Lock size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.ctaText}>
-                  Desbloquear mi Racha y Continuar
-                </Text>
+                <Text style={styles.ctaText}>{t("paywall.cta_unlock")}</Text>
               </ShimmerButton>
-              <Text style={styles.microcopy}>
-                Sin sorpresas. Solo claridad.
-              </Text>
+              <Text style={styles.microcopy}>{t("paywall.microcopy")}</Text>
             </Animated.View>
 
             {/* Trust Guarantees */}
@@ -521,7 +532,7 @@ export default function PaywallScreen() {
                   <Bell size={18} color="#CBA6F7" />
                 </View>
                 <Text style={styles.trustText}>
-                  Te avisamos 2 días antes de renovar.
+                  {t("paywall.trust_renewal")}
                 </Text>
               </View>
               <View style={styles.trustItem}>
@@ -529,16 +540,14 @@ export default function PaywallScreen() {
                   <XCircle size={18} color="#CBA6F7" />
                 </View>
                 <Text style={styles.trustText}>
-                  Cancela desde la app en segundos.
+                  {t("paywall.trust_cancel")}
                 </Text>
               </View>
               <View style={styles.trustItem}>
                 <View style={styles.trustIconContainer}>
                   <Shield size={18} color="#CBA6F7" />
                 </View>
-                <Text style={styles.trustText}>
-                  Tus datos siempre protegidos.
-                </Text>
+                <Text style={styles.trustText}>{t("paywall.trust_data")}</Text>
               </View>
             </Animated.View>
 
@@ -547,14 +556,14 @@ export default function PaywallScreen() {
               entering={FadeInDown.delay(900).duration(600)}
               style={styles.faqSection}
             >
-              <Text style={styles.faqTitle}>Preguntas Frecuentes</Text>
+              <Text style={styles.faqTitle}>{t("paywall.faq_title")}</Text>
               <FAQItem
-                question="¿Qué pasa con mis datos si cancelo?"
-                answer="Tus datos permanecen seguros. Si decides volver, todo estará exactamente como lo dejaste durante 30 días."
+                question={t("paywall.faq_q1")}
+                answer={t("paywall.faq_a1")}
               />
               <FAQItem
-                question="¿Puedo cambiar de plan después?"
-                answer="¡Claro! Puedes cambiar entre el plan mensual y anual en cualquier momento desde la configuración."
+                question={t("paywall.faq_q2")}
+                answer={t("paywall.faq_a2")}
               />
             </Animated.View>
 

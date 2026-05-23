@@ -7,11 +7,11 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { getLocalDateKey } from "@/src/utils/dateHelpers"; // ✅ TIMEZONE SAFE
 import { addDays, format, isSameDay, isToday, subDays } from "date-fns";
-import { es } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { Crown } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     DeviceEventEmitter,
     Dimensions,
@@ -42,6 +42,26 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
   Sáb: 6,
 };
 
+const DAY_NAME_KEYS = [
+  "weekly_calendar.day_name_0",
+  "weekly_calendar.day_name_1",
+  "weekly_calendar.day_name_2",
+  "weekly_calendar.day_name_3",
+  "weekly_calendar.day_name_4",
+  "weekly_calendar.day_name_5",
+  "weekly_calendar.day_name_6",
+] as const;
+
+const DAY_ABBR_KEYS = [
+  "weekly_calendar.day_abbr_0",
+  "weekly_calendar.day_abbr_1",
+  "weekly_calendar.day_abbr_2",
+  "weekly_calendar.day_abbr_3",
+  "weekly_calendar.day_abbr_4",
+  "weekly_calendar.day_abbr_5",
+  "weekly_calendar.day_abbr_6",
+] as const;
+
 interface ScheduledRoutine {
   id: string;
   name: string;
@@ -61,6 +81,7 @@ export function WeeklyCalendar({
   scheduledRoutines = [],
   scheduledTasksHistory = {},
 }: WeeklyCalendarProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAnonymous } = useAuth();
   const { totalCoins, loadAchievements, isRoutineModalOpen } =
@@ -164,7 +185,10 @@ export function WeeklyCalendar({
 
         <View style={styles.dayNameContainer}>
           <Text style={styles.dayName}>
-            {format(selectedDate, "EEE", { locale: es })}
+            {t(
+              DAY_NAME_KEYS[selectedDate.getDay()] ??
+                "weekly_calendar.day_name_0",
+            )}
           </Text>
           <View style={styles.redDot} />
         </View>
@@ -292,7 +316,9 @@ export function WeeklyCalendar({
                     isCurrentDay && styles.dayLabelToday,
                   ]}
                 >
-                  {format(day, "EEE", { locale: es }).toUpperCase().slice(0, 3)}
+                  {t(
+                    DAY_ABBR_KEYS[day.getDay()] ?? "weekly_calendar.day_abbr_0",
+                  )}
                 </Text>
               </View>
 

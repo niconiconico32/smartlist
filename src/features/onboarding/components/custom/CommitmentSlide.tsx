@@ -1,19 +1,20 @@
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import * as Haptics from 'expo-haptics';
-import { Check } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { slideStyles } from '../../styles/shared';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { Check } from "lucide-react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
 
 // ============================================
 // COMMITMENT SLIDE
 // ============================================
 const COMMITMENTS = [
-  'Prometo ser amable conmigo mismo/a si fallo un día.',
-  'Dedicaré al menos 2 minutos al día a revisar mis tareas y rutinas.',
-  'Confío en que mi cerebro puede aprender nuevos hábitos.',
+  "onboarding.commitment.items.1",
+  "onboarding.commitment.items.2",
+  "onboarding.commitment.items.3",
 ];
 
 interface Props {
@@ -21,7 +22,10 @@ interface Props {
 }
 
 const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
-  const [checked, setChecked] = useState<boolean[]>(COMMITMENTS.map(() => false));
+  const { t } = useTranslation();
+  const [checked, setChecked] = useState<boolean[]>(
+    COMMITMENTS.map(() => false),
+  );
   const allChecked = checked.every(Boolean);
 
   const toggleCheck = (idx: number) => {
@@ -33,24 +37,32 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
     <View style={s.container}>
       <View style={s.contentArea}>
         {/* Logo */}
-        <Animated.View entering={FadeInDown.delay(50).duration(400)} style={s.logoContainer}>
-          <Image source={require('@/assets/images/brainysign.png')} style={s.logo} resizeMode="contain" />
+        <Animated.View
+          entering={FadeInDown.delay(50).duration(400)}
+          style={s.logoContainer}
+        >
+          <Image
+            source={require("@/assets/images/brainysign.png")}
+            style={s.logo}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Header */}
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(500)}
-        >
+        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
           <Text style={[slideStyles.slideTitle, s.titleOverride]}>
-            {'un pequeño trato '}{'\n'}
-            <Text style={{ color: colors.primary }}>entre nosotros</Text>
+            {t("onboarding.commitment.title_line_1")}
+            {"\n"}
+            <Text style={{ color: colors.primary }}>
+              {t("onboarding.commitment.title_line_2")}
+            </Text>
           </Text>
         </Animated.View>
         <Animated.Text
           entering={FadeInDown.delay(200).duration(500)}
           style={[slideStyles.slideSubtitle, s.subtitleOverride]}
         >
-          acepta cada compromiso para finalizar.
+          {t("onboarding.commitment.subtitle")}
         </Animated.Text>
 
         {/* Staggered checklist */}
@@ -69,10 +81,14 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
                   style={[s.commitRow, checked[idx] && s.commitRowActive]}
                 >
                   <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
-                    {checked[idx] && <Check size={14} color={colors.surface} strokeWidth={3} />}
+                    {checked[idx] && (
+                      <Check size={14} color={colors.surface} strokeWidth={3} />
+                    )}
                   </View>
-                  <Text style={[s.commitText, checked[idx] && s.commitTextActive]}>
-                    {text}
+                  <Text
+                    style={[s.commitText, checked[idx] && s.commitTextActive]}
+                  >
+                    {t(text)}
                   </Text>
                 </Pressable>
               </Animated.View>
@@ -93,7 +109,9 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
           disabled={!allChecked}
         >
           <Text style={s.buttonText}>
-            {allChecked ? 'Firmar compromiso ✍️' : 'Acepta todos los compromisos'}
+            {allChecked
+              ? t("onboarding.commitment.cta_ready")
+              : t("onboarding.commitment.cta_disabled")}
           </Text>
         </Pressable>
       </View>
@@ -116,14 +134,14 @@ const s = StyleSheet.create({
     paddingTop: 24,
   },
   titleOverride: {
-    color: '#f2f2f2',
-    textAlign: 'left',
+    color: "#f2f2f2",
+    textAlign: "left",
     marginBottom: 8,
   },
   subtitleOverride: {
-    color: '#f2f2f2',
-    textAlign: 'left',
-    textTransform: 'none',
+    color: "#f2f2f2",
+    textAlign: "left",
+    textTransform: "none",
     marginBottom: 36,
   },
   logoContainer: {
@@ -137,43 +155,43 @@ const s = StyleSheet.create({
     gap: 14,
   },
   commitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 20,
     padding: 18,
     gap: 14,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: "rgba(255,255,255,0.12)",
   },
   commitRowActive: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(255,255,255,0.35)",
   },
   checkbox: {
     width: 28,
     height: 28,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: "rgba(255,255,255,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
     flexShrink: 0,
   },
   checkboxActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
+    borderColor: "#FFFFFF",
   },
   commitText: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.75)',
+    fontWeight: "500",
+    color: "rgba(255,255,255,0.75)",
     lineHeight: 22,
   },
   commitTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
   },
   buttonContainer: {
     paddingHorizontal: 24,
@@ -181,11 +199,11 @@ const s = StyleSheet.create({
     paddingTop: 16,
   },
   button: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingVertical: 18,
     borderRadius: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -197,6 +215,6 @@ const s = StyleSheet.create({
   buttonText: {
     color: colors.surface,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

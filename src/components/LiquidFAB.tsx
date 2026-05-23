@@ -6,6 +6,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { Play, Plus } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 
 interface LiquidFABProps {
@@ -25,6 +26,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
   isOpen: externalIsOpen,
   onLongPress,
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   // Track whether options should render at all (avoids ghost shadows)
   const [shouldRenderOptions, setShouldRenderOptions] = useState(false);
@@ -183,7 +185,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
               style={styles.optionHitArea}
               onPress={() => handleOptionPress(onHacerTareaPress)}
             >
-              <Text style={styles.optionLabel}>Nueva Tarea</Text>
+              <Text style={styles.optionLabel}>{t("fab.new_task")}</Text>
               <View style={styles.optionButtonInner}>
                 <Play
                   size={20}
@@ -217,7 +219,7 @@ export const LiquidFAB: React.FC<LiquidFABProps> = ({
               style={styles.optionHitArea}
               onPress={() => handleOptionPress(onCreateRoutinePress)}
             >
-              <Text style={styles.optionLabel}>Nueva Rutina</Text>
+              <Text style={styles.optionLabel}>{t("fab.new_routine")}</Text>
               <View style={styles.optionButtonInner}>
                 <MaterialCommunityIcons
                   name="calendar-plus"

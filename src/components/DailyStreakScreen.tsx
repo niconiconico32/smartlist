@@ -13,33 +13,43 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { X } from "lucide-react-native";
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  Dimensions,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Dimensions,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import Animated, {
-  Easing,
-  FadeInDown,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
+    Easing,
+    FadeInDown,
+    FadeInUp,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Day labels (starting from Monday of current week)
-const DAY_LABELS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+// Note: these are display-only; data keys remain locale-agnostic (indices)
+const DAY_LABELS_SHORT_KEYS = [
+  "days.mon_abbr",
+  "days.tue_abbr",
+  "days.wed_abbr",
+  "days.thu_abbr",
+  "days.fri_abbr",
+  "days.sat_abbr",
+  "days.sun_abbr",
+];
 
 interface DailyStreakScreenProps {
   visible: boolean;
@@ -194,6 +204,8 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
   shieldDates = [],
   onDismiss,
 }) => {
+  const { t } = useTranslation();
+  const DAY_LABELS_SHORT = DAY_LABELS_SHORT_KEYS.map((k) => t(k));
   const insets = useSafeAreaInsets();
   const mascotScale = useSharedValue(0);
   const mascotY = useSharedValue(0);
@@ -280,12 +292,23 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
         <SunburstRays />
 
         {/* Close button */}
-        <Pressable style={[styles.closeButton, { top: Math.max(insets.top, 16) + 8 }]} onPress={handleDismiss}>
+        <Pressable
+          style={[styles.closeButton, { top: Math.max(insets.top, 16) + 8 }]}
+          onPress={handleDismiss}
+        >
           <X size={28} color="rgba(255,255,255,0.75)" strokeWidth={2.5} />
         </Pressable>
 
         {/* Content */}
-        <View style={[styles.content, { paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 20) }]}>
+        <View
+          style={[
+            styles.content,
+            {
+              paddingTop: insets.top + 20,
+              paddingBottom: Math.max(insets.bottom, 20),
+            },
+          ]}
+        >
           {/* Mascot */}
           <Animated.View style={[styles.mascotContainer, mascotAnimatedStyle]}>
             <Image
@@ -298,7 +321,9 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
           {/* Streak count */}
           <View style={styles.streakNumberContainer}>
             <Text style={styles.streakNumber}>{streak}</Text>
-            <Text style={styles.streakLabel}>RACHA ACTUAL</Text>
+            <Text style={styles.streakLabel}>
+              {t("streak_screen.current_streak")}
+            </Text>
           </View>
 
           {/* Motivational message — right below streak label */}
@@ -307,8 +332,8 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
             style={styles.motivationalText}
           >
             {shieldUsedToday
-              ? "🛡 ¡Tu escudo protegió tu racha!\n¡Sigue abriendo la app cada día!"
-              : "Rompiste la inercia. Eso era lo más difícil. ¡Vuelve mañana y mira tu racha crecer!"}
+              ? t("streak_screen.shield_message")
+              : t("streak_screen.comeback_message")}
           </Animated.Text>
 
           {/* Weekly calendar */}
@@ -391,7 +416,9 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
           >
             <View style={styles.badgesCard}>
               <View style={styles.badgesHeaderPill}>
-                <Text style={styles.badgesHeaderText}>Mis Medallas</Text>
+                <Text style={styles.badgesHeaderText}>
+                  {t("streak_screen.my_badges")}
+                </Text>
               </View>
               <ScrollView
                 horizontal
@@ -445,7 +472,7 @@ export const DailyStreakScreen: React.FC<DailyStreakScreenProps> = ({
                             : { color: `${colors.surfaceElevated}40` },
                         ]}
                       >
-                        {badge.days} días
+                        {t("streak_screen.days_count", { count: badge.days })}
                       </Text>
                     </View>
                   );

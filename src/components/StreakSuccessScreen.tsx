@@ -1,21 +1,21 @@
 /**
  * StreakSuccessScreen
  * 🔥 Pantalla de celebración cuando el usuario completa su objetivo diario
- * 
+ *
  * Diseño: "Calma Satisfactoria" (Satisfying Calm) - Tendencias 2026
  * Optimizado para neurodivergencia (TDAH)
- * 
+ *
  * @example
  * // Uso con estado global/contexto
  * import { useStreakStore } from '@/src/store/streakStore';
- * 
+ *
  * function MyComponent() {
  *   const { currentStreak, showSuccess, hideSuccess } = useStreakStore();
- *   
+ *
  *   if (showSuccess) {
  *     return (
- *       <StreakSuccessScreen 
- *         streakDays={currentStreak} 
+ *       <StreakSuccessScreen
+ *         streakDays={currentStreak}
  *         onDismiss={hideSuccess}
  *       />
  *     );
@@ -24,43 +24,42 @@
  * }
  */
 
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useMemo } from 'react';
-import { Dimensions, Image, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Dimensions, Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withRepeat,
+    withSequence,
+    withSpring,
+    withTiming,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // ============================================================================
 // MENSAJES DE MOTIVACIÓN
 // ============================================================================
 
-const MESSAGES_DAY_ONE = [
-  "¡El primer paso es el más valiente! Lo hiciste.",
-  "Hoy le ganaste a la inercia. ¡Bien hecho!",
-  "Racha iniciada. Tu cerebro te lo agradece.",
+const MESSAGES_DAY_ONE_KEYS = [
+  "streak_success.day_one_0",
+  "streak_success.day_one_1",
+  "streak_success.day_one_2",
 ];
-
-const MESSAGES_STREAK = [
-  "¡Imparable! Un día más sumado a tu consistencia.",
-  "Mira esa racha crecer. Se siente bien, ¿verdad?",
-  "Tu esfuerzo se está notando. ¡Sigue brillando!",
-  "Otra victoria diaria para la colección. ¡Genial!",
-  "La constancia te queda muy bien. ¡Felicidades!",
-  "¡Eso es! Manteniendo el ritmo un día a la vez.",
+const MESSAGES_STREAK_KEYS = [
+  "streak_success.streak_0",
+  "streak_success.streak_1",
+  "streak_success.streak_2",
+  "streak_success.streak_3",
+  "streak_success.streak_4",
+  "streak_success.streak_5",
 ];
 
 // ============================================================================
@@ -88,22 +87,22 @@ const GlowRing = ({ delay, size }: { delay: number; size: number }) => {
       withRepeat(
         withSequence(
           withTiming(1.2, { duration: 2000, easing: Easing.out(Easing.ease) }),
-          withTiming(0.8, { duration: 2000, easing: Easing.in(Easing.ease) })
+          withTiming(0.8, { duration: 2000, easing: Easing.in(Easing.ease) }),
         ),
         -1,
-        true
-      )
+        true,
+      ),
     );
     opacity.value = withDelay(
       delay,
       withRepeat(
         withSequence(
           withTiming(0.6, { duration: 2000 }),
-          withTiming(0.2, { duration: 2000 })
+          withTiming(0.2, { duration: 2000 }),
         ),
         -1,
-        true
-      )
+        true,
+      ),
     );
   }, []);
 
@@ -135,12 +134,15 @@ export function StreakSuccessScreen({
   streakDays,
   onDismiss,
 }: StreakSuccessScreenProps) {
+  const { t } = useTranslation();
   // Selección de mensaje aleatorio (solo una vez al montar)
-  const motivationalMessage = useMemo(() => {
-    const messages = streakDays === 1 ? MESSAGES_DAY_ONE : MESSAGES_STREAK;
-    const randomIndex = Math.floor(Math.random() * messages.length);
-    return messages[randomIndex];
+  const motivationalMessageKey = useMemo(() => {
+    const keys =
+      streakDays === 1 ? MESSAGES_DAY_ONE_KEYS : MESSAGES_STREAK_KEYS;
+    const randomIndex = Math.floor(Math.random() * keys.length);
+    return keys[randomIndex];
   }, [streakDays]);
+  const motivationalMessage = t(motivationalMessageKey);
 
   // Valores animados
   const mascotScale = useSharedValue(0);
@@ -171,22 +173,25 @@ export function StreakSuccessScreen({
       500,
       withRepeat(
         withSequence(
-          withTiming(-15, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+          withTiming(-15, {
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(0, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
         ),
         -1,
-        true
-      )
+        true,
+      ),
     );
 
     // Glow pulsante
     glowPulse.value = withRepeat(
       withSequence(
         withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.5, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        withTiming(0.5, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
 
     // Título con delay
@@ -242,16 +247,16 @@ export function StreakSuccessScreen({
     <View style={styles.container}>
       {/* Fondo Deep Ambient - Gradiente radial cálido (amanecer interno) */}
       <LinearGradient
-        colors={['#2E1A1A', '#3A2420', '#4A2F1F', '#3A2420', '#2E1A1A']}
+        colors={["#2E1A1A", "#3A2420", "#4A2F1F", "#3A2420", "#2E1A1A"]}
         style={StyleSheet.absoluteFill}
         start={{ x: 0.5, y: 0.5 }}
         end={{ x: 1, y: 1 }}
       />
-      
+
       {/* Overlay radial para simular gradiente radial */}
       <View style={styles.radialOverlay}>
         <LinearGradient
-          colors={['rgba(250, 179, 135, 0.15)', 'transparent']}
+          colors={["rgba(250, 179, 135, 0.15)", "transparent"]}
           style={styles.radialGlow}
           start={{ x: 0.5, y: 0.3 }}
           end={{ x: 0.5, y: 1 }}
@@ -274,7 +279,7 @@ export function StreakSuccessScreen({
           {/* Mascota */}
           <Animated.View style={[styles.mascotContainer, mascotAnimatedStyle]}>
             <Image
-              source={require('@/assets/images/logomain.png')}
+              source={require("@/assets/images/logomain.png")}
               style={styles.mascotImage}
               resizeMode="contain"
             />
@@ -289,7 +294,9 @@ export function StreakSuccessScreen({
           </Animated.View>
 
           {/* Mensaje motivacional */}
-          <Animated.Text style={[styles.motivationalMessage, messageAnimatedStyle]}>
+          <Animated.Text
+            style={[styles.motivationalMessage, messageAnimatedStyle]}
+          >
             {motivationalMessage}
           </Animated.Text>
         </View>
@@ -304,13 +311,15 @@ export function StreakSuccessScreen({
             ]}
           >
             <LinearGradient
-              colors={['#FF9A9E', '#FECFEF', '#D4A5FF']}
+              colors={["#FF9A9E", "#FECFEF", "#D4A5FF"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.continueButtonGradient}
             >
               <View style={styles.continueButtonInner}>
-                <Text style={styles.continueButtonText}>¡Seguir adelante!</Text>
+                <Text style={styles.continueButtonText}>
+                  {t("routine_celebration.continue")}
+                </Text>
               </View>
             </LinearGradient>
           </Pressable>
@@ -327,12 +336,12 @@ export function StreakSuccessScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#2E1A1A',
+    backgroundColor: "#2E1A1A",
   },
   radialOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   radialGlow: {
     width: SCREEN_WIDTH * 1.5,
@@ -341,33 +350,33 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     paddingHorizontal: 32,
   },
   heroSection: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 40,
   },
   glowContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "center",
   },
   glowRing: {
-    position: 'absolute',
+    position: "absolute",
     borderWidth: 2,
-    borderColor: 'rgba(250, 179, 135, 0.3)',
-    backgroundColor: 'transparent',
+    borderColor: "rgba(250, 179, 135, 0.3)",
+    backgroundColor: "transparent",
   },
   mascotGlow: {
-    position: 'absolute',
+    position: "absolute",
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(250, 179, 135, 0.25)',
-    shadowColor: '#FAB387',
+    backgroundColor: "rgba(250, 179, 135, 0.25)",
+    shadowColor: "#FAB387",
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 50,
@@ -380,32 +389,32 @@ const styles = StyleSheet.create({
     height: 140,
   },
   streakSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 20,
   },
   streakLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(250, 179, 135, 0.9)',
+    fontWeight: "600",
+    color: "rgba(250, 179, 135, 0.9)",
     letterSpacing: 3,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
   },
   streakNumber: {
     fontSize: 52,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textAlign: "center",
     letterSpacing: -1,
-    textShadowColor: 'rgba(250, 179, 135, 0.5)',
+    textShadowColor: "rgba(250, 179, 135, 0.5)",
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 20,
   },
   motivationalMessage: {
     fontSize: 17,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.75)',
-    textAlign: 'center',
+    fontWeight: "400",
+    color: "rgba(255, 255, 255, 0.75)",
+    textAlign: "center",
     lineHeight: 26,
     marginTop: 24,
     paddingHorizontal: 20,
@@ -415,8 +424,8 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     borderRadius: 50,
-    overflow: 'hidden',
-    shadowColor: '#FF9A9E',
+    overflow: "hidden",
+    shadowColor: "#FF9A9E",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
@@ -431,18 +440,18 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   continueButtonInner: {
-    backgroundColor: 'rgba(46, 26, 26, 0.4)',
+    backgroundColor: "rgba(46, 26, 26, 0.4)",
     borderRadius: 48,
     paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   continueButtonText: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
 });

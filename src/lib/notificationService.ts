@@ -1,3 +1,4 @@
+import i18n from "@/src/config/i18n";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
@@ -43,11 +44,10 @@ const DAY_TO_WEEKDAY: Record<string, number> = {
   Sáb: 7,
 };
 
-// Mensajes motivacionales para las notificaciones
-const NOTIFICATION_MESSAGES = [
-  "No mires toda la lista. Toca aquí y hagamos solamente el primer paso uno de tu rutina. 🎯",
-  "No pienses en todo lo que hay que hacer. Entra y revisa tu rutina y completa sólo lo que puedas. ✨",
-  "Tienes una rutina programada. Si te abruma, elije la tarea más sencilla y part por ahí! 🌟",
+const getRoutineNotificationMessages = () => [
+  i18n.t("notifications.routine_message_0"),
+  i18n.t("notifications.routine_message_1"),
+  i18n.t("notifications.routine_message_2"),
 ];
 
 interface Routine {
@@ -82,8 +82,8 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     // Configurar canal de Android
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("routines", {
-        name: "Recordatorios de Rutinas",
-        description: "Notificaciones para tus rutinas diarias",
+        name: i18n.t("notifications.channel.routines_name"),
+        description: i18n.t("notifications.channel.routines_description"),
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#CBA6F7",
@@ -127,10 +127,9 @@ export async function scheduleRoutineReminders(
     const [hours, minutes] = routine.reminderTime.split(":").map(Number);
 
     // Obtener un mensaje aleatorio
+    const messages = getRoutineNotificationMessages();
     const randomMessage =
-      NOTIFICATION_MESSAGES[
-        Math.floor(Math.random() * NOTIFICATION_MESSAGES.length)
-      ];
+      messages[Math.floor(Math.random() * messages.length)];
 
     // Programar una notificación para cada día seleccionado
     for (const day of routine.days) {
@@ -304,7 +303,9 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
     const minutesBefore = task.reminder.minutesBefore || 15;
     const taskEmoji = task.emoji || "📝";
     const notificationTitle = `${taskEmoji} ${task.title}`;
-    const notificationBody = `Tu tarea comienza en ${minutesBefore} minuto${minutesBefore !== 1 ? "s" : ""}`;
+    const notificationBody = i18n.t("notifications.task_reminder.starts_in", {
+      count: minutesBefore,
+    });
 
     // CASO 1: Tarea de una vez (once) con fecha específica
     if (task.recurrence?.type === "once" && task.scheduledDate) {

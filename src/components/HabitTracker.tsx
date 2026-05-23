@@ -1,17 +1,18 @@
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { Check, ChevronDown, Plus, Sun } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { Check, ChevronDown, Plus, Sun } from "lucide-react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeOut,
-  Layout,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring
-} from 'react-native-reanimated';
+    FadeIn,
+    FadeOut,
+    Layout,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+} from "react-native-reanimated";
 
 // --- TIPOS DE DATOS ---
 type TaskItem = {
@@ -37,13 +38,13 @@ export function RoutineAccordion({
   tasks: initialTasks,
   onTaskToggle,
 }: RoutineAccordionProps) {
-
   const [isExpanded, setIsExpanded] = useState(false);
   const [tasks, setTasks] = useState(initialTasks);
 
   // Cálculo de progreso
-  const completedCount = tasks.filter(t => t.completed).length;
-  const progressPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+  const completedCount = tasks.filter((t) => t.completed).length;
+  const progressPercent =
+    tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   // Animación de rotación para la flecha/botón
   const rotation = useSharedValue(0);
@@ -65,10 +66,10 @@ export function RoutineAccordion({
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
-    setTasks(prev => prev.map(t =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    ));
-    const task = tasks.find(t => t.id === id);
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
+    );
+    const task = tasks.find((t) => t.id === id);
     if (task && onTaskToggle) {
       onTaskToggle(id, !task.completed);
     }
@@ -84,25 +85,17 @@ export function RoutineAccordion({
       style={styles.container}
     >
       {/* === HEADER (SIEMPRE VISIBLE) === */}
-      <Pressable
-        onPress={toggleExpand}
-        style={styles.header}
-      >
+      <Pressable onPress={toggleExpand} style={styles.header}>
         <View style={styles.headerTop}>
-
           {/* Lado Izquierdo: Icono + Textos */}
           <View style={styles.leftSection}>
             {/* Icon Box con color dinámico suave */}
-            <View
-              style={[styles.iconBox, { backgroundColor: `${color}20` }]}
-            >
+            <View style={[styles.iconBox, { backgroundColor: `${color}20` }]}>
               <Icon size={24} color={color} />
             </View>
 
             <View style={styles.textContainer}>
-              <Text style={styles.title}>
-                {title}
-              </Text>
+              <Text style={styles.title}>{title}</Text>
               <Text style={styles.subtitle}>
                 {completedCount} de {tasks.length} completadas
               </Text>
@@ -128,8 +121,8 @@ export function RoutineAccordion({
               styles.progressBarFill,
               {
                 width: `${progressPercent}%`,
-                backgroundColor: color
-              }
+                backgroundColor: color,
+              },
             ]}
           />
         </View>
@@ -156,18 +149,29 @@ export function RoutineAccordion({
                   style={[
                     styles.checkbox,
                     task.completed
-                      ? { backgroundColor: color, borderColor: 'transparent' }
-                      : { backgroundColor: 'transparent', borderColor: `${colors.textSecondary}50` }
+                      ? { backgroundColor: color, borderColor: "transparent" }
+                      : {
+                          backgroundColor: "transparent",
+                          borderColor: `${colors.textSecondary}50`,
+                        },
                   ]}
                 >
-                  {task.completed && <Check size={14} color={colors.background} strokeWidth={4} />}
+                  {task.completed && (
+                    <Check
+                      size={14}
+                      color={colors.background}
+                      strokeWidth={4}
+                    />
+                  )}
                 </View>
 
                 {/* Texto de la tarea */}
-                <Text style={[
-                  styles.taskLabel,
-                  task.completed && styles.taskLabelCompleted
-                ]}>
+                <Text
+                  style={[
+                    styles.taskLabel,
+                    task.completed && styles.taskLabelCompleted,
+                  ]}
+                >
                   {task.label}
                 </Text>
               </TouchableOpacity>
@@ -185,18 +189,19 @@ interface HabitTrackerProps {
 }
 
 export function HabitTracker({}: HabitTrackerProps) {
+  const { t } = useTranslation();
   const MORNING_TASKS = [
-    { id: '1', label: 'Beber un vaso de agua', completed: true },
-    { id: '2', label: 'Hacer la cama', completed: false },
-    { id: '3', label: 'Tomar medicación', completed: false },
-    { id: '4', label: '10 min de estiramiento', completed: false },
+    { id: "1", label: t("habit_tracker.tasks.water"), completed: true },
+    { id: "2", label: t("habit_tracker.tasks.bed"), completed: false },
+    { id: "3", label: t("habit_tracker.tasks.medication"), completed: false },
+    { id: "4", label: t("habit_tracker.tasks.stretch"), completed: false },
   ];
 
   return (
     <View style={styles.habitTrackerContainer}>
       <RoutineAccordion
-        title="Rutina de Mañana"
-        subtitle="Energía para empezar"
+        title={t("habit_tracker.morning_title")}
+        subtitle={t("habit_tracker.morning_subtitle")}
         icon={Sun}
         color="#FAB387"
         tasks={MORNING_TASKS}
@@ -209,10 +214,10 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: 'rgba(203, 166, 247, 0.1)',
-    shadowColor: '#000',
+    borderColor: "rgba(203, 166, 247, 0.1)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -222,22 +227,22 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   iconBox: {
     width: 48,
     height: 48,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 16,
   },
   textContainer: {
@@ -246,17 +251,17 @@ const styles = StyleSheet.create({
   title: {
     color: colors.textPrimary,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   subtitle: {
     color: colors.textSecondary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   expandButton: {
-    backgroundColor: 'rgba(203, 166, 247, 0.1)',
+    backgroundColor: "rgba(203, 166, 247, 0.1)",
     padding: 10,
     borderRadius: 20,
   },
@@ -264,28 +269,28 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: colors.surface,
     borderRadius: 4,
-    overflow: 'hidden',
-    width: '100%',
+    overflow: "hidden",
+    width: "100%",
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 4,
   },
   body: {
     paddingHorizontal: 20,
     paddingBottom: 20,
     paddingTop: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   separator: {
     height: 1,
-    backgroundColor: 'rgba(203, 166, 247, 0.1)',
+    backgroundColor: "rgba(203, 166, 247, 0.1)",
     marginBottom: 16,
-    width: '100%',
+    width: "100%",
   },
   taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
   },
   checkbox: {
@@ -294,18 +299,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     marginRight: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   taskLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textPrimary,
     flex: 1,
   },
   taskLabelCompleted: {
     color: colors.textTertiary,
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
   },
   habitTrackerContainer: {
     flex: 1,

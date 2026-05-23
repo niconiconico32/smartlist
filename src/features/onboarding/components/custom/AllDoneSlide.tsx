@@ -1,27 +1,34 @@
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import * as Haptics from 'expo-haptics';
-import LottieView from 'lottie-react-native';
-import React, { useRef } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { slideStyles } from '../../styles/shared';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import LottieView from "lottie-react-native";
+import React, { useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
 
 interface Props {
   onNext: () => void;
 }
 
 export default function AllDoneSlide({ onNext }: Props) {
+  const { t } = useTranslation();
   const lottieRef = useRef<LottieView>(null);
 
   return (
     <View style={s.container}>
       {/* Animation + Logo stacked */}
-      <Animated.View entering={FadeInUp.delay(100).duration(700)} style={s.animationWrapper}>
+      <Animated.View
+        entering={FadeInUp.delay(100).duration(700)}
+        style={s.animationWrapper}
+      >
         {/* Lottie behind */}
         <LottieView
           ref={lottieRef}
-          source={{ uri: 'https://lottie.host/00209cc7-fa23-41cf-8f33-1b012b69abf6/JblMturQEG.lottie' }}
+          source={{
+            uri: "https://lottie.host/00209cc7-fa23-41cf-8f33-1b012b69abf6/JblMturQEG.lottie",
+          }}
           autoPlay
           loop
           style={s.lottie}
@@ -29,24 +36,36 @@ export default function AllDoneSlide({ onNext }: Props) {
 
         {/* Logo on top */}
         <Image
-          source={require('@/assets/images/logomain.png')}
+          source={require("@/assets/images/logomain.png")}
           style={s.logo}
           resizeMode="contain"
         />
       </Animated.View>
 
       {/* Text */}
-      <Animated.View entering={FadeInDown.delay(500).duration(600)} style={s.textContainer}>
-        <Text style={[slideStyles.slideTitle, s.centeredTitle, { color: colors.background }]}>
-          ¡todo listo!
+      <Animated.View
+        entering={FadeInDown.delay(500).duration(600)}
+        style={s.textContainer}
+      >
+        <Text
+          style={[
+            slideStyles.slideTitle,
+            s.centeredTitle,
+            { color: colors.background },
+          ]}
+        >
+          {t("onboarding.all_done.title")}
         </Text>
         <Text style={[slideStyles.slideSubtitle, s.centeredSubtitle]}>
-          estoy preparado para ser tu copiloto en esta aventura. veo grandes logros en tu futuro.
+          {t("onboarding.all_done.subtitle")}
         </Text>
       </Animated.View>
 
       {/* Button */}
-      <Animated.View entering={FadeInDown.delay(800).duration(500)} style={s.footer}>
+      <Animated.View
+        entering={FadeInDown.delay(800).duration(500)}
+        style={s.footer}
+      >
         <Pressable
           style={s.button}
           onPress={() => {
@@ -54,7 +73,7 @@ export default function AllDoneSlide({ onNext }: Props) {
             onNext();
           }}
         >
-          <Text style={s.buttonText}>¡Firmar Compromiso!</Text>
+          <Text style={s.buttonText}>{t("onboarding.all_done.cta")}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -64,8 +83,8 @@ export default function AllDoneSlide({ onNext }: Props) {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
@@ -73,14 +92,14 @@ const s = StyleSheet.create({
   animationWrapper: {
     width: 360,
     height: 360,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   lottie: {
     ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   logo: {
     width: 200,
@@ -88,28 +107,28 @@ const s = StyleSheet.create({
     zIndex: 1,
   },
   textContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
-    width: '100%',
+    width: "100%",
   },
   centeredTitle: {
-    textAlign: 'center',
-    alignSelf: 'center',
+    textAlign: "center",
+    alignSelf: "center",
   },
   centeredSubtitle: {
-    textAlign: 'center',
-    alignSelf: 'center',
+    textAlign: "center",
+    alignSelf: "center",
     lineHeight: 22,
   },
   footer: {
-    width: '100%',
+    width: "100%",
     marginTop: 40,
   },
   button: {
     backgroundColor: colors.surface,
     paddingVertical: 18,
     borderRadius: 30,
-    alignItems: 'center',
+    alignItems: "center",
     shadowColor: colors.surface,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -117,8 +136,8 @@ const s = StyleSheet.create({
     elevation: 6,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

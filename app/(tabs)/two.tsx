@@ -2,8 +2,8 @@ import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { EditRoutineModal } from "@/src/components/EditRoutineModal";
 import {
-  ReviewRequestModal,
-  shouldAskForReview,
+    ReviewRequestModal,
+    shouldAskForReview,
 } from "@/src/components/ReviewRequestModal";
 import { RoutineCard } from "@/src/components/RoutineCard";
 import { RoutineCelebration } from "@/src/components/RoutineCelebration";
@@ -11,10 +11,10 @@ import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
 import { posthog } from "@/src/config/posthog";
 import { useAuth } from "@/src/contexts/AuthContext";
 import {
-  cancelRoutineReminders,
-  requestNotificationPermissions,
-  rescheduleAllReminders,
-  scheduleRoutineReminders,
+    cancelRoutineReminders,
+    requestNotificationPermissions,
+    rescheduleAllReminders,
+    scheduleRoutineReminders,
 } from "@/src/lib/notificationService";
 import * as routineService from "@/src/lib/routineService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
@@ -23,14 +23,16 @@ import { useProStore } from "@/src/store/proStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import type { Routine } from "@/src/types/routine";
 import {
-  renderRoutinesWidget,
-  WIDGET_BG_ID_KEY,
-  WIDGET_BG_MODE_KEY,
-  WIDGET_DATA_KEY,
-  WIDGET_OUTFIT_ID_KEY,
-  WIDGET_PENDING_KEY,
-  WIDGET_PRO_KEY,
-  WIDGET_USER_KEY,
+    renderRoutinesWidget,
+    WIDGET_BG_ID_KEY,
+    WIDGET_BG_MODE_KEY,
+    WIDGET_BG_URI_KEY,
+    WIDGET_DATA_KEY,
+    WIDGET_OUTFIT_ID_KEY,
+    WIDGET_OUTFIT_URI_KEY,
+    WIDGET_PENDING_KEY,
+    WIDGET_PRO_KEY,
+    WIDGET_USER_KEY,
 } from "@/src/widgets/widgetTaskHandler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { isSameDay } from "date-fns";
@@ -39,25 +41,26 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-  Alert,
-  AppState,
-  DeviceEventEmitter,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    AppState,
+    DeviceEventEmitter,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
+    FadeIn,
+    FadeInDown,
+    FadeInUp,
 } from "react-native-reanimated";
 const _isExpoGo = Constants.appOwnership === "expo";
 // react-native-android-widget requires a native build — not available in Expo Go
@@ -67,7 +70,7 @@ if (!_isExpoGo) {
     require("react-native-android-widget").requestWidgetUpdate;
 }
 
-// Map day number to abbreviation
+// Map day number to abbreviation (stored DB keys — do NOT translate)
 const DAY_NUMBER_TO_ABBREV: Record<number, string> = {
   0: "Dom",
   1: "Lun",
@@ -76,6 +79,16 @@ const DAY_NUMBER_TO_ABBREV: Record<number, string> = {
   4: "Jue",
   5: "Vie",
   6: "Sáb",
+};
+// Map day number to i18n translation key (for display only)
+const DAY_NUMBER_TO_I18N_KEY: Record<number, string> = {
+  0: "days.sun_abbr",
+  1: "days.mon_abbr",
+  2: "days.tue_abbr",
+  3: "days.wed_abbr",
+  4: "days.thu_abbr",
+  5: "days.fri_abbr",
+  6: "days.sat_abbr",
 };
 
 interface RoutinesScreenProps {
@@ -88,6 +101,7 @@ export default function RoutinesScreen({
   onRoutineCompleted,
 }: RoutinesScreenProps) {
   const { user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const {
     onRoutineCompleted: achievementRoutineCompleted,
     onRoutinesCountChanged,
@@ -95,6 +109,8 @@ export default function RoutinesScreen({
     onReminderActivated,
     activeOutfit,
     activeBackground,
+    activeOutfitUri,
+    activeBackgroundUri,
   } = useAchievementsStore();
   const { recordRoutineCompletion, unmarkRoutineCompletion } =
     useRoutineStreakStore();
@@ -119,11 +135,17 @@ export default function RoutinesScreen({
     return isSameDay(date, new Date());
   }, [selectedDate]);
 
-  // Get current day abbreviation from selected date
+  // Get current day abbreviation from selected date (DB key, not for display)
   const currentDayAbbrev = useMemo(() => {
     const date = selectedDate || new Date();
     return DAY_NUMBER_TO_ABBREV[date.getDay()];
   }, [selectedDate]);
+
+  // Get translated day abbreviation for display
+  const currentDayDisplay = useMemo(() => {
+    const date = selectedDate || new Date();
+    return t(DAY_NUMBER_TO_I18N_KEY[date.getDay()]);
+  }, [selectedDate, t]);
 
   // Filter routines for the selected day
   const filteredRoutines = useMemo(() => {
@@ -148,11 +170,21 @@ export default function RoutinesScreen({
 
         // Persist outfit ID so the widget can resolve it via its own require() map
         await AsyncStorage.setItem(WIDGET_OUTFIT_ID_KEY, activeOutfit ?? "");
+        // Persist remote outfit URI for Supabase Storage assets
+        await AsyncStorage.setItem(
+          WIDGET_OUTFIT_URI_KEY,
+          activeOutfitUri ?? "",
+        );
 
         // Persist background ID for gradient selection in widget
         if (activeBackground) {
           await AsyncStorage.setItem(WIDGET_BG_ID_KEY, activeBackground);
         }
+        // Persist remote background URI for Supabase Storage assets
+        await AsyncStorage.setItem(
+          WIDGET_BG_URI_KEY,
+          activeBackgroundUri ?? "",
+        );
 
         // Persist bg mode so the widget knows whether to use image or gradient
         const bgModeValue = activeBackground ? "user" : "user";
@@ -172,7 +204,15 @@ export default function RoutinesScreen({
       }
     };
     syncWidget();
-  }, [filteredRoutines, user?.id, activeOutfit, activeBackground, isPro]);
+  }, [
+    filteredRoutines,
+    user?.id,
+    activeOutfit,
+    activeBackground,
+    activeOutfitUri,
+    activeBackgroundUri,
+    isPro,
+  ]);
 
   // Solicitar permisos de notificación al montar
   useEffect(() => {
@@ -255,8 +295,8 @@ export default function RoutinesScreen({
     } catch (error) {
       console.error("Error al cargar rutinas:", error);
       Alert.alert(
-        "Error",
-        "No se pudieron cargar las rutinas. Intenta de nuevo.",
+        t("routines_alerts.error_title"),
+        t("routines_alerts.load_failed"),
       );
     } finally {
       setIsLoading(false);
@@ -276,18 +316,24 @@ export default function RoutinesScreen({
       if (success) {
         setRoutines(routines.filter((r) => r.id !== id));
       } else {
-        Alert.alert("Error", "No se pudo eliminar la rutina");
+        Alert.alert(
+          t("routines_alerts.error_title"),
+          t("routines_alerts.delete_failed"),
+        );
       }
     } catch (error) {
       console.error("Error al eliminar rutina:", error);
-      Alert.alert("Error", "Ocurrió un error al eliminar la rutina");
+      Alert.alert(
+        t("routines_alerts.error_title"),
+        t("routines_alerts.delete_error"),
+      );
     }
   };
 
   const handleEditRoutine = (id: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch (e) { }
+    } catch (e) {}
 
     const routineToEdit = routines.find((r) => r.id === id);
     if (routineToEdit) {
@@ -301,7 +347,7 @@ export default function RoutinesScreen({
 
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e) { }
+    } catch (e) {}
 
     // Detect changes for achievements
     const originalRoutine = editingRoutine;
@@ -351,11 +397,17 @@ export default function RoutinesScreen({
         setShowEditModal(false);
         setEditingRoutine(null);
       } else {
-        Alert.alert("Error", "No se pudo actualizar la rutina");
+        Alert.alert(
+          t("routines_alerts.error_title"),
+          t("routines_alerts.update_failed"),
+        );
       }
     } catch (error) {
       console.error("Error al guardar rutina:", error);
-      Alert.alert("Error", "Ocurrió un error al guardar la rutina");
+      Alert.alert(
+        t("routines_alerts.error_title"),
+        t("routines_alerts.save_error"),
+      );
     }
   };
 
@@ -407,7 +459,10 @@ export default function RoutinesScreen({
             return r;
           }),
         );
-        Alert.alert("Error", "No se pudo actualizar la tarea");
+        Alert.alert(
+          t("routines_alerts.error_title"),
+          t("routines_alerts.task_update_failed"),
+        );
         return;
       }
 
@@ -461,7 +516,10 @@ export default function RoutinesScreen({
       }
     } catch (error) {
       console.error("Error al actualizar tarea:", error);
-      Alert.alert("Error", "Ocurrió un error al actualizar la tarea");
+      Alert.alert(
+        t("routines_alerts.error_title"),
+        t("routines_alerts.task_update_error"),
+      );
     }
   };
 
@@ -473,10 +531,14 @@ export default function RoutinesScreen({
       >
         <Text style={styles.title}>
           {filteredRoutines.length > 0
-            ? `${filteredRoutines.length} rutina${filteredRoutines.length > 1 ? "s" : ""} para hoy`
+            ? t("routines_screen.title_count", {
+                count: filteredRoutines.length,
+              })
             : routines.length > 0
-              ? `Sin rutinas para ${currentDayAbbrev}`
-              : "Crea tu primera rutina"}
+              ? t("routines_screen.title_no_routines_day", {
+                  day: currentDayDisplay,
+                })
+              : t("routines_screen.title_create_first")}
         </Text>
       </Animated.View>
 
@@ -501,16 +563,18 @@ export default function RoutinesScreen({
               style={styles.emptyTitle}
             >
               {routines.length > 0
-                ? `Sin rutinas para ${currentDayAbbrev}`
-                : "Sin rutinas aún"}
+                ? t("routines_screen.empty_title_no_day", {
+                    day: currentDayDisplay,
+                  })
+                : t("routines_screen.empty_title_none")}
             </Animated.Text>
             <Animated.Text
               entering={FadeInUp.delay(500).springify()}
               style={styles.emptySubtitle}
             >
               {routines.length > 0
-                ? "Selecciona otro día o crea una nueva rutina para este día"
-                : "Toca el botón + para crear tu primera rutina y organizar tus hábitos diarios"}
+                ? t("routines_screen.empty_subtitle_no_day")
+                : t("routines_screen.empty_subtitle_none")}
             </Animated.Text>
           </Animated.View>
         ) : (

@@ -1,46 +1,41 @@
 import {
-  PRIMARY_GRADIENT_COLORS,
-  primaryButtonGradient,
-  primaryButtonStyles,
-  primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useCallback, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeInDown
-} from 'react-native-reanimated';
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 
 // ============================================
 // TESTIMONIAL SLIDE — Carousel style
 const TESTIMONIALS = [
   {
-    initials: 'A',
-    image: require('@/assets/images/user2.png'),
-    name: 'Alex',
-    age: '29 años',
-    quote: 'toda la vida juré que era flojo, pero me di cuenta de que solo necesitaba organizarme distinto. Con Brainy al fin avanzo con mis cosas sin que sea una pelea constante contra mi propia cabeza.'
-
+    initials: "A",
+    image: require("@/assets/images/user2.png"),
+    name: "Alex",
+    age: "onboarding.testimonials.items.alex.age",
+    quote: "onboarding.testimonials.items.alex.quote",
   },
   {
-    initials: 'C',
-    image: require('@/assets/images/user1.png'),
-    name: 'Camila',
-    age: '34 años',
-    quote:
-      'llevo más de dos semanas cumpliendo mi rutina y de verdad no me lo creo (literal no me pasaba desde el colegio jaja). Siento que la app está hecha exactamente para cabezas como la mía.'
+    initials: "C",
+    image: require("@/assets/images/user1.png"),
+    name: "Camila",
+    age: "onboarding.testimonials.items.camila.age",
+    quote: "onboarding.testimonials.items.camila.quote",
   },
   {
-    initials: 'D',
-    image: require('@/assets/images/user3.png'),
-    name: 'Diego',
-    age: '26 años',
-    quote:
-      'el sistema de rachas te atrapa de la mejor manera. Antes me costaba un mundo empezar, hoy llevo 21 días seguidos cumpliendo.'
+    initials: "D",
+    image: require("@/assets/images/user3.png"),
+    name: "Diego",
+    age: "onboarding.testimonials.items.diego.age",
+    quote: "onboarding.testimonials.items.diego.quote",
   },
 ];
 
@@ -49,21 +44,19 @@ interface Props {
 }
 
 const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState(0);
   const testimonial = TESTIMONIALS[current];
 
-  const goTo = useCallback(
-    (dir: -1 | 1) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setCurrent((prev) => {
-        const next = prev + dir;
-        if (next < 0) return TESTIMONIALS.length - 1;
-        if (next >= TESTIMONIALS.length) return 0;
-        return next;
-      });
-    },
-    [],
-  );
+  const goTo = useCallback((dir: -1 | 1) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCurrent((prev) => {
+      const next = prev + dir;
+      if (next < 0) return TESTIMONIALS.length - 1;
+      if (next >= TESTIMONIALS.length) return 0;
+      return next;
+    });
+  }, []);
 
   return (
     <View style={s.container}>
@@ -73,19 +66,29 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Title */}
-        <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
-          escucha lo que{'\n'}otros dicen
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(400)}
+          style={s.title}
+        >
+          {t("onboarding.testimonials.title")}
         </Animated.Text>
 
         {/* Avatar area */}
         <View style={s.avatarSection}>
           {/* Left arrow */}
-          <Pressable onPress={() => goTo(-1)} style={s.arrowButton} hitSlop={12}>
+          <Pressable
+            onPress={() => goTo(-1)}
+            style={s.arrowButton}
+            hitSlop={12}
+          >
             <Text style={s.arrowText}>‹</Text>
           </Pressable>
 
           {/* Circular avatar with accent ring */}
-          <Animated.View entering={FadeIn.delay(200).duration(500)} style={s.avatarWrapper}>
+          <Animated.View
+            entering={FadeIn.delay(200).duration(500)}
+            style={s.avatarWrapper}
+          >
             <View style={s.avatarRingOuter}>
               <View style={s.avatarRing}>
                 <View style={s.avatar}>
@@ -113,7 +116,7 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
         >
           {testimonial.name}
         </Animated.Text>
-        <Text style={s.age}>{testimonial.age}</Text>
+        <Text style={s.age}>{t(testimonial.age)}</Text>
 
         {/* Big quote mark */}
         <Animated.Text
@@ -129,16 +132,13 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
           key={`quote-${current}`}
           style={s.quoteText}
         >
-          {testimonial.quote}
+          {t(testimonial.quote)}
         </Animated.Text>
 
         {/* Dots indicator */}
         <View style={s.dots}>
           {TESTIMONIALS.map((_, idx) => (
-            <View
-              key={idx}
-              style={[s.dot, idx === current && s.dotActive]}
-            />
+            <View key={idx} style={[s.dot, idx === current && s.dotActive]} />
           ))}
         </View>
       </ScrollView>
@@ -158,7 +158,7 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
             end={{ x: 1, y: 0 }}
             style={primaryButtonGradient}
           >
-            <Text style={primaryButtonText}>Continuar</Text>
+            <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
           </LinearGradient>
         </Pressable>
       </View>
@@ -184,16 +184,16 @@ const s = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 32,
-    alignItems: 'center',
+    alignItems: "center",
     paddingBottom: 20,
   },
   // ── Title ──
   title: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'left',
-    alignSelf: 'flex-start',
+    textAlign: "left",
+    alignSelf: "flex-start",
     paddingHorizontal: 32,
     marginBottom: 32,
     letterSpacing: -0.5,
@@ -201,10 +201,10 @@ const s = StyleSheet.create({
   },
   // ── Avatar section ──
   avatarSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     paddingHorizontal: 20,
     marginBottom: 20,
   },
@@ -213,14 +213,14 @@ const s = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: `${colors.textPrimary}1A`,
   },
   arrowText: {
     fontSize: 26,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginTop: -2,
   },
@@ -232,73 +232,73 @@ const s = StyleSheet.create({
     height: RING_OUTER_SIZE,
     borderRadius: RING_OUTER_SIZE / 2,
     backgroundColor: `${colors.surface}40`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarRing: {
     width: RING_SIZE,
     height: RING_SIZE,
     borderRadius: RING_SIZE / 2,
     backgroundColor: `${colors.surface}80`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatar: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 3,
     borderColor: colors.primary,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   avatarInitials: {
     fontSize: 44,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
   },
   avatarImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   // ── Name ──
   name: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 2,
   },
   age: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
   },
   // ── Quote ──
   quoteDecoration: {
     fontSize: 56,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.surface,
     lineHeight: 56,
     marginBottom: -4,
   },
   quoteText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
     paddingHorizontal: 40,
     marginBottom: 20,
   },
   // ── Dots ──
   dots: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginTop: 4,
   },

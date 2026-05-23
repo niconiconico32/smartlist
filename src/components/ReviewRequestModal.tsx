@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import * as Linking from "expo-linking";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Image, Modal, Platform, Pressable, StyleSheet } from "react-native";
 
 // Stores the streak count at which the review was last shown.
@@ -25,6 +26,7 @@ export function ReviewRequestModal({
   streak,
   onClose,
 }: ReviewRequestModalProps) {
+  const { t } = useTranslation();
   const markShown = async () => {
     await AsyncStorage.setItem(REVIEW_LAST_STREAK_KEY, String(streak));
   };
@@ -61,17 +63,17 @@ export function ReviewRequestModal({
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.title}>¿Disfrutando de Brainy?</Text>
-          <Text style={styles.body}>
-            Nuestro equipo ha dedicado cientos de horas para hacer de Brainy el
-            mejor copiloto para tu cerebro. ¿Nos ayudas con una reseña? Solo
-            toma 2 minutos.
-          </Text>
+          <Text style={styles.title}>{t("review_request.title")}</Text>
+          <Text style={styles.body}>{t("review_request.body")}</Text>
           <Pressable style={styles.primaryButton} onPress={handleReview}>
-            <Text style={styles.primaryButtonText}>Dejar reseña ⭐</Text>
+            <Text style={styles.primaryButtonText}>
+              {t("review_request.leave_review")}
+            </Text>
           </Pressable>
           <Pressable style={styles.secondaryButton} onPress={handleDismiss}>
-            <Text style={styles.secondaryButtonText}>Ahora no</Text>
+            <Text style={styles.secondaryButtonText}>
+              {t("review_request.not_now")}
+            </Text>
           </Pressable>
         </Pressable>
       </Pressable>

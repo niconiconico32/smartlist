@@ -3,6 +3,7 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import * as Haptics from "expo-haptics";
 import { Gift, X } from "lucide-react-native";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -21,6 +22,7 @@ interface RedeemCodeModalProps {
 }
 
 export function RedeemCodeModal({ visible, onClose }: RedeemCodeModalProps) {
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState<"input" | "success" | "error">("input");
@@ -73,7 +75,7 @@ export function RedeemCodeModal({ visible, onClose }: RedeemCodeModalProps) {
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <Gift size={20} color={colors.primary} strokeWidth={2} />
-              <Text style={styles.title}>Canjear código</Text>
+              <Text style={styles.title}>{t("redeem_code.title")}</Text>
             </View>
             <Pressable
               onPress={handleClose}
@@ -87,28 +89,30 @@ export function RedeemCodeModal({ visible, onClose }: RedeemCodeModalProps) {
           {phase === "success" ? (
             <View style={styles.successContainer}>
               <Text style={styles.successEmoji}>🎉</Text>
-              <Text style={styles.successTitle}>¡Código canjeado!</Text>
+              <Text style={styles.successTitle}>
+                {t("redeem_code.success_title")}
+              </Text>
               <Text style={styles.successSubtitle}>
-                +{rewardCoins} coronas añadidas a tu cuenta
+                {t("redeem_code.success_subtitle", { coins: rewardCoins })}
               </Text>
               <Pressable style={styles.doneButton} onPress={handleClose}>
-                <Text style={styles.doneButtonText}>¡Genial!</Text>
+                <Text style={styles.doneButtonText}>
+                  {t("redeem_code.done")}
+                </Text>
               </Pressable>
             </View>
           ) : (
             <>
-              <Text style={styles.subtitle}>
-                Ingresa tu código promocional para recibir coronas.
-              </Text>
+              <Text style={styles.subtitle}>{t("redeem_code.subtitle")}</Text>
 
               <TextInput
                 style={styles.input}
                 value={code}
-                onChangeText={(t) => {
-                  setCode(t.toUpperCase());
+                onChangeText={(t_) => {
+                  setCode(t_.toUpperCase());
                   if (phase === "error") setPhase("input");
                 }}
-                placeholder="CODIGO123"
+                placeholder={t("redeem_code.placeholder")}
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 autoCapitalize="characters"
                 autoCorrect={false}
@@ -133,7 +137,9 @@ export function RedeemCodeModal({ visible, onClose }: RedeemCodeModalProps) {
                 {loading ? (
                   <ActivityIndicator size="small" color="#1A1C20" />
                 ) : (
-                  <Text style={styles.redeemButtonText}>Canjear</Text>
+                  <Text style={styles.redeemButtonText}>
+                    {t("redeem_code.redeem")}
+                  </Text>
                 )}
               </Pressable>
             </>

@@ -1,11 +1,17 @@
-import { PRIMARY_GRADIENT_COLORS, primaryButtonGradient, primaryButtonStyles, primaryButtonText } from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import {
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 
 // ============================================
 // PLAN SELECTOR SLIDE
@@ -25,28 +31,27 @@ interface Plan {
   members?: string;
 }
 
-const PLANS: Plan[] = [
-  
-  {
-    id: 'monthly',
-    label: 'Mensual',
-    price: '$3.99',
-    period: '/mes',
-    badge: 'MÁS     POPULAR',
-    badgeColor: colors.success,
-    trialLabel: '14 DÍAS DE PRUEBA GRATIS',
-  },
-  {
-    id: 'annual',
-    label: 'Anual',
-    price: '$39.99',
-    period: '/año',
-    trialLabel: '14 DÍAS DE PRUEBA GRATIS',
-  },
-];
-
 const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
-  const [selectedPlan, setSelectedPlan] = useState('individual');
+  const { t } = useTranslation();
+  const [selectedPlan, setSelectedPlan] = useState("individual");
+  const plans: Plan[] = [
+    {
+      id: "monthly",
+      label: t("onboarding.plan_selector.monthly_label"),
+      price: "$3.99",
+      period: t("onboarding.plan_selector.per_month"),
+      badge: t("onboarding.plan_selector.popular_badge"),
+      badgeColor: colors.success,
+      trialLabel: t("onboarding.plan_selector.trial_label"),
+    },
+    {
+      id: "annual",
+      label: t("onboarding.plan_selector.annual_label"),
+      price: "$39.99",
+      period: t("onboarding.plan_selector.per_year"),
+      trialLabel: t("onboarding.plan_selector.trial_label"),
+    },
+  ];
 
   const handleSelect = (planId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -56,13 +61,16 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
   return (
     <View style={s.container}>
       {/* Header */}
-      <Animated.View entering={FadeInDown.delay(100).duration(500)} style={s.header}>
-        <Text style={s.title}>Elige tu plan</Text>
+      <Animated.View
+        entering={FadeInDown.delay(100).duration(500)}
+        style={s.header}
+      >
+        <Text style={s.title}>{t("onboarding.plan_selector.title")}</Text>
       </Animated.View>
 
       {/* Plans */}
       <View style={s.planList}>
-        {PLANS.map((plan, idx) => {
+        {plans.map((plan, idx) => {
           const isSelected = selectedPlan === plan.id;
           return (
             <Animated.View
@@ -76,7 +84,12 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
               >
                 {/* Badge */}
                 {plan.badge && (
-                  <View style={[s.badge, { backgroundColor: plan.badgeColor || colors.accent }]}>
+                  <View
+                    style={[
+                      s.badge,
+                      { backgroundColor: plan.badgeColor || colors.accent },
+                    ]}
+                  >
                     <Text style={s.badgeText}>{plan.badge}</Text>
                   </View>
                 )}
@@ -88,7 +101,9 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
 
                 {/* Content */}
                 <View style={s.planContent}>
-                  <Text style={[s.planLabel, isSelected && s.planLabelActive]}>{plan.label}</Text>
+                  <Text style={[s.planLabel, isSelected && s.planLabelActive]}>
+                    {plan.label}
+                  </Text>
                   {plan.members && (
                     <Text style={s.planMembers}>{plan.members}</Text>
                   )}
@@ -99,7 +114,9 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
 
                 {/* Price */}
                 <View style={s.priceArea}>
-                  <Text style={[s.price, isSelected && s.priceActive]}>{plan.price}</Text>
+                  <Text style={[s.price, isSelected && s.priceActive]}>
+                    {plan.price}
+                  </Text>
                   <Text style={s.period}>{plan.period}</Text>
                 </View>
               </TouchableOpacity>
@@ -109,7 +126,10 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
       </View>
 
       {/* CTA */}
-      <Animated.View entering={FadeInUp.delay(600).duration(400)} style={s.ctaArea}>
+      <Animated.View
+        entering={FadeInUp.delay(600).duration(400)}
+        style={s.ctaArea}
+      >
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => {
@@ -123,11 +143,15 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
             end={{ x: 1, y: 0 }}
             style={[primaryButtonGradient, primaryButtonStyles]}
           >
-            <Text style={primaryButtonText}>Iniciar mis 14 días de prueba</Text>
+            <Text style={primaryButtonText}>
+              {t("onboarding.plan_selector.cta")}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={s.cancelText}>Cancela cuando quieras en la App Store</Text>
+        <Text style={s.cancelText}>
+          {t("onboarding.plan_selector.cancel_note")}
+        </Text>
       </Animated.View>
     </View>
   );
@@ -144,35 +168,35 @@ const s = StyleSheet.create({
   },
   // ── Header ──
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingTop: 16,
     marginBottom: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: -0.3,
   },
   // ── Plan list ──
   planList: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingHorizontal: 20,
     gap: 14,
   },
   planCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: `${colors.surface}80`,
     borderRadius: 18,
     borderWidth: 2,
     borderColor: `${colors.textPrimary}20`,
     paddingVertical: 18,
     paddingHorizontal: 16,
-    position: 'relative',
-    overflow: 'visible',
+    position: "relative",
+    overflow: "visible",
   },
   planCardSelected: {
     borderColor: colors.accent,
@@ -180,9 +204,9 @@ const s = StyleSheet.create({
   },
   // ── Badge ──
   badge: {
-    position: 'absolute',
+    position: "absolute",
     top: -12,
-    left: '50%',
+    left: "50%",
     marginLeft: -50,
     paddingHorizontal: 14,
     paddingVertical: 4,
@@ -190,7 +214,7 @@ const s = StyleSheet.create({
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.background,
     letterSpacing: 0.5,
   },
@@ -201,8 +225,8 @@ const s = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2.5,
     borderColor: `${colors.textPrimary}40`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 14,
   },
   radioActive: {
@@ -220,7 +244,7 @@ const s = StyleSheet.create({
   },
   planLabel: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
     marginBottom: 2,
   },
@@ -229,24 +253,24 @@ const s = StyleSheet.create({
   },
   planMembers: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textSecondary,
     letterSpacing: 0.5,
     marginBottom: 2,
   },
   trialLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.success,
     letterSpacing: 0.3,
   },
   // ── Price ──
   priceArea: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   price: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   priceActive: {
@@ -254,7 +278,7 @@ const s = StyleSheet.create({
   },
   period: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
     marginTop: -2,
   },
@@ -265,9 +289,9 @@ const s = StyleSheet.create({
   },
   cancelText: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 12,
   },
 });

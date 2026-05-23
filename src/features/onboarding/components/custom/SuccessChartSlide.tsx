@@ -2,6 +2,7 @@ import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
 import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Dimensions,
     Pressable,
@@ -34,32 +35,22 @@ const { width } = Dimensions.get("window");
 const CHART_WIDTH = width - 64; // padding 32 * 2
 const CHART_HEIGHT = 240;
 
-const formatDate = (date: Date) => {
-  const months = [
-    "Ene",
-    "Feb",
-    "Mar",
-    "Abr",
-    "May",
-    "Jun",
-    "Jul",
-    "Ago",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dic",
-  ];
-  return `${date.getDate()} ${months[date.getMonth()]}`;
-};
+const formatDate = (date: Date, locale: string) =>
+  date.toLocaleDateString(locale, { month: "short", day: "numeric" });
 
 export default function SuccessChartSlide({ onNext }: any) {
+  const { t, i18n } = useTranslation();
   const progress = useSharedValue(0);
 
   const now = new Date();
   const day10 = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
   const day21 = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
 
-  const labels = ["Hoy", formatDate(day10), formatDate(day21)];
+  const labels = [
+    t("onboarding.success_chart.today_label"),
+    formatDate(day10, i18n.language),
+    formatDate(day21, i18n.language),
+  ];
 
   const p1 = { x: 20, y: CHART_HEIGHT - 60 };
   const p2 = { x: CHART_WIDTH * 0.7, y: CHART_HEIGHT * 0.65 };
@@ -104,7 +95,7 @@ export default function SuccessChartSlide({ onNext }: any) {
             { color: "#FFFFFF", marginBottom: 8 },
           ]}
         >
-          paz mental en 21 días
+          {t("onboarding.success_chart.title")}
         </Animated.Text>
 
         <Animated.Text
@@ -118,7 +109,7 @@ export default function SuccessChartSlide({ onNext }: any) {
             },
           ]}
         >
-          mira lo que podemos lograr juntos en solo 21 días.
+          {t("onboarding.success_chart.subtitle")}
         </Animated.Text>
 
         <Animated.View
@@ -255,7 +246,9 @@ export default function SuccessChartSlide({ onNext }: any) {
               { left: p2.x - 45, top: p2.y - 40, backgroundColor: "#F9E2AF" },
             ]}
           >
-            <Text style={s.tooltipTextDark}>romper patrones malos</Text>
+            <Text style={s.tooltipTextDark}>
+              {t("onboarding.success_chart.tooltip_1")}
+            </Text>
           </Animated.View>
 
           <Animated.View
@@ -265,7 +258,9 @@ export default function SuccessChartSlide({ onNext }: any) {
               { left: p3.x - 55, top: p3.y - 45, backgroundColor: "#A6E3A1" },
             ]}
           >
-            <Text style={s.tooltipTextDark}>tú mandas</Text>
+            <Text style={s.tooltipTextDark}>
+              {t("onboarding.success_chart.tooltip_2")}
+            </Text>
           </Animated.View>
         </Animated.View>
 
@@ -273,8 +268,8 @@ export default function SuccessChartSlide({ onNext }: any) {
           entering={FadeInDown.delay(2400).duration(500)}
           style={s.loremText}
         >
-          basado en tu análisis, creemos que para el próximo {labels[2]} serás
-          capaz de construir hábitos saludables y constantes.
+          {t("onboarding.success_chart.body_prefix")} {labels[2]}{" "}
+          {t("onboarding.success_chart.body_suffix")}
         </Animated.Text>
       </ScrollView>
 
@@ -289,7 +284,7 @@ export default function SuccessChartSlide({ onNext }: any) {
           }}
           style={s.button}
         >
-          <Text style={s.buttonText}>Continuar</Text>
+          <Text style={s.buttonText}>{t("onboarding.continue")}</Text>
         </Pressable>
       </Animated.View>
     </View>

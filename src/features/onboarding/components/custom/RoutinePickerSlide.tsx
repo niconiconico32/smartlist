@@ -1,13 +1,20 @@
-import { colors } from '@/constants/theme';
-import { AppText as Text } from '@/src/components/AppText';
-import { useAuth } from '@/src/contexts/AuthContext';
-import { createRoutine } from '@/src/lib/routineService';
-import * as Haptics from 'expo-haptics';
-import { Check } from 'lucide-react-native';
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { slideStyles } from '../../styles/shared';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { useAuth } from "@/src/contexts/AuthContext";
+import { createRoutine } from "@/src/lib/routineService";
+import * as Haptics from "expo-haptics";
+import { Check } from "lucide-react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
 
 // ============================================
 // PRESET ROUTINES
@@ -22,43 +29,64 @@ interface PresetRoutine {
 
 const PRESET_ROUTINES: PresetRoutine[] = [
   {
-    id: 'walk-dog',
-    emoji: '🐕',
-    label: 'Pasear a mi perro',
-    icon: 'Heart',
-    tasks: ['Ponerle la correa', 'Salir a caminar 20 min', 'Darle agua al volver'],
+    id: "walk-dog",
+    emoji: "🐕",
+    label: "onboarding.routine_picker.presets.walk_dog.label",
+    icon: "Heart",
+    tasks: [
+      "onboarding.routine_picker.presets.walk_dog.tasks.1",
+      "onboarding.routine_picker.presets.walk_dog.tasks.2",
+      "onboarding.routine_picker.presets.walk_dog.tasks.3",
+    ],
   },
   {
-    id: 'drink-water',
-    emoji: '💧',
-    label: 'Beber agua',
-    icon: 'Activity',
-    tasks: ['Vaso al despertar', 'Vaso a media mañana', 'Vaso en el almuerzo', 'Vaso en la tarde'],
+    id: "drink-water",
+    emoji: "💧",
+    label: "onboarding.routine_picker.presets.drink_water.label",
+    icon: "Activity",
+    tasks: [
+      "onboarding.routine_picker.presets.drink_water.tasks.1",
+      "onboarding.routine_picker.presets.drink_water.tasks.2",
+      "onboarding.routine_picker.presets.drink_water.tasks.3",
+      "onboarding.routine_picker.presets.drink_water.tasks.4",
+    ],
   },
   {
-    id: 'feed-cat',
-    emoji: '🐱',
-    label: 'Rellenar el plato de mi gato',
-    icon: 'Home',
-    tasks: ['Revisar comida seca', 'Rellenar agua', 'Limpiar el plato si está sucio'],
+    id: "feed-cat",
+    emoji: "🐱",
+    label: "onboarding.routine_picker.presets.feed_cat.label",
+    icon: "Home",
+    tasks: [
+      "onboarding.routine_picker.presets.feed_cat.tasks.1",
+      "onboarding.routine_picker.presets.feed_cat.tasks.2",
+      "onboarding.routine_picker.presets.feed_cat.tasks.3",
+    ],
   },
   {
-    id: 'morning-routine',
-    emoji: '☀️',
-    label: 'Rutina de la mañana',
-    icon: 'Sun',
-    tasks: ['Hacer la cama', 'Ducharme', 'Desayunar algo'],
+    id: "morning-routine",
+    emoji: "☀️",
+    label: "onboarding.routine_picker.presets.morning_routine.label",
+    icon: "Sun",
+    tasks: [
+      "onboarding.routine_picker.presets.morning_routine.tasks.1",
+      "onboarding.routine_picker.presets.morning_routine.tasks.2",
+      "onboarding.routine_picker.presets.morning_routine.tasks.3",
+    ],
   },
   {
-    id: 'wind-down',
-    emoji: '🌙',
-    label: 'Desconexión nocturna',
-    icon: 'Moon',
-    tasks: ['Dejar el celular en otra habitación', 'Leer 10 minutos', 'Revisar plan del día siguiente'],
+    id: "wind-down",
+    emoji: "🌙",
+    label: "onboarding.routine_picker.presets.wind_down.label",
+    icon: "Moon",
+    tasks: [
+      "onboarding.routine_picker.presets.wind_down.tasks.1",
+      "onboarding.routine_picker.presets.wind_down.tasks.2",
+      "onboarding.routine_picker.presets.wind_down.tasks.3",
+    ],
   },
 ];
 
-const ALL_DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const ALL_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 // ============================================
 // COMPONENT
@@ -68,6 +96,7 @@ interface Props {
 }
 
 export default function RoutinePickerSlide({ onNext }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
@@ -75,7 +104,7 @@ export default function RoutinePickerSlide({ onNext }: Props) {
 
   const toggleRoutine = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelected(prev => {
+    setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -90,7 +119,7 @@ export default function RoutinePickerSlide({ onNext }: Props) {
     const userId = user?.id;
     if (!userId || saving) return;
 
-    const selectedPresets = PRESET_ROUTINES.filter(r => selected.has(r.id));
+    const selectedPresets = PRESET_ROUTINES.filter((r) => selected.has(r.id));
     if (selectedPresets.length === 0) {
       onNext();
       return;
@@ -99,19 +128,22 @@ export default function RoutinePickerSlide({ onNext }: Props) {
     setSaving(true);
     try {
       await Promise.all(
-        selectedPresets.map(preset =>
+        selectedPresets.map((preset) =>
           createRoutine(userId, {
-            name: `${preset.emoji} ${preset.label}`,
+            name: `${preset.emoji} ${t(preset.label)}`,
             days: ALL_DAYS,
-            tasks: preset.tasks.map((title, index) => ({ title, position: index })),
+            tasks: preset.tasks.map((title, index) => ({
+              title: t(title),
+              position: index,
+            })),
             icon: preset.icon,
             reminderEnabled: false,
-          })
-        )
+          }),
+        ),
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      console.error('Error creating routines:', e);
+      console.error("Error creating routines:", e);
     } finally {
       setSaving(false);
       onNext();
@@ -132,21 +164,30 @@ export default function RoutinePickerSlide({ onNext }: Props) {
       >
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
-          style={[slideStyles.slideTitle, { marginBottom: 8, color: colors.background }]}
+          style={[
+            slideStyles.slideTitle,
+            { marginBottom: 8, color: colors.background },
+          ]}
         >
-          elige tus primeras rutinas diarias
+          {t("onboarding.routine_picker.title")}
         </Animated.Text>
 
         <Animated.Text
           entering={FadeInDown.delay(200).duration(500)}
-          style={[slideStyles.slideSubtitle, { marginBottom: 36, textTransform: 'none' }]}
+          style={[
+            slideStyles.slideSubtitle,
+            { marginBottom: 36, textTransform: "none" },
+          ]}
         >
-          acá tenemos unas que pensamos que te servirán, pero puedes crear las tuyas cuando quieras.
+          {t("onboarding.routine_picker.subtitle")}
         </Animated.Text>
 
         {/* Pills grid */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={s.pillsContainer}>
-          {PRESET_ROUTINES.map(routine => {
+        <Animated.View
+          entering={FadeInDown.delay(300).duration(500)}
+          style={s.pillsContainer}
+        >
+          {PRESET_ROUTINES.map((routine) => {
             const isSelected = selected.has(routine.id);
             return (
               <Pressable
@@ -161,7 +202,7 @@ export default function RoutinePickerSlide({ onNext }: Props) {
                 )}
                 <Text style={[s.pillEmoji]}>{routine.emoji}</Text>
                 <Text style={[s.pillLabel, isSelected && s.pillLabelSelected]}>
-                  {routine.label}
+                  {t(routine.label)}
                 </Text>
               </Pressable>
             );
@@ -170,7 +211,10 @@ export default function RoutinePickerSlide({ onNext }: Props) {
       </ScrollView>
 
       {/* Footer */}
-      <Animated.View entering={FadeInDown.delay(600).duration(500)} style={s.footer}>
+      <Animated.View
+        entering={FadeInDown.delay(600).duration(500)}
+        style={s.footer}
+      >
         <Pressable
           onPress={handleContinue}
           style={[s.button, saving && s.buttonDisabled]}
@@ -180,13 +224,19 @@ export default function RoutinePickerSlide({ onNext }: Props) {
             <ActivityIndicator color={colors.background} />
           ) : (
             <Text style={s.buttonText}>
-              {selected.size > 0 ? `Añadir ${selected.size} rutina${selected.size > 1 ? 's' : ''}` : 'Continuar'}
+              {selected.size > 0
+                ? selected.size === 1
+                  ? t("onboarding.routine_picker.add_1_routine")
+                  : t("onboarding.routine_picker.add_n_routines", {
+                      count: selected.size,
+                    })
+                : t("onboarding.continue")}
             </Text>
           )}
         </Pressable>
 
         <Pressable onPress={handleSkip} style={s.skipButton}>
-          <Text style={s.skipText}>luego agregaré la mía...</Text>
+          <Text style={s.skipText}>{t("onboarding.routine_picker.skip")}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -209,21 +259,21 @@ const s = StyleSheet.create({
     paddingBottom: 20,
   },
   pillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
   },
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 100,
     paddingVertical: 12,
     paddingHorizontal: 18,
     borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
+    borderColor: "transparent",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -238,20 +288,20 @@ const s = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pillEmoji: {
     fontSize: 18,
   },
   pillLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
   },
   pillLabelSelected: {
     color: colors.surface,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   footer: {
     paddingHorizontal: 24,
@@ -263,7 +313,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingVertical: 18,
     borderRadius: 30,
-    alignItems: 'center',
+    alignItems: "center",
     shadowColor: colors.surface,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -274,17 +324,17 @@ const s = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   skipButton: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
   },
   skipText: {
     color: colors.background,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

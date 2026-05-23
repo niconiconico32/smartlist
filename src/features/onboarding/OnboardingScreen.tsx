@@ -3,30 +3,32 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React, { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
     useSharedValue,
     withSpring,
-} from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import SlideRenderer from './components/SlideRenderer';
-import { SLIDES, TOTAL_SLIDES } from './slides';
-import { INITIAL_ANSWERS, OnboardingAnswers } from './types';
+import SlideRenderer from "./components/SlideRenderer";
+import { SLIDES, TOTAL_SLIDES } from "./slides";
+import { INITIAL_ANSWERS, OnboardingAnswers } from "./types";
 
 // ============================================
 // ONBOARDING SCREEN (Orchestrator)
 // ============================================
 export default function OnboardingScreen() {
+  const { t } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
   const buttonScale = useSharedValue(1);
@@ -50,12 +52,15 @@ export default function OnboardingScreen() {
 
   const finishOnboarding = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.replace('/(tabs)');
+    router.replace("/(tabs)");
   }, []);
 
   // ── Answer handler ──
   const handleAnswer = useCallback(
-    <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => {
+    <K extends keyof OnboardingAnswers>(
+      key: K,
+      value: OnboardingAnswers[K],
+    ) => {
       setAnswers((prev) => ({ ...prev, [key]: value }));
     },
     [],
@@ -81,7 +86,10 @@ export default function OnboardingScreen() {
     <SafeAreaView style={s.container}>
       {/* Dev close button */}
       {__DEV__ && (
-        <Pressable onPress={() => router.replace('/(tabs)')} style={s.devCloseButton}>
+        <Pressable
+          onPress={() => router.replace("/(tabs)")}
+          style={s.devCloseButton}
+        >
           <Text style={s.devCloseButtonText}>×</Text>
         </Pressable>
       )}
@@ -93,7 +101,10 @@ export default function OnboardingScreen() {
             <Animated.View entering={FadeInDown.duration(300)}>
               <Pressable
                 onPress={goToPrevSlide}
-                style={({ pressed }) => [s.backButton, pressed && s.backButtonPressed]}
+                style={({ pressed }) => [
+                  s.backButton,
+                  pressed && s.backButtonPressed,
+                ]}
               >
                 <Text style={s.backButtonText}>←</Text>
               </Pressable>
@@ -145,7 +156,9 @@ export default function OnboardingScreen() {
                 end={{ x: 1, y: 0 }}
                 style={primaryButtonGradient}
               >
-                <Text style={primaryButtonText}>{config.buttonText ?? 'Continuar'}</Text>
+                <Text style={primaryButtonText}>
+                  {t(config.buttonText ?? "onboarding.continue")}
+                </Text>
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -167,8 +180,8 @@ const s = StyleSheet.create({
     flex: 1,
   },
   headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 4,
@@ -177,15 +190,15 @@ const s = StyleSheet.create({
   backButtonArea: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: `${colors.textPrimary}14`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: `${colors.textPrimary}0D`,
   },
@@ -195,20 +208,20 @@ const s = StyleSheet.create({
   backButtonText: {
     fontSize: 20,
     color: colors.textPrimary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   progressBarWrapper: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   progressBarBackground: {
     height: 6,
     backgroundColor: `${colors.textPrimary}1A`,
     borderRadius: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBarFill: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.primary,
     borderRadius: 3,
   },
@@ -218,7 +231,7 @@ const s = StyleSheet.create({
     paddingBottom: 40,
   },
   devCloseButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 60,
     right: 20,
     zIndex: 999,
@@ -226,12 +239,37 @@ const s = StyleSheet.create({
     height: 30,
     borderRadius: 15,
     backgroundColor: `${colors.textPrimary}33`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   devCloseButtonText: {
     color: colors.textPrimary,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
+  },
+  devLanguageSwitcher: {
+    position: "absolute",
+    left: 20,
+    top: 60,
+    zIndex: 999,
+    flexDirection: "row",
+    gap: 8,
+  },
+  devLanguageButton: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: `${colors.textPrimary}55`,
+    backgroundColor: `${colors.background}CC`,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  devLanguageButtonActive: {
+    backgroundColor: colors.surface,
+    borderColor: colors.surface,
+  },
+  devLanguageText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textPrimary,
   },
 });

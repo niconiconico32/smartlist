@@ -3,13 +3,14 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -19,18 +20,38 @@ import Animated, {
     withRepeat,
     withSequence,
     withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 // ============================================
 // PREMIUM BENEFITS SLIDE — Comparison table
 // ============================================
 
 const FEATURES = [
-  { label: 'Organizar tareas', free: true, premium: true },
-  { label: 'Rutinas ilimitadas', free: false, premium: true },
-  { label: 'Sin anuncios', free: false, premium: true },
-  { label: 'IA para TDAH', free: false, premium: true },
-  { label: 'Recordatorios inteligentes', free: false, premium: true },
+  {
+    label: "onboarding.premium_benefits.features.organize_tasks",
+    free: true,
+    premium: true,
+  },
+  {
+    label: "onboarding.premium_benefits.features.unlimited_routines",
+    free: false,
+    premium: true,
+  },
+  {
+    label: "onboarding.premium_benefits.features.no_ads",
+    free: false,
+    premium: true,
+  },
+  {
+    label: "onboarding.premium_benefits.features.ai_for_adhd",
+    free: false,
+    premium: true,
+  },
+  {
+    label: "onboarding.premium_benefits.features.smart_reminders",
+    free: false,
+    premium: true,
+  },
 ];
 
 interface Props {
@@ -38,6 +59,7 @@ interface Props {
 }
 
 const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
+  const { t } = useTranslation();
   const mascotY = useSharedValue(0);
 
   useEffect(() => {
@@ -69,10 +91,13 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
           end={{ x: 0, y: 1 }}
           style={s.heroSection}
         >
-          <Animated.Text entering={FadeInDown.delay(100).duration(400)} style={s.title}>
-            Usuarios Brainy tienen{' '}
-            <Text style={s.titleHighlight}>4.2x</Text> más probabilidad de
-            mantener sus hábitos
+          <Animated.Text
+            entering={FadeInDown.delay(100).duration(400)}
+            style={s.title}
+          >
+            {t("onboarding.premium_benefits.title_prefix")}{" "}
+            <Text style={s.titleHighlight}>4.2x</Text>{" "}
+            {t("onboarding.premium_benefits.title_suffix")}
           </Animated.Text>
 
           {/* Mascot */}
@@ -81,7 +106,7 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
             style={[s.mascotContainer, mascotStyle]}
           >
             <Image
-              source={require('@/assets/images/logomain.png')}
+              source={require("@/assets/images/logomain.png")}
               style={s.mascot}
               resizeMode="contain"
             />
@@ -91,10 +116,15 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
         {/* Comparison table */}
         <View style={s.tableContainer}>
           {/* Column headers */}
-          <Animated.View entering={FadeInDown.delay(300).duration(400)} style={s.headerRow}>
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(400)}
+            style={s.headerRow}
+          >
             <View style={s.featureLabelCol} />
             <View style={s.colHeader}>
-              <Text style={s.colHeaderText}>Otras{'\n'}Apps</Text>
+              <Text style={s.colHeaderText}>
+                {t("onboarding.premium_benefits.other_apps")}
+              </Text>
             </View>
             <View style={[s.colHeader, s.colHeaderPremium]}>
               <LinearGradient
@@ -103,7 +133,9 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
                 end={{ x: 1, y: 1 }}
                 style={s.premiumBadge}
               >
-                <Text style={s.premiumBadgeText}>Brainy</Text>
+                <Text style={s.premiumBadgeText}>
+                  {t("onboarding.premium_benefits.brainy")}
+                </Text>
               </LinearGradient>
             </View>
           </Animated.View>
@@ -137,7 +169,7 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
             end={{ x: 1, y: 0 }}
             style={primaryButtonGradient}
           >
-            <Text style={primaryButtonText}>Continuar</Text>
+            <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
           </LinearGradient>
         </Pressable>
       </View>
@@ -159,6 +191,7 @@ function FeatureRow({
   delay: number;
   isLast: boolean;
 }) {
+  const { t } = useTranslation();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(14);
 
@@ -179,8 +212,10 @@ function FeatureRow({
   }));
 
   return (
-    <Animated.View style={[s.featureRow, !isLast && s.featureRowBorder, animStyle]}>
-      <Text style={s.featureLabel}>{label}</Text>
+    <Animated.View
+      style={[s.featureRow, !isLast && s.featureRowBorder, animStyle]}
+    >
+      <Text style={s.featureLabel}>{t(label)}</Text>
       <View style={s.featureCheckCol}>
         {free ? (
           <Text style={s.checkFree}>✓</Text>
@@ -216,14 +251,14 @@ const s = StyleSheet.create({
   heroSection: {
     paddingTop: 24,
     paddingBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 28,
   },
   title: {
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 32,
     letterSpacing: -0.3,
     marginBottom: 16,
@@ -231,10 +266,10 @@ const s = StyleSheet.create({
   titleHighlight: {
     color: colors.success,
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   mascotContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   mascot: {
     width: 130,
@@ -246,8 +281,8 @@ const s = StyleSheet.create({
     paddingTop: 8,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     marginBottom: 8,
     paddingBottom: 12,
   },
@@ -256,14 +291,14 @@ const s = StyleSheet.create({
   },
   colHeader: {
     width: 70,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
   colHeaderText: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
   },
   colHeaderPremium: {
@@ -276,15 +311,15 @@ const s = StyleSheet.create({
   },
   premiumBadgeText: {
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.background,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: 0.5,
   },
   // ── Rows ──
   featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 14,
   },
   featureRowBorder: {
@@ -294,22 +329,22 @@ const s = StyleSheet.create({
   featureLabel: {
     flex: 1,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textPrimary,
   },
   featureCheckCol: {
     width: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkFree: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textSecondary,
   },
   dash: {
     fontSize: 18,
-    fontWeight: '400',
+    fontWeight: "400",
     color: `${colors.textPrimary}33`,
   },
   checkPremiumCircle: {
@@ -317,12 +352,12 @@ const s = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     backgroundColor: `${colors.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   checkPremium: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.primary,
   },
   // ── Button ──

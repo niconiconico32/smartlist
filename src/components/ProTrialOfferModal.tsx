@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import LottieView from "lottie-react-native";
 import { Crown, Sparkles } from "lucide-react-native";
 import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   FlatList,
@@ -25,37 +26,6 @@ const GIFT_SIZE = SCREEN_WIDTH * 0.72;
 const CARD_WIDTH = SCREEN_WIDTH * 0.6;
 const CARD_GAP = 12;
 
-const BENEFIT_CARDS = [
-  {
-    id: "0",
-    title: "Widget en tu pantalla",
-    subtitle:
-      "Accede a tus rutinas y tareas directamente desde tu pantalla de inicio.",
-    image: require("@/assets/images/widget.jpeg"),
-  },
-  {
-    id: "1",
-    title: "Multiplicador de Coronas",
-    subtitle:
-      "Las coronas que ganas aumentarán un 15% por cada día de tu Racha Diaria.",
-    image: require("@/assets/images/probird.png"),
-  },
-  {
-    id: "2",
-    title: "Escudo de Racha",
-    subtitle:
-      "2 protecciones semanales para que no pierdas tu bonus de Racha Diaria.",
-    image: require("@/assets/images/escudo.png"),
-  },
-  {
-    id: "3",
-    title: "Tienda Exclusiva",
-    subtitle:
-      "Fondos animados, skins y accesorios premium disponibles en la Tienda.",
-    image: require("@/assets/images/ropero.png"),
-  },
-];
-
 interface ProTrialOfferModalProps {
   visible: boolean;
   onClose: () => void;
@@ -65,7 +35,35 @@ export const ProTrialOfferModal: React.FC<ProTrialOfferModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const { activateTrial, dismissTrialOffer } = useProStore();
+
+  const BENEFIT_CARDS = [
+    {
+      id: "0",
+      title: t("pro_trial.benefit_widget_title"),
+      subtitle: t("pro_trial.benefit_widget_subtitle"),
+      image: require("@/assets/images/widget.jpeg"),
+    },
+    {
+      id: "1",
+      title: t("pro_trial.benefit_crowns_title"),
+      subtitle: t("pro_trial.benefit_crowns_subtitle"),
+      image: require("@/assets/images/probird.png"),
+    },
+    {
+      id: "2",
+      title: t("pro_trial.benefit_shield_title"),
+      subtitle: t("pro_trial.benefit_shield_subtitle"),
+      image: require("@/assets/images/escudo.png"),
+    },
+    {
+      id: "3",
+      title: t("pro_trial.benefit_store_title"),
+      subtitle: t("pro_trial.benefit_store_subtitle"),
+      image: require("@/assets/images/ropero.png"),
+    },
+  ];
   const [phase, setPhase] = useState<"gift" | "revealed">("gift");
   const [activeCardIndex, setActiveCardIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -238,10 +236,9 @@ export const ProTrialOfferModal: React.FC<ProTrialOfferModalProps> = ({
             entering={FadeInDown.delay(400).duration(500)}
             style={styles.textContainer}
           >
-            <Text style={styles.titleGift}>¡Tienes un Regalo!</Text>
+            <Text style={styles.titleGift}>{t("pro_trial.gift_title")}</Text>
             <Text style={styles.subtitleGift}>
-              El primer paso es el más difícil.{"\n"} Te mereces un impulso
-              extra.
+              {t("pro_trial.gift_subtitle")}
             </Text>
           </Animated.View>
 
@@ -257,14 +254,18 @@ export const ProTrialOfferModal: React.FC<ProTrialOfferModalProps> = ({
               ]}
               onPress={handleOpenChest}
             >
-              <Text style={styles.primaryButtonGiftText}>Aceptar Regalo</Text>
+              <Text style={styles.primaryButtonGiftText}>
+                {t("pro_trial.gift_accept")}
+              </Text>
             </Pressable>
 
             <Pressable
               style={styles.secondaryButtonGift}
               onPress={handleDismiss}
             >
-              <Text style={styles.secondaryButtonGiftText}>No lo quiero</Text>
+              <Text style={styles.secondaryButtonGiftText}>
+                {t("pro_trial.gift_decline")}
+              </Text>
             </Pressable>
           </Animated.View>
         </View>
@@ -345,10 +346,10 @@ export const ProTrialOfferModal: React.FC<ProTrialOfferModalProps> = ({
             style={styles.textContainerRevealed}
           >
             <Text style={styles.titleGolden}>
-              ¡Has recibido 7 días {"\n"} de BrainyPro!
+              {t("pro_trial.revealed_title")}
             </Text>
             <Text style={styles.subtitleGolden}>
-              Úsalo para potenciar tu enfoque al máximo.
+              {t("pro_trial.revealed_subtitle")}
             </Text>
           </Animated.View>
 
@@ -401,14 +402,10 @@ export const ProTrialOfferModal: React.FC<ProTrialOfferModalProps> = ({
               onPress={handleActivateTrial}
             >
               <Text style={styles.primaryButtonGoldenText}>
-                {" "}
-                ¡Activar Prueba Gratis!
+                {t("pro_trial.activate_trial")}
               </Text>
             </Pressable>
-            <Text style={styles.disclaimerText}>
-              No necesitas ingresar datos de tu tarjeta.{"\n"}No se te cobrará
-              nada al final de este periodo.
-            </Text>
+            <Text style={styles.disclaimerText}>{t("pro_trial.footer")}</Text>
           </Animated.View>
         </View>
       )}
@@ -555,7 +552,6 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    paddingVertical: 20,
     paddingHorizontal: 16,
     alignItems: "center",
     gap: 8,
@@ -564,11 +560,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 16,
     elevation: 6,
+    paddingVertical: 10,
   },
   benefitCardImage: {
     width: 156,
     height: 156,
-    marginBottom: 10,
   },
   crownsPillPreview: {
     flexDirection: "row",

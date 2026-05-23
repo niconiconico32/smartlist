@@ -31,12 +31,8 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CalendarCheck, Grid2x2 } from "lucide-react-native";
-import React, {
-    createRef,
-    useCallback,
-    useRef,
-    useState
-} from "react";
+import React, { createRef, useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Alert,
@@ -60,6 +56,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 export const addTaskRef = createRef<{
   openTaskModal: (showSchedule?: boolean) => void;
   openProgramScheduleModal: () => void;
+  addActivityFromCopilot?: (
+    title: string,
+    emoji: string,
+    subtasks: any[],
+    difficulty: string,
+    startImmediately: boolean,
+  ) => void;
 }>();
 
 // Type for Activity from IndexScreen
@@ -86,7 +89,18 @@ const DAY_ABBREV_TO_NUMBER: Record<string, number> = {
   Sáb: 6,
 };
 
+const DAY_ABBREV_TO_I18N_KEY: Record<string, string> = {
+  Lun: "days.mon_abbr",
+  Mar: "days.tue_abbr",
+  Mié: "days.wed_abbr",
+  Jue: "days.thu_abbr",
+  Vie: "days.fri_abbr",
+  Sáb: "days.sat_abbr",
+  Dom: "days.sun_abbr",
+};
+
 export default function SwipeableLayout() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const {
@@ -471,7 +485,10 @@ export default function SwipeableLayout() {
     icon?: string;
   }) => {
     if (!user) {
-      Alert.alert("Error", "Debes iniciar sesión para crear rutinas");
+      Alert.alert(
+        t("routines_alerts.error_title"),
+        t("routines_alerts.login_required_create"),
+      );
       return;
     }
 
@@ -498,17 +515,28 @@ export default function SwipeableLayout() {
           onReminderActivated();
         }
 
-        const daysText = routine.days.join(", ");
+        const daysText = routine.days
+          .map((day) => t(DAY_ABBREV_TO_I18N_KEY[day] ?? day))
+          .join(", ");
         Alert.alert(
-          "¡Éxito!",
-          `Rutina "${routine.name}" creada para ${daysText}`,
+          t("routines_alerts.success_title"),
+          t("routines_alerts.create_success_message", {
+            name: routine.name,
+            days: daysText,
+          }),
         );
       } else {
-        Alert.alert("Error", "No se pudo crear la rutina");
+        Alert.alert(
+          t("routines_alerts.error_title"),
+          t("routines_alerts.create_failed"),
+        );
       }
     } catch (error) {
       console.error("Error al crear rutina:", error);
-      Alert.alert("Error", "Ocurrió un error al crear la rutina");
+      Alert.alert(
+        t("routines_alerts.error_title"),
+        t("routines_alerts.create_error"),
+      );
     }
   };
 
@@ -557,8 +585,10 @@ export default function SwipeableLayout() {
       <ImageBackground
         source={(() => {
           const s = useAchievementsStore.getState();
-          if (s.activeBackground && BG_IMAGES[s.activeBackground]) return BG_IMAGES[s.activeBackground];
-          if (s.activeBackground && s.activeBackgroundUri) return { uri: s.activeBackgroundUri };
+          if (s.activeBackground && BG_IMAGES[s.activeBackground])
+            return BG_IMAGES[s.activeBackground];
+          if (s.activeBackground && s.activeBackgroundUri)
+            return { uri: s.activeBackgroundUri };
           return DEFAULT_BG;
         })()}
         style={[styles.fixedHeader, { paddingTop: insets.top }]}
@@ -651,7 +681,7 @@ export default function SwipeableLayout() {
               currentPage === 0 && styles.tabLabelActive,
             ]}
           >
-            Tareas
+            {t("tabs.tasks")}
           </Text>
         </Pressable>
 
@@ -675,7 +705,7 @@ export default function SwipeableLayout() {
               currentPage === 1 && styles.tabLabelActive,
             ]}
           >
-            Rutinas
+            {t("tabs.routines")}
           </Text>
         </Pressable>
       </View>

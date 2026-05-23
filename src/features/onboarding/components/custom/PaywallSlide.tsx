@@ -3,14 +3,15 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 // ============================================
 // PAYWALL SLIDE
@@ -20,12 +21,25 @@ interface Props {
 }
 
 const TIMELINE = [
-  { day: 'Hoy', label: 'Acceso total', color: colors.primary },
-  { day: 'Día 12', label: 'Recordatorio', color: '#FFE66D' },
-  { day: 'Día 14', label: 'Cobro', color: '#FF6B6B' },
+  {
+    day: "onboarding.paywall.timeline.today.day",
+    label: "onboarding.paywall.timeline.today.label",
+    color: colors.primary,
+  },
+  {
+    day: "onboarding.paywall.timeline.day12.day",
+    label: "onboarding.paywall.timeline.day12.label",
+    color: "#FFE66D",
+  },
+  {
+    day: "onboarding.paywall.timeline.day14.day",
+    label: "onboarding.paywall.timeline.day14.label",
+    color: "#FF6B6B",
+  },
 ];
 
 const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handleStartTrial = async () => {
@@ -45,32 +59,43 @@ const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={s.mascotContainer}>
+        <Animated.View
+          entering={FadeInDown.delay(100).duration(400)}
+          style={s.mascotContainer}
+        >
           <Image
-            source={require('@/assets/images/streak.png')}
+            source={require("@/assets/images/streak.png")}
             style={s.mascot}
             resizeMode="contain"
           />
         </Animated.View>
 
-        <Animated.Text entering={FadeInDown.delay(200).duration(400)} style={s.title}>
-          Empieza tu transformación hoy
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(400)}
+          style={s.title}
+        >
+          {t("onboarding.paywall.title")}
         </Animated.Text>
-        <Animated.Text entering={FadeInDown.delay(300).duration(400)} style={s.subtitle}>
-          Prueba Brainy Premium gratis por 14 días.{'\n'}
-          Te avisaremos 2 días antes de que termine.
+        <Animated.Text
+          entering={FadeInDown.delay(300).duration(400)}
+          style={s.subtitle}
+        >
+          {t("onboarding.paywall.subtitle")}
         </Animated.Text>
 
         {/* Timeline */}
-        <Animated.View entering={FadeInDown.delay(450).duration(500)} style={s.timeline}>
+        <Animated.View
+          entering={FadeInDown.delay(450).duration(500)}
+          style={s.timeline}
+        >
           <View style={s.timelineLine} />
-          {TIMELINE.map((t, idx) => (
+          {TIMELINE.map((item, idx) => (
             <View key={idx} style={s.timelineNode}>
-              <View style={[s.timelineDot, { backgroundColor: t.color }]} />
+              <View style={[s.timelineDot, { backgroundColor: item.color }]} />
               <Text style={s.timelineLabel}>
-                {t.day}
-                {'\n'}
-                <Text style={s.timelineSublabel}>{t.label}</Text>
+                {t(item.day)}
+                {"\n"}
+                <Text style={s.timelineSublabel}>{t(item.label)}</Text>
               </Text>
             </View>
           ))}
@@ -90,7 +115,9 @@ const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
             style={primaryButtonGradient}
           >
             <Text style={primaryButtonText}>
-              {loading ? 'Procesando...' : 'Iniciar mis 14 días gratis'}
+              {loading
+                ? t("onboarding.paywall.processing")
+                : t("onboarding.paywall.start_trial_cta")}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -102,7 +129,7 @@ const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
           }}
           style={s.skipButton}
         >
-          <Text style={s.skipText}>Quizás más tarde (Versión limitada)</Text>
+          <Text style={s.skipText}>{t("onboarding.paywall.skip")}</Text>
         </Pressable>
       </View>
     </View>
@@ -125,7 +152,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 40,
     paddingBottom: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   mascotContainer: {
     marginBottom: 20,
@@ -136,31 +163,31 @@ const s = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
     marginBottom: 32,
   },
   timeline: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    width: '100%',
-    position: 'relative',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    width: "100%",
+    position: "relative",
     paddingHorizontal: 8,
     marginTop: 8,
   },
   timelineLine: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     left: 30,
     right: 30,
@@ -169,7 +196,7 @@ const s = StyleSheet.create({
     borderRadius: 1.5,
   },
   timelineNode: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   timelineDot: {
@@ -183,21 +210,21 @@ const s = StyleSheet.create({
   },
   timelineLabel: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
   timelineSublabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
   buttonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingBottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   skipButton: {
     marginTop: 14,
@@ -205,7 +232,7 @@ const s = StyleSheet.create({
   },
   skipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
 });

@@ -3,18 +3,27 @@ import {
     primaryButtonGradient,
     primaryButtonStyles,
     primaryButtonText,
-} from '@/constants/buttons';
-import { colors } from '@/constants/theme';
-import { posthog } from '@/src/config/posthog';
-import { usePurchases } from '@/src/contexts/PurchasesContext';
-import { scheduleTrialExpirationNotification } from '@/src/utils/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { CreditCard, Shield, Unlock } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import { posthog } from "@/src/config/posthog";
+import { usePurchases } from "@/src/contexts/PurchasesContext";
+import { scheduleTrialExpirationNotification } from "@/src/utils/notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { CreditCard, Shield, Unlock } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -24,13 +33,14 @@ import Animated, {
     withSequence,
     withSpring,
     withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 interface Props {
   onFinish: () => void;
 }
 
 const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
+  const { t } = useTranslation();
   const { packages, purchasePackage, isLoadingPurchases } = usePurchases();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const cardY = useSharedValue(0);
@@ -48,19 +58,29 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
       true,
     );
     badgePulse.value = withRepeat(
-      withSequence(withTiming(1.05, { duration: 1000 }), withTiming(1, { duration: 1000 })),
+      withSequence(
+        withTiming(1.05, { duration: 1000 }),
+        withTiming(1, { duration: 1000 }),
+      ),
       -1,
       true,
     );
     glowOpacity.value = withRepeat(
-      withSequence(withTiming(0.6, { duration: 2000 }), withTiming(0.3, { duration: 2000 })),
+      withSequence(
+        withTiming(0.6, { duration: 2000 }),
+        withTiming(0.3, { duration: 2000 }),
+      ),
       -1,
       true,
     );
   }, []);
 
-  const cardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: cardY.value }] }));
-  const badgeStyle = useAnimatedStyle(() => ({ transform: [{ scale: badgePulse.value }] }));
+  const cardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cardY.value }],
+  }));
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgePulse.value }],
+  }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
   const buttonAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: buttonScale.value }],
@@ -89,10 +109,13 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
 
       if (result.success) {
         // Save trial start date for tracking
-        await AsyncStorage.setItem('@trial_start_date', new Date().toISOString());
+        await AsyncStorage.setItem(
+          "@trial_start_date",
+          new Date().toISOString(),
+        );
         // Schedule notification 2 days before trial ends
         await scheduleTrialExpirationNotification(TRIAL_DAYS);
-        posthog.capture('trial_started', {
+        posthog.capture("trial_started", {
           trial_days: TRIAL_DAYS,
           package_identifier: mainPackage.identifier,
         });
@@ -101,21 +124,33 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
       } else if (result.cancelled) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (result.errorMessage) {
-        Alert.alert('Error', 'No se pudo completar la compra. Intenta de nuevo.');
+        Alert.alert(
+          t("onboarding.common_error_title"),
+          t("onboarding.reverse_trial.errors.purchase_failed"),
+        );
       }
     } catch (error) {
-      console.error('❌ Trial purchase error:', error);
-      Alert.alert('Error', 'Ocurrió un error inesperado.');
+      console.error("❌ Trial purchase error:", error);
+      Alert.alert(
+        t("onboarding.common_error_title"),
+        t("onboarding.reverse_trial.errors.unexpected"),
+      );
     } finally {
       setIsPurchasing(false);
     }
   };
 
   return (
-    <LinearGradient colors={[colors.background, '#16213E']} style={s.container}>
-      <ScrollView contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={s.headerTitle}>
-          Prueba todo. Sin riesgo.
+    <LinearGradient colors={[colors.background, "#16213E"]} style={s.container}>
+      <ScrollView
+        contentContainerStyle={s.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={s.headerTitle}
+        >
+          {t("onboarding.reverse_trial.title")}
         </Animated.Text>
 
         <Animated.View style={[s.cardGlow, glowStyle]} />
@@ -129,7 +164,10 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
             style={s.card}
           >
             <View style={s.iconContainer}>
-              <LinearGradient colors={['#FFD700', '#FFA500']} style={s.shieldGlow} />
+              <LinearGradient
+                colors={["#FFD700", "#FFA500"]}
+                style={s.shieldGlow}
+              />
               <View style={s.shieldIcon}>
                 <Shield
                   size={75}
@@ -139,48 +177,54 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
                 />
               </View>
               <Image
-                source={require('@/assets/images/logomain.png')}
+                source={require("@/assets/images/logomain.png")}
                 style={s.mascotSmall}
                 resizeMode="contain"
               />
             </View>
 
             <Text style={s.cardHeadline}>
-              7 días con todas las funciones Premium. Gratis.
+              {t("onboarding.reverse_trial.headline")}
             </Text>
 
-            <Text style={s.cardBody}>
-              Queremos que compruebes cómo Brainy transforma tu día a día antes de
-              tomar cualquier decisión. Sin trucos, sin letras pequeñas.
-            </Text>
+            <Text style={s.cardBody}>{t("onboarding.reverse_trial.body")}</Text>
 
             <View style={s.offerContainer}>
               <LinearGradient
-                colors={['rgba(255, 215, 0, 0.15)', 'rgba(255, 165, 0, 0.1)']}
+                colors={["rgba(255, 215, 0, 0.15)", "rgba(255, 165, 0, 0.1)"]}
                 style={s.offerGradient}
               >
                 <Text style={s.offerText}>
-                7 Días Premium.{'\n'} 100% Gratis.
-              </Text>
-              <Text style={s.offerHighlight}>Cancela cuando quieras antes de que termine.</Text>
+                  {t("onboarding.reverse_trial.offer")}
+                </Text>
+                <Text style={s.offerHighlight}>
+                  {t("onboarding.reverse_trial.offer_highlight")}
+                </Text>
               </LinearGradient>
             </View>
 
             <View style={s.trustBadges}>
               <Animated.View style={[s.trustBadge, badgeStyle]}>
                 <CreditCard size={16} color="#A6E3A1" strokeWidth={2} />
-                <Text style={s.trustBadgeText}>No se cobra hasta el día 8</Text>
+                <Text style={s.trustBadgeText}>
+                  {t("onboarding.reverse_trial.badge_no_charge")}
+                </Text>
               </Animated.View>
               <View style={s.badgeDivider} />
               <View style={s.trustBadge}>
                 <Unlock size={16} color="#A6E3A1" strokeWidth={2} />
-                <Text style={s.trustBadgeText}>Acceso Total</Text>
+                <Text style={s.trustBadgeText}>
+                  {t("onboarding.reverse_trial.badge_full_access")}
+                </Text>
               </View>
             </View>
           </LinearGradient>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(700).duration(500)} style={s.buttonContainer}>
+        <Animated.View
+          entering={FadeInDown.delay(700).duration(500)}
+          style={s.buttonContainer}
+        >
           <Animated.View style={buttonAnimatedStyle}>
             <Pressable
               onPress={handleStartTrial}
@@ -198,15 +242,20 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
                 {isPurchasing ? (
                   <ActivityIndicator color={colors.background} />
                 ) : (
-                  <Text style={primaryButtonText}>Comenzar 7 Días Gratis</Text>
+                  <Text style={primaryButtonText}>
+                    {t("onboarding.reverse_trial.cta")}
+                  </Text>
                 )}
               </LinearGradient>
             </Pressable>
           </Animated.View>
         </Animated.View>
 
-        <Animated.Text entering={FadeInDown.delay(900).duration(500)} style={s.secondaryText}>
-          Después de 7 días, tú decides si vale la pena.
+        <Animated.Text
+          entering={FadeInDown.delay(900).duration(500)}
+          style={s.secondaryText}
+        >
+          {t("onboarding.reverse_trial.footer")}
         </Animated.Text>
       </ScrollView>
     </LinearGradient>
@@ -219,50 +268,50 @@ const s = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 40,
     paddingBottom: 40,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: "900",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 32,
     letterSpacing: -0.5,
   },
   cardGlow: {
-    position: 'absolute',
+    position: "absolute",
     top: 100,
     width: 300,
     height: 300,
     borderRadius: 150,
-    backgroundColor: 'rgba(255, 215, 0, 0.15)',
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
   },
-  cardContainer: { width: '100%', marginBottom: 24 },
+  cardContainer: { width: "100%", marginBottom: 24 },
   card: {
     borderRadius: 24,
     padding: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    shadowColor: '#FFD700',
+    borderColor: "rgba(255, 215, 0, 0.3)",
+    shadowColor: "#FFD700",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 24,
     elevation: 10,
   },
   iconContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
-    position: 'relative',
+    position: "relative",
   },
   shieldGlow: {
-    position: 'absolute',
+    position: "absolute",
     width: 80,
     height: 80,
     borderRadius: 40,
     opacity: 0.2,
   },
   shieldIcon: {
-    position: 'absolute',
+    position: "absolute",
     top: 5,
     zIndex: 1,
   },
@@ -273,17 +322,17 @@ const s = StyleSheet.create({
   },
   cardHeadline: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
     lineHeight: 24,
   },
   cardBody: {
     fontSize: 13,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
     marginBottom: 20,
   },
@@ -293,45 +342,45 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.2)',
+    borderColor: "rgba(255, 215, 0, 0.2)",
   },
   offerText: {
     fontSize: 25,
-    fontWeight: '800',
+    fontWeight: "800",
     color: colors.textPrimary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 4,
   },
   offerHighlight: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#FFD700',
-    textAlign: 'center',
+    fontWeight: "800",
+    color: "#FFD700",
+    textAlign: "center",
   },
   trustBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
   },
   trustBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
-  badgeIconContainer: { position: 'relative' },
+  badgeIconContainer: { position: "relative" },
   crossLine: {
-    position: 'absolute',
+    position: "absolute",
     top: 7,
     left: -2,
     width: 20,
     height: 2,
-    backgroundColor: '#F38BA8',
-    transform: [{ rotate: '45deg' }],
+    backgroundColor: "#F38BA8",
+    transform: [{ rotate: "45deg" }],
   },
   trustBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   badgeDivider: {
@@ -339,12 +388,12 @@ const s = StyleSheet.create({
     height: 20,
     backgroundColor: `${colors.textPrimary}33`,
   },
-  buttonContainer: { width: '100%', marginBottom: 16 },
+  buttonContainer: { width: "100%", marginBottom: 16 },
   secondaryText: {
     fontSize: 13,
-    fontWeight: '400',
+    fontWeight: "400",
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 

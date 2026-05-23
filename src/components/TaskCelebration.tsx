@@ -1,12 +1,13 @@
-import { format } from 'date-fns';
-import * as Haptics from 'expo-haptics';
-import LottieView from 'lottie-react-native';
-import { Crown } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { AppText as Text } from "@/src/components/AppText";
+import { format } from "date-fns";
+import * as Haptics from "expo-haptics";
+import LottieView from "lottie-react-native";
+import { Crown } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Dimensions, Modal, Pressable, StyleSheet, View } from "react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface TaskCelebrationProps {
   visible: boolean;
@@ -21,6 +22,7 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
   earnedCoins,
   onClose,
 }) => {
+  const { t } = useTranslation();
   const [completionTime, setCompletionTime] = useState(new Date());
 
   useEffect(() => {
@@ -28,8 +30,15 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
       setCompletionTime(new Date());
 
       // Haptic sequence for celebration
-      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 300);
-      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 600);
+      setTimeout(
+        () =>
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+        300,
+      );
+      setTimeout(
+        () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
+        600,
+      );
     }
   }, [visible]);
 
@@ -44,11 +53,12 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-
         {/* Lottie Animation (Confetti + Checkmark) */}
         <View style={styles.lottieContainer}>
           <LottieView
-            source={{ uri: 'https://lottie.host/c676685f-f2f7-4fb6-a9cb-5622085f3811/okjqHbos24.lottie' }}
+            source={{
+              uri: "https://lottie.host/c676685f-f2f7-4fb6-a9cb-5622085f3811/okjqHbos24.lottie",
+            }}
             autoPlay
             loop={false}
             style={styles.lottie}
@@ -58,10 +68,8 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
 
         {/* Texts */}
         <View style={styles.textContainer}>
-          <Text style={styles.title}>¡Tarea completada!</Text>
-          <Text style={styles.subtitle}>
-            Un paso a la vez, acercándote a ser tu mejor versión.
-          </Text>
+          <Text style={styles.title}>{t("task_celebration.title")}</Text>
+          <Text style={styles.subtitle}>{t("task_celebration.subtitle")}</Text>
         </View>
 
         {/* Bottom Card */}
@@ -72,7 +80,7 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
                 {taskTitle || "Tarea"}
               </Text>
               <Text style={styles.cardSubtitle}>
-                {format(completionTime, 'HH:mm')}
+                {format(completionTime, "HH:mm")}
               </Text>
             </View>
             <View style={styles.cardRight}>
@@ -85,17 +93,18 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
           <Pressable
             style={({ pressed }) => [
               styles.continueButton,
-              pressed && styles.continueButtonPressed
+              pressed && styles.continueButtonPressed,
             ]}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onClose();
             }}
           >
-            <Text style={styles.continueButtonText}>Continuar</Text>
+            <Text style={styles.continueButtonText}>
+              {t("task_celebration.continue")}
+            </Text>
           </Pressable>
         </View>
-
       </View>
     </Modal>
   );
@@ -104,39 +113,39 @@ export const TaskCelebration: React.FC<TaskCelebrationProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'space-between',
+    backgroundColor: "#F8F9FA",
+    justifyContent: "space-between",
   },
   lottieContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 40,
     zIndex: 1,
   },
   lottie: {
     width: SCREEN_WIDTH * 1.2,
     height: SCREEN_WIDTH * 1.2,
-    position: 'absolute',
+    position: "absolute",
   },
   textContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 32,
     zIndex: 2,
     marginTop: -40,
   },
   title: {
     fontSize: 32,
-    fontWeight: '800',
-    color: '#1E1E1E',
-    textAlign: 'center',
+    fontWeight: "800",
+    color: "#1E1E1E",
+    textAlign: "center",
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    fontWeight: '400',
-    color: '#6B7280',
-    textAlign: 'center',
+    fontWeight: "400",
+    color: "#6B7280",
+    textAlign: "center",
     lineHeight: 24,
   },
   bottomSection: {
@@ -146,15 +155,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 20,
     marginBottom: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -166,35 +175,35 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1E1E1E',
+    fontWeight: "700",
+    color: "#1E1E1E",
     marginBottom: 4,
   },
   cardSubtitle: {
     fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '500',
+    color: "#9CA3AF",
+    fontWeight: "500",
   },
   cardRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: "#FFFBEB",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
   },
   pointsText: {
     fontSize: 18,
-    fontWeight: '800',
-    color: '#D97706',
+    fontWeight: "800",
+    color: "#D97706",
   },
   continueButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 16,
     paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   continueButtonPressed: {
     opacity: 0.8,
@@ -202,7 +211,7 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#1E1E1E',
+    fontWeight: "600",
+    color: "#1E1E1E",
   },
 });

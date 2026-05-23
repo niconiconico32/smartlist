@@ -1,22 +1,23 @@
-import { slideStyles } from '../../styles/shared';
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Image } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { Check } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Image, StyleSheet, View } from "react-native";
 import Animated, {
-  Easing,
-  FadeInDown,
-  SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming
-} from 'react-native-reanimated';
-import { Check } from 'lucide-react-native';
+    Easing,
+    FadeInDown,
+    SharedValue,
+    useAnimatedStyle,
+    useSharedValue,
+    withRepeat,
+    withSequence,
+    withTiming,
+} from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
 
-import type { OnboardingAnswers } from '../../types';
+import type { OnboardingAnswers } from "../../types";
 
 // ============================================
 // PROCESSING SLIDE
@@ -27,12 +28,13 @@ interface Props {
 }
 
 const STEPS = [
-  'calculando tu perfil cognitivo',
-  'diseñando tu ruta de dopamina',
-  'ajustando recordatorios',
+  "onboarding.processing.steps.profile",
+  "onboarding.processing.steps.dopamine_route",
+  "onboarding.processing.steps.reminders",
 ];
 
 const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState(-1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
@@ -65,8 +67,11 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
       }
       setCurrentStep(idx);
       // Increased duration significantly for a more flashy/realistic processing feel
-      bars[idx].value = withTiming(1, { duration: 2500, easing: Easing.out(Easing.cubic) });
-      
+      bars[idx].value = withTiming(1, {
+        duration: 2500,
+        easing: Easing.out(Easing.cubic),
+      });
+
       setTimeout(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setCompletedSteps((prev) => [...prev, idx]);
@@ -86,18 +91,24 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
       <View style={s.headerContainer}>
         <Animated.View style={[s.mascotContainer, mascotStyle]}>
           <Image
-            source={require('@/assets/images/brainycomputing.png')}
+            source={require("@/assets/images/brainycomputing.png")}
             style={s.mascot}
             resizeMode="contain"
           />
         </Animated.View>
 
-        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={[slideStyles.slideSubtitle, { color: colors.surface }]}>
-          analizando respuestas...
+        <Animated.Text
+          entering={FadeInDown.delay(100).duration(500)}
+          style={[slideStyles.slideSubtitle, { color: colors.surface }]}
+        >
+          {t("onboarding.processing.subtitle")}
         </Animated.Text>
-        
-        <Animated.Text entering={FadeInDown.delay(200).duration(500)} style={slideStyles.slideTitle}>
-          preparando tu sistema
+
+        <Animated.Text
+          entering={FadeInDown.delay(200).duration(500)}
+          style={slideStyles.slideTitle}
+        >
+          {t("onboarding.processing.title")}
         </Animated.Text>
       </View>
 
@@ -116,7 +127,11 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
               <View style={s.stepHeader}>
                 {isCompleted ? (
                   <View style={[s.circle, s.circleCompleted]}>
-                    <Check size={14} color={colors.background} strokeWidth={3} />
+                    <Check
+                      size={14}
+                      color={colors.background}
+                      strokeWidth={3}
+                    />
                   </View>
                 ) : isCurrent ? (
                   <PulseCircle />
@@ -126,11 +141,14 @@ const ProcessingSlide: React.FC<Props> = ({ answers, onNext }) => {
                 <Text
                   style={[
                     s.stepText,
-                    isCurrent && { fontWeight: '700', color: colors.textPrimary },
+                    isCurrent && {
+                      fontWeight: "700",
+                      color: colors.textPrimary,
+                    },
                     isCompleted && { color: colors.textSecondary },
                   ]}
                 >
-                  {step}
+                  {t(step)}
                   {isCurrent && <AnimatedDots />}
                 </Text>
               </View>
@@ -153,7 +171,7 @@ function PulseCircle() {
     anim.value = withRepeat(
       withTiming(1, { duration: 1200, easing: Easing.out(Easing.quad) }),
       -1,
-      false
+      false,
     );
   }, []);
 
@@ -172,10 +190,10 @@ function PulseCircle() {
 
 // Animated trailing dots
 function AnimatedDots() {
-  const [dots, setDots] = useState('');
+  const [dots, setDots] = useState("");
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+      setDots((prev) => (prev.length >= 3 ? "" : prev + "."));
     }, 400);
     return () => clearInterval(interval);
   }, []);
@@ -199,13 +217,13 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerContainer: {
     marginBottom: 40,
   },
   mascotContainer: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     marginBottom: 24,
   },
   mascot: {
@@ -213,13 +231,13 @@ const s = StyleSheet.create({
     height: 100,
   },
   stepsContainer: {
-    width: '100%',
+    width: "100%",
     gap: 32,
   },
   stepRow: {},
   stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
     gap: 16,
   },
@@ -227,8 +245,8 @@ const s = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   circleCompleted: {
     backgroundColor: colors.surface,
@@ -240,11 +258,11 @@ const s = StyleSheet.create({
   pulseContainer: {
     width: 24,
     height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   pulseGlow: {
-    position: 'absolute',
+    position: "absolute",
     width: 14,
     height: 14,
     borderRadius: 7,
@@ -258,18 +276,18 @@ const s = StyleSheet.create({
   },
   stepText: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
     color: colors.textSecondary,
   },
   barTrack: {
     height: 6,
     borderRadius: 3,
     backgroundColor: `${colors.textPrimary}10`,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginLeft: 40,
   },
   barFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 3,
     backgroundColor: colors.surface,
   },

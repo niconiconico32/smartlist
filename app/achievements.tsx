@@ -10,40 +10,43 @@ import { posthog } from "@/src/config/posthog";
 import { ShopItem } from "@/src/config/shopItems";
 import { useShopItems } from "@/src/hooks/useShopItems";
 import {
-    ACHIEVEMENT_DEFINITIONS,
-    useAchievementsStore,
+  ACHIEVEMENT_DEFINITIONS,
+  useAchievementsStore,
 } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
-    renderRoutinesWidget,
-    WIDGET_BG_ID_KEY,
-    WIDGET_BG_MODE_KEY,
-    WIDGET_OUTFIT_ID_KEY,
+  renderRoutinesWidget,
+  WIDGET_BG_ID_KEY,
+  WIDGET_BG_MODE_KEY,
+  WIDGET_BG_URI_KEY,
+  WIDGET_OUTFIT_ID_KEY,
+  WIDGET_OUTFIT_URI_KEY,
 } from "@/src/widgets/widgetTaskHandler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
 import {
-    Calendar,
-    ChevronLeft,
-    Crown,
-    Flame,
-    Lock,
-    Store,
-    Trophy,
+  Calendar,
+  ChevronLeft,
+  Crown,
+  Flame,
+  Lock,
+  Store,
+  Trophy,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -79,6 +82,7 @@ const ShopItemCard = React.memo(function ShopItemCard({
   onItemPress,
   onApply,
 }: ShopItemCardProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.shopItemCard}>
       <View
@@ -155,7 +159,9 @@ const ShopItemCard = React.memo(function ShopItemCard({
                 active ? styles.applyButtonTextActive : styles.applyButtonText,
               ]}
             >
-              {active ? "Equipado" : "Equipar"}
+              {active
+                ? t("achievements.shop.equipped")
+                : t("achievements.shop.equip")}
             </Text>
           </Pressable>
         )}
@@ -165,6 +171,7 @@ const ShopItemCard = React.memo(function ShopItemCard({
 });
 
 export default function AchievementsScreen() {
+  const { t } = useTranslation();
   const {
     achievements,
     loadAchievements,
@@ -239,14 +246,17 @@ export default function AchievementsScreen() {
 
       if (totalCoins < item.price) {
         Alert.alert(
-          "Coronas insuficientes",
-          `Necesitas ${item.price - totalCoins} coronas más para comprar "${item.name}".`,
+          t("achievements.shop.insufficient_title"),
+          t("achievements.shop.insufficient_message", {
+            missing: item.price - totalCoins,
+            item: item.name,
+          }),
         );
         return;
       }
       setConfirmItem(item);
     },
-    [isPro, totalCoins, isOwned],
+    [isPro, totalCoins, isOwned, t],
   );
 
   const handleConfirmPurchase = useCallback(async () => {
@@ -297,6 +307,11 @@ export default function AchievementsScreen() {
               WIDGET_BG_ID_KEY,
               isDeactivatingBg ? "" : item.id,
             );
+            // Persist remote URI so the widget can load it when bgId is not in the local map
+            await AsyncStorage.setItem(
+              WIDGET_BG_URI_KEY,
+              isDeactivatingBg ? "" : (item.imageUri ?? ""),
+            );
             await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, "user");
             requestWidgetUpdate({
               widgetName: "RoutinesWidget",
@@ -321,6 +336,11 @@ export default function AchievementsScreen() {
               WIDGET_OUTFIT_ID_KEY,
               isDeactivating ? "" : item.id,
             );
+            // Persist remote URI so the widget can load it when outfitId is not in the local map
+            await AsyncStorage.setItem(
+              WIDGET_OUTFIT_URI_KEY,
+              isDeactivating ? "" : (item.imageUri ?? ""),
+            );
             requestWidgetUpdate({
               widgetName: "RoutinesWidget",
               renderWidget: renderRoutinesWidget,
@@ -341,7 +361,7 @@ export default function AchievementsScreen() {
         const progress = achievements[def.id];
         return {
           id: def.id,
-          title: def.title,
+          title: t(`achievements.items.${def.id}`, { defaultValue: def.title }),
           icon: def.icon,
           gradient: def.gradient,
           progress: progress?.progress || 0,
@@ -350,7 +370,7 @@ export default function AchievementsScreen() {
           coins: def.coins,
         };
       }),
-    [achievements],
+    [achievements, t],
   );
 
   const bgItems = useMemo(
@@ -506,7 +526,7 @@ export default function AchievementsScreen() {
                   </Text>
                 </View>
                 <Text style={styles.dashboardLabelText}>
-                  Logros Completados
+                  {t("achievements.completed_achievements")}
                 </Text>
               </View>
 
@@ -517,7 +537,9 @@ export default function AchievementsScreen() {
                     <Flame size={22} color="#EF4444" strokeWidth={2.5} />
                     <Text style={styles.dashboardValueText}>{appStreak}</Text>
                   </View>
-                  <Text style={styles.dashboardLabelText}>Racha diaria</Text>
+                  <Text style={styles.dashboardLabelText}>
+                    {t("achievements.daily_streak")}
+                  </Text>
                 </View>
 
                 <View
@@ -543,13 +565,15 @@ export default function AchievementsScreen() {
                   <Text
                     style={[styles.dashboardLabelText, { color: "#374151" }]}
                   >
-                    Multiplicador
+                    {t("achievements.multiplier")}
                   </Text>
                 </View>
               </View>
             </View>
 
-            <Text style={styles.sectionHeaderTitle}>Achievements</Text>
+            <Text style={styles.sectionHeaderTitle}>
+              {t("achievements.title")}
+            </Text>
 
             {/* Achievement Cards with Progress Line */}
             <View style={styles.achievementsContainer}>
@@ -569,7 +593,9 @@ export default function AchievementsScreen() {
             contentContainerStyle={styles.shopContentContainer}
           >
             {/* Backgrounds Section */}
-            <Text style={styles.shopSectionTitle}>Fondos</Text>
+            <Text style={styles.shopSectionTitle}>
+              {t("achievements.shop.backgrounds")}
+            </Text>
             <View style={[styles.shopGrid, { marginBottom: 24 }]}>
               {bgItems.map((item) => (
                 <ShopItemCard
@@ -590,7 +616,9 @@ export default function AchievementsScreen() {
             </View>
 
             {/* Outfits Section */}
-            <Text style={styles.shopSectionTitle}>Outfits</Text>
+            <Text style={styles.shopSectionTitle}>
+              {t("achievements.shop.outfits")}
+            </Text>
             <View style={styles.shopGrid}>
               {outfitItems.map((item) => (
                 <ShopItemCard
@@ -653,21 +681,25 @@ export default function AchievementsScreen() {
                     </View>
 
                     <Text style={styles.modalItemName}>
-                      ¿Quieres comprar este item?
+                      {t("achievements.shop.confirm_title")}
                     </Text>
 
                     <Pressable
                       style={styles.modalBuyButton}
                       onPress={handleConfirmPurchase}
                     >
-                      <Text style={styles.modalBuyButtonText}>COMPRAR</Text>
+                      <Text style={styles.modalBuyButtonText}>
+                        {t("achievements.shop.buy")}
+                      </Text>
                     </Pressable>
 
                     <Pressable
                       style={styles.modalCancelPressable}
                       onPress={() => setConfirmItem(null)}
                     >
-                      <Text style={styles.modalCancelLink}>Cancelar</Text>
+                      <Text style={styles.modalCancelLink}>
+                        {t("achievements.shop.cancel")}
+                      </Text>
                     </Pressable>
                   </View>
                 </>
@@ -694,7 +726,7 @@ export default function AchievementsScreen() {
               activeTab === "logros" && styles.footerTabTextActive,
             ]}
           >
-            Logros
+            {t("achievements.tab_achievements")}
           </Text>
         </Pressable>
 
@@ -713,7 +745,7 @@ export default function AchievementsScreen() {
               activeTab === "tienda" && styles.footerTabTextActive,
             ]}
           >
-            Tienda
+            {t("achievements.tab_shop")}
           </Text>
         </Pressable>
       </View>

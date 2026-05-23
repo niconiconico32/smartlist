@@ -32,6 +32,7 @@ import {
     X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     KeyboardAvoidingView,
     Modal,
@@ -73,42 +74,58 @@ interface EditRoutineModalProps {
 }
 
 const DAYS_OF_WEEK = [
-  { short: "Lun", full: "Lunes" },
-  { short: "Mar", full: "Martes" },
-  { short: "Mié", full: "Miércoles" },
-  { short: "Jue", full: "Jueves" },
-  { short: "Vie", full: "Viernes" },
-  { short: "Sáb", full: "Sábado" },
-  { short: "Dom", full: "Domingo" },
+  { short: "Lun", i18nKey: "days.mon_abbr" },
+  { short: "Mar", i18nKey: "days.tue_abbr" },
+  { short: "Mié", i18nKey: "days.wed_abbr" },
+  { short: "Jue", i18nKey: "days.thu_abbr" },
+  { short: "Vie", i18nKey: "days.fri_abbr" },
+  { short: "Sáb", i18nKey: "days.sat_abbr" },
+  { short: "Dom", i18nKey: "days.sun_abbr" },
 ];
 
 const AVAILABLE_ICONS = [
-  { name: "Dumbbell", component: Dumbbell, label: "Ejercicio" },
-  { name: "Activity", component: Activity, label: "Actividad" },
-  { name: "Bike", component: Bike, label: "Ciclismo" },
-  { name: "Heart", component: Heart, label: "Salud" },
-  { name: "Book", component: Book, label: "Lectura" },
-  { name: "GraduationCap", component: GraduationCap, label: "Estudio" },
-  { name: "Lightbulb", component: Lightbulb, label: "Ideas" },
-  { name: "Brain", component: Brain, label: "Mental" },
-  { name: "Briefcase", component: Briefcase, label: "Trabajo" },
-  { name: "Coffee", component: Coffee, label: "Café" },
-  { name: "Laptop", component: Laptop, label: "Computador" },
-  { name: "Target", component: Target, label: "Meta" },
-  { name: "Home", component: Home, label: "Hogar" },
-  { name: "ShoppingBag", component: ShoppingBag, label: "Compras" },
-  { name: "Utensils", component: Utensils, label: "Comida" },
-  { name: "Sparkles", component: Sparkles, label: "Brillo" },
-  { name: "Moon", component: Moon, label: "Noche" },
-  { name: "Sun", component: Sun, label: "Día" },
-  { name: "Flower2", component: Flower2, label: "Naturaleza" },
-  { name: "Smile", component: Smile, label: "Bienestar" },
+  { name: "Dumbbell", component: Dumbbell, i18nKey: "routine_icons.dumbbell" },
+  { name: "Activity", component: Activity, i18nKey: "routine_icons.activity" },
+  { name: "Bike", component: Bike, i18nKey: "routine_icons.bike" },
+  { name: "Heart", component: Heart, i18nKey: "routine_icons.heart" },
+  { name: "Book", component: Book, i18nKey: "routine_icons.book" },
+  {
+    name: "GraduationCap",
+    component: GraduationCap,
+    i18nKey: "routine_icons.graduation",
+  },
+  {
+    name: "Lightbulb",
+    component: Lightbulb,
+    i18nKey: "routine_icons.lightbulb",
+  },
+  { name: "Brain", component: Brain, i18nKey: "routine_icons.brain" },
+  {
+    name: "Briefcase",
+    component: Briefcase,
+    i18nKey: "routine_icons.briefcase",
+  },
+  { name: "Coffee", component: Coffee, i18nKey: "routine_icons.coffee" },
+  { name: "Laptop", component: Laptop, i18nKey: "routine_icons.laptop" },
+  { name: "Target", component: Target, i18nKey: "routine_icons.target" },
+  { name: "Home", component: Home, i18nKey: "routine_icons.home" },
+  {
+    name: "ShoppingBag",
+    component: ShoppingBag,
+    i18nKey: "routine_icons.shopping",
+  },
+  { name: "Utensils", component: Utensils, i18nKey: "routine_icons.food" },
+  { name: "Sparkles", component: Sparkles, i18nKey: "routine_icons.sparkles" },
+  { name: "Moon", component: Moon, i18nKey: "routine_icons.moon" },
+  { name: "Sun", component: Sun, i18nKey: "routine_icons.sun" },
+  { name: "Flower2", component: Flower2, i18nKey: "routine_icons.flower" },
+  { name: "Smile", component: Smile, i18nKey: "routine_icons.smile" },
 ];
 
-const PLACEHOLDER_TEXTS = [
-  "Mi Rutina de cardio...",
-  "Practicar Piano...",
-  "Estudiar Japonés...",
+const PLACEHOLDER_TEXT_KEYS = [
+  "routine_form.name_placeholder_0",
+  "routine_form.name_placeholder_1",
+  "routine_form.name_placeholder_2",
 ];
 
 const getIconComponent = (iconName?: string) => {
@@ -122,6 +139,8 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const { t } = useTranslation();
+  const PLACEHOLDER_TEXTS = PLACEHOLDER_TEXT_KEYS.map((key) => t(key));
   const [routineName, setRoutineName] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -436,7 +455,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
               ]}
               value={item.title}
               onChangeText={(text) => handleUpdateTask(item.id, text)}
-              placeholder="Tarea Vacía"
+              placeholder={t("routine_form.empty_task")}
               placeholderTextColor={colors.textSecondary + "80"}
               onFocus={() => setEditingTaskId(item.id)}
               autoFocus={isEditing}
@@ -458,7 +477,14 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                 hitSlop={10}
                 disabled={isDragging || isActive}
               >
-                <Trash2 size={18} color={isDragging || isActive ? colors.textSecondary + "40" : colors.textSecondary} />
+                <Trash2
+                  size={18}
+                  color={
+                    isDragging || isActive
+                      ? colors.textSecondary + "40"
+                      : colors.textSecondary
+                  }
+                />
               </Pressable>
             )}
           </View>
@@ -472,7 +498,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
     <View>
       {/* Routine Name Input */}
       <View style={styles.section}>
-        <Text style={styles.label}>Nombre de la rutina</Text>
+        <Text style={styles.label}>{t("routine_form.name_label")}</Text>
         <View style={{ height: 12 }} />
         <View style={styles.nameInputContainer}>
           <Pressable
@@ -501,7 +527,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       {/* Day Selection */}
       <Pressable onPress={dismissKeyboard}>
         <View style={styles.section}>
-          <Text style={styles.label}>¿Qué días quieres hacerla?</Text>
+          <Text style={styles.label}>{t("routine_form.which_days")}</Text>
           <View style={{ height: 12 }} />
           <View style={styles.daysContainer}>
             {DAYS_OF_WEEK.map((day) => (
@@ -523,7 +549,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                       styles.dayButtonTextActive,
                   ]}
                 >
-                  {day.short}
+                  {t(day.i18nKey)}
                 </Text>
               </Pressable>
             ))}
@@ -534,10 +560,10 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
       {/* Tasks Section Header */}
       <View style={styles.tasksSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.label}>Tareas de la rutina</Text>
+          <Text style={styles.label}>{t("routine_form.routine_tasks")}</Text>
           {tasks.length > 0 && (
             <Text style={styles.helperText}>
-              Mantén presionado para ordenar
+              {t("routine_form.drag_to_reorder")}
             </Text>
           )}
         </View>
@@ -555,7 +581,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
     <View>
       {/* Reminder Section */}
       <View style={styles.section}>
-        <Text style={styles.label}>¿Quieres un recordatorio?</Text>
+        <Text style={styles.label}>{t("routine_form.reminder_question")}</Text>
         <View style={{ height: 12 }} />
         <Pressable
           onPress={() => {
@@ -586,12 +612,14 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                   reminderEnabled && styles.reminderTitleActive,
                 ]}
               >
-                {reminderEnabled ? "Recordatorio Activado" : "Sin recordatorio"}
+                {reminderEnabled
+                  ? t("routine_form.reminder_enabled")
+                  : t("routine_form.reminder_disabled")}
               </Text>
               <Text style={styles.reminderSubtitle}>
                 {reminderEnabled
-                  ? "Te avisaremos a esta hora"
-                  : "Toca para activar"}
+                  ? t("routine_form.reminder_subtitle_on")
+                  : t("routine_form.reminder_subtitle_off")}
               </Text>
             </View>
           </View>
@@ -650,7 +678,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
             style={styles.createButtonGradient}
           >
             <Text style={styles.createButtonText}>
-              {!isValid ? "Completa los campos" : "Guardar Cambios"}
+              {!isValid
+                ? t("routine_form.complete_fields")
+                : t("routine_form.save_changes")}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -680,7 +710,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                   { paddingTop: Math.max(insets.top, 13) },
                 ]}
               >
-                <Text style={styles.title}>Editar Rutina</Text>
+                <Text style={styles.title}>{t("routine_form.edit_title")}</Text>
                 <Pressable onPress={handleClose} style={styles.closeButton}>
                   <X size={24} color={colors.textPrimary} />
                 </Pressable>
@@ -729,7 +759,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
             >
               <View style={styles.iconPickerContainer}>
                 <View style={styles.iconPickerHeader}>
-                  <Text style={styles.iconPickerTitle}>Elige un ícono</Text>
+                  <Text style={styles.iconPickerTitle}>
+                    {t("routine_form.choose_icon")}
+                  </Text>
                   <Pressable onPress={() => setShowIconPicker(false)}>
                     <X size={20} color={colors.textSecondary} />
                   </Pressable>
@@ -765,7 +797,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                                 styles.iconLabelSelected,
                             ]}
                           >
-                            {icon.label}
+                            {t(icon.i18nKey)}
                           </Text>
                         </View>
                       </Pressable>

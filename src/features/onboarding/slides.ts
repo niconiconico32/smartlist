@@ -37,8 +37,8 @@ export const SLIDES: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
-      '¡Hola! Soy Brainy 👋',
-      'Solo unas preguntitas antes de iniciar nuestro viaje.',
+      'onboarding.dialogue_legacy_intro_1',
+      'onboarding.dialogue_legacy_intro_2',
     ],
   },
 
@@ -48,12 +48,12 @@ export const SLIDES: SlideConfig[] = [
     id: 'name',
     answerKey: 'userName',
     showNavButton: true,
-    title: '¿Cuál es tu nombre?',
-    subtitle: '¡Me encantaría conocerte mejor!',
-    placeholder: 'Tu nombre',
+    title: 'onboarding.legacy.name_title',
+    subtitle: 'onboarding.legacy.name_subtitle',
+    placeholder: 'onboarding.name_placeholder',
     showLogo: true,
     canContinue: (answers) => !!answers.userName.trim(),
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 3: Age ===
@@ -62,11 +62,11 @@ export const SLIDES: SlideConfig[] = [
     id: 'age',
     answerKey: 'ageRange',
     showNavButton: true,
-    title: '¿Cuál es tu edad?',
-    subtitle: 'El TDAH se manifiesta de formas únicas en cada etapa de la vida.',
+    title: 'onboarding.legacy.age_title',
+    subtitle: 'onboarding.legacy.age_subtitle',
     options: 'RANGOS_EDAD',
     canContinue: (answers) => !!answers.ageRange,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 4: ADHD Symptoms (was buggy duplicate case 4) ===
@@ -75,11 +75,11 @@ export const SLIDES: SlideConfig[] = [
     id: 'adhd-symptoms',
     answerKey: 'adhdSymptoms',
     showNavButton: true,
-    title: '¿Cómo te afecta el TDAH hoy?',
-    subtitle: 'Selecciona los síntomas que experimentas frecuentemente.',
+    title: 'onboarding.legacy.adhd_symptoms_title',
+    subtitle: 'onboarding.legacy.adhd_symptoms_subtitle',
     options: 'ADHD_SYMPTOMS',
     canContinue: (answers) => answers.adhdSymptoms.length > 0,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 5: Life Area (was the second "case 4" — now properly separated) ===
@@ -88,11 +88,11 @@ export const SLIDES: SlideConfig[] = [
     id: 'life-area',
     answerKey: 'lifeArea',
     showNavButton: true,
-    title: '¿Qué área de tu día a día es con la que más te cuesta lidiar?',
-    subtitle: 'Deja que Brainy te ayude con esto. Crearemos un par de tareas por ti.',
+    title: 'onboarding.legacy.life_area_title',
+    subtitle: 'onboarding.legacy.life_area_subtitle',
     options: 'LIFE_AREAS',
     canContinue: (answers) => !!answers.lifeArea,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 6: Habit Days (custom animation) ===
@@ -109,11 +109,11 @@ export const SLIDES: SlideConfig[] = [
     id: 'goals',
     answerKey: 'goals',
     showNavButton: true,
-    title: '¿Qué quieres lograr con Brainy?',
-    subtitle: 'Selecciona tus objetivos para que la IA personalice tu experiencia.',
+    title: 'onboarding.legacy.goals_title',
+    subtitle: 'onboarding.legacy.goals_subtitle',
     options: 'GOAL_OPTIONS',
     canContinue: (answers) => answers.goals.length > 0,
-    buttonText: 'Continuar',
+    buttonText: 'onboarding.continue',
   },
 
   // === 8: Statement 1 ===
@@ -153,7 +153,7 @@ export const SLIDES: SlideConfig[] = [
     answerKey: 'taskText',
     showNavButton: true,
     canContinue: (answers) => !!answers.taskText.trim(),
-    buttonText: 'Ayúdame con esto',
+    buttonText: 'onboarding.help_me_with_this',
   },
 
   // === 12: Growth Potential ===

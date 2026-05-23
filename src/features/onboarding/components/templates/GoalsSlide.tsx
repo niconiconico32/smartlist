@@ -1,25 +1,38 @@
-import React from 'react';
-import { ScrollView } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { layoutStyles, slideStyles } from '../../styles/shared';
-import { GoalOption, GoalsSlideConfig, OnboardingAnswers } from '../../types';
-import GoalPill from '../GoalPill';
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { ScrollView } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
+import { layoutStyles, slideStyles } from "../../styles/shared";
+import { GoalOption, GoalsSlideConfig, OnboardingAnswers } from "../../types";
+import GoalPill from "../GoalPill";
 
 interface Props {
   config: GoalsSlideConfig;
   answers: OnboardingAnswers;
-  onAnswer: <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => void;
+  onAnswer: <K extends keyof OnboardingAnswers>(
+    key: K,
+    value: OnboardingAnswers[K],
+  ) => void;
   resolvedOptions: GoalOption[];
 }
 
-const GoalsSlide: React.FC<Props> = ({ config, answers, onAnswer, resolvedOptions }) => {
+const GoalsSlide: React.FC<Props> = ({
+  config,
+  answers,
+  onAnswer,
+  resolvedOptions,
+}) => {
+  const { t } = useTranslation();
   const selected = (answers[config.answerKey!] as string[]) ?? [];
 
   const toggleGoal = (id: string) => {
     if (selected.includes(id)) {
-      onAnswer('goals', selected.filter((g) => g !== id));
+      onAnswer(
+        "goals",
+        selected.filter((g) => g !== id),
+      );
     } else {
-      onAnswer('goals', [...selected, id]);
+      onAnswer("goals", [...selected, id]);
     }
   };
 
@@ -34,7 +47,7 @@ const GoalsSlide: React.FC<Props> = ({ config, answers, onAnswer, resolvedOption
           entering={FadeInDown.delay(100).duration(500)}
           style={slideStyles.slideSubtitle}
         >
-          {config.subtitle}
+          {t(config.subtitle)}
         </Animated.Text>
       )}
 
@@ -42,7 +55,7 @@ const GoalsSlide: React.FC<Props> = ({ config, answers, onAnswer, resolvedOption
         entering={FadeInDown.delay(200).duration(500)}
         style={slideStyles.slideTitle}
       >
-        {config.title}
+        {t(config.title)}
       </Animated.Text>
 
       <Animated.View

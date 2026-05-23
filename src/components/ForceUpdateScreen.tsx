@@ -6,6 +6,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Linking from "expo-linking";
 import { ExternalLink, RefreshCw } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Animated,
     Easing,
@@ -26,6 +27,7 @@ export function ForceUpdateScreen({
   storeUrl,
   message,
 }: ForceUpdateScreenProps) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   // Floating mascot animation
@@ -120,17 +122,15 @@ export function ForceUpdateScreen({
       {/* Badge */}
       <View style={styles.badge}>
         <RefreshCw size={14} color={colors.background} strokeWidth={2.5} />
-        <Text style={styles.badgeText}>Actualización necesaria</Text>
+        <Text style={styles.badgeText}>{t("force_update.badge")}</Text>
       </View>
 
       {/* Title */}
-      <Text style={styles.title}>
-        ¡Tu mascota{"\n"}necesita medicina nueva!
-      </Text>
+      <Text style={styles.title}>{t("force_update.title")}</Text>
 
       {/* Body */}
       <Text style={styles.body}>{message}</Text>
-      <Text style={styles.hint}>Haz click abajo para ir a la tienda.</Text>
+      <Text style={styles.hint}>{t("force_update.hint")}</Text>
 
       {/* CTA Button */}
       <Animated.View
@@ -156,15 +156,15 @@ export function ForceUpdateScreen({
               style={{ marginRight: 10 }}
             />
             <Text style={styles.ctaLabel}>
-              {Platform.OS === "ios" ? "Ir a App Store" : "Ir a Play Store"}
+              {Platform.OS === "ios"
+                ? t("force_update.go_to_app_store")
+                : t("force_update.go_to_play_store")}
             </Text>
           </LinearGradient>
         </Pressable>
       </Animated.View>
 
-      <Text style={styles.version}>
-        Esta actualización trae estabilidad y nuevas funciones para ti 🧠✨
-      </Text>
+      <Text style={styles.version}>{t("force_update.update_info")}</Text>
     </Animated.View>
   );
 }
