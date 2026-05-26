@@ -17,6 +17,7 @@ import * as routineService from "@/src/lib/routineService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
+import { useEggStore } from "@/src/store/eggStore";
 import {
     getLocalTodayDateKey,
     hasCountedToday,
@@ -483,6 +484,7 @@ export default function SwipeableLayout() {
     reminderEnabled: boolean;
     reminderTime?: string;
     icon?: string;
+    eggId?: number;
   }) => {
     if (!user) {
       Alert.alert(
@@ -504,6 +506,14 @@ export default function SwipeableLayout() {
       });
 
       if (newRoutine) {
+        // Assign chosen egg immediately at creation time
+        if (routine.eggId != null) {
+          useEggStore.getState().assignEggToRoutine(
+            routine.eggId as any,
+            newRoutine.id,
+          );
+        }
+
         // Recargar rutinas para actualizar calendario
         await loadRoutines();
 

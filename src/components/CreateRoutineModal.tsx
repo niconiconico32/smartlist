@@ -5,37 +5,17 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-    Activity,
     Bell,
-    Bike,
-    Book,
-    Brain,
-    Briefcase,
-    Coffee,
-    Dumbbell,
-    Flower2,
-    GraduationCap,
     GripVertical,
-    Heart,
-    Home,
-    Laptop,
-    Lightbulb,
-    Moon,
     Plus,
-    ShoppingBag,
-    Smile,
-    SmilePlus,
-    Sparkles,
-    Sun,
-    Target,
     Trash2,
-    Utensils,
     X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Alert,
+    Image,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -51,6 +31,12 @@ import DraggableFlatList, {
 } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEggCatalog } from "@/src/hooks/useEggCatalog";
+import {
+    EggId,
+    useEggStore,
+} from "@/src/store/eggStore";
+import { useAchievementsStore } from "@/src/store/achievementsStore";
 
 interface Task {
   id: string;
@@ -67,6 +53,7 @@ interface CreateRoutineModalProps {
     reminderEnabled: boolean;
     reminderTime?: string;
     icon?: string;
+    eggId?: EggId;
   }) => void;
 }
 
@@ -81,58 +68,26 @@ const DAYS_OF_WEEK = [
   { short: "Dom", i18nKey: "days.sun_abbr" },
 ];
 
-const AVAILABLE_ICONS = [
-  { name: "Dumbbell", component: Dumbbell, i18nKey: "routine_icons.dumbbell" },
-  { name: "Activity", component: Activity, i18nKey: "routine_icons.activity" },
-  { name: "Bike", component: Bike, i18nKey: "routine_icons.bike" },
-  { name: "Heart", component: Heart, i18nKey: "routine_icons.heart" },
-  { name: "Book", component: Book, i18nKey: "routine_icons.book" },
-  {
-    name: "GraduationCap",
-    component: GraduationCap,
-    i18nKey: "routine_icons.graduation",
-  },
-  {
-    name: "Lightbulb",
-    component: Lightbulb,
-    i18nKey: "routine_icons.lightbulb",
-  },
-  { name: "Brain", component: Brain, i18nKey: "routine_icons.brain" },
-  {
-    name: "Briefcase",
-    component: Briefcase,
-    i18nKey: "routine_icons.briefcase",
-  },
-  { name: "Coffee", component: Coffee, i18nKey: "routine_icons.coffee" },
-  { name: "Laptop", component: Laptop, i18nKey: "routine_icons.laptop" },
-  { name: "Target", component: Target, i18nKey: "routine_icons.target" },
-  { name: "Home", component: Home, i18nKey: "routine_icons.home" },
-  {
-    name: "ShoppingBag",
-    component: ShoppingBag,
-    i18nKey: "routine_icons.shopping",
-  },
-  { name: "Utensils", component: Utensils, i18nKey: "routine_icons.food" },
-  { name: "Sparkles", component: Sparkles, i18nKey: "routine_icons.sparkles" },
-  { name: "Moon", component: Moon, i18nKey: "routine_icons.moon" },
-  { name: "Sun", component: Sun, i18nKey: "routine_icons.sun" },
-  { name: "Flower2", component: Flower2, i18nKey: "routine_icons.flower" },
-  { name: "Smile", component: Smile, i18nKey: "routine_icons.smile" },
-];
-
 const PLACEHOLDER_TEXT_KEYS = [
   "routine_form.name_placeholder_0",
   "routine_form.name_placeholder_1",
   "routine_form.name_placeholder_2",
 ];
 
+const RARITY_COLORS = {
+  common: { border: "#8B5E3C" },
+  rare: { border: "#C0C0C0" },
+  legendary: { border: "#F97316" },
+} as const;
+
+const RARITY_MEDAL_IMAGES = {
+  common: require("../../assets/images/pets/rarities/common.png"),
+  rare: require("../../assets/images/pets/rarities/rare.png"),
+  legendary: require("../../assets/images/pets/rarities/legendary.png"),
+} as const;
+
 const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
-};
-
-const getIconComponent = (iconName?: string) => {
-  const icon = AVAILABLE_ICONS.find((i) => i.name === iconName);
-  return icon?.component || SmilePlus;
 };
 
 export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
@@ -149,8 +104,6 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [selectedIcon, setSelectedIcon] = useState<string>("");
-  const [showIconPicker, setShowIconPicker] = useState(false);
   const [currentPlaceholder, setCurrentPlaceholder] = useState(0);
   const [displayedText, setDisplayedText] = useState("");
   const [isTyping, setIsTyping] = useState(true);
@@ -158,6 +111,12 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   const taskInputRefs = useRef<{ [key: string]: TextInput | null }>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedEggId, setSelectedEggId] = useState<EggId | null>(null);
+  const catalog = useEggCatalog();
+  const storeEggs = useEggStore((s) => s.eggs);
+  const availableEggs = storeEggs.filter((e) => e.unlocked && !e.routineId);
+  const totalCoins = useAchievementsStore((s) => s.totalCoins);
+  const spendCoins = useAchievementsStore((s) => s.spendCoins);
   const insets = useSafeAreaInsets();
 
   const triggerHaptic = (style: "light" | "medium" | "selection" = "light") => {
@@ -179,11 +138,12 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
     setEditingTaskId(firstTask.id);
     setReminderEnabled(false);
     setReminderTime(new Date());
-    setSelectedIcon("");
-    setShowIconPicker(false);
     setShowTimePicker(false);
     setHasUnsavedChanges(false);
     taskInputRefs.current = {};
+    setSelectedEggId(
+      storeEggs.filter((e) => e.unlocked && !e.routineId)[0]?.id ?? null,
+    );
   }, [visible]);
 
   useEffect(() => {
@@ -228,11 +188,10 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
       tasks.some((t) => t.title.trim() !== "") ||
       selectedDays.length > 1 ||
       !selectedDays.includes("Lun") ||
-      reminderEnabled ||
-      selectedIcon !== "";
+      reminderEnabled;
 
     setHasUnsavedChanges(hasContent);
-  }, [routineName, selectedDays, tasks, reminderEnabled, selectedIcon]);
+  }, [routineName, selectedDays, tasks, reminderEnabled]);
 
   const handleAddTask = () => {
     const newTask: Task = {
@@ -299,7 +258,8 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
         tasks: validTasks,
         reminderEnabled,
         reminderTime: reminderEnabled ? timeString : undefined,
-        icon: selectedIcon || "Circle",
+        icon: "Dumbbell",
+        eggId: selectedEggId ?? undefined,
       });
 
       setRoutineName("");
@@ -307,7 +267,6 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
       setTasks([]);
       setReminderEnabled(false);
       setReminderTime(new Date());
-      setSelectedIcon("");
       setEditingTaskId(null);
       taskInputRefs.current = {};
       setHasUnsavedChanges(false);
@@ -371,9 +330,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
             >
               <GripVertical size={18} color={colors.textSecondary} />
             </Pressable>
-            <View style={styles.taskNumber}>
-              <Text style={styles.taskNumberText}>{index + 1}</Text>
-            </View>
+
 
             <TextInput
               ref={(ref) => {
@@ -438,28 +395,13 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
       <View style={styles.section}>
         <Text style={styles.label}>{t("routine_form.name_label")}</Text>
         <View style={{ height: 12 }} />
-        <View style={styles.nameInputContainer}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => {
-              setShowIconPicker(true);
-              dismissKeyboard();
-            }}
-          >
-            {React.createElement(getIconComponent(selectedIcon), {
-              size: 24,
-              color: colors.primary,
-              opacity: selectedIcon ? 1 : 0.6,
-            })}
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            placeholder={routineName ? "" : displayedText}
-            placeholderTextColor={colors.textSecondary}
-            value={routineName}
-            onChangeText={setRoutineName}
-          />
-        </View>
+        <TextInput
+          style={styles.input}
+          placeholder={routineName ? "" : displayedText}
+          placeholderTextColor={colors.textSecondary}
+          value={routineName}
+          onChangeText={setRoutineName}
+        />
       </View>
 
       <Pressable onPress={dismissKeyboard}>
@@ -594,25 +536,102 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
           ))}
       </View>
 
-      <View style={styles.footer}>
-        <Pressable
-          onPress={handleCreateRoutine}
-          disabled={!isValid}
-          style={[styles.createButton, !isValid && styles.createButtonDisabled]}
+      {/* ── Egg / Pet Picker ──────────────────────────────────────────── */}
+      <View style={styles.section}>
+        <Text style={styles.label}>CHOOSE YOUR COMPANION</Text>
+        <View style={{ height: 12 }} />
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.eggPickerRow}
         >
-          <LinearGradient
-            colors={!isValid ? ["#6B7280", "#4B5563"] : PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.createButtonGradient}
-          >
-            <Text style={styles.createButtonText}>
-              {!isValid
-                ? t("routine_form.complete_fields")
-                : t("routine_form.create")}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+          {catalog.map((meta) => {
+            const eggData = storeEggs.find((e) => e.id === meta.id);
+            const isUnlocked = eggData?.unlocked ?? false;
+            const inUse = isUnlocked && !!eggData?.routineId;
+            const isSelected = selectedEggId === meta.id;
+            const isSelectable = isUnlocked && !inUse;
+            const rc = RARITY_COLORS[meta.rarity];
+            // Show pet image if the egg has already evolved, otherwise show egg image
+            const displayImage = eggData?.evolved ? meta.petImage : meta.image;
+
+            return (
+              <Pressable
+                key={meta.id}
+                onPress={() => {
+                  if (isSelectable) {
+                    setSelectedEggId(meta.id as EggId);
+                    triggerHaptic("selection");
+                  } else if (!isUnlocked) {
+                    const canAfford = totalCoins >= meta.cost;
+                    Alert.alert(
+                      meta.name,
+                      canAfford
+                        ? `Unlock for ${meta.cost.toLocaleString()} 👑 crowns?\n\nYou have: ${totalCoins.toLocaleString()} 👑`
+                        : `Costs ${meta.cost.toLocaleString()} 👑 crowns.\nYou only have ${totalCoins.toLocaleString()} 👑 — not enough!`,
+                      canAfford
+                        ? [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: `Buy · ${meta.cost.toLocaleString()} 👑`,
+                              onPress: async () => {
+                                const ok = await spendCoins(meta.cost);
+                                if (ok) {
+                                  useEggStore.getState().unlockEgg(meta.id as EggId);
+                                  setSelectedEggId(meta.id as EggId);
+                                  triggerHaptic("medium");
+                                }
+                              },
+                            },
+                          ]
+                        : [{ text: "OK", style: "cancel" }],
+                    );
+                  }
+                }}
+                style={[
+                  styles.eggCard,
+                  {
+                    borderColor: rc.border,
+                  },
+                  isSelected && {
+                    borderWidth: 2,
+                    backgroundColor: rc.border + "30",
+                  },
+                  !isSelectable && styles.eggCardDimmed,
+                ]}
+              >
+                {/* Rarity badge */}
+                <View style={styles.rarityBadge}>
+                  <Image
+                    source={RARITY_MEDAL_IMAGES[meta.rarity]}
+                    style={styles.rarityBadgeImage}
+                  />
+                </View>
+
+                <Image source={displayImage} style={styles.eggCardImage} />
+
+               
+
+                {/* Locked overlay */}
+                {!isUnlocked && (
+                  <View style={styles.eggCardLockBadge}>
+                    <Text style={styles.eggCardLockText}>
+                      🔒 {meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}
+                    </Text>
+                  </View>
+                )}
+
+                {/* In-use overlay */}
+                {inUse && (
+                  <View style={styles.eggCardInUseBadge}>
+                    <Text style={styles.eggCardInUseText}>busy</Text>
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
     </View>
   );
@@ -620,7 +639,7 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent={false}
       animationType="slide"
       onRequestClose={handleClose}
     >
@@ -628,22 +647,22 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.overlay}>
-            <View style={styles.container}>
-              <View
-                style={[
-                  styles.header,
-                  { paddingTop: Math.max(insets.top, 16) },
-                ]}
-              >
-                <Text style={styles.title}>{t("routine_form.new_title")}</Text>
-                <Pressable onPress={handleClose} style={styles.closeButton}>
-                  <X size={24} color={colors.textPrimary} />
-                </Pressable>
-              </View>
+          <View style={styles.screen}>
+            <View
+              style={[
+                styles.header,
+                { paddingTop: Math.max(insets.top, 16) },
+              ]}
+            >
+              <Text style={styles.title}>{t("routine_form.new_title")}</Text>
+              <Pressable onPress={handleClose} style={styles.closeButton}>
+                <X size={24} color={colors.textPrimary} />
+              </Pressable>
+            </View>
 
+            <View style={{ flex: 1 }}>
               <DraggableFlatList
                 ref={taskListRef}
                 data={tasks}
@@ -658,73 +677,39 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
                 ListHeaderComponent={listHeader}
                 ListFooterComponent={listFooter}
                 contentContainerStyle={styles.listContentContainer}
-                showsVerticalScrollIndicator={true}
+                showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="always"
                 activationDistance={10}
               />
             </View>
-          </View>
 
-          <Modal
-            visible={showIconPicker}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={() => setShowIconPicker(false)}
-          >
-            <Pressable
-              style={styles.iconPickerOverlay}
-              onPress={() => setShowIconPicker(false)}
+            {/* Sticky create button — always visible, rises above keyboard */}
+            <View
+              style={[
+                styles.stickyFooter,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
             >
-              <View style={styles.iconPickerContainer}>
-                <View style={styles.iconPickerHeader}>
-                  <Text style={styles.iconPickerTitle}>
-                    {t("routine_form.choose_icon")}
+              <Pressable
+                onPress={handleCreateRoutine}
+                disabled={!isValid}
+                style={[styles.createButton, !isValid && styles.createButtonDisabled]}
+              >
+                <LinearGradient
+                  colors={!isValid ? ["#6B7280", "#4B5563"] : PRIMARY_GRADIENT_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.createButtonGradient}
+                >
+                  <Text style={styles.createButtonText}>
+                    {!isValid
+                      ? t("routine_form.complete_fields")
+                      : t("routine_form.create")}
                   </Text>
-                  <Pressable onPress={() => setShowIconPicker(false)}>
-                    <X size={20} color={colors.textSecondary} />
-                  </Pressable>
-                </View>
-                <ScrollView style={styles.iconPickerScroll}>
-                  <View style={styles.iconGrid}>
-                    {AVAILABLE_ICONS.map((icon) => (
-                      <Pressable
-                        key={icon.name}
-                        style={[
-                          styles.iconOption,
-                          selectedIcon === icon.name &&
-                            styles.iconOptionSelected,
-                        ]}
-                        onPress={() => {
-                          setSelectedIcon(icon.name);
-                          setShowIconPicker(false);
-                          triggerHaptic("selection");
-                        }}
-                      >
-                        <View style={{ gap: 8, alignItems: "center" }}>
-                          {React.createElement(icon.component, {
-                            size: 28,
-                            color:
-                              selectedIcon === icon.name
-                                ? colors.primary
-                                : colors.textSecondary,
-                          })}
-                          <Text
-                            style={[
-                              styles.iconLabel,
-                              selectedIcon === icon.name &&
-                                styles.iconLabelSelected,
-                            ]}
-                          >
-                            {t(icon.i18nKey)}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-            </Pressable>
-          </Modal>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
@@ -735,19 +720,10 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
-  overlay: {
+  screen: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    justifyContent: "center",
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  container: {
     backgroundColor: colors.background,
-    borderRadius: 0,
-    flex: 1,
     flexDirection: "column",
-    overflow: "hidden",
   },
   header: {
     flexDirection: "row",
@@ -767,7 +743,7 @@ const styles = StyleSheet.create({
   listContentContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 40,
+    paddingBottom: 16,
   },
   section: {
     marginBottom: 20,
@@ -781,25 +757,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   label: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontFamily: "Jersey10",
+    fontSize: 18,
     color: colors.textPrimary,
+    letterSpacing: 0.5,
   },
   helperText: {
-    fontSize: 12,
+    fontFamily: "Jersey10",
+    fontSize: 13,
     color: colors.textSecondary,
-    fontStyle: "italic",
+    opacity: 0.7,
   },
   input: {
-    flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 22,
+    borderRadius: 4,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.1)",
   },
   daysContainer: {
     flexDirection: "row",
@@ -808,57 +785,60 @@ const styles = StyleSheet.create({
   },
   dayButton: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingVertical: 4,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
     backgroundColor: colors.surface,
-    minWidth: 40,
+    minWidth: 42,
     alignItems: "center",
     margin: 4,
-    paddingRight: 5,
   },
   dayButtonActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   dayButtonText: {
-    fontSize: 12.3,
-    fontWeight: "600",
+    fontFamily: "Jersey10",
+    fontSize: 15,
     color: colors.textSecondary,
   },
   dayButtonTextActive: {
-    color: "#1E1E2E",
-    fontWeight: "700",
+    fontFamily: "Jersey10",
+    color: colors.background,
   },
 
   taskNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.primary + "30",
+    width: 26,
+    height: 26,
+    borderRadius: 4,
+    backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   taskNumberText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.primary,
+    fontFamily: "Jersey10",
+    fontSize: 14,
+    color: colors.textSecondary,
   },
   taskItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: colors.surfaceHighlight,
-    borderRadius: 28,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    backgroundColor: "transparent",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: colors.primary + "20",
+    borderStyle: "dashed",
+    borderColor: "rgba(255,255,255,0.18)",
   },
   taskItemDragging: {
     backgroundColor: colors.surfaceHighlight,
+    borderStyle: "solid",
     borderColor: colors.primary,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
@@ -897,9 +877,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: colors.surface,
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.1)",
     marginTop: 0,
   },
   reminderCardActive: {
@@ -957,10 +937,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primary + "40",
   },
 
-  footer: {
-    paddingHorizontal: 0,
-    paddingVertical: 20,
-    backgroundColor: "transparent",
+  stickyFooter: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
   },
   createButton: {
     borderRadius: 32,
@@ -979,84 +961,77 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
 
-  nameInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+  // ── Egg / Pet Picker ────────────────────────────────────────────────────
+  eggPickerRow: {
+    gap: 10,
+    paddingBottom: 4,
   },
-  iconButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.05)",
-  },
-  iconPickerOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  iconPickerContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    width: "100%",
-    maxWidth: 400,
-    height: 500,
-    maxHeight: "80%",
-    overflow: "hidden",
-  },
-  iconPickerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.05)",
-  },
-  iconPickerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  iconPickerScroll: {
-    flex: 1,
-    minHeight: 300,
-  },
-  iconGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 16,
-    gap: 12,
-  },
-  iconOption: {
-    flex: 1,
-    minWidth: 90,
-    maxWidth: 110,
-    height: 100,
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
+  eggCard: {
+    width: 80,
+    minHeight: 110,
     borderWidth: 2,
-    borderColor: "transparent",
+    borderStyle: "dashed",
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 4,
+    position: "relative",
   },
-  iconOptionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + "10",
+  eggCardDimmed: {
+    opacity: 0.45,
   },
-  iconLabel: {
+  eggCardImage: {
+    width: 44,
+    height: 44,
+    resizeMode: "contain",
+  },
+  eggCardName: {
+    fontFamily: "Jersey10",
     fontSize: 11,
-    fontWeight: "600",
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     textAlign: "center",
-    width: "100%",
+    lineHeight: 13,
   },
-  iconLabelSelected: {
-    color: colors.primary,
+  rarityBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rarityBadgeImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
+  },
+  eggCardLockBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  eggCardLockText: {
+    fontSize: 9,
+    color: "#9CA3AF",
+    fontWeight: "700",
+  },
+  eggCardInUseBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  eggCardInUseText: {
+    fontSize: 9,
+    color: "#6B7280",
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
 });

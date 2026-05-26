@@ -2,7 +2,6 @@ import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
-import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import * as Haptics from "expo-haptics";
 import LottieView from "lottie-react-native";
 import {
@@ -33,13 +32,14 @@ import {
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeIn,
     Layout,
     useAnimatedStyle,
     useSharedValue,
+    withRepeat,
     withSequence,
     withSpring,
     withTiming,
@@ -49,6 +49,8 @@ import {
     ROUTINE_BACKGROUND_COLORS,
     ROUTINE_COLORS,
 } from "@/constants/routineColors";
+import { useEggCatalog } from "@/src/hooks/useEggCatalog";
+import { useEggStore } from "@/src/store/eggStore";
 
 const AVAILABLE_ICONS: Record<string, any> = {
   Dumbbell,
@@ -112,11 +114,20 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
   const backgroundColor =
     ROUTINE_BACKGROUND_COLORS[colorIndex % ROUTINE_BACKGROUND_COLORS.length];
+
+  // Egg / pet image for this routine
+  const catalog = useEggCatalog();
+  const eggData = useEggStore((s) => s.eggs.find((e) => e.routineId === id) ?? null);
+  const eggMeta = eggData ? (catalog.find((m) => m.id === eggData.id) ?? null) : null;
+  const isEvolved = !!eggData && (eggData.evolved ?? false);
+  const displayImage = eggMeta
+    ? isEvolved
+      ? eggMeta.petImage
+      : eggMeta.image
+    : null;
+  const petLevel = eggData?.petLevel ?? 0;
   const IconComponent = getIconComponent(icon);
 
-  // Nivel logic
-  const { getLevel } = useRoutineStreakStore();
-  const routineLevel = getLevel(id);
   const lottieRef = useRef<LottieView>(null);
 
   // Cálculo de progreso
@@ -128,6 +139,19 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   const cardScale = useSharedValue(1);
   const progressWidth = useSharedValue(progressPercent);
   const headerPressScale = useSharedValue(1);
+  const eggBounce = useSharedValue(0);
+
+  // Bounce idle del huevo
+  useEffect(() => {
+    eggBounce.value = withRepeat(
+      withSequence(
+        withTiming(-5, { duration: 700, easing: Easing.bezierFn(0.45, 0, 0.55, 1) }),
+        withTiming(0, { duration: 700, easing: Easing.bezierFn(0.45, 0, 0.55, 1) }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
 
   // Actualizar barra de progreso con animación suave
   useEffect(() => {
@@ -172,6 +196,10 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
     width: `${progressWidth.value}%`,
   }));
 
+  const eggAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: eggBounce.value }],
+  }));
+
   // Formatear días para mostrar
   const daysText =
     days.length === 7
@@ -203,18 +231,24 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
           ]}
         >
           {/* Medalla de Nivel (Acumulativo) */}
-          {routineLevel > 0 && (
+          {petLevel > 0 && isEvolved && (
             <View style={styles.medalBadge}>
               <Text style={styles.medalText}>
-                {t("routine_card.level", { level: routineLevel })}
+                {t("routine_card.level", { level: petLevel })}
               </Text>
             </View>
           )}
 
-          {/* Icon Box Izquierdo */}
-          <View style={styles.iconBox}>
-            <IconComponent size={24} color={color} />
-          </View>
+          {/* Icon Box Izquierdo — hidden when no egg is assigned */}
+          {displayImage && (
+            <View style={styles.iconBox}>
+              <Animated.Image
+                source={displayImage}
+                style={[isEvolved ? styles.petIconImage : styles.eggIconImage, eggAnimatedStyle]}
+                resizeMode="contain"
+              />
+            </View>
+          )}
 
           {/* Información Central */}
           <View style={styles.infoContainer}>
@@ -301,17 +335,17 @@ const styles = StyleSheet.create({
   iconBox: {
     width: 48,
     height: 48,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 2,
-    borderColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
     marginRight: 16,
+  },
+  eggIconImage: {
+    width: 32,
+    height: 32,
+  },
+  petIconImage: {
+    width: 64,
+    height: 64,
   },
   infoContainer: {
     flex: 1,

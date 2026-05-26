@@ -769,7 +769,10 @@
     "delete": "Delete",
     "read_only_banner_prefix": "You are viewing",
     "progress": "Progress: {{done}}/{{total}}",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "egg_title": "Your Egg",
+    "egg_xp_label": "Experience",
+    "no_egg_assigned": "No egg assigned"
   },
   "index_tab": {
     "write_task_first": "Write a task first",

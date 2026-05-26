@@ -768,7 +768,10 @@
     "delete": "Eliminar",
     "read_only_banner_prefix": "Estás viendo",
     "progress": "Progreso: {{done}}/{{total}}",
-    "tasks": "Tareas"
+    "tasks": "Tareas",
+    "egg_title": "Tu Huevo",
+    "egg_xp_label": "Experiencia",
+    "no_egg_assigned": "Sin huevo asignado"
   },
   "index_tab": {
     "write_task_first": "Escribe una tarea primero",

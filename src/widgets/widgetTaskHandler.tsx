@@ -131,16 +131,6 @@ async function syncToggleInBackground(
     if (allTasksCompleteAfter && !wasCompleteBefore) {
       const { useAchievementsStore } =
         await import("../store/achievementsStore");
-      const result = await useAchievementsStore
-        .getState()
-        .awardRoutineCompletionCoins(routineId);
-      // Always persist earned coins so the widget can display them
-      if (result.earned > 0) {
-        await AsyncStorage.setItem(
-          `@widget_earned_coronas_${routineId}`,
-          result.earned.toString(),
-        );
-      }
 
       const { supabase } = await import("../lib/supabase");
       await supabase.auth.getSession();

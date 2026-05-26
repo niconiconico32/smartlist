@@ -235,24 +235,56 @@ export async function updateRoutine(
 
     // Update tasks if provided
     if (updates.tasks) {
-      // Delete existing tasks
-      await supabase.from('routine_tasks').delete().eq('routine_id', routineId);
+      // UUID regex — distinguishes real DB IDs from local Date.now() IDs
+      const isUUID = (id: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-      // Insert new tasks
-      if (updates.tasks.length > 0) {
-        const tasksToInsert = updates.tasks.map((task, index) => ({
+      // Fetch current task IDs from DB for this routine
+      const { data: dbTasks } = await supabase
+        .from('routine_tasks')
+        .select('id')
+        .eq('routine_id', routineId);
+
+      const dbTaskIds = new Set((dbTasks ?? []).map((t: any) => t.id as string));
+      const incomingUUIDs = new Set(
+        updates.tasks.filter(t => isUUID(t.id)).map(t => t.id),
+      );
+
+      // 1) Delete tasks the user removed (preserves task_completions for kept tasks)
+      const toDelete = [...dbTaskIds].filter(id => !incomingUUIDs.has(id));
+      if (toDelete.length > 0) {
+        await supabase.from('routine_tasks').delete().in('id', toDelete);
+      }
+
+      // 2) Update existing tasks in place — their IDs stay the same,
+      //    so task_completions FK references remain valid
+      const existingTasks = updates.tasks.filter(
+        t => isUUID(t.id) && dbTaskIds.has(t.id),
+      );
+      for (const task of existingTasks) {
+        const position = updates.tasks.findIndex(t => t.id === task.id);
+        await supabase
+          .from('routine_tasks')
+          .update({ title: task.title, position })
+          .eq('id', task.id);
+      }
+
+      // 3) Insert genuinely new tasks (local Date.now() IDs → DB assigns real UUIDs)
+      const newTasks = updates.tasks.filter(
+        t => !isUUID(t.id) || !dbTaskIds.has(t.id),
+      );
+      if (newTasks.length > 0) {
+        const toInsert = newTasks.map(task => ({
           routine_id: routineId,
           title: task.title,
-          position: task.position ?? index,
+          position: updates.tasks!.findIndex(t => t.id === task.id),
         }));
-
-        const { error: tasksError } = await supabase
+        const { error: insertError } = await supabase
           .from('routine_tasks')
-          .insert(tasksToInsert);
-
-        if (tasksError) {
-          console.error('Error updating tasks:', tasksError);
-          throw tasksError;
+          .insert(toInsert);
+        if (insertError) {
+          console.error('Error inserting new tasks:', insertError);
+          throw insertError;
         }
       }
     }

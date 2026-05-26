@@ -501,6 +501,10 @@ interface AchievementsStore {
 
   // Shop actions
   spendCoins: (amount: number, purchase?: { type: 'outfit' | 'background'; itemId: string }) => Promise<boolean>;
+  /** Award coins to the player (e.g. pet level-up reward). Persists + syncs to cloud. */
+  addCoins: (amount: number) => Promise<void>;
+  /** Award coins to the player (e.g. pet level-up reward). Persists + syncs to cloud. */
+  addCoins: (amount: number) => Promise<void>;
   setActiveBackground: (id: string | null, uri?: string | null) => Promise<void>;
   setActiveOutfit: (id: string | null, uri?: string | null) => Promise<void>;
 
@@ -513,7 +517,6 @@ interface AchievementsStore {
   lastRewardDate: string | null;
   rewardedTasks: Record<string, string>;
 
-  awardRoutineCompletionCoins: (routineId: string) => Promise<{ earned: number; isNew: boolean }>;
   awardTaskCompletionCoins: (taskId: string, difficulty: 'easy' | 'moderate' | 'hard', subtaskId?: string) => Promise<{ earned: number; isNew: boolean }>;
 
   /** Validates a promo code server-side and awards coins on success. */
@@ -1004,6 +1007,14 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     },
 
     // =========================================================
+    // ADD COINS (pet rewards, bonuses, etc.)
+    // =========================================================
+    addCoins: async (amount: number) => {
+      set((prev) => ({ totalCoins: prev.totalCoins + amount }));
+      await persist();
+    },
+
+    // =========================================================
     // SPEND COINS + RECORD PURCHASE (atomic: deducts coins and
     // adds the item in a single set+persist so neither can be
     // lost independently)
@@ -1041,45 +1052,6 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     setActiveOutfit: async (id: string | null, uri?: string | null) => {
       set({ activeOutfit: id, activeOutfitUri: uri ?? null });
       await persist();
-    },
-
-    // =========================================================
-    // AWARD ROUTINE COMPLETION COINS (WITH DIMINISHING RETURNS)
-    // =========================================================
-    awardRoutineCompletionCoins: async (routineId: string) => {
-      const today = getLocalDateKey(new Date());
-      const state = get();
-      
-      if (state.rewardedRoutines[routineId] === today) {
-        // Ya fue compensado hoy, no hacer nada
-        return { earned: 0, isNew: false };
-      }
-
-      // Check date reset for diminishing returns
-      let { dailyRoutinesCompletedCount, lastRewardDate } = state;
-      if (lastRewardDate !== today) {
-        dailyRoutinesCompletedCount = 0;
-        // Reiniciamos ambas cuentas si el día cambió
-        set({
-          lastRewardDate: today,
-          dailyRoutinesCompletedCount: 0,
-          dailyTasksCompletedCount: 0,
-        });
-      }
-      
-      const multiplier = useAppStreakStore.getState().getMultiplier();
-      const baseEarned = 100; // Base de recompensa para rutinas
-      const fadingFactor = Math.pow(0.5, dailyRoutinesCompletedCount);
-      const earned = Math.round(baseEarned * fadingFactor * multiplier);
-      
-      set((prev) => ({
-        rewardedRoutines: { ...prev.rewardedRoutines, [routineId]: today },
-        dailyRoutinesCompletedCount: dailyRoutinesCompletedCount + 1,
-        totalCoins: prev.totalCoins + earned,
-      }));
-      await persist();
-      
-      return { earned, isNew: true };
     },
 
     // =========================================================

@@ -6,7 +6,6 @@ import {
     shouldAskForReview,
 } from "@/src/components/ReviewRequestModal";
 import { RoutineCard } from "@/src/components/RoutineCard";
-import { RoutineCelebration } from "@/src/components/RoutineCelebration";
 import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
 import { posthog } from "@/src/config/posthog";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -19,6 +18,7 @@ import {
 import * as routineService from "@/src/lib/routineService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
+import { useEggStore } from "@/src/store/eggStore";
 import { useProStore } from "@/src/store/proStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import type { Routine } from "@/src/types/routine";
@@ -44,14 +44,12 @@ import React, {
     useCallback,
     useEffect,
     useMemo,
-    useRef,
     useState,
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Alert,
     AppState,
-    DeviceEventEmitter,
     Platform,
     ScrollView,
     StyleSheet,
@@ -121,13 +119,7 @@ export default function RoutinesScreen({
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebratedRoutineName, setCelebratedRoutineName] = useState("");
-  const [earnedCoins, setEarnedCoins] = useState(100);
   const [showReviewModal, setShowReviewModal] = useState(false);
-
-  // Guardamos las monedas ganadas mientras los modales están abiertos
-  const pendingAnimationAmount = useRef(0);
 
   // Check if selected date is today
   const isToday = useMemo(() => {
@@ -289,6 +281,13 @@ export default function RoutinesScreen({
       const fetchedRoutines = await routineService.fetchRoutines(user.id);
 
       setRoutines(fetchedRoutines);
+
+      // Assign a free common egg to any existing routine that doesn't have one yet
+      // (migration for users who had the app before the egg system was introduced)
+      useEggStore
+        .getState()
+        .migrateEggsForRoutines(fetchedRoutines.map((r) => r.id));
+
       // Actualizar logro de cantidad de rutinas creadas
       onRoutinesCountChanged(fetchedRoutines.length);
       await rescheduleAllReminders(fetchedRoutines as any);
@@ -314,6 +313,7 @@ export default function RoutinesScreen({
       const success = await routineService.deleteRoutine(id, user.id);
 
       if (success) {
+        useEggStore.getState().freeEgg(id);
         setRoutines(routines.filter((r) => r.id !== id));
       } else {
         Alert.alert(
@@ -468,23 +468,9 @@ export default function RoutinesScreen({
 
       // Verificar si la rutina está completa
       if (allTasksComplete && completed) {
-        // Otorgar monedas solo si no se ha celebrado hoy
-        const result = await useAchievementsStore
-          .getState()
-          .awardRoutineCompletionCoins(routineId);
-
-        if (result.isNew) {
-          pendingAnimationAmount.current += result.earned;
-          const fullRoutine = routines.find((r) => r.id === routineId);
-          if (fullRoutine) {
-            setCelebratedRoutineName(fullRoutine.name);
-            setEarnedCoins(result.earned);
-            setShowCelebration(true);
-          }
-        }
-
         await routineService.markRoutineComplete(routineId, user.id);
         await recordRoutineCompletion(routineId);
+        useEggStore.getState().recordRoutineXp(routineId);
         // Actualizar logro de primera rutina completada
         achievementRoutineCompleted();
 
@@ -615,27 +601,10 @@ export default function RoutinesScreen({
         routine={selectedRoutine}
         colorIndex={selectedRoutineIndex}
         isReadOnly={!isToday}
-        onClose={() => {
-          setSelectedRoutine(null);
-          if (pendingAnimationAmount.current > 0) {
-            const amount = pendingAnimationAmount.current;
-            pendingAnimationAmount.current = 0;
-            setTimeout(() => {
-              DeviceEventEmitter.emit("triggerCoinAnimation", amount);
-            }, 300);
-          }
-        }}
+        onClose={() => setSelectedRoutine(null)}
         onTaskToggle={isToday ? handleTaskToggle : undefined}
         onDelete={handleDeleteRoutine}
         onEdit={handleEditRoutine}
-      />
-
-      {/* Celebration Modal */}
-      <RoutineCelebration
-        visible={showCelebration}
-        routineName={celebratedRoutineName}
-        earnedCoins={earnedCoins}
-        onClose={() => setShowCelebration(false)}
       />
 
       {/* Review Request Modal — shown every 5 days of streak after first routine completion */}

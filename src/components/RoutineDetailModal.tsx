@@ -14,29 +14,36 @@ import {
   Edit3,
   Trash2,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import Animated, {
   FadeInDown,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { ROUTINE_COLORS } from "@/constants/routineColors";
+import { useEggCatalog } from "@/src/hooks/useEggCatalog";
+import { EGG_MAX_XP, useEggStore } from "@/src/store/eggStore";
 
 // Internal data keys for days (stored in DB as Spanish abbrs)
 const DAYS_OF_WEEK = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -61,6 +68,16 @@ const JS_DAY_TO_INDEX: Record<number, number> = {
   5: 4,
   6: 5,
 };
+
+const CHEST_IMAGES = [
+  require("@/assets/images/pets/chest/1.png"),
+  require("@/assets/images/pets/chest/2.png"),
+  require("@/assets/images/pets/chest/3.png"),
+  require("@/assets/images/pets/chest/4.png"),
+  require("@/assets/images/pets/chest/5.png"),
+  require("@/assets/images/pets/chest/6.png"),
+  require("@/assets/images/pets/chest/7.png"),
+] as const;
 
 /**
  * Returns the next date (starting from tomorrow) when this routine is scheduled.
@@ -293,7 +310,11 @@ const TaskRow = ({
     >
       <TouchableOpacity
         onPress={handlePress}
-        style={[styles.taskRow, disabled && styles.taskRowDisabled]}
+        style={[
+          styles.taskRow,
+          task.completed ? styles.taskRowCompleted : styles.taskRowPending,
+          disabled && styles.taskRowDisabled,
+        ]}
         activeOpacity={disabled ? 1 : 0.8}
       >
         <Animated.View
@@ -375,6 +396,167 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   );
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
   const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
+  const { width: windowWidth } = useWindowDimensions();
+  const [carouselPage, setCarouselPage] = useState(0);
+  const carouselRef = useRef<ScrollView | null>(null);
+  const catalog = useEggCatalog();
+  const eggs = useEggStore((s) => s.eggs);
+  const eggData = routine
+    ? (eggs.find((e) => e.routineId === routine.id) ?? null)
+    : null;
+  // Always display an egg/pet image — prefer the actually assigned egg, fall back to colorIndex
+  const assignedEggMeta = eggData
+    ? (catalog.find((m) => m.id === eggData.id) ?? catalog[colorIndex % catalog.length])
+    : catalog[colorIndex % catalog.length];
+  const eggXp = eggData?.xp ?? 0;
+  const isEvolved = eggData?.evolved ?? false;
+  const petXp = eggData?.petXp ?? 0;
+  const petLevel = eggData?.petLevel ?? 0;
+  // Guard: if state is somehow corrupted (evolved=true but petLevel=0), treat as 1.
+  const safePetLevel = isEvolved && petLevel === 0 ? 1 : petLevel;
+  // Show cumulative XP against the current cumulative threshold in the UI.
+  const cumulativeXpTarget = safePetLevel * 30;
+  const canLevelUp = isEvolved && petXp >= safePetLevel * 30;
+  const chestImage = CHEST_IMAGES[Math.min(safePetLevel, CHEST_IMAGES.length) - 1] ?? CHEST_IMAGES[0];
+  const displayPetImage = isEvolved ? assignedEggMeta?.petImage : assignedEggMeta?.image;
+
+  // Egg hatching pulse: subtle scale bump + wobble rotation
+  const eggScale = useSharedValue(1);
+  const eggRotate = useSharedValue(0);
+  useEffect(() => {
+    if (isEvolved) {
+      // Stop the wobble when the egg has hatched
+      cancelAnimation(eggScale);
+      cancelAnimation(eggRotate);
+      eggScale.value = withTiming(1, { duration: 200 });
+      eggRotate.value = withTiming(0, { duration: 200 });
+      return;
+    }
+    eggScale.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1400 }),
+        withTiming(1.07, { duration: 220 }),
+        withTiming(0.97, { duration: 160 }),
+        withTiming(1.05, { duration: 180 }),
+        withTiming(1, { duration: 700 }),
+      ),
+      -1,
+      false,
+    );
+    eggRotate.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 1400 }),
+        withTiming(-2.5, { duration: 110 }),
+        withTiming(2.5, { duration: 160 }),
+        withTiming(-1.2, { duration: 110 }),
+        withTiming(0, { duration: 700 }),
+      ),
+      -1,
+      false,
+    );
+    return () => {
+      cancelAnimation(eggScale);
+      cancelAnimation(eggRotate);
+    };
+  }, [isEvolved]);
+  const eggAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: eggScale.value },
+      { rotate: `${eggRotate.value}deg` },
+    ],
+  }));
+
+  // Pet idle animation: a subtle floating motion after evolution.
+  const petScale = useSharedValue(1);
+  const petTranslateY = useSharedValue(0);
+  useEffect(() => {
+    if (!isEvolved) {
+      cancelAnimation(petScale);
+      cancelAnimation(petTranslateY);
+      petScale.value = withTiming(1, { duration: 200 });
+      petTranslateY.value = withTiming(0, { duration: 200 });
+      return;
+    }
+
+    petScale.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900 }),
+        withTiming(1.03, { duration: 1200 }),
+        withTiming(1, { duration: 1200 }),
+      ),
+      -1,
+      false,
+    );
+    petTranslateY.value = withRepeat(
+      withSequence(
+        withTiming(0, { duration: 900 }),
+        withTiming(-5, { duration: 1200 }),
+        withTiming(0, { duration: 1200 }),
+      ),
+      -1,
+      false,
+    );
+
+    return () => {
+      cancelAnimation(petScale);
+      cancelAnimation(petTranslateY);
+    };
+  }, [isEvolved]);
+  const petAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: petTranslateY.value },
+      { scale: petScale.value },
+    ],
+  }));
+
+  // Evolucionar button: pulse when ready, explode on press
+  const evolveButtonScale = useSharedValue(1);
+  const evolveAnimatingRef = useRef(false);
+  const evolveButtonReady = eggXp >= EGG_MAX_XP && !isEvolved;
+  useEffect(() => {
+    if (evolveButtonReady) {
+      evolveButtonScale.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 700 }),
+          withTiming(1.08, { duration: 350 }),
+          withTiming(1, { duration: 350 }),
+        ),
+        -1,
+        false,
+      );
+    } else if (!evolveAnimatingRef.current) {
+      cancelAnimation(evolveButtonScale);
+      evolveButtonScale.value = withTiming(1, { duration: 200 });
+    }
+    return () => cancelAnimation(evolveButtonScale);
+  }, [evolveButtonReady]);
+  const evolveButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: evolveButtonScale.value }],
+  }));
+
+  // Chest button: pulse when level-up is claimable
+  const chestScale = useSharedValue(1);
+  const chestAnimatingRef = useRef(false);
+  useEffect(() => {
+    if (canLevelUp) {
+      chestScale.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 500 }),
+          withTiming(1.18, { duration: 300 }),
+          withTiming(1, { duration: 300 }),
+        ),
+        -1,
+        false,
+      );
+    } else if (!chestAnimatingRef.current) {
+      cancelAnimation(chestScale);
+      chestScale.value = withTiming(1, { duration: 200 });
+    }
+    return () => cancelAnimation(chestScale);
+  }, [canLevelUp]);
+  const chestStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: chestScale.value }],
+  }));
 
   // Next scheduled day for read-only banner
   const nextRoutineDate =
@@ -425,6 +607,12 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     loadCompletionHistory();
   }, [routine?.id, visible, user, currentYear, currentMonth]);
 
+  useEffect(() => {
+    if (!visible) return;
+    setCarouselPage(0);
+    carouselRef.current?.scrollTo({ x: 0, animated: false });
+  }, [visible, routine?.id]);
+
   if (!routine) return null;
 
   // Cálculo de progreso
@@ -438,6 +626,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
 
     try {
       if (willBeCompleted) {
+        Haptics.selectionAsync();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } else {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -512,7 +701,13 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
         <View style={styles.container}>
           {/* Header con botón de volver */}
           <View
-            style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}
+            style={[
+              styles.header,
+              {
+                paddingTop: Math.max(insets.top + 12, 28),
+                paddingBottom: 18,
+              },
+            ]}
           >
             <Pressable onPress={onClose} style={styles.backButton}>
               <ChevronLeft size={24} color={colors.textPrimary} />
@@ -554,20 +749,296 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
             )}
             {/* Borde superior con gradiente */}
 
-            {/* Info Section */}
-            <View style={styles.infoSection}>
-              <View style={styles.headerLeft}>
-                <View
+            {/* Calendar / Egg Carousel */}
+            <View style={styles.carouselWrapper}>
+              <ScrollView
+                ref={carouselRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                onMomentumScrollEnd={(e) => {
+                  const page = Math.round(
+                    e.nativeEvent.contentOffset.x / windowWidth,
+                  );
+                  setCarouselPage(page);
+                }}
+              >
+                {/* Slide 1: Pet */}
+                <View style={[styles.carouselSlide, styles.eggSlide, { width: windowWidth }]}>
+
+                  <View style={styles.eggVisualStage}>
+                    <View
+                      style={isEvolved ? styles.petImageContainer : styles.eggImageContainer}
+                    >
+                      <Animated.Image
+                        source={displayPetImage}
+                        style={[
+                          isEvolved ? styles.petImage : styles.eggImage,
+                          isEvolved && petAnimatedStyle,
+                          !isEvolved && eggAnimatedStyle,
+                        ]}
+                        resizeMode="contain"
+                      />
+                      {petLevel > 0 && isEvolved && (
+                        <View style={styles.eggMedalBadge}>
+                          <Text style={styles.eggMedalText}>
+                            {t("routine_card.level", { level: safePetLevel })}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.eggXpSection}>
+                    {!isEvolved ? (
+                      /* ── Hatching nodes (pre-evolution) ── */
+                      <View style={styles.evolutionNodesRow}>
+                        {/* Node 1 */}
+                        <View
+                          style={[
+                            styles.evolutionNode,
+                            eggXp >= 1 && styles.evolutionNodeFilled,
+                          ]}
+                        />
+                        {/* Connector 1–2 */}
+                        <View
+                          style={[
+                            styles.evolutionLine,
+                            eggXp >= 2 && styles.evolutionLineFilled,
+                          ]}
+                        />
+                        {/* Node 2 */}
+                        <View
+                          style={[
+                            styles.evolutionNode,
+                            eggXp >= 2 && styles.evolutionNodeFilled,
+                          ]}
+                        />
+                        {/* Connector 2–3 */}
+                        <View
+                          style={[
+                            styles.evolutionLine,
+                            eggXp >= EGG_MAX_XP && styles.evolutionLineFilled,
+                          ]}
+                        />
+                        {/* Node 3 — Evolucionar button */}
+                        <Animated.View style={evolveButtonStyle}>
+                          <Pressable
+                            onPress={() => {
+                              if (eggData?.routineId) {
+                                evolveAnimatingRef.current = true;
+                                cancelAnimation(evolveButtonScale);
+                                evolveButtonScale.value = withSequence(
+                                  withTiming(0.88, { duration: 70 }),
+                                  withSpring(1.22, { damping: 6, stiffness: 280 }),
+                                  withSpring(1, { damping: 14, stiffness: 200 }),
+                                );
+                                setTimeout(() => { evolveAnimatingRef.current = false; }, 700);
+                                try {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                  Haptics.notificationAsync(
+                                    Haptics.NotificationFeedbackType.Success,
+                                  );
+                                } catch (e) {}
+                                useEggStore.getState().evolveEgg(eggData.routineId);
+                              }
+                            }}
+                            disabled={eggXp < EGG_MAX_XP}
+                            style={[
+                              styles.evolutionNodeFinal,
+                              eggXp >= EGG_MAX_XP && styles.evolutionNodeFinalReady,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.evolutionNodeFinalText,
+                                eggXp >= EGG_MAX_XP &&
+                                  styles.evolutionNodeFinalTextActive,
+                              ]}
+                            >
+                              evolucionar!
+                            </Text>
+                          </Pressable>
+                        </Animated.View>
+                      </View>
+                    ) : (
+                      /* ── Pet XP bar (post-evolution) ── */
+                      <View style={styles.petXpWrapper}>
+                        <View style={styles.petXpHeader}>
+                          <Text style={styles.petXpLabel}>XP</Text>
+                          <Text style={styles.petXpValue}>
+                            {petXp} / {cumulativeXpTarget}
+                          </Text>
+                        </View>
+                        <View style={styles.petXpBarRow}>
+                          <View style={styles.petXpBarTrack}>
+                            <View
+                              style={[
+                                styles.petXpBarFill,
+                                {
+                                  width: `${Math.min(
+                                    (petXp / cumulativeXpTarget) * 100,
+                                    100,
+                                  )}%`,
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Animated.View style={chestStyle}>
+                            <Pressable
+                              disabled={!canLevelUp}
+                              onPress={() => {
+                                if (eggData?.routineId && canLevelUp) {
+                                  chestAnimatingRef.current = true;
+                                  cancelAnimation(chestScale);
+                                  chestScale.value = withSequence(
+                                    withTiming(0.85, { duration: 60 }),
+                                    withSpring(1.25, { damping: 5, stiffness: 260 }),
+                                    withSpring(1, { damping: 14, stiffness: 200 }),
+                                  );
+                                  setTimeout(() => { chestAnimatingRef.current = false; }, 700);
+                                  useEggStore
+                                    .getState()
+                                    .claimPetLevelUp(eggData.routineId);
+                                  // Coins scale by chest level: 200 at L1, +150 per level, capped at L7 (1100)
+                                  const chestLevel = Math.min(safePetLevel, 7);
+                                  const coinsForLevel = (chestLevel - 1) * 150 + 200;
+                                  useAchievementsStore
+                                    .getState()
+                                    .addCoins(coinsForLevel);
+                                  try {
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                                    Haptics.notificationAsync(
+                                      Haptics.NotificationFeedbackType.Success,
+                                    );
+                                  } catch (e) {}
+                                }
+                              }}
+                              style={[
+                                styles.chestButton,
+                                canLevelUp && styles.chestButtonReady,
+                              ]}
+                            >
+                              <Image
+                                source={chestImage}
+                                style={styles.chestImage}
+                                resizeMode="contain"
+                              />
+                            </Pressable>
+                          </Animated.View>
+                        </View>
+                      </View>
+                    )}
+                    {__DEV__ && eggData && (
+                      <Pressable
+                        onPress={() => {
+                          useEggStore.setState((s) => ({
+                            eggs: s.eggs.map((e) =>
+                              e.routineId === eggData.routineId
+                                ? e.evolved
+                                  ? { ...e, petXp: e.petXp + 10 }
+                                  : {
+                                      ...e,
+                                      xp: e.xp >= EGG_MAX_XP ? 0 : e.xp + 1,
+                                      evolved: e.xp >= EGG_MAX_XP ? false : e.evolved,
+                                      petXp: e.xp >= EGG_MAX_XP ? 0 : e.petXp,
+                                      petLevel: e.xp >= EGG_MAX_XP ? 0 : e.petLevel,
+                                    }
+                                : e
+                            ),
+                          }));
+                        }}
+                        style={{
+                          marginTop: 8,
+                          alignSelf: "center",
+                          backgroundColor: "#ff6b00",
+                          paddingHorizontal: 14,
+                          paddingVertical: 5,
+                          borderRadius: 6,
+                        }}
+                      >
+                        <Text style={{ color: "#fff", fontSize: 11 }}>
+                          {isEvolved
+                            ? `[DEV] +10 petXP (${petXp} total, lv${petLevel})`
+                            : `[DEV] +XP (${eggXp}/${EGG_MAX_XP})`}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+
+                {/* Slide 2: History */}
+                <View style={[styles.carouselSlide, { width: windowWidth }]}>
+                  <Text style={styles.sectionTitleCalendar}>
+                    {format(
+                      new Date(currentYear, currentMonth, 1),
+                      "MMMM yyyy",
+                      { locale: dateLocale },
+                    )}
+                  </Text>
+                  <View style={styles.calendarHeader}>
+                    {DAYS_OF_WEEK.map((day) => (
+                      <View key={day} style={styles.dayHeaderCell}>
+                        <Text style={styles.dayHeaderText}>
+                          {t(DAY_DISPLAY_KEYS[day] ?? day)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.calendarGrid}>
+                    {calendarDays.map((day, index) => {
+                      if (day === null) {
+                        return <View key={index} style={styles.calendarCell} />;
+                      }
+                      return (
+                        <CalendarDay
+                          key={index}
+                          day={day}
+                          currentYear={currentYear}
+                          currentMonth={currentMonth}
+                          now={now}
+                          routine={routine}
+                          completedToday={completedToday}
+                          completionHistory={completionHistory}
+                        />
+                      );
+                    })}
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Carousel section labels */}
+              <View style={styles.carouselTabs}>
+                <Text
                   style={[
-                    styles.iconContainer,
-                    { backgroundColor: `${color}20` },
+                    styles.carouselTabLabel,
+                    carouselPage === 0 ? styles.carouselTabLabelActive : null,
                   ]}
                 >
-                  <Calendar size={22} color={color} />
-                </View>
-                <View style={styles.headerInfo}>
+                  pet
+                </Text>
+                <Text
+                  style={[
+                    styles.carouselTabLabel,
+                    carouselPage === 1 ? styles.carouselTabLabelActive : null,
+                  ]}
+                >
+                  history
+                </Text>
+              </View>
+            </View>
+
+            {/* Tasks List */}
+            <View style={styles.tasksSection}>
+              <View style={styles.tasksHeaderRow}>
+                <Text style={styles.sectionTitleTasks}>
+                  {t("routine_detail.tasks")}
+                </Text>
+                <View style={styles.tasksMetaBlock}>
                   <View style={styles.metaRow}>
-                    <Text style={styles.daysText}>{daysText}</Text>
+                    <Text style={styles.daysText} numberOfLines={1}>
+                      {daysText}
+                    </Text>
                     {routine.reminderEnabled && routine.reminderTime && (
                       <View style={styles.reminderBadge}>
                         <Bell size={10} color={colors.textSecondary} />
@@ -579,36 +1050,6 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                   </View>
                 </View>
               </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={styles.progressSection}>
-              <View style={styles.progressInfo}>
-                <Text style={styles.progressText}>
-                  {t("routine_detail.progress", {
-                    done: completedCount,
-                    total: tasks.length,
-                  })}
-                </Text>
-                <Text style={[styles.progressPercent, { color }]}>
-                  {Math.round(progressPercent)}%
-                </Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { backgroundColor: color, width: `${progressPercent}%` },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Tasks List */}
-            <View style={styles.tasksSection}>
-              <Text style={styles.sectionTitle}>
-                {t("routine_detail.tasks")}
-              </Text>
               {tasks.map((task, index) => (
                 <TaskRow
                   key={task.id}
@@ -619,48 +1060,6 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                   disabled={isReadOnly}
                 />
               ))}
-            </View>
-
-            {/* Calendar Section */}
-            <View style={styles.calendarSection}>
-              <Text style={styles.sectionTitle}>
-                {format(new Date(currentYear, currentMonth, 1), "MMMM yyyy", {
-                  locale: dateLocale,
-                })}
-              </Text>
-
-              {/* Days of week header */}
-              <View style={styles.calendarHeader}>
-                {DAYS_OF_WEEK.map((day) => (
-                  <View key={day} style={styles.dayHeaderCell}>
-                    <Text style={styles.dayHeaderText}>
-                      {t(DAY_DISPLAY_KEYS[day] ?? day)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Calendar grid */}
-              <View style={styles.calendarGrid}>
-                {calendarDays.map((day, index) => {
-                  if (day === null) {
-                    return <View key={index} style={styles.calendarCell} />;
-                  }
-
-                  return (
-                    <CalendarDay
-                      key={index}
-                      day={day}
-                      currentYear={currentYear}
-                      currentMonth={currentMonth}
-                      now={now}
-                      routine={routine}
-                      completedToday={completedToday}
-                      completionHistory={completionHistory}
-                    />
-                  );
-                })}
-              </View>
             </View>
           </ScrollView>
         </View>
@@ -689,27 +1088,37 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   backButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
     color: colors.textPrimary,
     flex: 1,
     textAlign: "center",
-    marginHorizontal: 12,
+    marginHorizontal: 16,
   },
   headerActions: {
     flexDirection: "row",
     gap: 8,
   },
   editIconButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(203, 166, 247, 0.1)",
     borderRadius: 12,
   },
   deleteIconButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "rgba(243, 139, 168, 0.1)",
     borderRadius: 12,
   },
@@ -723,36 +1132,18 @@ const styles = StyleSheet.create({
     height: 4,
     width: "100%",
   },
-  infoSection: {
-    padding: 20,
-    paddingBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  headerInfo: {
-    flex: 1,
-  },
   metaRow: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    justifyContent: "flex-end",
     gap: 8,
   },
   daysText: {
     fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: "500",
+    color: colors.surface,
+    fontFamily: "Jersey10",
+    flexShrink: 1,
   },
   reminderBadge: {
     flexDirection: "row",
@@ -766,7 +1157,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginLeft: 4,
-    fontWeight: "600",
   },
   progressSection: {
     paddingHorizontal: 20,
@@ -800,21 +1190,52 @@ const styles = StyleSheet.create({
   tasksSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+    paddingTop: 12,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.textPrimary,
+  tasksHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 16,
+    width: "100%",
+  },
+  tasksMetaBlock: {
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "65%",
+    marginLeft: 12,
+  },
+  sectionTitleCalendar: {
+    fontSize: 26,
+    fontFamily: "Jersey10",
+    color: colors.surface,
+    marginTop: 16,
+  },
+  sectionTitleTasks: {
+    fontSize: 32,
+      fontFamily: "Jersey10",
+    color: colors.textPrimary,
+    marginBottom: 0,
   },
   taskRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
     marginBottom: 8,
+    borderRadius: 12,
+  },
+  taskRowPending: {
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "transparent",
+  },
+  taskRowCompleted: {
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   taskRowDisabled: {
     opacity: 0.55,
@@ -856,7 +1277,8 @@ const styles = StyleSheet.create({
   dayHeaderText: {
     fontSize: 12,
     fontWeight: "600",
-    color: colors.textSecondary,
+    color: colors.surface,
+    opacity: 0.7,
   },
   calendarGrid: {
     flexDirection: "row",
@@ -869,15 +1291,17 @@ const styles = StyleSheet.create({
   },
   daySquare: {
     flex: 1,
-    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 0.5,
-    borderColor: colors.textSecondary,
+    borderColor: colors.textSecondary
   },
   daySquarePast: {
-    borderColor: "rgba(108, 112, 134, 0.4)",
-    backgroundColor: "rgba(108, 112, 134, 0.4)",
+    backgroundColor: "rgba(108, 112, 134, 0.0)",
+    borderColor: colors.surface,
+    opacity: 0.5,  
+    borderWidth: 1,
+    borderStyle: 'dotted',
   },
   daySquareScheduled: {
     backgroundColor: colors.textSecondary,
@@ -900,7 +1324,7 @@ const styles = StyleSheet.create({
   },
   dayNumberPast: {
     color: colors.textTertiary,
-    opacity: 0.6,
+    opacity: 0.3,
   },
   dayNumberScheduled: {
     color: colors.textTertiary,
@@ -939,5 +1363,256 @@ const styles = StyleSheet.create({
   readOnlyBannerDay: {
     fontWeight: "800",
     textTransform: "capitalize",
+  },
+  // Carousel
+  carouselWrapper: {
+    paddingBottom: 8,
+    overflow: "hidden",
+    backgroundColor: "#eff4ff",
+  },
+  carouselSlide: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  eggSlide: {
+    alignItems: "center",
+  },
+  eggVisualStage: {
+    width: "100%",
+    height: 280,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  eggImageContainer: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  petImageContainer: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  eggMedalBadge: {
+    position: "absolute",
+    top: 18,
+    left: 10,
+    backgroundColor: "#FFD700",
+    borderWidth: 2,
+    borderColor: "#000000",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  eggMedalText: {
+    fontSize: 22,
+    fontFamily: "Jersey10",
+    color: "#000000",
+    textAlign: "center",
+    letterSpacing: 2,
+  },
+  eggImage: {
+    width: 150,
+    height: 150,
+  },
+  petImage: {
+    width: 230,
+    height: 230,
+    top: 15,
+  },
+  eggXpSection: {
+    width: "80%",
+  },
+  eggXpInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center", 
+},
+  eggXpLabel: {
+    fontSize: 26,
+    color: colors.surface,
+    fontFamily: "Jersey10",
+  },
+  eggXpValue: {
+    fontSize: 24,
+    color: colors.surface,
+    fontFamily: "Jersey10",
+  },
+  eggXpBar: {
+    backgroundColor: "#ecece8",
+    borderWidth: 2,
+    borderColor: "#000000",
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  eggXpSegment: {
+    flex: 1,
+    height: 12,
+    backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#000000",
+  },
+  eggXpSegmentFilled: {
+    backgroundColor: "#FFD700",
+    borderColor: "#000000",
+  },
+  noEggText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+    paddingVertical: 40,
+  },
+  carouselTabs: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  carouselTabLabel: {
+    fontSize: 14,
+    fontFamily: "Jersey10",
+    color: colors.surface,
+    opacity: 0.45,
+  },
+  carouselTabLabelActive: {
+    opacity: 1,
+  },
+  evolutionNodesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginVertical: 12,
+  },
+  evolutionNode: {
+    width: 28,
+    height: 28,
+    borderWidth: 2,
+    borderColor: "#000000",
+    backgroundColor: "#FFF8E1",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+    borderRadius: 14,
+
+  },
+  evolutionNodeFilled: {
+    backgroundColor: "#FFD700",
+    borderRadius: 14,
+  },
+  evolutionLine: {
+    flex: 1,
+    height: 6,
+    backgroundColor: "#ecece8",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#000000",
+  },
+  evolutionLineFilled: {
+    backgroundColor: "#FFD700",
+  },
+  evolutionNodeFinal: {
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+    borderWidth: 2,
+    borderColor: "#000000",
+    backgroundColor: "#ecece8",
+    shadowColor: "#000000",
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+    borderRadius: 32,
+
+  },
+  evolutionNodeFinalReady: {
+    backgroundColor: "#FFD700",
+  },
+  evolutionNodeFinalDone: {
+    backgroundColor: "#a8e6cf",
+  },
+  evolutionNodeFinalText: {
+    fontSize: 16,
+    fontFamily: "Jersey10",
+    color: "#aaaaaa",
+  },
+  evolutionNodeFinalTextActive: {
+    color: "#000000",
+    fontSize: 18,
+  },
+  // ── Pet XP bar (post-evolution) ──────────────────────────────────
+  petXpWrapper: {
+    paddingHorizontal: 4,
+    gap: 6,
+  },
+  petXpHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  petXpLabel: {
+    fontFamily: "Jersey10",
+    fontSize: 14,
+    color: "#888",
+    letterSpacing: 1,
+  },
+  petXpValue: {
+    fontFamily: "Jersey10",
+    fontSize: 14,
+    color: "#555",
+  },
+  petXpBarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  petXpBarTrack: {
+    flex: 1,
+    height: 14,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 3,
+    borderWidth: 2,
+    borderColor: "#bbb",
+    overflow: "hidden",
+  },
+  petXpBarFill: {
+    height: "100%",
+    backgroundColor: "#FFD700",
+    borderRadius: 1,
+  },
+  chestButton: {
+    width: 36,
+    height: 36,
+    justifyContent: "center",
+    alignItems: "center",
+    opacity: 0.4,
+  },
+  chestButtonReady: {
+    opacity: 1,
+  },
+  chestImage: {
+    width: 36,
+    height: 36,
+    left: 4,
   },
 });
