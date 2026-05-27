@@ -772,7 +772,17 @@
     "tasks": "Tasks",
     "egg_title": "Your Egg",
     "egg_xp_label": "Experience",
-    "no_egg_assigned": "No egg assigned"
+    "no_egg_assigned": "No egg assigned",
+    "hatch": "HATCH",
+    "day_progress": "DAY {{current}}/{{total}}",
+    "hatch_hint": "Complete this routine for {{days}} days to hatch your egg.",
+    "pet_xp": "XP",
+    "pet_tab": "pet",
+    "history_tab": "history",
+    "reward_eyebrow": "LEVEL REWARD",
+    "reward_title": "CROWNS EARNED",
+    "reward_caption": "Your pet leveled up.\nEnjoy your new crowns.",
+    "reward_cta": "AWESOME"
   },
   "index_tab": {
     "write_task_first": "Write a task first",

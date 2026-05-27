@@ -771,7 +771,17 @@
     "tasks": "Tareas",
     "egg_title": "Tu Huevo",
     "egg_xp_label": "Experiencia",
-    "no_egg_assigned": "Sin huevo asignado"
+    "no_egg_assigned": "Sin huevo asignado",
+    "hatch": "ECLOSIONAR",
+    "day_progress": "DIA {{current}}/{{total}}",
+    "hatch_hint": "Completa esta rutina durante {{days}} días para que tu huevo eclosione.",
+    "pet_xp": "XP",
+    "pet_tab": "mascota",
+    "history_tab": "historial",
+    "reward_eyebrow": "RECOMPENSA DE NIVEL",
+    "reward_title": "CORONAS GANADAS",
+    "reward_caption": "¡Tu mascota subió de nivel!\nDisfruta tus nuevas coronas.",
+    "reward_cta": "GENIAL"
   },
   "index_tab": {
     "write_task_first": "Escribe una tarea primero",

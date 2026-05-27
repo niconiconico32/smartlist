@@ -14,6 +14,7 @@ import { StreakShieldModal } from "@/src/components/StreakShieldModal";
 import { WeeklyCalendar } from "@/src/components/WeeklyCalendar";
 import { useAuth } from "@/src/contexts/AuthContext";
 import * as routineService from "@/src/lib/routineService";
+import { scheduleRoutineReminders } from "@/src/lib/notificationService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
@@ -111,6 +112,8 @@ export default function SwipeableLayout() {
     trackWeeklyUsage,
     onReminderActivated,
   } = useAchievementsStore();
+  const activeBackground = useAchievementsStore((s) => s.activeBackground);
+  const activeBackgroundUri = useAchievementsStore((s) => s.activeBackgroundUri);
   const {
     streak: appStreak,
     history: appStreakHistory,
@@ -525,6 +528,11 @@ export default function SwipeableLayout() {
           onReminderActivated();
         }
 
+        // Schedule reminder immediately — this loadRoutines doesn't reschedule
+        if (newRoutine.reminderEnabled && newRoutine.reminderTime) {
+          await scheduleRoutineReminders(newRoutine as any);
+        }
+
         const daysText = routine.days
           .map((day) => t(DAY_ABBREV_TO_I18N_KEY[day] ?? day))
           .join(", ");
@@ -593,14 +601,13 @@ export default function SwipeableLayout() {
       )}
 
       <ImageBackground
-        source={(() => {
-          const s = useAchievementsStore.getState();
-          if (s.activeBackground && BG_IMAGES[s.activeBackground])
-            return BG_IMAGES[s.activeBackground];
-          if (s.activeBackground && s.activeBackgroundUri)
-            return { uri: s.activeBackgroundUri };
-          return DEFAULT_BG;
-        })()}
+        source={
+          activeBackground && BG_IMAGES[activeBackground]
+            ? BG_IMAGES[activeBackground]
+            : activeBackground && activeBackgroundUri
+              ? { uri: activeBackgroundUri }
+              : DEFAULT_BG
+        }
         style={[styles.fixedHeader, { paddingTop: insets.top }]}
       >
         {/*

@@ -142,6 +142,10 @@ async function syncToggleInBackground(
       await useRoutineStreakStore.getState().recordRoutineCompletion(routineId);
       useAchievementsStore.getState().onRoutineCompleted();
 
+      // Award XP to companion egg (same as in-app completion)
+      const { useEggStore } = await import("../store/eggStore");
+      useEggStore.getState().recordRoutineXp(routineId);
+
       // PostHog: track routine completion from widget
       try {
         const { posthog } = await import("../config/posthog");

@@ -5,12 +5,14 @@ import { SHOP_ITEMS, ShopItem } from '../config/shopItems';
 /**
  * useShopItems
  *
- * Devuelve el catálogo de la tienda mezclando items locales (bundleados)
- * con los que vengan de Supabase:
- *   - Items existentes: precio e isPro se actualizan desde Supabase.
- *   - Items nuevos (solo en Supabase): se añaden al final con imageUri.
+ * Devuelve el catálogo de la tienda en modo remote-first:
+ *   - Si hay datos remotos activos, la lista visible sale de Supabase.
+ *   - Para IDs conocidos localmente, se usa el item local como base/fallback
+ *     y se pisan campos remotos (name, price, isPro, type, image_url, sort_order).
+ *   - Para IDs nuevos remotos, se construye el item con imageUri.
  *
- * Falla en silencio: si no hay conexión, se muestran solo los items locales.
+ * Fallback offline: si no hay conexión o no hay datos remotos, se muestran
+ * los items locales bundleados.
  */
 export function useShopItems(): ShopItem[] {
   const [items, setItems] = useState<ShopItem[]>(SHOP_ITEMS);
@@ -24,33 +26,40 @@ export function useShopItems(): ShopItem[] {
       .then(({ data }) => {
         if (!data?.length) return;
 
-        const localIds = new Set(SHOP_ITEMS.map((i) => i.id));
+        const localById = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
 
-        // Actualizar precio e isPro en items locales existentes
-        const updated = SHOP_ITEMS.map((local) => {
-          const remote = data.find((r) => r.id === local.id);
-          if (!remote) return local;
-          return {
-            ...local,
-            price: remote.price,
-            isPro: remote.is_pro ?? local.isPro,
-          };
-        });
+        // Remote-first: la UI se controla por los rows activos en Supabase.
+        const remoteDriven = data
+          .map((remote) => {
+            const local = localById.get(remote.id);
 
-        // Agregar items nuevos que solo existen en Supabase
-        const remoteOnly = data
-          .filter((r) => !localIds.has(r.id) && r.image_url)
-          .map((r) => ({
-            id: r.id,
-            name: r.name,
-            price: r.price,
-            isPro: r.is_pro ?? false,
-            type: r.type as 'background' | 'outfit',
-            imageUri: r.image_url as string,
-            sort_order: r.sort_order,
-          }));
+            if (local) {
+              return {
+                ...local,
+                name: remote.name ?? local.name,
+                price: remote.price ?? local.price,
+                isPro: remote.is_pro ?? local.isPro,
+                type: (remote.type as 'background' | 'outfit') ?? local.type,
+                imageUri: remote.image_url ?? local.imageUri,
+                sort_order: remote.sort_order ?? local.sort_order,
+              };
+            }
 
-        setItems([...updated, ...remoteOnly]);
+            if (!remote.image_url) return null;
+
+            return {
+              id: remote.id,
+              name: remote.name,
+              price: remote.price,
+              isPro: remote.is_pro ?? false,
+              type: remote.type as 'background' | 'outfit',
+              imageUri: remote.image_url,
+              sort_order: remote.sort_order,
+            };
+          })
+          .filter((item): item is ShopItem => item !== null);
+
+        setItems(remoteDriven);
       })
       .catch(() => {
         // Fail open: mantener items locales

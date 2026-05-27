@@ -74,12 +74,10 @@ export function FocusHeroCard({
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const {
-    activeBackground,
-    activeBackgroundUri,
-    activeOutfit,
-    activeOutfitUri,
-  } = useAchievementsStore();
+  const activeBackground = useAchievementsStore((s) => s.activeBackground);
+  const activeBackgroundUri = useAchievementsStore((s) => s.activeBackgroundUri);
+  const activeOutfit = useAchievementsStore((s) => s.activeOutfit);
+  const activeOutfitUri = useAchievementsStore((s) => s.activeOutfitUri);
 
   // Resolve background image source
   const bgSource =

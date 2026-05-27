@@ -1,9 +1,11 @@
 import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
+import { PaywallModal } from "@/src/components/PaywallModal";
 import { useEggCatalog } from "@/src/hooks/useEggCatalog";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { EggId, useEggStore } from "@/src/store/eggStore";
+import { useProStore } from "@/src/store/proStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -105,6 +107,8 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
   const storeEggs = useEggStore((s) => s.eggs);
   const totalCoins = useAchievementsStore((s) => s.totalCoins);
   const spendCoins = useAchievementsStore((s) => s.spendCoins);
+  const isPro = useProStore((s) => s.isPro);
+  const [showPaywall, setShowPaywall] = useState(false);
   const insets = useSafeAreaInsets();
 
   // Cargar datos de la rutina cuando cambia
@@ -606,6 +610,12 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                     setSelectedEggId(isSelected ? null : (meta.id as EggId));
                     triggerHaptic("selection");
                   } else if (!isUnlocked) {
+                    const requiresPro = meta.rarity !== "common";
+                    if (requiresPro && !isPro) {
+                      setShowPaywall(true);
+                      return;
+                    }
+
                     const canAfford = totalCoins >= meta.cost;
                     Alert.alert(
                       meta.name,
@@ -652,14 +662,14 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
                 <Image source={displayImage} style={styles.eggCardImage} />
 
-                <Text style={styles.eggCardName} numberOfLines={2}>
-                  {meta.name}
-                </Text>
+  
 
                 {!isUnlocked && (
                   <View style={styles.eggCardLockBadge}>
                     <Text style={styles.eggCardLockText}>
-                      🔒 {meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}
+                      {meta.rarity !== "common" && !isPro
+                        ? "PRO"
+                        : `🔒 ${meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}`}
                     </Text>
                   </View>
                 )}
@@ -766,6 +776,11 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        source="egg_picker"
+      />
     </Modal>
   );
 };
@@ -1013,8 +1028,8 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   eggCardImage: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
     resizeMode: "contain",
   },
   eggCardName: {
@@ -1047,7 +1062,7 @@ const styles = StyleSheet.create({
   },
   eggCardLockText: {
     fontSize: 9,
-    color: "#9CA3AF",
+    color: "#ffffff",
     fontWeight: "700",
   },
   eggCardInUseBadge: {

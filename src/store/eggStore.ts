@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { getLocalDateKey } from "@/src/utils/dateHelpers";
+import { useProStore } from "@/src/store/proStore";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -185,7 +186,7 @@ export const useEggStore = create<EggStore>()(
         set((state) => ({
           eggs: state.eggs.map((e) =>
             e.routineId === routineId
-              ? { ...e, routineId: null, lastXpDate: null }
+              ? { ...e, routineId: null } // lastXpDate preserved — prevents same-day XP re-award
               : e,
           ),
         })),
@@ -208,11 +209,19 @@ export const useEggStore = create<EggStore>()(
       },
 
       unlockEgg: (eggId) =>
-        set((state) => ({
-          eggs: state.eggs.map((e) =>
-            e.id === eggId ? { ...e, unlocked: true } : e,
-          ),
-        })),
+        set((state) => {
+          const meta = EGG_METADATA.find((m) => m.id === eggId);
+          const isProOnlyEgg = meta ? meta.rarity !== "common" : false;
+          const canUnlock = !isProOnlyEgg || useProStore.getState().isPro;
+
+          if (!canUnlock) return state;
+
+          return {
+            eggs: state.eggs.map((e) =>
+              e.id === eggId ? { ...e, unlocked: true } : e,
+            ),
+          };
+        }),
 
       getEggForRoutine: (routineId) =>
         get().eggs.find((e) => e.routineId === routineId) ?? null,

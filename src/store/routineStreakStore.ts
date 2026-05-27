@@ -1,4 +1,5 @@
 import {
+  getLocalDateKey,
   getLocalTodayDateKey,
   isLocalToday,
   isLocalYesterday,
@@ -126,7 +127,9 @@ export const useRoutineStreakStore = create<RoutineStreakStore>((set, get) => ({
         
         const dateObj = new Date();
         dateObj.setDate(dateObj.getDate() - 1);
-        const yesterdayStr = dateObj.toISOString().split('T')[0];
+        // Use getLocalDateKey to respect the device's local timezone
+        // instead of toISOString() which always returns UTC
+        const yesterdayStr = getLocalDateKey(dateObj);
 
         const newStreaks = {
           ...streaks,

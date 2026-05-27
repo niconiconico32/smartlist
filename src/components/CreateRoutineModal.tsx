@@ -37,6 +37,8 @@ import {
     useEggStore,
 } from "@/src/store/eggStore";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
+import { PaywallModal } from "@/src/components/PaywallModal";
+import { useProStore } from "@/src/store/proStore";
 
 interface Task {
   id: string;
@@ -117,6 +119,8 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
   const availableEggs = storeEggs.filter((e) => e.unlocked && !e.routineId);
   const totalCoins = useAchievementsStore((s) => s.totalCoins);
   const spendCoins = useAchievementsStore((s) => s.spendCoins);
+  const isPro = useProStore((s) => s.isPro);
+  const [showPaywall, setShowPaywall] = useState(false);
   const insets = useSafeAreaInsets();
 
   const triggerHaptic = (style: "light" | "medium" | "selection" = "light") => {
@@ -564,6 +568,12 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
                     setSelectedEggId(meta.id as EggId);
                     triggerHaptic("selection");
                   } else if (!isUnlocked) {
+                    const requiresPro = meta.rarity !== "common";
+                    if (requiresPro && !isPro) {
+                      setShowPaywall(true);
+                      return;
+                    }
+
                     const canAfford = totalCoins >= meta.cost;
                     Alert.alert(
                       meta.name,
@@ -617,7 +627,9 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
                 {!isUnlocked && (
                   <View style={styles.eggCardLockBadge}>
                     <Text style={styles.eggCardLockText}>
-                      🔒 {meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}
+                      {meta.rarity !== "common" && !isPro
+                        ? "PRO"
+                        : `🔒 ${meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}`}
                     </Text>
                   </View>
                 )}
@@ -712,6 +724,11 @@ export const CreateRoutineModal: React.FC<CreateRoutineModalProps> = ({
           </View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        source="egg_picker"
+      />
     </Modal>
   );
 };

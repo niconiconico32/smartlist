@@ -115,13 +115,13 @@ export async function scheduleRoutineReminders(
   routine: Routine,
 ): Promise<void> {
   try {
+    // Cancelar siempre antes del guard — cubre el caso de deshabilitar un recordatorio
+    await cancelRoutineReminders(routine.id);
+
     // Si no tiene recordatorio habilitado, no hacer nada
     if (!routine.reminderEnabled || !routine.reminderTime) {
       return;
     }
-
-    // Primero cancelar las notificaciones existentes de esta rutina
-    await cancelRoutineReminders(routine.id);
 
     // Parsear la hora del recordatorio
     const [hours, minutes] = routine.reminderTime.split(":").map(Number);

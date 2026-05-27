@@ -178,9 +178,12 @@ export default function RoutinesScreen({
           activeBackgroundUri ?? "",
         );
 
-        // Persist bg mode so the widget knows whether to use image or gradient
-        const bgModeValue = activeBackground ? "user" : "user";
-        await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, bgModeValue);
+        // Only force "user" mode when the user has an active background.
+        // If no background is set, preserve whatever mode the user last
+        // selected via the widget's cycle button.
+        if (activeBackground || activeBackgroundUri) {
+          await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, "user");
+        }
 
         // Persist Pro status so the widget can show/hide content
         await AsyncStorage.setItem(WIDGET_PRO_KEY, isPro ? "true" : "false");
@@ -314,7 +317,7 @@ export default function RoutinesScreen({
 
       if (success) {
         useEggStore.getState().freeEgg(id);
-        setRoutines(routines.filter((r) => r.id !== id));
+        setRoutines((prev) => prev.filter((r) => r.id !== id));
       } else {
         Alert.alert(
           t("routines_alerts.error_title"),
@@ -374,13 +377,23 @@ export default function RoutinesScreen({
       );
 
       if (result) {
+        // updateRoutine returns completed: false for all tasks — reapply today's completions
+        const currentRoutine = routines.find((r) => r.id === result.id);
+        const completedIds = new Set(
+          (currentRoutine?.tasks ?? []).filter((t) => t.completed).map((t) => t.id),
+        );
+        const resultWithCompletions = {
+          ...result,
+          tasks: result.tasks.map((t) => ({ ...t, completed: completedIds.has(t.id) })),
+        };
+
         // Actualizar estado local
         setRoutines((prev) =>
-          prev.map((r) => (r.id === result.id ? result : r)),
+          prev.map((r) => (r.id === resultWithCompletions.id ? resultWithCompletions : r)),
         );
 
         // Reprogramar notificaciones
-        await scheduleRoutineReminders(result as any);
+        await scheduleRoutineReminders(resultWithCompletions as any);
 
         // Achievement: edited routine (name/icon change + old routine check)
         onRoutineEdited(originalRoutine?.created_at, nameChanged, iconChanged);
@@ -419,22 +432,21 @@ export default function RoutinesScreen({
     if (!user) return;
 
     try {
-      // Actualizar estado local INMEDIATAMENTE con functional update
-      // para evitar race conditions cuando se marcan varias tareas rápido
-      let allTasksComplete = false;
-      setRoutines((prev) => {
-        const updated = prev.map((r) => {
-          if (r.id === routineId) {
-            const newTasks = r.tasks.map((t) =>
-              t.id === taskId ? { ...t, completed } : t,
-            );
-            allTasksComplete = newTasks.every((t) => t.completed);
-            return { ...r, tasks: newTasks };
-          }
-          return r;
-        });
-        return updated;
-      });
+      // Compute from current state snapshot — avoids the race where setRoutines
+      // callback runs asynchronously and allTasksComplete would still be false
+      const routineSnapshot = routines.find((r) => r.id === routineId);
+      const updatedTasks = (routineSnapshot?.tasks ?? []).map((t) =>
+        t.id === taskId ? { ...t, completed } : t,
+      );
+      const allTasksComplete =
+        completed && updatedTasks.every((t) => t.completed);
+
+      // Actualizar estado local INMEDIATAMENTE
+      setRoutines((prev) =>
+        prev.map((r) =>
+          r.id === routineId ? { ...r, tasks: updatedTasks } : r,
+        ),
+      );
 
       // Actualizar en Supabase (en background, no bloquea UI)
       const success = await routineService.updateTaskCompletion(
