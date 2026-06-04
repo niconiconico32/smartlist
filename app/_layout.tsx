@@ -2,17 +2,17 @@ import { posthog } from "@/src/config/posthog";
 import { Jersey10_400Regular } from "@expo-google-fonts/jersey-10";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
-    Stack,
-    useGlobalSearchParams,
-    usePathname,
-    useRouter,
-    useSegments,
+  Stack,
+  useGlobalSearchParams,
+  usePathname,
+  useRouter,
+  useSegments,
 } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { PostHogProvider } from "posthog-react-native";
@@ -31,6 +31,9 @@ import { checkForceUpdate, checkOTAUpdate } from "@/src/services/updateService";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
 import { useProStore } from "@/src/store/proStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
+import { isPremiumActive } from "@/src/utils/purchases";
+import { AppState } from "react-native";
+import Purchases from "react-native-purchases";
 
 // Suprimir warning de expo-notifications - las notificaciones funcionan en development build
 LogBox.ignoreLogs([
@@ -48,8 +51,8 @@ interface ForceUpdateInfo {
 }
 
 export {
-    // Catch any errors thrown by the Layout component.
-    ErrorBoundary
+  // Catch any errors thrown by the Layout component.
+  ErrorBoundary
 } from "expo-router";
 
 export const unstable_settings = {
@@ -181,6 +184,7 @@ function RootLayoutNav() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const previousPathname = useRef<string | undefined>(undefined);
+  const appStateRef = useRef(AppState.currentState);
 
   // Manual screen tracking for Expo Router
   useEffect(() => {
@@ -192,6 +196,67 @@ function RootLayoutNav() {
       previousPathname.current = pathname;
     }
   }, [pathname, params]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const setProStatus = async (isProActive: boolean) => {
+      const { activatePermanentPro, cancelPermanentPro } =
+        useProStore.getState();
+
+      if (isProActive) {
+        await activatePermanentPro();
+      } else {
+        await cancelPermanentPro();
+      }
+    };
+
+    const applyCustomerInfo = async (customerInfo: any) => {
+      const isProActive = isPremiumActive(customerInfo);
+
+      if (!isActive) return;
+
+      await setProStatus(isProActive);
+    };
+
+    const syncCustomerInfo = async () => {
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        await applyCustomerInfo(customerInfo);
+      } catch (error) {
+        console.warn("[RevenueCat] getCustomerInfo failed", error);
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (nextAppState) => {
+        const previousAppState = appStateRef.current;
+        appStateRef.current = nextAppState;
+
+        if (
+          (previousAppState === "background" ||
+            previousAppState === "inactive") &&
+          nextAppState === "active"
+        ) {
+          void syncCustomerInfo();
+        }
+      },
+    );
+
+    const customerInfoListener = (customerInfo: any) => {
+      void applyCustomerInfo(customerInfo);
+    };
+
+    Purchases.addCustomerInfoUpdateListener(customerInfoListener);
+    void syncCustomerInfo();
+
+    return () => {
+      isActive = false;
+      appStateSubscription.remove();
+      Purchases.removeCustomerInfoUpdateListener(customerInfoListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (isLoading) return; // Wait until auth state is resolved

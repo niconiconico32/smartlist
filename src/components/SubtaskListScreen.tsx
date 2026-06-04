@@ -1,8 +1,8 @@
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
 } from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
@@ -10,52 +10,55 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import {
-    Check,
-    Clock,
-    GripVertical,
-    Play,
-    Plus,
-    Sparkles,
-    Trash2,
-    X,
+  Check,
+  ChevronLeft,
+  Clock,
+  GripVertical,
+  Play,
+  Plus,
+  Trash2,
 } from "lucide-react-native";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Dimensions,
-    FlatList,
-    Keyboard,
-    LayoutAnimation,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    UIManager,
-    View,
+  Dimensions,
+  FlatList,
+  Keyboard,
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  UIManager,
+  View,
 } from "react-native";
 import DraggableFlatList, {
-    RenderItemParams,
-    ScaleDecorator,
+  RenderItemParams,
+  ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
-    FadeIn,
-    Layout,
-    SlideInRight,
-    useAnimatedKeyboard,
-    useAnimatedStyle,
-    useSharedValue,
-    withSequence,
-    withSpring,
-    withTiming,
+  FadeIn,
+  Layout,
+  SlideInRight,
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 // Enable LayoutAnimation for Android
 if (
@@ -100,21 +103,8 @@ function ExpandedGradientOrb() {
         animStyle,
       ]}
     >
-      <LinearGradient
-        colors={[
-          "rgba(139, 92, 246, 0.55)",
-          "rgba(99, 102, 241, 0.35)",
-          "rgba(168, 85, 247, 0.12)",
-          "transparent",
-        ]}
-        style={{ flex: 1 }}
-        start={{ x: 0.5, y: 0.5 }}
-        end={{ x: 1, y: 1 }}
-        locations={[0, 0.35, 0.65, 1]}
-      />
       <BlurView
         intensity={60}
-        tint="light"
         style={{
           ...StyleSheet.absoluteFillObject,
           borderRadius: ORB_SIZE / 2,
@@ -175,6 +165,10 @@ export function SubtaskListScreen({
   makePrimaryAddToList = false,
   primaryActionLabel,
 }: SubtaskListScreenProps) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top + 12, 28);
+  const bottomInset = Math.max(insets.bottom, 16);
   const [subtasks, setSubtasks] = useState<Subtask[]>(initialSubtasks);
   const [localTitle, setLocalTitle] = useState(taskTitle);
   const [localEmoji, setLocalEmoji] = useState(taskEmoji);
@@ -393,7 +387,7 @@ export function SubtaskListScreen({
                 disabled={isItemEditing}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <GripVertical size={18} color={colors.textSecondary} />
+                <GripVertical size={18} color={colors.surface} />
               </Pressable>
 
               <View style={styles.cardContent}>
@@ -416,7 +410,7 @@ export function SubtaskListScreen({
                     onChangeText={(text) => {
                       transientTitleRef.current[item.id] = text;
                     }}
-                    placeholder="Tarea vacía"
+                    placeholder={t("subtask_list.empty_task")}
                     placeholderTextColor={colors.textSecondary + "80"}
                     autoFocus
                     multiline={false}
@@ -466,7 +460,7 @@ export function SubtaskListScreen({
                           !item.title && styles.taskItemTextEmpty,
                         ]}
                       >
-                        {item.title || "Tarea vacía"}
+                        {item.title || t("subtask_list.empty_task")}
                       </Text>
                     </Pressable>
                   </ScrollView>
@@ -474,7 +468,7 @@ export function SubtaskListScreen({
 
                 <View style={styles.cardMeta}>
                   <View style={styles.durationBadge}>
-                    <Clock size={12} color={colors.primary} />
+                    <Clock size={12} color={colors.background} />
                     {editingDurationId === item.id ? (
                       <TextInput
                         defaultValue={
@@ -533,7 +527,9 @@ export function SubtaskListScreen({
                         </Text>
                       </Pressable>
                     )}
-                    <Text style={styles.cardDurationLabel}>min</Text>
+                    <Text style={styles.cardDurationLabel}>
+                      {t("subtask_list.minute_abbr")}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -555,15 +551,11 @@ export function SubtaskListScreen({
                 disabled={isDragging && !isItemEditing}
               >
                 {isItemEditing ? (
-                  <Check size={18} color={colors.primary} strokeWidth={3} />
+                  <Check size={18} color={colors.background} strokeWidth={3} />
                 ) : (
                   <Trash2
                     size={16}
-                    color={
-                      isDragging
-                        ? colors.textSecondary + "40"
-                        : colors.textSecondary
-                    }
+                    color={isDragging ? colors.surface + "40" : colors.danger}
                   />
                 )}
               </Pressable>
@@ -597,10 +589,7 @@ export function SubtaskListScreen({
           style={styles.footer}
         >
           <View style={styles.tipContainer}>
-            <Sparkles size={14} color={colors.primary} />
-            <Text style={styles.tipText}>
-              Mantén presionado y arrastra para reordenar
-            </Text>
+            <Text style={styles.tipText}>{t("subtask_list.subtitle")}</Text>
           </View>
         </Animated.View>
         <Animated.View style={footerSpacerStyle} />
@@ -611,15 +600,25 @@ export function SubtaskListScreen({
 
   return (
     <GestureHandlerRootView style={[styles.container]}>
-      <ExpandedGradientOrb />
-      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
         <Animated.View
           entering={FadeIn.duration(200)}
-          style={styles.closeButtonContainer}
+          style={[
+            styles.headerBar,
+            { paddingTop: topInset, paddingBottom: 18 },
+          ]}
         >
-          <Pressable onPress={onClose} style={styles.closeButton}>
-            <X size={24} color={colors.textPrimary} />
+          <Pressable onPress={onClose} style={styles.backButton}>
+            <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
+          <Text style={styles.headerTitle}>{t("subtask_list.list_title")}</Text>
+          <View style={styles.headerActions}>
+            {isEditing && onDeleteTask && (
+              <Pressable onPress={handleDeleteTask} style={styles.headerEmoji}>
+                <Trash2 size={18} color={colors.danger} />
+              </Pressable>
+            )}
+          </View>
         </Animated.View>
 
         <View style={{ flex: 1 }}>
@@ -673,7 +672,16 @@ export function SubtaskListScreen({
         </View>
       </SafeAreaView>
 
-      <SafeAreaView edges={["bottom"]} style={styles.bottomSafeArea}>
+      <Animated.View entering={FadeIn.delay(120).duration(300)}>
+        <View>
+          <Text style={styles.tipText}>{t("subtask_list.edit_hint")}</Text>
+        </View>
+      </Animated.View>
+
+      <SafeAreaView
+        edges={[]}
+        style={[styles.bottomSafeArea, { paddingBottom: bottomInset }]}
+      >
         <Animated.View
           entering={FadeIn.duration(300)}
           style={[styles.buttonsContainer, buttonsContainerAnimatedStyle]}
@@ -697,7 +705,7 @@ export function SubtaskListScreen({
               >
                 <Plus size={20} color="#1E1E2E" style={{ marginRight: 8 }} />
                 <Text style={styles.createButtonText}>
-                  {primaryActionLabel || "Agregar a Inicio"}
+                  {primaryActionLabel || t("subtask_list.primary_add_to_home")}
                 </Text>
               </LinearGradient>
             </AnimatedPressable>
@@ -720,7 +728,9 @@ export function SubtaskListScreen({
                     fill="#1E1E2E"
                     style={{ marginRight: 8 }}
                   />
-                  <Text style={styles.createButtonText}>Comenzar Tarea</Text>
+                  <Text style={styles.createButtonText}>
+                    {t("subtask_list.primary_start")}
+                  </Text>
                 </LinearGradient>
               </AnimatedPressable>
 
@@ -732,22 +742,12 @@ export function SubtaskListScreen({
                   <Plus size={18} color={colors.textSecondary} />
                   <Text style={styles.addToListButtonText}>
                     {isEditing
-                      ? "Guardar Cambios"
-                      : "Agregar a Lista de Tareas"}
+                      ? t("subtask_list.primary_save_changes")
+                      : t("subtask_list.primary_add_to_list")}
                   </Text>
                 </Pressable>
               )}
             </>
-          )}
-
-          {isEditing && onDeleteTask && (
-            <Pressable
-              onPress={handleDeleteTask}
-              style={styles.deleteTaskButton}
-            >
-              <Trash2 size={18} color="#ef4444" />
-              <Text style={styles.deleteTaskButtonText}>Eliminar Tarea</Text>
-            </Pressable>
           )}
         </Animated.View>
       </SafeAreaView>
@@ -758,19 +758,53 @@ export function SubtaskListScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: "#f8f9ff", // Fondo claro para resaltar el contenido
   },
   safeArea: {
     flex: 1,
   },
-  closeButtonContainer: {
-    position: "absolute",
-    top: 17,
-    right: 20,
+  headerBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
     zIndex: 100,
   },
-  closeButton: {
-    padding: 3,
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 40,
+    justifyContent: "flex-end",
+  },
+  headerTitle: {
+    fontSize: 24,
+    color: colors.textPrimary,
+    fontFamily: "Jersey10",
+    flex: 1,
+    textAlign: "center",
+    marginHorizontal: 16,
+  },
+  headerEmoji: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(243, 139, 168, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerEmojiText: {
+    fontSize: 14,
+    color: "#F38BA8",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -785,18 +819,18 @@ const styles = StyleSheet.create({
   taskTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
+    textAlign: "center",
     gap: 12,
-    marginBottom: 24,
   },
   taskEmoji: {
     fontSize: 22,
     paddingLeft: 4,
   },
   taskTitle: {
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 32,
     flex: 1,
-    color: colors.textPrimary,
+    color: colors.background,
+    fontFamily: "Jersey10",
   },
   footer: {
     paddingTop: 8,
@@ -808,11 +842,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     marginTop: 20,
+    color: colors.background,
   },
   tipText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.surface + "80",
     fontStyle: "italic",
+    textAlign: "center",
   },
   itemContainer: {
     flexDirection: "column",
@@ -833,18 +869,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#7663F2",
-    borderRadius: 28,
     paddingHorizontal: 6,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: colors.primary + "20",
+    borderColor: colors.surface,
+    borderStyle: "dashed",
   },
   taskItemDragging: {
-    backgroundColor: colors.surfaceHighlight,
-    borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
+    backgroundColor: colors.surface + "20",
+    borderColor: colors.background,
+    shadowColor: colors.surface,
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
@@ -852,6 +886,7 @@ const styles = StyleSheet.create({
   dragHandle: {
     padding: 4,
     marginLeft: 4,
+    color: colors.surface,
   },
   cardContent: {
     flex: 1,
@@ -860,7 +895,7 @@ const styles = StyleSheet.create({
   taskItemText: {
     fontSize: 13,
     fontWeight: "500",
-    color: colors.textPrimary,
+    color: colors.surface,
     marginBottom: 2,
     padding: 0,
   },
@@ -880,7 +915,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: colors.primary + "15",
+    backgroundColor: colors.background + "15",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
@@ -888,7 +923,7 @@ const styles = StyleSheet.create({
   cardDurationInput: {
     fontSize: 11,
     fontWeight: "600",
-    color: colors.textSecondary,
+    color: colors.background,
     padding: 0,
     margin: 0,
     minWidth: 15,
@@ -897,7 +932,7 @@ const styles = StyleSheet.create({
   cardDurationLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: colors.textSecondary,
+    color: colors.surface,
   },
   actionIcon: {
     padding: 6,
@@ -958,29 +993,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: colors.textRoutineCard + "30",
+    borderStyle: "dashed",
   },
   addToListButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: colors.textSecondary,
-  },
-  deleteTaskButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    marginTop: 10,
-    borderRadius: 32,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  deleteTaskButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ef4444",
+    color: colors.background,
   },
 });
 

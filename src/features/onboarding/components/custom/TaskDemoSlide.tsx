@@ -1,15 +1,15 @@
 import {
-  PRIMARY_GRADIENT_COLORS,
-  primaryButtonGradient,
-  primaryButtonStyles,
-  primaryButtonText,
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
 } from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { supabase } from "@/src/lib/supabase";
 import {
-  fetchActivitiesFromCloud,
-  syncActivitiesToCloud,
+    fetchActivitiesFromCloud,
+    syncActivitiesToCloud,
 } from "@/src/lib/syncService";
 import { getLocalDateKey } from "@/src/utils/dateHelpers";
 import * as Haptics from "expo-haptics";
@@ -18,14 +18,14 @@ import { Sparkles } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { TASK_SUGGESTIONS } from "../../constants";
@@ -84,8 +84,12 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
     setIsGenerating(true);
 
     try {
+      const loc = await import("expo-localization");
+      const deviceLocale = loc.getLocales?.()[0]?.languageCode ?? "en";
+      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+
       const { data, error } = await supabase.functions.invoke("divide-task", {
-        body: { task: text, locale: i18n?.language ?? "en" },
+        body: { task: text, locale: localeToUse },
       });
 
       if (error) {

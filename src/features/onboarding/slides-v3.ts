@@ -26,7 +26,9 @@ import type { SlideConfig } from './types';
  * 18  testimonial (social proof)
  * 19  notifications (permission request)
  * 20  premium-benefits (feature list)
- * 21  paywall (trial CTA — final)
+ * 21  paywall (trial CTA)
+ * 22  trial reminder
+ * 23  commitment
  */
 export const SLIDES_V3: SlideConfig[] = [
   // === 0: Welcome ===
@@ -282,13 +284,21 @@ export const SLIDES_V3: SlideConfig[] = [
   },
 // === 19: Routine Picker ===
   {
-    type: 'routine-picker',
-    id: 'routine-picker',
+    type: 'onboarding-routine-egg-flow',
+    id: 'routine-egg-flow',
     answerKey: null,
     showNavButton: false,
     backgroundColor: '#f2f2f2',
   },
-  // === 18: All Done ===
+
+  // === 18: Testimonial ===
+  {
+    type: 'testimonial',
+    id: 'testimonial',
+    answerKey: null,
+    showNavButton: false,
+  },
+  // === 19: All Done ===
   {
     type: 'all-done',
     id: 'all-done',
@@ -297,17 +307,34 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: '#f2f2f2',
   },
 
-  
-
-  // === 20: Testimonial ===
+  // === Paywall (trial CTA) ===
   {
-    type: 'testimonial',
-    id: 'testimonial',
+    type: 'paywall',
+    id: 'paywall',
     answerKey: null,
     showNavButton: false,
+    backgroundColor: '#f2f2f2',
   },
 
-  // === 21: Commitment ===
+  // === Trial Reminder ===
+  {
+    type: 'trial-reminder',
+    id: 'trial-reminder',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: '#f2f2f2',
+  },
+
+  // === RevenueCat Paywall (Onboarding) ===
+  {
+    type: 'paywall-onboarding',
+    id: 'paywall-onboarding',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: '#f2f2f2',
+  },
+
+  // === 23: Commitment ===
   {
     type: 'commitment',
     id: 'commitment',

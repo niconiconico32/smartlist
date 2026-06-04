@@ -11,15 +11,23 @@ import {
   Sparkles,
   X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -46,8 +54,8 @@ interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (text: string) => void;
-  onVoiceStart: () => void;
-  onVoiceStop: () => void;
+  onVoiceStart: () => Promise<boolean>;
+  onVoiceStop: () => Promise<void>;
   isListening: boolean;
   isProcessing?: boolean;
   transcribedText?: string;
@@ -78,11 +86,21 @@ export function TaskModalNew({
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [voiceAttempted, setVoiceAttempted] = useState(false);
+  const [voiceError, setVoiceError] = useState(false);
+  const [isMicPressed, setIsMicPressed] = useState(false);
   const [pillIndex, setPillIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const pressToRecordTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const pressActiveRef = useRef(false);
+  const pendingStopRef = useRef(false);
+  const stopInProgressRef = useRef(false);
 
   // Animaciones
   const micScale = useSharedValue(1);
@@ -102,6 +120,8 @@ export function TaskModalNew({
   useEffect(() => {
     if (transcribedText && transcribedText.trim()) {
       setText(transcribedText);
+      setVoiceAttempted(false);
+      setVoiceError(false);
     }
   }, [transcribedText]);
 
@@ -114,7 +134,17 @@ export function TaskModalNew({
     } else {
       setText("");
       setIsRecording(false);
+      setIsStopping(false);
+      setVoiceAttempted(false);
+      setVoiceError(false);
       setPillIndex(0);
+      pressActiveRef.current = false;
+      pendingStopRef.current = false;
+      stopInProgressRef.current = false;
+      if (pressToRecordTimeoutRef.current) {
+        clearTimeout(pressToRecordTimeoutRef.current);
+        pressToRecordTimeoutRef.current = null;
+      }
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
         recordingTimeoutRef.current = null;
@@ -190,16 +220,44 @@ export function TaskModalNew({
 
   useEffect(() => {
     return () => {
+      pressActiveRef.current = false;
+      pendingStopRef.current = false;
+      stopInProgressRef.current = false;
+      if (pressToRecordTimeoutRef.current) {
+        clearTimeout(pressToRecordTimeoutRef.current);
+        pressToRecordTimeoutRef.current = null;
+      }
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
       }
     };
   }, []);
 
+  useEffect(() => {
+    if (!voiceAttempted) return;
+    const stillProcessing = isProcessing || isStopping;
+    if (stillProcessing || isRecording || isListening) return;
+    const hasText =
+      text.trim().length > 0 || (transcribedText || "").trim().length > 0;
+    if (!hasText) {
+      setVoiceError(true);
+    }
+    setVoiceAttempted(false);
+  }, [
+    voiceAttempted,
+    isProcessing,
+    isStopping,
+    isRecording,
+    isListening,
+    text,
+    transcribedText,
+  ]);
+
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (isRecording || isListening) {
+      setIsStopping(true);
       onVoiceStop();
       setIsRecording(false);
     }
@@ -216,34 +274,110 @@ export function TaskModalNew({
     onSubmit(text.trim());
   }, [text, isProcessing, onSubmit, buttonScale]);
 
-  const handleMicPressIn = useCallback(() => {
-    if (isProcessing) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsRecording(true);
-    onVoiceStart();
-    recordingTimeoutRef.current = setTimeout(() => {
-      handleMicPressOut();
-    }, 30000);
-  }, [isProcessing, onVoiceStart]);
-
-  const handleMicPressOut = useCallback(() => {
-    if (!isRecording && !isListening) return;
+  const stopVoiceRecording = useCallback(async () => {
     if (recordingTimeoutRef.current) {
       clearTimeout(recordingTimeoutRef.current);
       recordingTimeoutRef.current = null;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsStopping(true);
     setIsRecording(false);
-    onVoiceStop();
-  }, [isRecording, isListening, onVoiceStop]);
-
-  const handleMicToggle = useCallback(() => {
-    if (isRecording || isListening) {
-      handleMicPressOut();
-    } else {
-      handleMicPressIn();
+    setVoiceAttempted(true);
+    try {
+      await onVoiceStop();
+    } finally {
+      setIsStopping(false);
     }
-  }, [isRecording, isListening, handleMicPressIn, handleMicPressOut]);
+  }, [onVoiceStop]);
+
+  const handleMicPressOut = useCallback(async () => {
+    if (!isRecording && !isListening) return;
+    await stopVoiceRecording();
+  }, [isRecording, isListening, stopVoiceRecording]);
+
+  const handleMicPressIn = useCallback(async () => {
+    if (isProcessing) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setVoiceError(false);
+    const started = await onVoiceStart();
+    if (!started) {
+      setIsStopping(false);
+      setIsRecording(false);
+      return;
+    }
+    if (!pressActiveRef.current || pendingStopRef.current) {
+      pendingStopRef.current = false;
+      setIsStopping(true);
+      try {
+        await onVoiceStop();
+      } finally {
+        setIsStopping(false);
+      }
+      return;
+    }
+    setIsStopping(false);
+    setIsRecording(true);
+    recordingTimeoutRef.current = setTimeout(() => {
+      handleMicPressOut();
+    }, 30000);
+  }, [isProcessing, onVoiceStart, onVoiceStop, handleMicPressOut]);
+
+  const handleMicPressStart = useCallback(() => {
+    if (isProcessing) return;
+    setVoiceError(false);
+    pressActiveRef.current = true;
+    pendingStopRef.current = false;
+    if (pressToRecordTimeoutRef.current) {
+      clearTimeout(pressToRecordTimeoutRef.current);
+    }
+    pressToRecordTimeoutRef.current = setTimeout(() => {
+      pressToRecordTimeoutRef.current = null;
+      handleMicPressIn();
+    }, 200);
+  }, [isProcessing, handleMicPressIn]);
+
+  const handleMicPressEnd = useCallback(async () => {
+    if (stopInProgressRef.current) return;
+    pressActiveRef.current = false;
+    if (pressToRecordTimeoutRef.current) {
+      clearTimeout(pressToRecordTimeoutRef.current);
+      pressToRecordTimeoutRef.current = null;
+      return;
+    }
+    if (!isRecording && !isListening) {
+      pendingStopRef.current = true;
+      setIsStopping(true);
+      return;
+    }
+    stopInProgressRef.current = true;
+    try {
+      await handleMicPressOut();
+    } finally {
+      stopInProgressRef.current = false;
+    }
+  }, [isRecording, isListening, handleMicPressOut]);
+
+  const micPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !isProcessing,
+        onMoveShouldSetPanResponder: () => false,
+        onPanResponderGrant: () => {
+          setIsMicPressed(true);
+          handleMicPressStart();
+        },
+        onPanResponderRelease: () => {
+          setIsMicPressed(false);
+          handleMicPressEnd();
+        },
+        onPanResponderTerminate: () => {
+          setIsMicPressed(false);
+          handleMicPressEnd();
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [handleMicPressStart, handleMicPressEnd, isProcessing],
+  );
 
   const micAnimatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -270,8 +404,17 @@ export function TaskModalNew({
   );
 
   const isActive = isListening || isRecording;
+  const showProcessing =
+    isProcessing || isStopping || (!isRecording && isListening);
+  const showVoiceUi = isActive || showProcessing;
   const canSubmit = text.trim().length > 0 || isProcessing;
   const insets = useSafeAreaInsets();
+  const statusBarHeight = StatusBar.currentHeight ?? 0;
+  const topInset = Math.max(
+    insets.top,
+    statusBarHeight,
+    Platform.OS === "ios" ? 24 : 16,
+  );
 
   if (!visible) return null;
 
@@ -310,8 +453,15 @@ export function TaskModalNew({
                 ]}
               >
                 {/* Header */}
-                <View style={styles.header}>
+                <View style={[styles.header, { paddingTop: topInset }]}>
                   <View style={styles.headerLeft}>
+                    <TouchableOpacity
+                      onPress={handleClose}
+                      style={styles.backButton}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <ChevronLeft size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
                     <Sparkles size={32} color={colors.primary} />
                     <Text style={styles.headerTitle}>
                       {t("task_modal.title")}
@@ -327,13 +477,13 @@ export function TaskModalNew({
                 </View>
 
                 <View style={styles.inputContainer}>
-                  {isActive ? (
+                  {showVoiceUi ? (
                     <View style={styles.listeningContainer}>
                       <Animated.Text
                         style={[styles.listeningText, glowStyle]}
                         entering={FadeIn.duration(200)}
                       >
-                        {isProcessing
+                        {showProcessing
                           ? t("task_modal.processing")
                           : t("task_modal.listening")}
                       </Animated.Text>
@@ -358,7 +508,10 @@ export function TaskModalNew({
                       placeholder={t("task_modal.placeholder")}
                       placeholderTextColor={colors.textTertiary}
                       value={text}
-                      onChangeText={setText}
+                      onChangeText={(value) => {
+                        if (voiceError) setVoiceError(false);
+                        setText(value);
+                      }}
                       style={styles.textInput}
                       selectionColor={colors.primary}
                       maxLength={500}
@@ -369,7 +522,7 @@ export function TaskModalNew({
                   )}
                 </View>
 
-                {!isActive && (
+                {!showVoiceUi && (
                   <View style={styles.pillCarouselContainer}>
                     <Text style={styles.hintText}>
                       {t("task_modal.suggestions_hint")}
@@ -429,15 +582,14 @@ export function TaskModalNew({
 
                 <View style={styles.controlDeck}>
                   <Animated.View style={micAnimatedStyle}>
-                    <Pressable
-                      onPress={handleMicToggle}
-                      onLongPress={handleMicPressIn}
-                      delayLongPress={200}
-                      disabled={isProcessing}
-                      style={({ pressed }) => [
+                    <View
+                      {...micPanResponder.panHandlers}
+                      accessibilityRole="button"
+                      accessibilityLabel={t("task_modal.use_mic_hint")}
+                      style={[
                         styles.micButton,
                         isActive && styles.micButtonActive,
-                        pressed && !isActive && styles.micButtonPressed,
+                        isMicPressed && !isActive && styles.micButtonPressed,
                         isProcessing && styles.micButtonDisabled,
                       ]}
                     >
@@ -446,7 +598,7 @@ export function TaskModalNew({
                       ) : (
                         <Mic size={24} color="white" />
                       )}
-                    </Pressable>
+                    </View>
                   </Animated.View>
 
                   <Animated.View style={[buttonAnimatedStyle, { flex: 1 }]}>
@@ -500,11 +652,19 @@ export function TaskModalNew({
                   </Animated.View>
                 </View>
 
-                <Text style={styles.hintText}>
-                  {isActive
-                    ? t("task_modal.tap_to_stop")
-                    : t("task_modal.use_mic_hint")}
-                </Text>
+                {voiceError ? (
+                  <Text style={styles.voiceErrorText}>
+                    {t("task_modal.voice_empty_error")}
+                  </Text>
+                ) : (
+                  <Text style={styles.hintText}>
+                    {showProcessing
+                      ? t("task_modal.processing_hint")
+                      : isActive
+                        ? t("task_modal.tap_to_stop")
+                        : t("task_modal.use_mic_hint")}
+                  </Text>
+                )}
               </View>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -533,7 +693,6 @@ const styles = StyleSheet.create({
   innerContainer: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === "ios" ? 60 : 40,
   },
   header: {
     flexDirection: "row",
@@ -547,13 +706,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
   headerTitle: {
     fontSize: 32,
     fontFamily: "Jersey10",
     color: colors.textPrimary,
   },
   closeButton: {
-    padding: 3,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   inputContainer: {
     flex: 1,
@@ -718,5 +890,13 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
     opacity: 0.5,
+  },
+  voiceErrorText: {
+    fontSize: 12,
+    fontFamily: "Jersey10",
+    color: colors.danger,
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 8,
   },
 });

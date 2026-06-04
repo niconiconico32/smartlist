@@ -1,14 +1,23 @@
 import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
+  PRIMARY_GRADIENT_COLORS,
+  primaryButtonGradient,
+  primaryButtonStyles,
+  primaryButtonText,
 } from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import {
+  Check,
+  Crown,
+  Dog,
+  Sparkles,
+  Store,
+  X,
+  Zap,
+} from "lucide-react-native";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
@@ -17,43 +26,59 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 // PAYWALL SLIDE
 // ============================================
 interface Props {
-  onFinish: () => void;
+  onNext: () => void;
 }
 
-const TIMELINE = [
+const FEATURES = [
   {
-    day: "onboarding.paywall.timeline.today.day",
-    label: "onboarding.paywall.timeline.today.label",
-    color: colors.primary,
+    Icon: Sparkles,
+    labelKey: "onboarding.paywall_slide.feature_ai",
   },
   {
-    day: "onboarding.paywall.timeline.day12.day",
-    label: "onboarding.paywall.timeline.day12.label",
-    color: "#FFE66D",
+    Icon: Zap,
+    labelKey: "onboarding.paywall_slide.feature_widget",
   },
   {
-    day: "onboarding.paywall.timeline.day14.day",
-    label: "onboarding.paywall.timeline.day14.label",
-    color: "#FF6B6B",
+    Icon: Crown,
+    labelKey: "onboarding.paywall_slide.feature_crowns",
+  },
+  {
+    Icon: Store,
+    labelKey: "onboarding.paywall_slide.feature_store",
+  },
+  {
+    Icon: Dog,
+    labelKey: "onboarding.paywall_slide.feature_companions",
   },
 ];
 
-const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
+const PaywallSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(false);
-
-  const handleStartTrial = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setLoading(true);
-    // TODO: Integrate RevenueCat purchasePackage
-    setTimeout(() => {
-      setLoading(false);
-      onFinish();
-    }, 1000);
+  const handleContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onNext();
   };
 
   return (
     <View style={s.container}>
+      <LinearGradient
+        colors={["#F7F8FF", "#EEF2FF", "#F7F7FF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View style={s.header}>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onNext();
+          }}
+          style={s.closeButton}
+          hitSlop={8}
+        >
+          <X size={18} color={colors.textSecondary} />
+        </Pressable>
+      </View>
       <ScrollView
         style={s.scroll}
         contentContainerStyle={s.scrollContent}
@@ -74,40 +99,43 @@ const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
           entering={FadeInDown.delay(200).duration(400)}
           style={s.title}
         >
-          {t("onboarding.paywall.title")}
+          {t("onboarding.paywall_slide.title")}
         </Animated.Text>
         <Animated.Text
           entering={FadeInDown.delay(300).duration(400)}
           style={s.subtitle}
         >
-          {t("onboarding.paywall.subtitle")}
+          {t("onboarding.paywall_slide.subtitle")}
         </Animated.Text>
 
-        {/* Timeline */}
         <Animated.View
-          entering={FadeInDown.delay(450).duration(500)}
-          style={s.timeline}
+          entering={FadeInDown.delay(420).duration(500)}
+          style={s.benefitsCard}
         >
-          <View style={s.timelineLine} />
-          {TIMELINE.map((item, idx) => (
-            <View key={idx} style={s.timelineNode}>
-              <View style={[s.timelineDot, { backgroundColor: item.color }]} />
-              <Text style={s.timelineLabel}>
-                {t(item.day)}
-                {"\n"}
-                <Text style={s.timelineSublabel}>{t(item.label)}</Text>
-              </Text>
+          {FEATURES.map(({ Icon, labelKey }, idx) => (
+            <View key={labelKey} style={s.benefitRow}>
+              <View style={s.benefitIconWrap}>
+                <Icon size={24} color={colors.surface} strokeWidth={2.4} />
+              </View>
+              <Text style={s.benefitText}>{t(labelKey)}</Text>
+              {idx < FEATURES.length - 1 && <View style={s.benefitDivider} />}
             </View>
           ))}
+        </Animated.View>
+
+        <Animated.View
+          entering={FadeInDown.delay(520).duration(450)}
+          style={s.reassureRow}
+        >
+          <Check size={16} color={colors.success} strokeWidth={3} />
+          <Text style={s.reassureText}>
+            {t("onboarding.paywall_slide.reassure")}
+          </Text>
         </Animated.View>
       </ScrollView>
 
       <View style={s.buttonContainer}>
-        <Pressable
-          onPress={handleStartTrial}
-          style={[primaryButtonStyles, loading && { opacity: 0.6 }]}
-          disabled={loading}
-        >
+        <Pressable onPress={handleContinue} style={primaryButtonStyles}>
           <LinearGradient
             colors={PRIMARY_GRADIENT_COLORS}
             start={{ x: 0, y: 0 }}
@@ -115,21 +143,9 @@ const PaywallSlide: React.FC<Props> = ({ onFinish }) => {
             style={primaryButtonGradient}
           >
             <Text style={primaryButtonText}>
-              {loading
-                ? t("onboarding.paywall.processing")
-                : t("onboarding.paywall.start_trial_cta")}
+              {t("onboarding.paywall_slide.cta")}
             </Text>
           </LinearGradient>
-        </Pressable>
-
-        <Pressable
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            onFinish();
-          }}
-          style={s.skipButton}
-        >
-          <Text style={s.skipText}>{t("onboarding.paywall.skip")}</Text>
         </Pressable>
       </View>
     </View>
@@ -145,94 +161,102 @@ const s = StyleSheet.create({
   container: {
     flex: 1,
   },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    alignItems: "flex-end",
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(17, 24, 39, 0.06)",
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    paddingBottom: 20,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 24,
     alignItems: "center",
   },
   mascotContainer: {
     marginBottom: 20,
   },
   mascot: {
-    width: 100,
-    height: 100,
+    width: 180,
+    height: 180,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: colors.textPrimary,
+    fontSize: 45,
+    fontFamily: "Jersey10",
+    color: colors.background,
     textAlign: "center",
-    marginBottom: 12,
-    letterSpacing: -0.5,
+    letterSpacing: 0.4,
   },
   subtitle: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: colors.textSecondary,
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  timeline: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    width: "100%",
-    position: "relative",
-    paddingHorizontal: 8,
-    marginTop: 8,
-  },
-  timelineLine: {
-    position: "absolute",
-    top: 10,
-    left: 30,
-    right: 30,
-    height: 3,
-    backgroundColor: `${colors.textPrimary}1A`,
-    borderRadius: 1.5,
-  },
-  timelineNode: {
-    alignItems: "center",
-    flex: 1,
-  },
-  timelineDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 3,
-    borderColor: colors.background,
-    marginBottom: 10,
-    zIndex: 1,
-  },
-  timelineLabel: {
     fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
+    fontWeight: "600",
+    color: colors.textTertiary,
+    opacity: 0.7,
     textAlign: "center",
     lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 18,
   },
-  timelineSublabel: {
-    fontSize: 12,
-    fontWeight: "500",
+  benefitsCard: {
+    width: "100%",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  benefitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  benefitIconWrap: {
+    width: 36,
+    height: 36,
+  },
+  benefitText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "400",
+    color: colors.textTertiary,
+    lineHeight: 18,
+  },
+  benefitDivider: {
+    position: "absolute",
+    left: 38,
+    right: 0,
+    bottom: -6,
+    height: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.06)",
+  },
+  reassureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 16,
+  },
+  reassureText: {
+    fontSize: 13,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
   buttonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingBottom: 40,
-    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
-  skipButton: {
-    marginTop: 14,
-    paddingVertical: 8,
-  },
-  skipText: {
-    fontSize: 14,
-    fontWeight: "500",
+  priceNote: {
+    marginTop: 10,
+    fontSize: 12,
+    fontWeight: "600",
     color: colors.textSecondary,
   },
 });

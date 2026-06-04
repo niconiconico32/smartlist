@@ -9,30 +9,24 @@ import { useProStore } from "@/src/store/proStore";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-    Bell,
-    GripVertical,
-    Plus,
-    Trash2,
-    X,
-} from "lucide-react-native";
+import { Bell, GripVertical, Plus, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 import DraggableFlatList, {
-    RenderItemParams,
-    ScaleDecorator,
+  RenderItemParams,
+  ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -580,7 +574,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
       {/* ── Companion Picker ─────────────────────────────────────────── */}
       <View style={styles.section}>
-        <Text style={styles.label}>CHOOSE YOUR COMPANION</Text>
+        <Text style={styles.label}>{t("routine_form.choose_companion")}</Text>
         <View style={{ height: 12 }} />
 
         <ScrollView
@@ -620,13 +614,20 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                     Alert.alert(
                       meta.name,
                       canAfford
-                        ? `Unlock for ${meta.cost.toLocaleString()} 👑 crowns?\n\nYou have: ${totalCoins.toLocaleString()} 👑`
-                        : `Costs ${meta.cost.toLocaleString()} 👑 crowns.\nYou only have ${totalCoins.toLocaleString()} 👑 — not enough!`,
+                        ? t("routine_form.unlock_for_crowns", {
+                            cost: meta.cost.toLocaleString(),
+                          })
+                        : t("routine_form.not_enough_crowns", {
+                            cost: meta.cost.toLocaleString(),
+                            total: totalCoins.toLocaleString(),
+                          }),
                       canAfford
                         ? [
-                            { text: "Cancel", style: "cancel" },
+                            { text: t("routine_form.cancel"), style: "cancel" },
                             {
-                              text: `Buy · ${meta.cost.toLocaleString()} 👑`,
+                              text: t("routine_form.buy_for_crowns", {
+                                cost: meta.cost.toLocaleString(),
+                              }),
                               onPress: async () => {
                                 const ok = await spendCoins(meta.cost);
                                 if (ok) {
@@ -639,7 +640,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                               },
                             },
                           ]
-                        : [{ text: "OK", style: "cancel" }],
+                        : [{ text: t("routine_form.ok"), style: "cancel" }],
                     );
                   }
                 }}
@@ -662,13 +663,11 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
                 <Image source={displayImage} style={styles.eggCardImage} />
 
-  
-
                 {!isUnlocked && (
                   <View style={styles.eggCardLockBadge}>
                     <Text style={styles.eggCardLockText}>
                       {meta.rarity !== "common" && !isPro
-                        ? "PRO"
+                        ? t("routine_form.pro_label")
                         : `🔒 ${meta.cost >= 1000 ? `${meta.cost / 1000}k` : meta.cost}`}
                     </Text>
                   </View>
@@ -676,7 +675,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
 
                 {inUse && (
                   <View style={styles.eggCardInUseBadge}>
-                    <Text style={styles.eggCardInUseText}>busy</Text>
+                    <Text style={styles.eggCardInUseText}>
+                      {t("routine_form.busy")}
+                    </Text>
                   </View>
                 )}
               </Pressable>
@@ -703,10 +704,7 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
           <View style={styles.screen}>
             {/* Header */}
             <View
-              style={[
-                styles.header,
-                { paddingTop: Math.max(insets.top, 16) },
-              ]}
+              style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}
             >
               <Text style={styles.title}>{t("routine_form.edit_title")}</Text>
               <Pressable onPress={handleClose} style={styles.closeButton}>
@@ -760,7 +758,9 @@ export const EditRoutineModal: React.FC<EditRoutineModalProps> = ({
                 ]}
               >
                 <LinearGradient
-                  colors={!isValid ? ["#6B7280", "#4B5563"] : PRIMARY_GRADIENT_COLORS}
+                  colors={
+                    !isValid ? ["#6B7280", "#4B5563"] : PRIMARY_GRADIENT_COLORS
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.createButtonGradient}

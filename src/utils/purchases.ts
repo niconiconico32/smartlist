@@ -1,10 +1,10 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import Purchases, {
-  LOG_LEVEL,
-  type CustomerInfo,
-  type PurchasesOffering,
-  type PurchasesPackage,
+    LOG_LEVEL,
+    type CustomerInfo,
+    type PurchasesOffering,
+    type PurchasesPackage,
 } from 'react-native-purchases';
 
 export const ENTITLEMENT_ID = 'brainy Pro';
@@ -67,7 +67,9 @@ export function isPremiumActive(customerInfo: CustomerInfo): boolean {
   return ENTITLEMENT_ID in (customerInfo.entitlements.active ?? {});
 }
 
-export async function getOffering(): Promise<PurchasesOffering | null> {
+export async function getOffering(
+  offeringId?: string,
+): Promise<PurchasesOffering | null> {
   if (isExpoGo()) return null;
   let offerings;
   try {
@@ -77,7 +79,8 @@ export async function getOffering(): Promise<PurchasesOffering | null> {
     // Si la opción no está soportada, fallback a la llamada normal
     offerings = await Purchases.getOfferings();
   }
-  return offerings.all[OFFERING_ID] ?? offerings.current ?? null;
+  const resolvedId = offeringId ?? OFFERING_ID;
+  return offerings.all[resolvedId] ?? offerings.current ?? null;
 }
 
 export async function getOfferings(): Promise<PurchasesPackage[] | null> {

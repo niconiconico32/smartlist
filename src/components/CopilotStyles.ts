@@ -15,6 +15,7 @@ export const C = {
   white: '#FFFFFF',
   textPrimary: '#1E293B',
   textSecondary: '#64748B',
+  textBlack: '#0F172A',
   textDim: '#94A3B8',
   glassBg: 'rgba(255, 255, 255, 0.8)',
   glassBorder: 'rgba(0, 0, 0, 0.05)',
@@ -28,13 +29,24 @@ export const copilotStyles = StyleSheet.create({
   gradient: { ...StyleSheet.absoluteFillObject },
   safeArea: { flex: 1 },
   keyboardView: { flex: 1 },
-
-  floatingCloseButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
+  header: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
     zIndex: 10,
-    padding: 8,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitleSpacer: {
+    flex: 1,
   },
 
   // --- Idle Phase Layout ---

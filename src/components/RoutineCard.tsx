@@ -1,53 +1,51 @@
-import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import * as Haptics from "expo-haptics";
 import LottieView from "lottie-react-native";
 import {
-    Activity,
-    Bike,
-    Book,
-    Brain,
-    Briefcase,
-    Calendar,
-    Check,
-    Circle,
-    Coffee,
-    Crown,
-    Dumbbell,
-    Flower2,
-    GraduationCap,
-    Heart,
-    Home,
-    Laptop,
-    Lightbulb,
-    Moon,
-    ShoppingBag,
-    Smile,
-    Sparkles,
-    Sun,
-    Target,
-    Utensils,
+  Activity,
+  Bike,
+  Book,
+  Brain,
+  Briefcase,
+  Calendar,
+  Check,
+  Circle,
+  Coffee,
+  Dumbbell,
+  Flower2,
+  GraduationCap,
+  Heart,
+  Home,
+  Laptop,
+  Lightbulb,
+  Moon,
+  ShoppingBag,
+  Smile,
+  Sparkles,
+  Sun,
+  Target,
+  Utensils,
 } from "lucide-react-native";
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    Easing,
-    FadeIn,
-    Layout,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withSequence,
-    withSpring,
-    withTiming,
+  Easing,
+  FadeIn,
+  Layout,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
 
 import {
-    ROUTINE_BACKGROUND_COLORS,
-    ROUTINE_COLORS,
+  ROUTINE_BACKGROUND_COLORS,
+  ROUTINE_COLORS,
 } from "@/constants/routineColors";
 import { useEggCatalog } from "@/src/hooks/useEggCatalog";
 import { useEggStore } from "@/src/store/eggStore";
@@ -117,8 +115,12 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
 
   // Egg / pet image for this routine
   const catalog = useEggCatalog();
-  const eggData = useEggStore((s) => s.eggs.find((e) => e.routineId === id) ?? null);
-  const eggMeta = eggData ? (catalog.find((m) => m.id === eggData.id) ?? null) : null;
+  const eggData = useEggStore(
+    (s) => s.eggs.find((e) => e.routineId === id) ?? null,
+  );
+  const eggMeta = eggData
+    ? (catalog.find((m) => m.id === eggData.id) ?? null)
+    : null;
   const isEvolved = !!eggData && (eggData.evolved ?? false);
   const displayImage = eggMeta
     ? isEvolved
@@ -145,8 +147,14 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   useEffect(() => {
     eggBounce.value = withRepeat(
       withSequence(
-        withTiming(-5, { duration: 700, easing: Easing.bezierFn(0.45, 0, 0.55, 1) }),
-        withTiming(0, { duration: 700, easing: Easing.bezierFn(0.45, 0, 0.55, 1) }),
+        withTiming(-5, {
+          duration: 700,
+          easing: Easing.bezierFn(0.45, 0, 0.55, 1),
+        }),
+        withTiming(0, {
+          duration: 700,
+          easing: Easing.bezierFn(0.45, 0, 0.55, 1),
+        }),
       ),
       -1,
       false,
@@ -244,7 +252,10 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
             <View style={styles.iconBox}>
               <Animated.Image
                 source={displayImage}
-                style={[isEvolved ? styles.petIconImage : styles.eggIconImage, eggAnimatedStyle]}
+                style={[
+                  isEvolved ? styles.petIconImage : styles.eggIconImage,
+                  eggAnimatedStyle,
+                ]}
                 resizeMode="contain"
               />
             </View>
@@ -256,16 +267,10 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
               {name}
             </Text>
             <View style={styles.rewardRow}>
-              <Text style={styles.rewardText}>+{xpReward}</Text>
-              <Crown
-                size={13}
-                color={colors.surface}
-                strokeWidth={2.5}
-                style={{ marginLeft: 0, marginTop: -2 }}
-              />
               <Text style={styles.rewardText}>
+                Tasks Completed:
                 {initialTasks.length > 0
-                  ? `  • ${completedCount}/${initialTasks.length}`
+                  ? `   ${completedCount}/${initialTasks.length}`
                   : ""}
               </Text>
             </View>
@@ -362,10 +367,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rewardText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#718096",
-    textTransform: "uppercase",
   },
   checkboxBox: {
     width: 40,

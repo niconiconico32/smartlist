@@ -141,9 +141,16 @@
     },
     "subtask_list": {
       "empty_task": "Empty task",
+      "list_title": "Task List",
       "subtitle": "Nice! I broke down your task",
+      "edit_hint": "Tap any title or time to edit. Hold and drag to reorder",
       "title_prefix": "Here's a step-by-step way to start",
-      "reorder_hint": "Press and hold, then drag to reorder"
+      "reorder_hint": "Press and hold, then drag to reorder",
+      "minute_abbr": "min",
+      "primary_start": "Start Task",
+      "primary_add_to_list": "Add to Tasks",
+      "primary_save_changes": "Save Changes",
+      "primary_add_to_home": "Add to Home"
     },
     "welcome_header": "Welcome to Brainy!",
     "welcome_message": "Your brain is not broken.\nIt just needs a copilot.",
@@ -295,8 +302,8 @@
       "body_suffix": "you'll be crushing healthy, consistent habits every day."
     },
     "routine_picker": {
-      "title": "pick your first daily routines",
-      "subtitle": "here are a few routines we think will help, and you can always create your own later.",
+      "title": "pick your first daily routine",
+      "subtitle": "here are a few routines we think can help. You can create your own in the main screen.",
       "add_1_routine": "Add 1 routine",
       "add_n_routines": "Add {{count}} routines",
       "skip": "I'll set them up later...",
@@ -412,7 +419,7 @@
     "processing_expanding": "Expanding your mission...",
     "processing_dividing": "Breaking it into steps...",
     "divide_button": "Break Down Task",
-    "divide_hint": "You can edit the text to better fit your situation.",
+    "divide_hint": "You can edit the text to better fit your context.",
     "input_placeholder": "Type or hold to dictate...",
     "recording_overlay": "Recording... release to send",
     "mic_hint_recording": "Release to send",
@@ -613,6 +620,13 @@
     "create": "Create Routine",
     "save_changes": "Save Changes",
     "choose_icon": "Choose an icon",
+    "choose_companion": "Choose your companion",
+    "busy": "busy",
+    "pro_label": "PRO",
+    "ok": "OK",
+    "unlock_for_crowns": "Unlock for {{cost}} 👑 crowns?\n\nYou have: {{total}} 👑",
+    "not_enough_crowns": "Costs {{cost}} 👑 crowns.\nYou only have {{total}} 👑 — not enough!",
+    "buy_for_crowns": "Buy · {{cost}} 👑",
     "discard_title": "Discard changes?",
     "discard_message": "You have unsaved changes",
     "cancel": "Cancel",
@@ -744,6 +758,7 @@
     "processing": "Processing...",
     "listening": "Listening...",
     "processing_hint": "I'm turning your idea into a clear task",
+    "voice_empty_error": "Did you say something? I couldn't process your voice :( Try again.",
     "placeholder": "What do you need to get done?",
     "suggestions_hint": "Try one of these",
     "generating": "Generating...",
@@ -803,7 +818,32 @@
       "option_0": "I procrastinate a lot",
       "option_1": "I feel overwhelmed",
       "option_2": "I get distracted easily",
-      "start": "Start"
+      "start": "Start",
+      "egg_picker": {
+        "title": "Pick an egg for your routine",
+        "subtitle": "You can change it later from your inventory.",
+        "add_egg": "Add egg"
+      },
+      "pets_preview": {
+        "title": "Meet your Routine Companions",
+        "subtitle": "Assign an egg to a routine you created and complete it three times so it evolves into your new companion!",
+        "subtitle2": "and more!"
+      },
+      "trial_reminder": {
+        "title": "If you agree, we'll remind you 2 days before your free trial ends.",
+        "cta": "Try for $0.00"
+      },
+      "paywall_slide": {
+        "title": "Get BrainyPRO",
+        "subtitle": "BrainyPRO users are 3x more likely to reach a 28-day streak.",
+        "feature_ai": "Unlimited AI task breakdowns",
+        "feature_widget": "Unlimited Routines on Widget",
+        "feature_crowns": "Earn 15% more crowns per streak day",
+        "feature_store": "Unlock the Premium Items Store",
+        "feature_companions": "Unlock Rare and Legendary Companions",
+        "reassure": "No payment due now",
+        "cta": "Try for $0.00"
+      }
     },
     "schedule": {
       "title": "Schedule Task",
@@ -923,7 +963,8 @@
     "no_routine": "No routine",
     "enable_pro": "Enable PRO to see your routines here",
     "routine_completed": "Routine completed! 🎉",
-    "progress": "{{completed}} of {{total}} tasks · {{pct}}%"
+    "progress": "{{completed}} of {{total}} tasks · {{pct}}%",
+    "action_queued": "Action queued"
   },
   "routine_icons": {
     "dumbbell": "Fitness",

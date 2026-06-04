@@ -1,6 +1,12 @@
-import { useAudioRecorder, setAudioModeAsync, requestRecordingPermissionsAsync, RecordingPresets } from 'expo-audio';
+import {
+    RecordingPresets,
+    requestRecordingPermissionsAsync,
+    setAudioModeAsync,
+    useAudioRecorder,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useState } from 'react';
+import { Alert, Linking } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useTaskStore } from '../store/taskStore';
 
@@ -10,6 +16,7 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const MIN_AUDIO_BYTES = 4000;
   const addTask = useTaskStore((state) => state.addTask);
 
   const cleanup = async () => {
@@ -30,11 +37,11 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
     }
   };
 
-  const startRecording = async () => {
+  const startRecording = async (): Promise<boolean> => {
     // Evitar iniciar múltiples grabaciones simultáneamente
     if (isRecording || isStarting || isProcessing || isStopping) {
       console.warn('Recording already active or in process');
-      return;
+      return false;
     }
 
     // Limpieza preventiva antes de iniciar
@@ -45,8 +52,21 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
       const { status } = await requestRecordingPermissionsAsync();
       if (status !== 'granted') {
         console.warn('Audio recording permission not granted');
+        Alert.alert(
+          'Microphone access needed',
+          'Please enable microphone access to record your task.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                Linking.openSettings().catch(() => {});
+              },
+            },
+          ],
+        );
         setIsStarting(false);
-        return;
+        return false;
       }
 
       await setAudioModeAsync({
@@ -57,9 +77,11 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
       await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
       recorder.record();
       setIsRecording(true);
+      return true;
     } catch (err) {
       console.error('Error al iniciar grabación', err);
       await cleanup();
+      return false;
     } finally {
       setIsStarting(false);
     }
@@ -94,6 +116,13 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
         return;
       }
 
+      const info = await FileSystem.getInfoAsync(uri, { size: true });
+      if (!info.exists || !info.size || info.size < MIN_AUDIO_BYTES) {
+        console.warn('Audio too small or missing, skipping transcription');
+        if (onTranscribed) onTranscribed('');
+        return;
+      }
+
       // 1. Leer el archivo de audio y convertir a base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
@@ -114,8 +143,22 @@ export const useVoiceTask = (onTranscribed?: (text: string) => void) => {
 
       // 3. Si hay callback, llamarlo con la transcripción completa
       if (data?.task) {
+        const transcript = data.originalText || data.task.title || '';
+        const normalized = transcript.trim();
+        const isWhisperFallback =
+          /amara\.org/i.test(normalized) ||
+          /subt[ií]tulos\s+realizados\s+por\s+la\s+comunidad\s+de\s+amara/i.test(
+            normalized,
+          );
+
+        if (!normalized || isWhisperFallback) {
+          console.warn('Empty or fallback transcript detected');
+          if (onTranscribed) onTranscribed('');
+          return;
+        }
+
         if (onTranscribed) {
-          onTranscribed(data.originalText || data.task.title);
+          onTranscribed(normalized);
         } else {
           addTask({
             title: data.task.title,

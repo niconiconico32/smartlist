@@ -1,11 +1,10 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
-import * as Haptics from "expo-haptics";
-import { Crown, Edit2, RotateCcw, Trash2 } from "lucide-react-native";
-import React, { useState } from "react";
+import { Crown } from "lucide-react-native";
+import React from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
 interface ActivityButtonProps {
@@ -107,9 +106,6 @@ export function ActivityButton({
   iconColor,
   action,
   onPress,
-  onEditPress,
-  onDeletePress,
-  onResetPress,
   hasSubtasks = false,
   completed = false,
   index = 0,
@@ -127,8 +123,6 @@ export function ActivityButton({
     ? difficultyColors[difficulty]
     : colors.primary;
   const cardColor = CARD_COLORS[cardIndex];
-  const [showMenu, setShowMenu] = useState(false);
-
   const difficultyLabels = {
     easy: "Fácil",
     moderate: "Moderada",
@@ -138,39 +132,6 @@ export function ActivityButton({
   // Colores vibrantes para tareas completadas - transmiten satisfacción y dopamina
   const completedCardColor = completed ? borderColor + "25" : cardColor; // Fondo vibrante con color de dificultad (15% opacidad)
   const completedBorderColor = completed ? borderColor : borderColor; // 100% opacidad - máxima vibración
-
-  const handleLongPress = () => {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (e) {}
-    setShowMenu(true);
-  };
-
-  const handleEdit = () => {
-    setShowMenu(false);
-    setTimeout(() => {
-      onEditPress?.();
-    }, 150);
-  };
-
-  const handleDelete = () => {
-    setShowMenu(false);
-    setTimeout(() => {
-      onDeletePress?.();
-    }, 150);
-  };
-
-  const handleReset = () => {
-    setShowMenu(false);
-    setTimeout(() => {
-      onResetPress?.();
-    }, 150);
-  };
-
-  const handleMenuPress = (e: any) => {
-    e.stopPropagation();
-    handleLongPress();
-  };
 
   // Calcular porcentaje de progreso
   const progressPercentage =
@@ -187,8 +148,6 @@ export function ActivityButton({
           pressed && styles.pressed,
         ]}
         onPress={onPress}
-        onLongPress={handleLongPress}
-        delayLongPress={500}
       >
         <View style={styles.topRow}>
           {/* Icon Box Izquierdo */}
@@ -250,61 +209,6 @@ export function ActivityButton({
           </View>
         )}
       </Pressable>
-
-      {/* Menu Modal */}
-      <Modal
-        visible={showMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMenu(false)}
-      >
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuContainer}>
-            {completed ? (
-              // Menú para tareas completadas
-              <>
-                <Pressable style={styles.menuOption} onPress={handleReset}>
-                  <RotateCcw size={20} color={colors.textPrimary} />
-                  <Text style={styles.menuOptionText}>
-                    {t("activity_menu.reset")}
-                  </Text>
-                </Pressable>
-
-                <View style={styles.menuDivider} />
-
-                <Pressable style={styles.menuOption} onPress={handleDelete}>
-                  <Trash2 size={20} color="#EF4444" />
-                  <Text style={[styles.menuOptionText, { color: "#EF4444" }]}>
-                    {t("activity_menu.delete")}
-                  </Text>
-                </Pressable>
-              </>
-            ) : (
-              // Menú para tareas pendientes
-              <>
-                <Pressable style={styles.menuOption} onPress={handleEdit}>
-                  <Edit2 size={20} color={colors.textPrimary} />
-                  <Text style={styles.menuOptionText}>
-                    {t("activity_menu.edit")}
-                  </Text>
-                </Pressable>
-
-                <View style={styles.menuDivider} />
-
-                <Pressable style={styles.menuOption} onPress={handleDelete}>
-                  <Trash2 size={20} color="#EF4444" />
-                  <Text style={[styles.menuOptionText, { color: "#EF4444" }]}>
-                    {t("activity_menu.delete")}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </Pressable>
-      </Modal>
     </>
   );
 }
@@ -401,39 +305,6 @@ const styles = StyleSheet.create({
   },
   progressSegmentFilled: {
     backgroundColor: colors.surface, // púrpura
-  },
-  menuOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  menuContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    width: 200,
-    overflow: "hidden",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  menuOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    gap: 12,
-  },
-  menuOptionText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.background,
   },
   completedText: {
     color: "rgba(255, 255, 255, 0.95)", // Texto brillante

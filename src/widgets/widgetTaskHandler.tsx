@@ -19,6 +19,7 @@ export const WIDGET_BG_ID_KEY = "@widget_bg_id";
 // Remote URI for background — populated when user equips a Supabase Storage asset
 export const WIDGET_BG_URI_KEY = "@widget_bg_uri";
 export const WIDGET_PENDING_KEY = "@widget_pending_toggles";
+export const WIDGET_MAX_PENDING = 20;
 export const WIDGET_PRO_KEY = "@widget_is_pro";
 
 const BG_CYCLE: BgMode[] = ["user", "solid", "surface"];
@@ -67,6 +68,45 @@ async function readEarnedCoins(
   return isNaN(coins) ? null : coins;
 }
 
+type WidgetRoutineViewState = {
+  currentRoutine: Routine | null;
+  routineIdx: number;
+  taskIdx: number;
+  totalRoutines: number;
+};
+
+function resolveWidgetRoutineViewState(
+  routines: Routine[],
+  rawIdx: number,
+  rawTaskIdx: number,
+  isPro: boolean,
+): WidgetRoutineViewState {
+  const hasMultipleRoutines = !isPro && routines.length > 1;
+
+  if (hasMultipleRoutines) {
+    return {
+      currentRoutine: null,
+      routineIdx: 0,
+      taskIdx: 0,
+      totalRoutines: 0,
+    };
+  }
+
+  const visibleRoutines = isPro ? routines : routines.slice(0, 1);
+  const routineIdx = clamp(rawIdx, visibleRoutines.length - 1);
+  const currentRoutine =
+    visibleRoutines.length > 0 ? visibleRoutines[routineIdx] : null;
+  const taskCount = currentRoutine?.tasks.length ?? 0;
+  const taskIdx = clamp(rawTaskIdx, taskCount - 1);
+
+  return {
+    currentRoutine,
+    routineIdx,
+    taskIdx,
+    totalRoutines: visibleRoutines.length,
+  };
+}
+
 // ── Background sync for TOGGLE_TASK ──────────────────────────────────────────
 async function syncToggleInBackground(
   taskId: string,
@@ -94,6 +134,7 @@ async function syncToggleInBackground(
   try {
     const pendingRaw = await AsyncStorage.getItem(WIDGET_PENDING_KEY);
     const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+    // Remove any existing entry for the same taskId (dedupe) then push newest
     const filteredList = pendingList.filter((p: any) => p.taskId !== taskId);
     filteredList.push({
       taskId,
@@ -101,10 +142,11 @@ async function syncToggleInBackground(
       completed: t.completed,
       timestamp: Date.now(),
     });
-    await AsyncStorage.setItem(
-      WIDGET_PENDING_KEY,
-      JSON.stringify(filteredList),
-    );
+    // Cap queue length to most recent N entries
+    const cap = WIDGET_MAX_PENDING;
+    const start = Math.max(0, filteredList.length - cap);
+    const capped = filteredList.slice(start);
+    await AsyncStorage.setItem(WIDGET_PENDING_KEY, JSON.stringify(capped));
   } catch (e) {
     console.warn("Widget: could not queue task toggle", e);
   }
@@ -115,8 +157,27 @@ async function syncToggleInBackground(
     await supabase.auth.getSession();
     const { updateTaskCompletion } = await import("../lib/routineService");
     await updateTaskCompletion(taskId, routineId, userId, t.completed ?? false);
+    // Telemetry: sync success
+    try {
+      const { posthog } = await import("../config/posthog");
+      posthog.capture("widget_sync_success", {
+        taskId,
+        routineId,
+        source: "widget",
+      });
+    } catch (e) {
+      /* ignore telemetry errors */
+    }
   } catch (e) {
     console.warn("Widget: could not sync task with Supabase", e);
+    try {
+      const { posthog } = await import("../config/posthog");
+      posthog.capture("widget_sync_failed", {
+        taskId,
+        routineId,
+        error: String(e),
+      });
+    } catch (ee) {}
   }
 
   // 3. Routine completion & crowns logic
@@ -208,6 +269,10 @@ async function syncToggleInBackground(
         await import("../store/routineStreakStore");
       const allComplete = r?.tasks.every((task) => task.completed) ?? false;
       const currentTask = r?.tasks.find((task) => !task.completed);
+      // include pending count flag
+      const pendingRaw = await AsyncStorage.getItem(WIDGET_PENDING_KEY);
+      const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+      const hasPending = pendingList.length > 0;
       RoutinesIOSWidget.updateSnapshot({
         isPro,
         currentRoutineName: r?.name ?? null,
@@ -215,6 +280,8 @@ async function syncToggleInBackground(
         allComplete,
         completedCount: r?.tasks.filter((task) => task.completed).length ?? 0,
         totalCount: r?.tasks.length ?? 0,
+        totalRoutines: updatedRoutines.length,
+        hasPending,
         streak: streakStore.getState().streaks[routineId]?.count ?? 0,
       });
     } catch (e) {
@@ -239,19 +306,19 @@ export async function renderRoutinesWidget(): Promise<React.JSX.Element> {
   const bgId = await readString(WIDGET_BG_ID_KEY);
   const bgUri = await readString(WIDGET_BG_URI_KEY);
   const isPro = (await readString(WIDGET_PRO_KEY)) === "true";
-
-  const routineIdx = clamp(rawIdx, routines.length - 1);
-  const currentRoutine = routines.length > 0 ? routines[routineIdx] : null;
-  const taskCount = currentRoutine?.tasks.length ?? 0;
-  const taskIdx = clamp(rawTask, taskCount - 1);
+  const { currentRoutine, routineIdx, taskIdx, totalRoutines } =
+    resolveWidgetRoutineViewState(routines, rawIdx, rawTask, isPro);
 
   const earnedCoins = await readEarnedCoins(currentRoutine?.id ?? null);
+  const pendingRaw = await AsyncStorage.getItem(WIDGET_PENDING_KEY);
+  const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+  const hasPending = pendingList.length > 0;
 
   return (
     <RoutinesWidget
       currentRoutine={currentRoutine}
       currentIndex={routineIdx}
-      totalRoutines={routines.length}
+      totalRoutines={totalRoutines}
       taskVisibleIndex={taskIdx}
       outfitId={outfitId}
       outfitUri={outfitUri}
@@ -259,6 +326,7 @@ export async function renderRoutinesWidget(): Promise<React.JSX.Element> {
       bgId={bgId}
       bgUri={bgUri}
       earnedCoins={earnedCoins}
+      hasPending={hasPending}
       isPro={isPro}
     />
   );
@@ -278,11 +346,65 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     const bgUri = await readString(WIDGET_BG_URI_KEY);
     const isPro = (await readString(WIDGET_PRO_KEY)) === "true";
 
-    // Sanity-clamp indices
-    routineIdx = clamp(routineIdx, routines.length - 1);
-    const currentRoutine = routines.length > 0 ? routines[routineIdx] : null;
-    const taskCount = currentRoutine?.tasks.length ?? 0;
-    taskIdx = clamp(taskIdx, taskCount - 1);
+    const {
+      currentRoutine,
+      routineIdx: safeRoutineIdx,
+      taskIdx: safeTaskIdx,
+      totalRoutines,
+    } = resolveWidgetRoutineViewState(routines, routineIdx, taskIdx, isPro);
+
+    // read pending queue and compute flag for UI
+    const pendingRawInit = await AsyncStorage.getItem(WIDGET_PENDING_KEY);
+    const pendingListInit = pendingRawInit ? JSON.parse(pendingRawInit) : [];
+    const hasPendingInit = pendingListInit.length > 0;
+
+    // Telemetry: record widget click action
+    try {
+      const { posthog } = await import("../config/posthog");
+      posthog.capture("widget_click", {
+        action: props.clickAction,
+        routine_index: routineIdx,
+        task_index: taskIdx,
+        isPro,
+      });
+    } catch (e) {
+      /* ignore telemetry errors */
+    }
+
+    // If a non-Pro user has multiple routines, show the upsell card immediately.
+    if (!isPro && routines.length > 1) {
+      const bgImageSource =
+        bgMode === "user" && bgId && WIDGET_BG_IMAGES[bgId]
+          ? WIDGET_BG_IMAGES[bgId]
+          : bgMode === "user" &&
+              bgUri &&
+              (bgUri.startsWith("https:") || bgUri.startsWith("http:"))
+            ? (bgUri as `https:${string}`)
+            : bgMode === "user"
+              ? WIDGET_DEFAULT_BG
+              : null;
+
+      props.renderWidget(
+        <RoutinesWidget
+          currentRoutine={null}
+          currentIndex={0}
+          totalRoutines={0}
+          taskVisibleIndex={0}
+          outfitId={outfitUri}
+          outfitUri={outfitRemoteUri}
+          bgMode={bgMode}
+          bgId={bgId}
+          bgUri={bgUri}
+          earnedCoins={earnedCoins}
+          hasPending={hasPendingInit}
+          isPro={isPro}
+        />,
+      );
+      return;
+    }
+
+    routineIdx = safeRoutineIdx;
+    taskIdx = safeTaskIdx;
 
     // ── Handle click actions ───────────────────────────────────────────────
 
@@ -356,11 +478,18 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
           const optimisticCoins = await readEarnedCoins(
             freshRoutineOptimistic?.id ?? null,
           );
+          // recompute pending after enqueue (best-effort)
+          const pendingRawAfter =
+            await AsyncStorage.getItem(WIDGET_PENDING_KEY);
+          const pendingListAfter = pendingRawAfter
+            ? JSON.parse(pendingRawAfter)
+            : [];
+          const hasPendingAfter = pendingListAfter.length > 0;
           props.renderWidget(
             <RoutinesWidget
               currentRoutine={freshRoutineOptimistic}
               currentIndex={routineIdx}
-              totalRoutines={routines.length}
+              totalRoutines={totalRoutines}
               taskVisibleIndex={freshTaskIdxOptimistic}
               outfitId={outfitUri}
               outfitUri={outfitRemoteUri}
@@ -368,6 +497,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
               bgId={bgId}
               bgUri={bgUri}
               earnedCoins={optimisticCoins}
+              hasPending={hasPendingAfter}
               isPro={isPro}
             />,
           );
@@ -415,7 +545,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
       <RoutinesWidget
         currentRoutine={freshRoutine}
         currentIndex={routineIdx}
-        totalRoutines={routines.length}
+        totalRoutines={totalRoutines}
         taskVisibleIndex={taskIdx}
         outfitId={outfitUri}
         outfitUri={outfitRemoteUri}
@@ -423,6 +553,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         bgId={bgId}
         bgUri={bgUri}
         earnedCoins={earnedCoins}
+        hasPending={hasPendingInit}
         isPro={isPro}
       />,
     );
@@ -440,6 +571,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         outfitId={null}
         bgMode="solid"
         bgId={null}
+        hasPending={false}
         isPro={fallbackIsPro}
       />,
     );

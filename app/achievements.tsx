@@ -4,7 +4,6 @@ import { AppText as Text } from "@/src/components/AppText";
 import { CoinsCounter } from "@/src/components/CoinsCounter";
 import { DailyStreakScreen } from "@/src/components/DailyStreakScreen";
 import { PaywallModal } from "@/src/components/PaywallModal";
-import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { ReviewRequestModal } from "@/src/components/ReviewRequestModal";
 import { posthog } from "@/src/config/posthog";
 import { ShopItem } from "@/src/config/shopItems";
@@ -191,7 +190,6 @@ export default function AchievementsScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("logros");
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [showTrialOffer, setShowTrialOffer] = useState(false);
   const [showStreakDev, setShowStreakDev] = useState(false);
   const [showReviewDev, setShowReviewDev] = useState(false);
 
@@ -440,20 +438,6 @@ export default function AchievementsScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => setShowTrialOffer(true)}
-            style={{
-              flex: 1,
-              backgroundColor: "#D946EF",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              🎁 Gift
-            </Text>
-          </Pressable>
-          <Pressable
             onPress={async () => {
               useAchievementsStore.setState((prev) => ({
                 totalCoins: prev.totalCoins + 1000,
@@ -498,6 +482,25 @@ export default function AchievementsScreen() {
           >
             <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
               🚀 Onboard
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/onboarding-v3",
+                params: { startAt: "last3" },
+              })
+            }
+            style={{
+              flex: 1,
+              backgroundColor: "#6366F1",
+              paddingVertical: 10,
+              borderRadius: 12,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
+              🔚 Last 3
             </Text>
           </Pressable>
         </View>
@@ -762,10 +765,6 @@ export default function AchievementsScreen() {
         maxStreak={appStreak}
         shieldDates={[]}
         onDismiss={() => setShowStreakDev(false)}
-      />
-      <ProTrialOfferModal
-        visible={showTrialOffer}
-        onClose={() => setShowTrialOffer(false)}
       />
       <ReviewRequestModal
         visible={showReviewDev}

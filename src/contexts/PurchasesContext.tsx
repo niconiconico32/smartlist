@@ -1,20 +1,26 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, {
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
+} from "react";
 
-import { useAuth } from '@/src/contexts/AuthContext';
-import { useProStore } from '@/src/store/proStore';
+import { useAuth } from "@/src/contexts/AuthContext";
+import { useProStore } from "@/src/store/proStore";
 import {
-  configurePurchases,
-  getCustomerInfo,
-  getOfferings,
-  isPremiumActive,
-  loginUser,
-  logoutUser,
-  purchasePackage as purchasePackageFn,
-  restorePurchases as restorePurchasesFn,
-  type CustomerInfo,
-  type PurchaseResult,
-  type PurchasesPackage,
-} from '@/src/utils/purchases';
+    configurePurchases,
+    getCustomerInfo,
+    getOfferings,
+    isPremiumActive,
+    loginUser,
+    logoutUser,
+    purchasePackage as purchasePackageFn,
+    restorePurchases as restorePurchasesFn,
+    type CustomerInfo,
+    type PurchaseResult,
+    type PurchasesPackage,
+} from "@/src/utils/purchases";
 
 interface PurchasesContextType {
   isPremium: boolean;
@@ -48,7 +54,7 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     const proStore = useProStore.getState();
     if (hasPro && !proStore.isPro) {
       await proStore.activatePermanentPro();
-    } else if (!hasPro && proStore.isPro && !proStore.trialExpiresAt) {
+    } else if (!hasPro && proStore.isPro) {
       await proStore.cancelPermanentPro();
     }
   }, []);
@@ -58,7 +64,7 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
       const info = await getCustomerInfo();
       await syncPremiumStatus(info);
     } catch (error) {
-      console.error('Error refreshing customer info:', error);
+      console.error("Error refreshing customer info:", error);
     }
   }, [syncPremiumStatus]);
 
@@ -82,7 +88,7 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
           setPackages(nextPackages);
         }
       } catch (error) {
-        console.error('Error initializing purchases:', error);
+        console.error("Error initializing purchases:", error);
       } finally {
         if (mounted) setIsLoadingPurchases(false);
       }
@@ -119,7 +125,7 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
       await syncPremiumStatus(info);
       return isPremiumActive(info);
     } catch (error) {
-      console.error('Error restoring purchases:', error);
+      console.error("Error restoring purchases:", error);
       return false;
     }
   }, [syncPremiumStatus]);

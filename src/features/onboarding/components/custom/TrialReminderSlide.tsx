@@ -1,8 +1,17 @@
-import { colors } from '@/constants/theme';
-import * as Haptics from 'expo-haptics';
-import React, { useEffect } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
-import { AppText as Text } from '@/src/components/AppText';
+import {
+    PRIMARY_GRADIENT_COLORS,
+    primaryButtonGradient,
+    primaryButtonStyles,
+    primaryButtonText,
+} from "@/constants/buttons";
+import { colors } from "@/constants/theme";
+import { AppText as Text } from "@/src/components/AppText";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Bell } from "lucide-react-native";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -11,7 +20,7 @@ import Animated, {
     withRepeat,
     withSequence,
     withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
 // ============================================
 // TRIAL REMINDER SLIDE
@@ -20,24 +29,13 @@ interface Props {
   onNext: () => void;
 }
 
-/** Calculate reminder date (12 days from now) */
-function getReminderDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 12);
-  const months = [
-    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-  ];
-  return `${d.getDate()} de ${months[d.getMonth()]}`;
-}
-
 const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
-  const mascotY = useSharedValue(0);
+  const { t } = useTranslation();
+  const bellFloat = useSharedValue(0);
   const bellRotate = useSharedValue(0);
 
   useEffect(() => {
-    // Floating mascot
-    mascotY.value = withRepeat(
+    bellFloat.value = withRepeat(
       withSequence(
         withTiming(-10, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
         withTiming(0, { duration: 1500, easing: Easing.inOut(Easing.sin) }),
@@ -45,76 +43,70 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
       -1,
       true,
     );
-    // Bell wiggle
+
     bellRotate.value = withRepeat(
       withSequence(
-        withTiming(15, { duration: 200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-15, { duration: 200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(10, { duration: 150, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 150, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 2000 }), // pause
+        withTiming(12, { duration: 200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-12, { duration: 200, easing: Easing.inOut(Easing.ease) }),
+        withTiming(8, { duration: 160, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 160, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 2000 }),
       ),
       -1,
       false,
     );
   }, []);
 
-  const mascotStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: mascotY.value }],
+  const bellFloatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bellFloat.value }],
   }));
 
   const bellStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${bellRotate.value}deg` }],
   }));
 
-  const reminderDate = getReminderDate();
-
-  // Auto-advance after 4 seconds
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      onNext();
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, []);
+  const handleContinue = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onNext();
+  };
 
   return (
     <View style={s.container}>
       <View style={s.content}>
-        {/* Title */}
-        <Animated.Text entering={FadeInDown.delay(100).duration(500)} style={s.title}>
-          Te avisaremos{' '}
-          <Text style={s.titleHighlight}>2 días antes</Text>
-          {' '}de que termine tu prueba
+        <Animated.Text
+          entering={FadeInDown.delay(120).duration(450)}
+          style={s.title}
+        >
+          {t("onboarding.trial_reminder.title")}
         </Animated.Text>
 
-        {/* Speech bubble notification */}
-        <Animated.View entering={FadeInDown.delay(300).duration(500)} style={s.notifBubble}>
-          <Text style={s.notifText}>
-            Recibirás una notificación el{'\n'}
-            <Text style={s.notifDate}>{reminderDate}</Text>
-          </Text>
-          <View style={s.notifTail} />
-        </Animated.View>
-
-        {/* Mascot + bell */}
         <Animated.View
-          entering={FadeInDown.delay(400).duration(600)}
-          style={[s.mascotArea, mascotStyle]}
+          entering={FadeInDown.delay(260).duration(500)}
+          style={[s.bellWrap, bellFloatStyle]}
         >
-          <Image
-            source={require('@/assets/images/logomain.png')}
-            style={s.mascot}
-            resizeMode="contain"
-          />
-          <Animated.Text style={[s.bell, bellStyle]}>🔔</Animated.Text>
+          <Animated.View style={[s.bellIcon, bellStyle]}>
+            <Bell size={86} color={colors.textSecondary} strokeWidth={1.6} />
+          </Animated.View>
+          <View style={s.badge}>
+            <Text style={s.badgeText}>1</Text>
+          </View>
         </Animated.View>
       </View>
 
-      {/* Bottom text */}
-      <Animated.Text entering={FadeInDown.delay(600).duration(400)} style={s.bottomText}>
-        Fácil de cancelar, sin penalidades ni cargos
-      </Animated.Text>
+      <View style={s.buttonContainer}>
+        <Pressable onPress={handleContinue} style={primaryButtonStyles}>
+          <LinearGradient
+            colors={PRIMARY_GRADIENT_COLORS}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={primaryButtonGradient}
+          >
+            <Text style={primaryButtonText}>
+              {t("onboarding.trial_reminder.cta")}
+            </Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
     </View>
   );
 };
@@ -127,84 +119,69 @@ export default TrialReminderSlide;
 const s = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: "space-between",
   },
   content: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 32,
   },
-  // ── Title ──
   title: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 34,
+    fontSize: 24,
+    fontWeight: "900",
+    color: colors.background,
+    textAlign: "center",
+    lineHeight: 32,
     letterSpacing: -0.3,
     marginBottom: 28,
+    paddingHorizontal: 10,
   },
-  titleHighlight: {
-    color: colors.success,
-    fontWeight: '900',
-  },
-  // ── Notification bubble ──
-  notifBubble: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 28,
+  bellWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: `${colors.surface}`,
     borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
-    alignItems: 'center',
-    marginBottom: 0,
+    borderColor: `${colors.textPrimary}0F`,
+    marginBottom: 22,
   },
-  notifText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 22,
+  bellIcon: {
+    alignItems: "center",
+    justifyContent: "center",
   },
-  notifDate: {
-    fontWeight: '800',
-    color: colors.textPrimary,
+  badge: {
+    position: "absolute",
+    top: 28,
+    right: 34,
+    width: 56,
+    height: 56,
+    borderRadius: 32,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 3,
+    borderColor: colors.background,
   },
-  notifTail: {
-    position: 'absolute',
-    bottom: -12,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 14,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: colors.surface,
+  badgeText: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
-  // ── Mascot ──
-  mascotArea: {
-    alignItems: 'center',
-    marginTop: 16,
+  reassureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
-  mascot: {
-    width: 160,
-    height: 160,
-  },
-  bell: {
-    position: 'absolute',
-    right: -10,
-    bottom: 20,
-    fontSize: 36,
-  },
-  // ── Bottom ──
-  bottomText: {
+  reassureText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    paddingBottom: 40,
-    marginBottom: 10,
+    fontWeight: "600",
+    color: colors.surface,
+  },
+  buttonContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
 });

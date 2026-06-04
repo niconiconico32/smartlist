@@ -6,9 +6,11 @@ import { supabase } from "@/src/lib/supabase";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Localization from "expo-localization";
 import {
   ArrowUp,
   BookOpen,
+  ChevronLeft,
   Droplets,
   Mic,
   Shirt,
@@ -29,6 +31,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   TextInput,
   View,
@@ -49,7 +52,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useAchievementsStore } from "../store/achievementsStore";
 import { C, copilotStyles as styles } from "./CopilotStyles";
 import { OUTFIT_IMAGES } from "./FocusHeroCard";
@@ -233,7 +239,8 @@ function BreathingMicButton({
   onPressOut: () => void;
   compact?: boolean;
 }) {
-  const isProcessing = isDisabled && !isRecording;
+  const [isReleasePending, setIsReleasePending] = useState(false);
+  const isProcessing = (isDisabled && !isRecording) || isReleasePending;
 
   // Aura breathing
   const auraScale = useSharedValue(1);
@@ -245,6 +252,14 @@ function BreathingMicButton({
 
   // Track if long press was actually recognized
   const isActuallyRecording = useRef(false);
+  const stopRequestedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isRecording && !isDisabled) {
+      setIsReleasePending(false);
+      stopRequestedRef.current = false;
+    }
+  }, [isRecording, isDisabled]);
 
   useEffect(() => {
     if (isProcessing) {
@@ -346,17 +361,24 @@ function BreathingMicButton({
   const { t } = useTranslation();
 
   const handlePressIn = () => {
+    stopRequestedRef.current = false;
+    setIsReleasePending(false);
     isActuallyRecording.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     onPressIn();
   };
 
   const handlePressOut = () => {
-    if (isActuallyRecording.current) {
-      isActuallyRecording.current = false;
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onPressOut();
-    }
+    if (!isActuallyRecording.current || stopRequestedRef.current) return;
+    stopRequestedRef.current = true;
+    isActuallyRecording.current = false;
+    setIsReleasePending(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onPressOut();
+  };
+
+  const handleReleaseFallback = () => {
+    handlePressOut();
   };
 
   const auraStyle = useAnimatedStyle(() => ({
@@ -378,6 +400,10 @@ function BreathingMicButton({
       <Pressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        onResponderRelease={handleReleaseFallback}
+        onResponderTerminate={handleReleaseFallback}
+        onTouchEnd={handleReleaseFallback}
+        onTouchCancel={handleReleaseFallback}
         disabled={isDisabled}
       >
         <Animated.View
@@ -420,6 +446,10 @@ function BreathingMicButton({
         <Pressable
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
+          onResponderRelease={handleReleaseFallback}
+          onResponderTerminate={handleReleaseFallback}
+          onTouchEnd={handleReleaseFallback}
+          onTouchCancel={handleReleaseFallback}
           disabled={isDisabled}
         >
           <Animated.View
@@ -483,6 +513,8 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const { activeOutfit, activeOutfitUri } = useAchievementsStore();
   const inputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, StatusBar.currentHeight ?? 0, 12);
 
   // Typewriter state
   const [bubbleReady, setBubbleReady] = useState(false);
@@ -581,8 +613,11 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
     setPhase("processing_expansion");
 
     try {
+      const deviceLocale = Localization.getLocales?.()[0]?.languageCode ?? "en";
+      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+
       const { data, error } = await supabase.functions.invoke("copilot-chat", {
-        body: { task: text, locale: i18n?.language ?? "en" },
+        body: { task: text, locale: localeToUse },
       });
 
       if (error) throw new Error(error.message || t("copilot.error_connect"));
@@ -601,8 +636,11 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
     setPhase("processing_division");
 
     try {
+      const deviceLocale = Localization.getLocales?.()[0]?.languageCode ?? "en";
+      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+
       const { data, error } = await supabase.functions.invoke("divide-task", {
-        body: { task: expandedParagraph, locale: i18n?.language ?? "en" },
+        body: { task: expandedParagraph, locale: localeToUse },
       });
 
       if (error) throw new Error(error.message || t("copilot.error_connect"));
@@ -640,22 +678,19 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
   // --- Mic Handlers (Hold-to-Speak) ---
   const handleMicPressIn = async () => {
     try {
-      setIsRecordingActive(true);
-      await startRecording();
+      const started = await startRecording();
+      setIsRecordingActive(started);
     } catch (e) {
       console.error("Mic press in error:", e);
       setIsRecordingActive(false);
     }
   };
 
-  const handleMicPressOut = async () => {
-    try {
-      await stopRecording();
-    } catch (e) {
+  const handleMicPressOut = () => {
+    setIsRecordingActive(false);
+    void stopRecording().catch((e) => {
       console.error("Mic press out error:", e);
-    } finally {
-      setIsRecordingActive(false);
-    }
+    });
   };
 
   // --- Action handlers ---
@@ -670,6 +705,15 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
     setTaskResult(null);
     setExpandedParagraph("");
   }, [userInput]);
+
+  const handleHeaderBack = useCallback(() => {
+    if (phase === "expanded") {
+      handleAdjust();
+      return;
+    }
+
+    onClose();
+  }, [handleAdjust, onClose, phase]);
 
   const isProcessing = phase.startsWith("processing");
 
@@ -722,10 +766,15 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
       )}
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Floating Close Button */}
-        <Pressable onPress={onClose} style={styles.floatingCloseButton}>
-          <X size={24} color={C.textSecondary} />
-        </Pressable>
+        <View style={[styles.header, { paddingTop: topInset }]}>
+          <Pressable onPress={handleHeaderBack} style={styles.headerButton}>
+            <ChevronLeft size={22} color={C.textBlack} />
+          </Pressable>
+          <View style={styles.headerTitleSpacer} />
+          <Pressable onPress={onClose} style={styles.headerButton}>
+            <X size={20} color={C.textBlack} />
+          </Pressable>
+        </View>
 
         <KeyboardAvoidingView
           style={styles.keyboardView}
@@ -972,11 +1021,6 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
                                 ]}
                                 onPress={() => handleBentoPill(t(pill.textKey))}
                               >
-                                <pill.icon
-                                  size={12}
-                                  color={C.textPrimary}
-                                  style={styles.bentoPillIcon}
-                                />
                                 <Text style={styles.bentoPillText}>
                                   {t(pill.labelKey)}
                                 </Text>

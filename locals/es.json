@@ -141,9 +141,16 @@
     },
     "subtask_list": {
       "empty_task": "Tarea vacía",
+      "list_title": "Listado de Tareas",
       "subtitle": "¡listo! dividí tu tarea",
+      "edit_hint": "Toca cualquier título o tiempo para editar. Mantén presionado y arrastra para reordenar",
       "title_prefix": "acá tienes el paso a paso para empezar a",
-      "reorder_hint": "Mantén presionado y arrastra para reordenar"
+      "reorder_hint": "Mantén presionado y arrastra para reordenar",
+      "minute_abbr": "min",
+      "primary_start": "Comenzar Tarea",
+      "primary_add_to_list": "Agregar a Lista de Tareas",
+      "primary_save_changes": "Guardar Cambios",
+      "primary_add_to_home": "Agregar a Inicio"
     },
     "welcome_header": "¡Bienvenid@ a Brainy!",
     "welcome_message": "Tu cerebro no está roto.\nSolo necesita un copiloto.",
@@ -612,6 +619,13 @@
     "create": "Crear Rutina",
     "save_changes": "Guardar Cambios",
     "choose_icon": "Elige un ícono",
+    "choose_companion": "Elige tu compañero",
+    "busy": "ocupado",
+    "pro_label": "PRO",
+    "ok": "OK",
+    "unlock_for_crowns": "¿Desbloquear por {{cost}} 👑 coronas?\n\nTienes: {{total}} 👑",
+    "not_enough_crowns": "Cuesta {{cost}} 👑 coronas.\nSolo tienes {{total}} 👑 — ¡no alcanza!",
+    "buy_for_crowns": "Comprar · {{cost}} 👑",
     "discard_title": "¿Descartar cambios?",
     "discard_message": "Tienes cambios sin guardar",
     "cancel": "Cancelar",
@@ -743,6 +757,7 @@
     "processing": "Procesando...",
     "listening": "Escuchando...",
     "processing_hint": "Estoy convirtiendo tu idea en una tarea clara",
+    "voice_empty_error": "¿Dijiste algo? No pude procesar tu voz :(  Intenta de nuevo.",
     "placeholder": "¿Qué necesitas hacer?",
     "suggestions_hint": "Prueba una de estas",
     "generating": "Generando...",
@@ -802,7 +817,31 @@
       "option_0": "Procrastino mucho",
       "option_1": "Me siento abrumado",
       "option_2": "Me distraigo fácilmente",
-      "start": "Comenzar"
+      "start": "Comenzar",
+      "egg_picker": {
+        "title": "Elige un huevo para tu rutina",
+        "subtitle": "Puedes cambiarlo luego en tu inventario.",
+        "add_egg": "Agregar huevo"
+      },
+      "pets_preview": {
+        "title": "Conoce a tus Compañeros de Rutinas",
+        "subtitle": "Asocia un huevo a una rutina que hayas creado y complétala tres veces para que evolucione en tu nuevo compañero!"
+      },
+      "trial_reminder": {
+        "title": "Si estás de acuerdo, te recordaremos 2 días antes de que termine tu prueba gratis.",
+        "cta": "Probar por $0.00"
+      },
+      "paywall_slide": {
+        "title": "Consigue BrainyPRO",
+        "subtitle": "Los usuarios de BrainyPRO tienen 3x más probabilidades de llegar a una racha de 28 días.",
+        "feature_ai": "Desgloses ilimitados de tareas con IA",
+        "feature_widget": "Rutinas ilimitadas en el widget",
+        "feature_crowns": "Gana 15% más coronas por cada día de racha",
+        "feature_store": "Desbloquea la tienda de ítems premium",
+        "feature_companions": "Desbloquea compañeros raros y legendarios",
+        "reassure": "No se cobra nada ahora",
+        "cta": "Probar por $0.00"
+      }
     },
     "schedule": {
       "title": "Programar Tarea",
@@ -922,7 +961,8 @@
     "no_routine": "Sin rutina",
     "enable_pro": "Activa PRO para ver tus rutinas aquí",
     "routine_completed": "¡Rutina completada! 🎉",
-    "progress": "{{completed}} de {{total}} tareas · {{pct}}%"
+    "progress": "{{completed}} de {{total}} tareas · {{pct}}%",
+    "action_queued": "Acción encolada"
   },
   "routine_icons": {
     "dumbbell": "Ejercicio",

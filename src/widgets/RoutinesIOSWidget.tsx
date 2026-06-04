@@ -1,19 +1,20 @@
+import { colors } from "@/constants/theme";
 import {
-  HStack,
-  Image,
-  Rectangle,
-  Spacer,
-  Text,
-  VStack,
-  ZStack,
+    HStack,
+    Image,
+    Rectangle,
+    Spacer,
+    Text,
+    VStack,
+    ZStack,
 } from "@expo/ui/swift-ui";
 import {
-  background,
-  font,
-  foregroundStyle,
-  frame,
-  padding,
-  shapes,
+    background,
+    font,
+    foregroundStyle,
+    frame,
+    padding,
+    shapes,
 } from "@expo/ui/swift-ui/modifiers";
 import { createWidget, type WidgetEnvironment } from "expo-widgets";
 import i18n from "../config/i18n";
@@ -25,10 +26,11 @@ export type RoutinesWidgetProps = {
   allComplete: boolean;
   completedCount: number;
   totalCount: number;
+  totalRoutines?: number;
+  hasPending?: boolean;
   streak: number;
 };
-
-const BG_COLOR = "#280D8C";
+const BG_COLOR = colors.surface;
 const ACCENT_COLOR = "#ECF230";
 const WHITE = "#FFFFFF";
 const WHITE_DIM = "#FFFFFFAA";
@@ -45,10 +47,12 @@ function SmallWidget(props: RoutinesWidgetProps) {
     allComplete,
     completedCount,
     totalCount,
+    totalRoutines,
+    hasPending,
     streak,
   } = props;
-
-  if (!isPro) {
+  // Show upsell for non-Pro users only when there are multiple routines
+  if (!isPro && (totalRoutines ?? 0) > 1) {
     return (
       <ZStack modifiers={[frame({ maxWidth: 9999, maxHeight: 9999 })]}>
         <Rectangle
@@ -57,35 +61,27 @@ function SmallWidget(props: RoutinesWidgetProps) {
             frame({ maxWidth: 9999, maxHeight: 9999 }),
           ]}
         />
-        <VStack
-          spacing={6}
+        <HStack
+          spacing={12}
           modifiers={[
-            padding({ all: 14 }),
+            padding({ all: 12 }),
             frame({ maxWidth: 9999, maxHeight: 9999 }),
           ]}
         >
-          <Image
-            systemName="brain.filled.head.profile"
-            size={32}
-            color={ACCENT_COLOR}
-          />
-          <Text
-            modifiers={[
-              font({ size: 11, weight: "regular" }),
-              foregroundStyle(WHITE),
-            ]}
-          >
-            Para tus rutinas,
-          </Text>
-          <Text
-            modifiers={[
-              font({ size: 13, weight: "bold" }),
-              foregroundStyle(ACCENT_COLOR),
-            ]}
-          >
-            {i18n.t("widgets.pro_line_2")}
-          </Text>
-        </VStack>
+          <Image source={require("../../assets/images/logomain.png")} size={36} />
+          <VStack alignment="leading" spacing={4}>
+            <Text
+              modifiers={[font({ size: 11, weight: "regular" }), foregroundStyle(WHITE)]}
+            >
+              Para tus rutinas,
+            </Text>
+            <Text
+              modifiers={[font({ size: 13, weight: "bold" }), foregroundStyle(ACCENT_COLOR)]}
+            >
+              {i18n.t("widgets.pro_line_2")}
+            </Text>
+          </VStack>
+        </HStack>
       </ZStack>
     );
   }
@@ -101,14 +97,16 @@ function SmallWidget(props: RoutinesWidgetProps) {
       />
 
       {/* Contenido */}
-      <VStack
+      <HStack
+        spacing={8}
+        modifiers={[padding({ all: 12 }), frame({ maxWidth: 9999, maxHeight: 9999 })]}
+      >
+        <Image source={require("../../assets/images/logomain.png")} size={36} />
+        <VStack
         alignment="leading"
         spacing={4}
-        modifiers={[
-          padding({ all: 12 }),
-          frame({ maxWidth: 9999, maxHeight: 9999 }),
-        ]}
-      >
+        modifiers={[frame({ maxWidth: 9999, maxHeight: 9999 })]}
+        >
         {/* Pill de nombre de rutina */}
         <Text
           modifiers={[
@@ -147,7 +145,6 @@ function SmallWidget(props: RoutinesWidgetProps) {
         </Text>
 
         <Spacer />
-
         {/* Pie: progreso y racha */}
         <HStack>
           <Text modifiers={[font({ size: 10 }), foregroundStyle(WHITE_DIM)]}>
@@ -157,16 +154,20 @@ function SmallWidget(props: RoutinesWidgetProps) {
           <HStack spacing={2}>
             <Image systemName="flame.fill" size={10} color={ACCENT_COLOR} />
             <Text
-              modifiers={[
-                font({ size: 10, weight: "semibold" }),
-                foregroundStyle(ACCENT_COLOR),
-              ]}
+              modifiers={[font({ size: 10, weight: "semibold" }), foregroundStyle(ACCENT_COLOR)]}
             >
               {streak}
             </Text>
           </HStack>
         </HStack>
+        {/* Pending indicator */}
+        {hasPending ? (
+          <Text modifiers={[font({ size: 9 }), foregroundStyle(WHITE_DIM)]}>
+            {i18n.t("widgets.action_queued")}
+          </Text>
+        ) : null}
       </VStack>
+      </HStack>
     </ZStack>
   );
 }
@@ -182,6 +183,7 @@ function MediumWidget(props: RoutinesWidgetProps) {
     completedCount,
     totalCount,
     streak,
+    hasPending,
   } = props;
 
   if (!isPro) {
@@ -201,9 +203,8 @@ function MediumWidget(props: RoutinesWidgetProps) {
           ]}
         >
           <Image
-            systemName="brain.filled.head.profile"
+            source={require("../../assets/images/logomain.png")}
             size={48}
-            color={ACCENT_COLOR}
           />
           <VStack alignment="leading" spacing={4}>
             <Text

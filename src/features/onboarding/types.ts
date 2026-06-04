@@ -23,8 +23,13 @@ export type SlideType =
   | 'notifications'
   | 'premium-benefits'
   | 'trial-reminder'
+  | 'paywall-onboarding'
   | 'plan-selector'
-  | 'paywall';
+  | 'paywall'
+  | 'onboarding-routine-egg-flow';
+export interface OnboardingRoutineEggFlowSlideConfig extends BaseSlideConfig {
+  type: 'onboarding-routine-egg-flow';
+}
 
 // ============================================
 // DATA TYPES
@@ -192,6 +197,10 @@ export interface TrialReminderSlideConfig extends BaseSlideConfig {
   type: 'trial-reminder';
 }
 
+export interface PaywallOnboardingSlideConfig extends BaseSlideConfig {
+  type: 'paywall-onboarding';
+}
+
 export interface PlanSelectorSlideConfig extends BaseSlideConfig {
   type: 'plan-selector';
 }
@@ -224,8 +233,10 @@ export type SlideConfig =
   | NotificationsSlideConfig
   | PremiumBenefitsSlideConfig
   | TrialReminderSlideConfig
+  | PaywallOnboardingSlideConfig
   | PlanSelectorSlideConfig
-  | PaywallSlideConfig;
+  | PaywallSlideConfig
+  | OnboardingRoutineEggFlowSlideConfig;
 
 // ============================================
 // ONBOARDING STATE

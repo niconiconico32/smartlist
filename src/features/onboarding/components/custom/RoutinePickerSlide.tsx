@@ -86,67 +86,70 @@ const PRESET_ROUTINES: PresetRoutine[] = [
   },
 ];
 
-const ALL_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+export const ALL_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 // ============================================
 // COMPONENT
 // ============================================
 interface Props {
-  onNext: () => void;
+  onNext: (preset?: PresetRoutine) => void;
+  requireSelection?: boolean;
+  skipCreateRoutine?: boolean;
 }
 
-export default function RoutinePickerSlide({ onNext }: Props) {
+export default function RoutinePickerSlide({
+  onNext,
+  requireSelection = false,
+  skipCreateRoutine = false,
+}: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [skipped, setSkipped] = useState(false);
 
   const toggleRoutine = (id: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    setSelected((prev) => (prev === id ? null : id));
   };
 
   const handleContinue = async () => {
     const userId = user?.id;
     if (!userId || saving) return;
 
-    const selectedPresets = PRESET_ROUTINES.filter((r) => selected.has(r.id));
-    if (selectedPresets.length === 0) {
+    const preset = PRESET_ROUTINES.find((r) => r.id === selected);
+    if (!preset) {
+      if (requireSelection) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return;
+      }
       onNext();
+      return;
+    }
+
+    if (skipCreateRoutine) {
+      onNext(preset);
       return;
     }
 
     setSaving(true);
     try {
-      await Promise.all(
-        selectedPresets.map((preset) =>
-          createRoutine(userId, {
-            name: `${preset.emoji} ${t(preset.label)}`,
-            days: ALL_DAYS,
-            tasks: preset.tasks.map((title, index) => ({
-              title: t(title),
-              position: index,
-            })),
-            icon: preset.icon,
-            reminderEnabled: false,
-          }),
-        ),
-      );
+      await createRoutine(userId, {
+        name: `${preset.emoji} ${t(preset.label)}`,
+        days: ALL_DAYS,
+        tasks: preset.tasks.map((title, index) => ({
+          title: t(title),
+          position: index,
+        })),
+        icon: preset.icon,
+        reminderEnabled: false,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      console.error("Error creating routines:", e);
+      console.error("Error creating routine:", e);
     } finally {
       setSaving(false);
-      onNext();
+      onNext(preset);
     }
   };
 
@@ -188,7 +191,7 @@ export default function RoutinePickerSlide({ onNext }: Props) {
           style={s.pillsContainer}
         >
           {PRESET_ROUTINES.map((routine) => {
-            const isSelected = selected.has(routine.id);
+            const isSelected = selected === routine.id;
             return (
               <Pressable
                 key={routine.id}
@@ -217,26 +220,21 @@ export default function RoutinePickerSlide({ onNext }: Props) {
       >
         <Pressable
           onPress={handleContinue}
-          style={[s.button, saving && s.buttonDisabled]}
-          disabled={saving}
+          style={[
+            s.button,
+            (saving || (requireSelection && !selected)) && s.buttonDisabled,
+          ]}
+          disabled={saving || (requireSelection && !selected)}
         >
           {saving ? (
             <ActivityIndicator color={colors.background} />
           ) : (
             <Text style={s.buttonText}>
-              {selected.size > 0
-                ? selected.size === 1
-                  ? t("onboarding.routine_picker.add_1_routine")
-                  : t("onboarding.routine_picker.add_n_routines", {
-                      count: selected.size,
-                    })
+              {selected
+                ? t("onboarding.routine_picker.add_1_routine")
                 : t("onboarding.continue")}
             </Text>
           )}
-        </Pressable>
-
-        <Pressable onPress={handleSkip} style={s.skipButton}>
-          <Text style={s.skipText}>{t("onboarding.routine_picker.skip")}</Text>
         </Pressable>
       </Animated.View>
     </View>

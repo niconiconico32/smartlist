@@ -21,6 +21,7 @@ import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useEggStore } from "@/src/store/eggStore";
 import { useProStore } from "@/src/store/proStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
+import { useRoutinesRefreshStore } from "@/src/store/routinesRefreshStore";
 import type { Routine } from "@/src/types/routine";
 import {
     renderRoutinesWidget,
@@ -40,12 +41,7 @@ import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
-import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Alert,
@@ -113,6 +109,7 @@ export default function RoutinesScreen({
   const { recordRoutineCompletion, unmarkRoutineCompletion } =
     useRoutineStreakStore();
   const { isPro } = useProStore();
+  const routinesRefreshToken = useRoutinesRefreshStore((s) => s.refreshToken);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -238,40 +235,7 @@ export default function RoutinesScreen({
     }
   };
 
-  // Cargar rutinas cuando la pantalla se enfoca o vuelve de 2do plano
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      const refreshData = () => {
-        if (!authLoading && user && isActive) {
-          processPendingWidgetSync().then(() => {
-            if (isActive) loadRoutines();
-          });
-        }
-      };
-
-      // Carga inicial al enfocar el tab
-      refreshData();
-
-      // Escuchar si la app vuelve desde el widget (home screen)
-      const subscription = AppState.addEventListener(
-        "change",
-        (nextAppState) => {
-          if (nextAppState === "active") {
-            refreshData();
-          }
-        },
-      );
-
-      return () => {
-        isActive = false;
-        subscription.remove();
-      };
-    }, [user, authLoading]),
-  );
-
-  const loadRoutines = async () => {
+  const loadRoutines = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
@@ -303,7 +267,45 @@ export default function RoutinesScreen({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, onRoutinesCountChanged, t]);
+
+  // Cargar rutinas cuando la pantalla se enfoca o vuelve de 2do plano
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const refreshData = () => {
+        if (!authLoading && user && isActive) {
+          processPendingWidgetSync().then(() => {
+            if (isActive) loadRoutines();
+          });
+        }
+      };
+
+      // Carga inicial al enfocar el tab
+      refreshData();
+
+      // Escuchar si la app vuelve desde el widget (home screen)
+      const subscription = AppState.addEventListener(
+        "change",
+        (nextAppState) => {
+          if (nextAppState === "active") {
+            refreshData();
+          }
+        },
+      );
+
+      return () => {
+        isActive = false;
+        subscription.remove();
+      };
+    }, [user, authLoading, loadRoutines]),
+  );
+
+  useEffect(() => {
+    if (!user || authLoading || routinesRefreshToken === 0) return;
+    loadRoutines();
+  }, [routinesRefreshToken, user, authLoading, loadRoutines]);
 
   const handleDeleteRoutine = async (id: string) => {
     if (!user) return;
@@ -380,16 +382,23 @@ export default function RoutinesScreen({
         // updateRoutine returns completed: false for all tasks — reapply today's completions
         const currentRoutine = routines.find((r) => r.id === result.id);
         const completedIds = new Set(
-          (currentRoutine?.tasks ?? []).filter((t) => t.completed).map((t) => t.id),
+          (currentRoutine?.tasks ?? [])
+            .filter((t) => t.completed)
+            .map((t) => t.id),
         );
         const resultWithCompletions = {
           ...result,
-          tasks: result.tasks.map((t) => ({ ...t, completed: completedIds.has(t.id) })),
+          tasks: result.tasks.map((t) => ({
+            ...t,
+            completed: completedIds.has(t.id),
+          })),
         };
 
         // Actualizar estado local
         setRoutines((prev) =>
-          prev.map((r) => (r.id === resultWithCompletions.id ? resultWithCompletions : r)),
+          prev.map((r) =>
+            r.id === resultWithCompletions.id ? resultWithCompletions : r,
+          ),
         );
 
         // Reprogramar notificaciones

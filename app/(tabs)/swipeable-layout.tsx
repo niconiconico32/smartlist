@@ -9,16 +9,15 @@ import {
     FocusHeroCard,
 } from "@/src/components/FocusHeroCard";
 import { LiquidFAB } from "@/src/components/LiquidFAB";
-import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { StreakShieldModal } from "@/src/components/StreakShieldModal";
 import { WeeklyCalendar } from "@/src/components/WeeklyCalendar";
 import { useAuth } from "@/src/contexts/AuthContext";
-import * as routineService from "@/src/lib/routineService";
 import { scheduleRoutineReminders } from "@/src/lib/notificationService";
+import * as routineService from "@/src/lib/routineService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
-import { useProStore } from "@/src/store/proStore";
 import { useEggStore } from "@/src/store/eggStore";
+import { useProStore } from "@/src/store/proStore";
 import {
     getLocalTodayDateKey,
     hasCountedToday,
@@ -113,7 +112,9 @@ export default function SwipeableLayout() {
     onReminderActivated,
   } = useAchievementsStore();
   const activeBackground = useAchievementsStore((s) => s.activeBackground);
-  const activeBackgroundUri = useAchievementsStore((s) => s.activeBackgroundUri);
+  const activeBackgroundUri = useAchievementsStore(
+    (s) => s.activeBackgroundUri,
+  );
   const {
     streak: appStreak,
     history: appStreakHistory,
@@ -124,13 +125,12 @@ export default function SwipeableLayout() {
     initializeAppStreak,
     dismissStreakScreen,
   } = useAppStreakStore();
-  const { isPro, hasSeenTrialOffer, pendingShieldOffer } = useProStore();
+  const { isPro, pendingShieldOffer } = useProStore();
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [showCreateRoutineModal, setShowCreateRoutineModal] = useState(false);
-  const [showTrialOffer, setShowTrialOffer] = useState(false);
   const [showCopilot, setShowCopilot] = useState(false);
 
   const [routines, setRoutines] = useState<
@@ -264,14 +264,6 @@ export default function SwipeableLayout() {
         try {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {}
-      }
-
-      // 🎁 Pro Trial Offer: show after completing first task/routine if user hasn't seen it yet
-      const { isPro: currentIsPro, hasSeenTrialOffer: currentHasSeen } =
-        useProStore.getState();
-      if (!currentIsPro && !currentHasSeen) {
-        // Small delay so the task celebration animation finishes first
-        setTimeout(() => setShowTrialOffer(true), 1200);
       }
     } catch (error) {
       console.error("Error updating streak:", error);
@@ -511,10 +503,9 @@ export default function SwipeableLayout() {
       if (newRoutine) {
         // Assign chosen egg immediately at creation time
         if (routine.eggId != null) {
-          useEggStore.getState().assignEggToRoutine(
-            routine.eggId as any,
-            newRoutine.id,
-          );
+          useEggStore
+            .getState()
+            .assignEggToRoutine(routine.eggId as any, newRoutine.id);
         }
 
         // Recargar rutinas para actualizar calendario
@@ -764,12 +755,6 @@ export default function SwipeableLayout() {
 
       {/* Streak Shield Protection Modal (Pro only) */}
       <StreakShieldModal />
-
-      {/* Pro Trial Offer (first-time, non-Pro users) */}
-      <ProTrialOfferModal
-        visible={showTrialOffer && !shouldShowStreakScreen}
-        onClose={() => setShowTrialOffer(false)}
-      />
 
       {/* Copilot Modal */}
       <Modal

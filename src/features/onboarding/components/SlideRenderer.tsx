@@ -1,50 +1,52 @@
-import React from 'react';
+import React from "react";
 import type {
-    GoalOption,
-    OnboardingAnswers,
-    SelectOption,
-    SlideConfig,
-} from '../types';
+  GoalOption,
+  OnboardingAnswers,
+  SelectOption,
+  SlideConfig,
+} from "../types";
+import OnboardingRoutineWithEggFlow from "./custom/OnboardingRoutineWithEggFlow";
 
 // Constants (resolved from string refs)
 import {
-    ADHD_DIAGNOSIS,
-    ADHD_SYMPTOMS,
-    GOAL_OPTIONS,
-    LIFE_AREAS,
-    MAIN_GOAL,
-    RANGOS_EDAD,
-    STATEMENTS,
-} from '../constants';
+  ADHD_DIAGNOSIS,
+  ADHD_SYMPTOMS,
+  GOAL_OPTIONS,
+  LIFE_AREAS,
+  MAIN_GOAL,
+  RANGOS_EDAD,
+  STATEMENTS,
+} from "../constants";
 
 // Templates
-import AgreementSlide from './templates/AgreementSlide';
-import GoalsSlide from './templates/GoalsSlide';
-import MultiSelectSlide from './templates/MultiSelectSlide';
-import SingleSelectSlide from './templates/SingleSelectSlide';
-import TextInputSlide from './templates/TextInputSlide';
+import AgreementSlide from "./templates/AgreementSlide";
+import GoalsSlide from "./templates/GoalsSlide";
+import MultiSelectSlide from "./templates/MultiSelectSlide";
+import SingleSelectSlide from "./templates/SingleSelectSlide";
+import TextInputSlide from "./templates/TextInputSlide";
 
 // Custom slides
-import AllDoneSlide from './custom/AllDoneSlide';
-import CommitmentSlide from './custom/CommitmentSlide';
-import DialogueSlide from './custom/DialogueSlide';
-import GrowthPotentialSlide from './custom/GrowthPotentialSlide';
-import HabitDaysSlide from './custom/HabitDaysSlide';
-import NeuroscienceSlide from './custom/NeuroscienceSlide';
-import NotificationsSlide from './custom/NotificationsSlide';
-import PaywallSlide from './custom/PaywallSlide';
-import PlanSelectorSlide from './custom/PlanSelectorSlide';
-import PremiumBenefitsSlide from './custom/PremiumBenefitsSlide';
-import ProcessingSlide from './custom/ProcessingSlide';
-import ResultsSlide from './custom/ResultsSlide';
-import ReverseTrialSlide from './custom/ReverseTrialSlide';
-import RoutinePickerSlide from './custom/RoutinePickerSlide';
-import SuccessChartSlide from './custom/SuccessChartSlide';
-import SuccessTimelineSlide from './custom/SuccessTimelineSlide';
-import TaskDemoSlide from './custom/TaskDemoSlide';
-import TestimonialSlide from './custom/TestimonialSlide';
-import TrialReminderSlide from './custom/TrialReminderSlide';
-import WelcomeSlide from './custom/WelcomeSlide';
+import AllDoneSlide from "./custom/AllDoneSlide";
+import CommitmentSlide from "./custom/CommitmentSlide";
+import DialogueSlide from "./custom/DialogueSlide";
+import GrowthPotentialSlide from "./custom/GrowthPotentialSlide";
+import HabitDaysSlide from "./custom/HabitDaysSlide";
+import NeuroscienceSlide from "./custom/NeuroscienceSlide";
+import NotificationsSlide from "./custom/NotificationsSlide";
+import PaywallOnboardingSlide from "./custom/PaywallOnboardingSlide";
+import PaywallSlide from "./custom/PaywallSlide";
+import PlanSelectorSlide from "./custom/PlanSelectorSlide";
+import PremiumBenefitsSlide from "./custom/PremiumBenefitsSlide";
+import ProcessingSlide from "./custom/ProcessingSlide";
+import ResultsSlide from "./custom/ResultsSlide";
+import ReverseTrialSlide from "./custom/ReverseTrialSlide";
+import RoutinePickerSlide from "./custom/RoutinePickerSlide";
+import SuccessChartSlide from "./custom/SuccessChartSlide";
+import SuccessTimelineSlide from "./custom/SuccessTimelineSlide";
+import TaskDemoSlide from "./custom/TaskDemoSlide";
+import TestimonialSlide from "./custom/TestimonialSlide";
+import TrialReminderSlide from "./custom/TrialReminderSlide";
+import WelcomeSlide from "./custom/WelcomeSlide";
 
 // ============================================
 // OPTIONS RESOLVER
@@ -72,7 +74,10 @@ function resolveGoalOptions(ref: string): GoalOption[] {
 interface Props {
   config: SlideConfig;
   answers: OnboardingAnswers;
-  onAnswer: <K extends keyof OnboardingAnswers>(key: K, value: OnboardingAnswers[K]) => void;
+  onAnswer: <K extends keyof OnboardingAnswers>(
+    key: K,
+    value: OnboardingAnswers[K],
+  ) => void;
   onNext: () => void;
   onBack: () => void;
   onFinish: () => void;
@@ -87,22 +92,18 @@ const SlideRenderer: React.FC<Props> = ({
   onFinish,
 }) => {
   switch (config.type) {
-    case 'welcome':
+    case "welcome":
       return <WelcomeSlide onNext={onNext} />;
 
-    case 'dialogue':
+    case "dialogue":
       return <DialogueSlide config={config} onNext={onNext} />;
 
-    case 'text-input':
+    case "text-input":
       return (
-        <TextInputSlide
-          config={config}
-          answers={answers}
-          onAnswer={onAnswer}
-        />
+        <TextInputSlide config={config} answers={answers} onAnswer={onAnswer} />
       );
 
-    case 'single-select':
+    case "single-select":
       return (
         <SingleSelectSlide
           config={config}
@@ -112,7 +113,7 @@ const SlideRenderer: React.FC<Props> = ({
         />
       );
 
-    case 'multi-select':
+    case "multi-select":
       return (
         <MultiSelectSlide
           config={config}
@@ -122,7 +123,7 @@ const SlideRenderer: React.FC<Props> = ({
         />
       );
 
-    case 'goals':
+    case "goals":
       return (
         <GoalsSlide
           config={config}
@@ -132,7 +133,7 @@ const SlideRenderer: React.FC<Props> = ({
         />
       );
 
-    case 'agreement':
+    case "agreement":
       return (
         <AgreementSlide
           config={config}
@@ -143,59 +144,73 @@ const SlideRenderer: React.FC<Props> = ({
         />
       );
 
-    case 'habit-days':
+    case "habit-days":
       return <HabitDaysSlide onNext={onNext} />;
 
-    case 'task-demo':
-      return <TaskDemoSlide answers={answers} onAnswer={onAnswer} onNext={onNext} />;
+    case "task-demo":
+      return (
+        <TaskDemoSlide answers={answers} onAnswer={onAnswer} onNext={onNext} />
+      );
 
-    case 'growth-potential':
+    case "growth-potential":
       return <GrowthPotentialSlide onNext={onNext} />;
 
-    case 'success-timeline':
+    case "success-timeline":
       return <SuccessTimelineSlide onNext={onNext} />;
 
-    case 'reverse-trial':
+    case "reverse-trial":
       return <ReverseTrialSlide onFinish={onFinish} />;
 
-    case 'neuroscience':
+    case "neuroscience":
       return <NeuroscienceSlide />;
 
-    case 'processing':
+    case "processing":
       return <ProcessingSlide answers={answers} onNext={onNext} />;
 
-    case 'results':
+    case "results":
       return <ResultsSlide answers={answers} onNext={onNext} />;
 
-    case 'success-chart':
+    case "success-chart":
       return <SuccessChartSlide onNext={onNext} answers={answers} />;
 
-    case 'routine-picker':
+    case "routine-picker":
       return <RoutinePickerSlide onNext={onNext} />;
 
-    case 'all-done':
+    case "onboarding-routine-egg-flow":
+      return (
+        <OnboardingRoutineWithEggFlow
+          onDone={onNext}
+          answers={answers}
+          onAnswer={onAnswer}
+        />
+      );
+
+    case "all-done":
       return <AllDoneSlide onNext={onNext} />;
 
-    case 'commitment':
+    case "commitment":
       return <CommitmentSlide onNext={onNext} />;
 
-    case 'testimonial':
+    case "testimonial":
       return <TestimonialSlide onNext={onNext} />;
 
-    case 'notifications':
+    case "notifications":
       return <NotificationsSlide onNext={onNext} />;
 
-    case 'premium-benefits':
+    case "premium-benefits":
       return <PremiumBenefitsSlide onNext={onNext} />;
 
-    case 'trial-reminder':
+    case "trial-reminder":
       return <TrialReminderSlide onNext={onNext} />;
 
-    case 'plan-selector':
+    case "paywall-onboarding":
+      return <PaywallOnboardingSlide onNext={onNext} />;
+
+    case "plan-selector":
       return <PlanSelectorSlide onNext={onFinish} />;
 
-    case 'paywall':
-      return <PaywallSlide onFinish={onFinish} />;
+    case "paywall":
+      return <PaywallSlide onNext={onNext} />;
 
     default:
       return null;

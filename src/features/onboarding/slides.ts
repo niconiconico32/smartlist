@@ -146,14 +146,13 @@ export const SLIDES: SlideConfig[] = [
     autoAdvance: true,
   },
 
-  // === 11: Task Demo ===
+
+  // === 11: Rutina + Huevo (nuevo flujo) ===
   {
-    type: 'task-demo',
-    id: 'task-demo',
-    answerKey: 'taskText',
-    showNavButton: true,
-    canContinue: (answers) => !!answers.taskText.trim(),
-    buttonText: 'onboarding.help_me_with_this',
+    type: 'onboarding-routine-egg-flow',
+    id: 'routine-egg-flow',
+    answerKey: null,
+    showNavButton: false,
   },
 
   // === 12: Growth Potential ===

@@ -1,10 +1,10 @@
 import React from "react";
 import { Image } from "react-native";
 import {
-  FlexWidget,
-  ImageWidget,
-  OverlapWidget,
-  TextWidget,
+    FlexWidget,
+    ImageWidget,
+    OverlapWidget,
+    TextWidget,
 } from "react-native-android-widget";
 import i18n from "../config/i18n";
 import type { Routine } from "../types/routine";
@@ -109,6 +109,7 @@ interface RoutinesWidgetProps {
   bgUri?: string | null;
   earnedCoins?: number | null;
   isPro?: boolean;
+  hasPending?: boolean;
 }
 
 export function RoutinesWidget({

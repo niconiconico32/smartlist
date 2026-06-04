@@ -54,7 +54,6 @@ import { ActivityButton } from "@/src/components/ActivityButton";
 import { AppText as Text } from "@/src/components/AppText";
 import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
-import { ProTrialOfferModal } from "@/src/components/ProTrialOfferModal";
 import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
 import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
 import { TaskCelebration } from "@/src/components/TaskCelebration";
@@ -76,7 +75,6 @@ import {
     calculateStreak,
     useAchievementsStore,
 } from "@/src/store/achievementsStore";
-import { useProStore } from "@/src/store/proStore";
 import {
     ONBOARDING_BUTTONS,
     ONBOARDING_COLORS,
@@ -162,11 +160,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const handleMicPressIn = async () => {
     try {
-      setIsListening(true);
-      await startRecording();
+      const started = await startRecording();
+      setIsListening(started);
+      return started;
     } catch (error) {
       console.error("Error in handleMicPressIn:", error);
       setIsListening(false);
+      return false;
     }
   };
 
@@ -178,6 +178,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     } finally {
       setIsListening(false);
     }
+    return;
   };
 
   // Onboarding Modal State
@@ -243,7 +244,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const [showTaskCelebration, setShowTaskCelebration] = useState(false);
   const [celebratedTaskName, setCelebratedTaskName] = useState("");
   const [earnedTaskCoins, setEarnedTaskCoins] = useState(0);
-  const [showTrialOffer, setShowTrialOffer] = useState(false);
 
   const [elapsedTime, setElapsedTime] = useState(0);
   const executionSlideAnim = useRef(new RNAnimated.Value(0)).current;
@@ -614,8 +614,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
     try {
       // ✅ SECURE: Using Supabase SDK instead of manual fetch with hardcoded token
+      const loc = await import("expo-localization");
+      const deviceLocale = loc.getLocales?.()[0]?.languageCode ?? "en";
+      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+
       const { data, error } = await supabase.functions.invoke("divide-task", {
-        body: { task: inputText.trim() },
+        body: { task: inputText.trim(), locale: localeToUse },
       });
 
       if (error) {
@@ -781,10 +785,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       return;
     }
 
-    // Si tiene subtareas, mostrar modal para iniciar
+    // Si tiene subtareas, abrir el editor de subtareas
     if (activity.subtasks && activity.subtasks.length > 0) {
-      setPendingActivityToStart(activity);
-      setShowStartTaskModal(true);
+      setGeneratedTaskTitle(activity.title);
+      setGeneratedEmoji(activity.emoji);
+      setSubtasks(activity.subtasks);
+      setEditingActivityId(activity.id);
+      setShowSubtasksModal(true);
     } else {
       // Sin subtareas, solo toggle
       toggleActivityStatus(activity.id);
@@ -1579,19 +1586,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           earnedCoins={earnedTaskCoins}
           onClose={() => {
             setShowTaskCelebration(false);
-            const proStore = useProStore.getState();
-            if (!proStore.hasSeenTrialOffer) {
-              setTimeout(() => {
-                setShowTrialOffer(true);
-              }, 400); // Wait for the celebration modal to close fully
-            }
           }}
-        />
-
-        {/* Pro Trial Offer */}
-        <ProTrialOfferModal
-          visible={showTrialOffer}
-          onClose={() => setShowTrialOffer(false)}
         />
 
         {/* Streak Success Screen - Dev Testing */}

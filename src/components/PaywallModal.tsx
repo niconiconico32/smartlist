@@ -1,27 +1,33 @@
-import { posthog } from '@/src/config/posthog';
-import Constants from 'expo-constants';
-import * as Haptics from 'expo-haptics';
-import React, { useEffect, useRef } from 'react';
-import RevenueCatUI, { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import { posthog } from "@/src/config/posthog";
+import Constants from "expo-constants";
+import * as Haptics from "expo-haptics";
+import { useEffect, useRef } from "react";
+import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 
+import { useProStore } from "@/src/store/proStore";
 import {
-  configurePurchases,
-  ENTITLEMENT_ID,
-  getCustomerInfo,
-  getOffering,
-  isPremiumActive,
-} from '@/src/utils/purchases';
-import { useProStore } from '@/src/store/proStore';
+    configurePurchases,
+    ENTITLEMENT_ID,
+    getCustomerInfo,
+    getOffering,
+    isPremiumActive,
+} from "@/src/utils/purchases";
 
-const isExpoGo = Constants.appOwnership === 'expo';
+const isExpoGo = Constants.appOwnership === "expo";
 
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
   source?: string;
+  offeringId?: string;
 }
 
-export function PaywallModal({ visible, onClose, source }: PaywallModalProps) {
+export function PaywallModal({
+  visible,
+  onClose,
+  source,
+  offeringId,
+}: PaywallModalProps) {
   const presentingRef = useRef(false);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -29,42 +35,61 @@ export function PaywallModal({ visible, onClose, source }: PaywallModalProps) {
   useEffect(() => {
     if (!visible || presentingRef.current) return;
     presentingRef.current = true;
-    
-    console.log('[PaywallModal] visible is true, presenting paywall flow started...');
+
+    console.log(
+      "[PaywallModal] visible is true, presenting paywall flow started...",
+    );
 
     (async () => {
       try {
         if (isExpoGo) {
-          console.warn('[PaywallModal] ⚠️ No se puede mostrar el Paywall en Expo Go. Se requiere un Development Build. Retornando silenciosamente.');
+          console.warn(
+            "[PaywallModal] ⚠️ No se puede mostrar el Paywall en Expo Go. Se requiere un Development Build. Retornando silenciosamente.",
+          );
           return;
         }
 
-        console.log('[PaywallModal] Configuring purchases...');
+        console.log("[PaywallModal] Configuring purchases...");
         await configurePurchases();
-        
-        console.log('[PaywallModal] Fetching offerings...');
-        const offering = await getOffering();
-        console.log('[PaywallModal] Offering fetched:', offering ? offering.identifier : 'null');
-        console.log('[PaywallModal] Does this offering have a custom paywall?', !!offering?.paywall);
+
+        console.log("[PaywallModal] Fetching offerings...");
+        const offering = await getOffering(offeringId);
+        console.log(
+          "[PaywallModal] Offering fetched:",
+          offering ? offering.identifier : "null",
+        );
+        console.log(
+          "[PaywallModal] Does this offering have a custom paywall?",
+          !!offering?.paywall,
+        );
         if (offering?.paywall) {
-          console.log('[PaywallModal] Paywall revision:', offering.paywall.revision);
+          console.log(
+            "[PaywallModal] Paywall revision:",
+            offering.paywall.revision,
+          );
         } else {
-          console.log('[PaywallModal] ⚠️ NO PAYWALL CONFIGURATION FOUND IN OFFERING. RevenueCat will show the default generic paywall.');
+          console.log(
+            "[PaywallModal] ⚠️ NO PAYWALL CONFIGURATION FOUND IN OFFERING. RevenueCat will show the default generic paywall.",
+          );
         }
 
-        posthog.capture('paywall_viewed', { source: source ?? null });
+        posthog.capture("paywall_viewed", { source: source ?? null });
 
-        console.log('[PaywallModal] Calling RevenueCatUI.presentPaywallIfNeeded...');
+        console.log(
+          "[PaywallModal] Calling RevenueCatUI.presentPaywallIfNeeded...",
+        );
         const result = await RevenueCatUI.presentPaywallIfNeeded({
           offering: offering ?? undefined,
           requiredEntitlementIdentifier: ENTITLEMENT_ID,
         });
-        
-        console.log('[PaywallModal] Paywall result received:', result);
+
+        console.log("[PaywallModal] Paywall result received:", result);
 
         if (result === PAYWALL_RESULT.NOT_PRESENTED) {
-          console.log('[PaywallModal] Paywall NOT_PRESENTED (user might already be Pro).');
-          posthog.capture('paywall_not_presented', { source: source ?? null });
+          console.log(
+            "[PaywallModal] Paywall NOT_PRESENTED (user might already be Pro).",
+          );
+          posthog.capture("paywall_not_presented", { source: source ?? null });
           return;
         }
 
@@ -75,11 +100,13 @@ export function PaywallModal({ visible, onClose, source }: PaywallModalProps) {
           const info = await getCustomerInfo();
           if (isPremiumActive(info)) {
             await useProStore.getState().activatePermanentPro();
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            );
             posthog.capture(
               result === PAYWALL_RESULT.PURCHASED
-                ? 'purchase_completed'
-                : 'purchase_restored',
+                ? "purchase_completed"
+                : "purchase_restored",
               { source: source ?? null },
             );
           }
@@ -87,13 +114,13 @@ export function PaywallModal({ visible, onClose, source }: PaywallModalProps) {
         }
 
         if (result === PAYWALL_RESULT.CANCELLED) {
-          posthog.capture('paywall_dismissed', { source: source ?? null });
+          posthog.capture("paywall_dismissed", { source: source ?? null });
           return;
         }
 
-        posthog.capture('paywall_error', { source: source ?? null });
+        posthog.capture("paywall_error", { source: source ?? null });
       } catch (error) {
-        console.error('Paywall error:', error);
+        console.error("Paywall error:", error);
       } finally {
         presentingRef.current = false;
         onCloseRef.current();

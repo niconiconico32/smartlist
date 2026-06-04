@@ -11,8 +11,14 @@ import { useOnboardingStore } from "@/src/store/onboardingStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, Stack } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import React, {
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { BackHandler, Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
@@ -33,11 +39,24 @@ import { useOnboardingTracking } from "./useOnboardingTracking";
 // ============================================
 export default function OnboardingV3Screen() {
   const { t, i18n } = useTranslation();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const { startAt } = useLocalSearchParams<{ startAt?: string }>();
+  const initialSlide = useMemo(() => {
+    if (startAt === "last3") {
+      return Math.max(TOTAL_SLIDES_V3 - 3, 0);
+    }
+    if (startAt !== undefined) {
+      const parsed = Number(startAt);
+      if (!Number.isNaN(parsed)) {
+        return Math.min(Math.max(parsed, 0), TOTAL_SLIDES_V3 - 1);
+      }
+    }
+    return 0;
+  }, [startAt]);
+  const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
   const buttonScale = useSharedValue(1);
   const { signInAnonymously } = useAuth();
-  const prevSlideRef = useRef(0);
+  const prevSlideRef = useRef(initialSlide);
 
   const {
     trackStart,
@@ -52,8 +71,8 @@ export default function OnboardingV3Screen() {
   // ── Tracking: start on mount, step viewed on slide change ──
   useEffect(() => {
     trackStart();
-    trackStepViewed(0, "forward");
-  }, []);
+    trackStepViewed(initialSlide, "forward");
+  }, [initialSlide]);
 
   useEffect(() => {
     if (currentSlide === 0) return; // handled by mount effect
@@ -136,6 +155,9 @@ export default function OnboardingV3Screen() {
   const hideBackOnSlides = [
     "welcome",
     "processing",
+    "paywall",
+    "trial-reminder",
+    "paywall-onboarding",
     ...(__DEV__ ? [] : ["dialogue"]),
   ];
   const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
