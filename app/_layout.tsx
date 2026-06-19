@@ -1,4 +1,5 @@
 import { posthog } from "@/src/config/posthog";
+import i18n from "@/src/config/i18n";
 import { Jersey10_400Regular } from "@expo-google-fonts/jersey-10";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import {
@@ -75,10 +76,25 @@ export default function RootLayout() {
 
   // ─── Update gate ─────────────────────────────────────────────────────────
   const [updateGate, setUpdateGate] = useState<UpdateGateState>("checking");
+  const [i18nGate, setI18nGate] = useState(i18n.isInitialized);
   const [forceUpdateInfo, setForceUpdateInfo] = useState<ForceUpdateInfo>({
     storeUrl: "",
     message: "",
   });
+
+  useEffect(() => {
+    if (i18n.isInitialized) {
+      setI18nGate(true);
+      return;
+    }
+
+    const handleInitialized = () => setI18nGate(true);
+    i18n.on("initialized", handleInitialized);
+
+    return () => {
+      i18n.off("initialized", handleInitialized);
+    };
+  }, []);
 
   useEffect(() => {
     /**
@@ -131,7 +147,7 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  if (!loaded) {
+  if (!loaded || !i18nGate) {
     return null;
   }
 

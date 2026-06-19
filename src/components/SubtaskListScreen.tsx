@@ -410,7 +410,7 @@ export function SubtaskListScreen({
                     onChangeText={(text) => {
                       transientTitleRef.current[item.id] = text;
                     }}
-                    placeholder={t("subtask_list.empty_task")}
+                    placeholder={t("onboarding.subtask_list.empty_task")}
                     placeholderTextColor={colors.textSecondary + "80"}
                     autoFocus
                     multiline={false}
@@ -460,7 +460,7 @@ export function SubtaskListScreen({
                           !item.title && styles.taskItemTextEmpty,
                         ]}
                       >
-                        {item.title || t("subtask_list.empty_task")}
+                        {item.title || t("onboarding.subtask_list.empty_task")}
                       </Text>
                     </Pressable>
                   </ScrollView>
@@ -528,7 +528,7 @@ export function SubtaskListScreen({
                       </Pressable>
                     )}
                     <Text style={styles.cardDurationLabel}>
-                      {t("subtask_list.minute_abbr")}
+                      {t("onboarding.subtask_list.minute_abbr")}
                     </Text>
                   </View>
                 </View>
@@ -589,7 +589,7 @@ export function SubtaskListScreen({
           style={styles.footer}
         >
           <View style={styles.tipContainer}>
-            <Text style={styles.tipText}>{t("subtask_list.subtitle")}</Text>
+            <Text style={styles.tipText}>{t("onboarding.subtask_list.subtitle")}</Text>
           </View>
         </Animated.View>
         <Animated.View style={footerSpacerStyle} />
@@ -611,7 +611,7 @@ export function SubtaskListScreen({
           <Pressable onPress={onClose} style={styles.backButton}>
             <ChevronLeft size={24} color={colors.textPrimary} />
           </Pressable>
-          <Text style={styles.headerTitle}>{t("subtask_list.list_title")}</Text>
+          <Text style={styles.headerTitle}>{t("onboarding.subtask_list.list_title")}</Text>
           <View style={styles.headerActions}>
             {isEditing && onDeleteTask && (
               <Pressable onPress={handleDeleteTask} style={styles.headerEmoji}>
@@ -674,7 +674,7 @@ export function SubtaskListScreen({
 
       <Animated.View entering={FadeIn.delay(120).duration(300)}>
         <View>
-          <Text style={styles.tipText}>{t("subtask_list.edit_hint")}</Text>
+          <Text style={styles.tipText}>{t("onboarding.subtask_list.edit_hint")}</Text>
         </View>
       </Animated.View>
 
@@ -705,7 +705,7 @@ export function SubtaskListScreen({
               >
                 <Plus size={20} color="#1E1E2E" style={{ marginRight: 8 }} />
                 <Text style={styles.createButtonText}>
-                  {primaryActionLabel || t("subtask_list.primary_add_to_home")}
+                  {primaryActionLabel || t("onboarding.subtask_list.primary_add_to_home")}
                 </Text>
               </LinearGradient>
             </AnimatedPressable>
@@ -729,7 +729,7 @@ export function SubtaskListScreen({
                     style={{ marginRight: 8 }}
                   />
                   <Text style={styles.createButtonText}>
-                    {t("subtask_list.primary_start")}
+                    {t("onboarding.subtask_list.primary_start")}
                   </Text>
                 </LinearGradient>
               </AnimatedPressable>
@@ -742,8 +742,8 @@ export function SubtaskListScreen({
                   <Plus size={18} color={colors.textSecondary} />
                   <Text style={styles.addToListButtonText}>
                     {isEditing
-                      ? t("subtask_list.primary_save_changes")
-                      : t("subtask_list.primary_add_to_list")}
+                      ? t("onboarding.subtask_list.primary_save_changes")
+                      : t("onboarding.subtask_list.primary_add_to_list")}
                   </Text>
                 </Pressable>
               )}

@@ -1,10 +1,5 @@
 {
-  "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno"
-  },
-  "deno.enablePaths": [
-    "supabase/functions"
-  ],
+  "deno.enable": false,
   "deno.lint": true,
   "deno.unstable": [
     "bare-node-builtins",
@@ -21,6 +16,12 @@
     "http",
     "net"
   ],
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
   "editor.codeActionsOnSave": {
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",

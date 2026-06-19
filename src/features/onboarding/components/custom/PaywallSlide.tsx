@@ -32,23 +32,23 @@ interface Props {
 const FEATURES = [
   {
     Icon: Sparkles,
-    labelKey: "onboarding.paywall_slide.feature_ai",
+    labelKey: "index_tab.onboarding.paywall_slide.feature_ai",
   },
   {
     Icon: Zap,
-    labelKey: "onboarding.paywall_slide.feature_widget",
+    labelKey: "index_tab.onboarding.paywall_slide.feature_widget",
   },
   {
     Icon: Crown,
-    labelKey: "onboarding.paywall_slide.feature_crowns",
+    labelKey: "index_tab.onboarding.paywall_slide.feature_crowns",
   },
   {
     Icon: Store,
-    labelKey: "onboarding.paywall_slide.feature_store",
+    labelKey: "index_tab.onboarding.paywall_slide.feature_store",
   },
   {
     Icon: Dog,
-    labelKey: "onboarding.paywall_slide.feature_companions",
+    labelKey: "index_tab.onboarding.paywall_slide.feature_companions",
   },
 ];
 
@@ -99,13 +99,13 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
           entering={FadeInDown.delay(200).duration(400)}
           style={s.title}
         >
-          {t("onboarding.paywall_slide.title")}
+          {t("index_tab.onboarding.paywall_slide.title")}
         </Animated.Text>
         <Animated.Text
           entering={FadeInDown.delay(300).duration(400)}
           style={s.subtitle}
         >
-          {t("onboarding.paywall_slide.subtitle")}
+          {t("index_tab.onboarding.paywall_slide.subtitle")}
         </Animated.Text>
 
         <Animated.View
@@ -129,7 +129,7 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
         >
           <Check size={16} color={colors.success} strokeWidth={3} />
           <Text style={s.reassureText}>
-            {t("onboarding.paywall_slide.reassure")}
+            {t("index_tab.onboarding.paywall_slide.reassure")}
           </Text>
         </Animated.View>
       </ScrollView>
@@ -143,7 +143,7 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
             style={primaryButtonGradient}
           >
             <Text style={primaryButtonText}>
-              {t("onboarding.paywall_slide.cta")}
+              {t("index_tab.onboarding.paywall_slide.cta")}
             </Text>
           </LinearGradient>
         </Pressable>

@@ -64,14 +64,14 @@ export default function PetsPreviewSlide({ onNext }: Props) {
           entering={FadeInDown.delay(170).duration(450)}
           style={s.title}
         >
-          {t("onboarding.pets_preview.title")}
+          {t("index_tab.onboarding.pets_preview.title")}
         </Animated.Text>
 
         <Animated.Text
           entering={FadeInDown.delay(250).duration(450)}
           style={s.subtitle}
         >
-          {t("onboarding.pets_preview.subtitle")}
+          {t("index_tab.onboarding.pets_preview.subtitle")}
         </Animated.Text>
 
         <Animated.View
@@ -93,7 +93,7 @@ export default function PetsPreviewSlide({ onNext }: Props) {
           entering={FadeInDown.delay(400).duration(600)}
           style={s.subtitle}
         >
-          {t("onboarding.pets_preview.subtitle2")}
+          {t("index_tab.onboarding.pets_preview.subtitle2")}
         </Animated.Text>
       </ScrollView>
 

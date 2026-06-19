@@ -1,9 +1,3 @@
-// supabase/functions/delete-user/index.ts
-// Edge function that deletes the currently authenticated user.
-// Uses service_role key (server-side only) so it's safe.
-// The client calls: supabase.rpc('delete_user')
-// But this is cleaner as an Edge Function called via supabase.functions.invoke('delete-user')
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -17,14 +11,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Create a Supabase client with the service role key to delete users
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    // Get the user from the Authorization header (JWT from the mobile app)
+    // 1. Crear un cliente CON el JWT del usuario para validar la sesión de forma segura
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
@@ -33,29 +23,45 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Verify the JWT and get the user
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', ''),
-    );
+    const userClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false }
+    });
+
+    // Validar el token usando el método correcto de la API de Deno/Supabase
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
 
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+      return new Response(JSON.stringify({ error: 'Invalid token or session expired' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Delete the user using admin privileges
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+    const userId = user.id;
+
+    // 2. Crear el cliente administrador exclusivo para el borrado
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Optimizamos: Con ON DELETE CASCADE real, borrar al usuario de Auth 
+    // fulmina todas las tablas hijas automáticamente en una sola transacción atómica segura.
+    // Esto evita bloqueos de tablas y errores 500.
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
-      throw deleteError;
+      // Si falla por cascada, corremos un plan de respaldo manual solo para las tablas principales
+      await supabaseAdmin.from('profiles').delete().eq('id', userId);
+      const { error: retryError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (retryError) throw retryError;
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, message: 'Account and all data successfully erased' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
+
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

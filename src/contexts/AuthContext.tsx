@@ -1,8 +1,14 @@
 import i18n from "@/src/config/i18n";
 import { posthog } from "@/src/config/posthog";
 import { supabase } from "@/src/lib/supabase";
-import { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import {
+  AuthApiError,
+  AuthChangeEvent,
+  Session,
+  User,
+} from "@supabase/supabase-js";
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import React, { createContext, useContext, useEffect, useState } from "react";
@@ -26,6 +32,8 @@ interface AuthContextType {
   ) => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInAnonymously: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -39,6 +47,8 @@ const AuthContext = createContext<AuthContextType>({
   signInWithOAuth: async () => {},
   signInWithApple: async () => {},
   signInAnonymously: async () => {},
+  signInWithEmail: async () => {},
+  signUpWithEmail: async () => {},
   signOut: async () => {},
 });
 
@@ -52,8 +62,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAnonymous = !session || session.user?.is_anonymous === true;
 
   useEffect(() => {
-    // 1. Restore existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // 1. Restore existing session, validating Apple credential state if needed
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // Apple Guideline: verify credential state on every launch to detect revocation
+      if (
+        Platform.OS === "ios" &&
+        session?.user &&
+        !session.user.is_anonymous &&
+        session.user.app_metadata?.provider === "apple"
+      ) {
+        const appleUserId = session.user.user_metadata?.sub as string | undefined;
+        if (appleUserId) {
+          try {
+            const state = await AppleAuthentication.getCredentialStateAsync(appleUserId);
+            if (
+              state !==
+              AppleAuthentication.AppleAuthenticationCredentialState.AUTHORIZED
+            ) {
+              // Credential revoked or transferred — force sign-out to avoid inconsistent state
+              await supabase.auth.signOut();
+              setSession(null);
+              setUser(null);
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            // getCredentialStateAsync unavailable (simulator, iOS < 13) — allow session
+          }
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -208,22 +245,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
+      // Generate a nonce to prevent replay attacks (required by Apple HIG 2026)
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
       // Show the native Apple Sign-In sheet (ASAuthorizationController)
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       if (!credential.identityToken) {
         throw new Error("No identity token returned from Apple");
       }
 
-      // Exchange Apple's identity token with Supabase
+      // Exchange Apple's identity token with Supabase (raw nonce for verification)
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
         token: credential.identityToken,
+        nonce: rawNonce,
       });
 
       if (error) throw error;
@@ -277,6 +323,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── Email/Password Sign-In ─────────────────────────────────────────────────
+
+  const signInWithEmail = async (
+    email: string,
+    password: string,
+  ): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("❌ Email sign-in error:", error.message);
+      if (error instanceof AuthApiError) {
+        if (error.status === 400) {
+          throw new Error(i18n.t("auth.invalid_credentials"));
+        }
+      }
+      throw new Error(i18n.t("auth.sign_in_error_message"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ── Email/Password Sign-Up ──────────────────────────────────────────────────
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+  ): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("❌ Email sign-up error:", error.message);
+      if (error instanceof AuthApiError) {
+        if (error.status === 400) {
+          throw new Error(i18n.t("auth.email_in_use"));
+        }
+      }
+      throw new Error(i18n.t("auth.sign_up_error_message"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ── Sign Out ──────────────────────────────────────────────────────────────
 
   const signOut = async (): Promise<void> => {
@@ -305,6 +403,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithOAuth,
         signInWithApple,
         signInAnonymously,
+        signInWithEmail,
+        signUpWithEmail,
         signOut,
       }}
     >

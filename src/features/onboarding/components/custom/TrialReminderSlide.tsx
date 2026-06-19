@@ -77,7 +77,7 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
           entering={FadeInDown.delay(120).duration(450)}
           style={s.title}
         >
-          {t("onboarding.trial_reminder.title")}
+          {t("index_tab.onboarding.trial_reminder.title")}
         </Animated.Text>
 
         <Animated.View
@@ -102,7 +102,7 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
             style={primaryButtonGradient}
           >
             <Text style={primaryButtonText}>
-              {t("onboarding.trial_reminder.cta")}
+              {t("index_tab.onboarding.trial_reminder.cta")}
             </Text>
           </LinearGradient>
         </Pressable>

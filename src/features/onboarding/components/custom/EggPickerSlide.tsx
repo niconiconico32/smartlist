@@ -71,7 +71,7 @@ export default function EggPickerSlide({ onNext }: Props) {
             { marginBottom: 8, color: colors.background },
           ]}
         >
-          {t("onboarding.egg_picker.title", {
+          {t("index_tab.onboarding.egg_picker.title", {
             defaultValue: "Pick an egg for your routine",
           })}
         </Animated.Text>
@@ -83,7 +83,7 @@ export default function EggPickerSlide({ onNext }: Props) {
             { marginBottom: 36, textTransform: "none" },
           ]}
         >
-          {t("onboarding.egg_picker.subtitle", {
+          {t("index_tab.onboarding.egg_picker.subtitle", {
             defaultValue: "You can change it later from your inventory.",
           })}
         </Animated.Text>
@@ -131,7 +131,7 @@ export default function EggPickerSlide({ onNext }: Props) {
           ) : (
             <Text style={s.buttonText}>
               {selected
-                ? t("onboarding.egg_picker.add_egg", {
+                ? t("index_tab.onboarding.egg_picker.add_egg", {
                     defaultValue: "Add egg",
                   })
                 : t("onboarding.continue", { defaultValue: "Continue" })}

@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { GoogleButton } from "@/src/components/GoogleButton";
+import { LoginModal } from "@/src/components/LoginModal";
 import { posthog } from "@/src/config/posthog";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
@@ -8,7 +9,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -40,6 +41,16 @@ export default function LoginScreen() {
 
   // If user is already anonymous, they're here to upgrade — not to start fresh
   const isUpgrading = !!session && isAnonymous;
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  // HIG: only render the Apple button if the API is actually available on this device
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === "ios") {
+      AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
+    }
+  }, []);
 
   const handleGoogleSignIn = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -89,7 +100,7 @@ export default function LoginScreen() {
         >
           {/* Apple — iOS only. System-provided native button (HIG-compliant).
               BLACK style on light background per Apple guidelines. */}
-          {Platform.OS === "ios" && (
+          {Platform.OS === "ios" && appleAvailable && (
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={
                 AppleAuthentication.AppleAuthenticationButtonType.CONTINUE
@@ -123,24 +134,38 @@ export default function LoginScreen() {
 
           {/* Skip (anonymous) o Volver a la app si ya es anónimo */}
           {!isUpgrading ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.skipButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={handleSkip}
-              disabled={isLoading}
-            >
-              <View style={styles.skipButtonGradient}>
-                {isLoading ? (
-                  <ActivityIndicator color="#1A1C20" />
-                ) : (
-                  <Text style={styles.skipButtonText}>
-                    {t("login.start_without_account")}
-                  </Text>
-                )}
-              </View>
-            </Pressable>
+            <>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.skipButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleSkip}
+                disabled={isLoading}
+              >
+                <View style={styles.skipButtonGradient}>
+                  {isLoading ? (
+                    <ActivityIndicator color="#1A1C20" />
+                  ) : (
+                    <Text style={styles.skipButtonText}>
+                      {t("login.start_without_account")}
+                    </Text>
+                  )}
+                </View>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowLoginModal(true);
+                }}
+                style={styles.emailLoginRow}
+              >
+                <Text style={styles.emailLoginLink}>
+                  {t("login.email_login")}
+                </Text>
+              </Pressable>
+            </>
           ) : (
             <Pressable
               style={({ pressed }) => [
@@ -184,6 +209,11 @@ export default function LoginScreen() {
             {"."}
           </RNText>
         </Animated.View>
+
+        <LoginModal
+          visible={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+        />
       </SafeAreaView>
     </View>
   );
@@ -297,6 +327,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#1A1C20",
+  },
+
+  // Email login
+  emailLoginRow: {
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  emailLoginLink: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    textDecorationLine: "underline",
   },
 
   // Disclaimer

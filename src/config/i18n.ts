@@ -23,4 +23,5 @@ i18n.use(initReactI18next).init({
   compatibilityJSON: "v4",
 });
 
+export const i18nReady = i18n.isInitialized;
 export default i18n;

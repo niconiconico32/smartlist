@@ -144,8 +144,7 @@ export function HamburgerMenu() {
     // linkIdentity for some Google accounts on Android.
     await signInWithOAuth("google", { forceDirectSignIn: true });
   }, [signInWithOAuth]);
-
-  const handleDeleteAccount = useCallback(() => {
+const handleDeleteAccount = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Alert.alert(
       t("menu.delete_confirm_title"),
@@ -156,23 +155,46 @@ export function HamburgerMenu() {
           text: t("menu.delete"),
           style: "destructive",
           onPress: async () => {
-            close(); // close sheet immediately so user sees feedback
+            close(); // Cierra el sheet inmediatamente
             setIsDeleting(true);
             let accountDeleted = false;
+            
             try {
-              const { error } = await supabase.functions.invoke("delete-user");
+              // 1. Obtener la sesión actual para asegurar el JWT fresco
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+
+              if (!token) throw new Error("No active session found");
+
+              // 2. Invocar pasándole explícitamente el Bearer Token en los headers
+              const { data, error } = await supabase.functions.invoke("delete-user", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              // Supabase invoke puede devolver error dentro del objeto de respuesta
               if (error) throw error;
+              
+              // Si la función respondió con éxito
               accountDeleted = true;
               await signOut();
+              
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
             } catch (e: any) {
-              // If the account was deleted server-side but we got a network error,
-              // sign out anyway to clear the stale local session.
+              console.error("Account deletion error:", e);
+              
+              // Si la cuenta se borró en el servidor pero falló el signOut por red,
+              // limpiamos la sesión local de todas formas.
               if (accountDeleted) {
                 await signOut();
               } else {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
                 Alert.alert(
                   t("menu.delete_error"),
-                  e?.message || t("menu.delete_error"),
+                  e?.message || "Could not complete account deletion. Please try again.",
                 );
               }
             } finally {
@@ -182,7 +204,7 @@ export function HamburgerMenu() {
         },
       ],
     );
-  }, [signOut, t]);
+  }, [signOut, t, close]); // Añadido close a las dependencias por buena práctica
 
   const handleRestorePurchases = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -382,18 +404,21 @@ export function HamburgerMenu() {
 
           <Divider />
 
-          <MenuRow
-            icon={<Gift size={18} color="#C9FD5A" strokeWidth={2} />}
-            label={t("menu.redeem_code")}
-            sublabel={t("menu.redeem_code_sublabel")}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              close();
-              setTimeout(() => setShowRedeemCode(true), 300);
-            }}
-          />
-
-          <Divider />
+          {Platform.OS !== "ios" && (
+            <>
+              <MenuRow
+                icon={<Gift size={18} color="#C9FD5A" strokeWidth={2} />}
+                label={t("menu.redeem_code")}
+                sublabel={t("menu.redeem_code_sublabel")}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  close();
+                  setTimeout(() => setShowRedeemCode(true), 300);
+                }}
+              />
+              <Divider />
+            </>
+          )}
 
           <MenuRow
             icon={
