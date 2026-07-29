@@ -9,12 +9,12 @@ import { getLocalDateKey } from "@/src/utils/dateHelpers"; // ✅ TIMEZONE SAFE
 import { addDays, format, isSameDay, isToday, subDays } from "date-fns";
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import { Crown } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     DeviceEventEmitter,
     Dimensions,
+    Image,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -198,12 +198,16 @@ export function WeeklyCalendar({
               style={styles.crownsPill}
               onPress={() => router.push("/achievements")}
             >
-              <Crown size={20} color={colors.surface} strokeWidth={2.5} />
+              <Image
+                source={require("@/assets/images/crownIcon.png")}
+                style={styles.crownHeaderIcon}
+                resizeMode="contain"
+              />
 
               <CoinsCounter
                 coins={displayedCoins}
                 size="special"
-                color="#1A1C20"
+                color="#2c2d30"
               />
 
               {appStreak > 0 && (
@@ -408,13 +412,21 @@ const styles = StyleSheet.create({
   crownsPill: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#EAF0FC", // soft grayish blue based on the image
+    backgroundColor: "#EAF0FC",
     paddingHorizontal: 10,
-    paddingVertical: 2,
-    paddingBottom: -2,
-    borderRadius: 42,
+    paddingLeft: 32,
+    borderRadius: 32,
     gap: 6,
     position: "relative",
+    fontFamily: "Jersey10",
+  },
+  crownHeaderIcon: {
+    width: 36,
+    height: 36,
+    position: "absolute",
+    left: -12,
+    top: "50%",
+    marginTop: -18,
   },
   multiplierCornerBadge: {
     position: "absolute",

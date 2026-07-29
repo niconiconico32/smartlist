@@ -83,17 +83,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   coinsText: {
-    fontWeight: '800',
     color: colors.primary,
   },
   coinsTextSmall: {
-    fontSize: 12,
+    fontSize: 16,
   },
   coinsTextLarge: {
-    fontSize: 14,
+    fontSize: 16,
   },
   coinsTextSpecial: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 16,
+    fontFamily: 'Jersey10',
   },
 });

@@ -2,9 +2,7 @@ import { colors } from "@/constants/theme";
 import { Achievement, AchievementCard } from "@/src/components/AchievementCard";
 import { AppText as Text } from "@/src/components/AppText";
 import { CoinsCounter } from "@/src/components/CoinsCounter";
-import { DailyStreakScreen } from "@/src/components/DailyStreakScreen";
 import { PaywallModal } from "@/src/components/PaywallModal";
-import { ReviewRequestModal } from "@/src/components/ReviewRequestModal";
 import { posthog } from "@/src/config/posthog";
 import { ShopItem } from "@/src/config/shopItems";
 import { useShopItems } from "@/src/hooks/useShopItems";
@@ -12,6 +10,8 @@ import {
   ACHIEVEMENT_DEFINITIONS,
   useAchievementsStore,
 } from "@/src/store/achievementsStore";
+import { useEggCatalog, CatalogEgg } from "@/src/hooks/useEggCatalog";
+import { useEggStore, EggData, EggRarity } from "@/src/store/eggStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
@@ -26,20 +26,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
 import {
-  Calendar,
   ChevronLeft,
-  Crown,
-  Flame,
   Lock,
-  Store,
-  Trophy,
+  X,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
   Dimensions,
   Image,
+  ImageBackground,
   Modal,
   Platform,
   Pressable,
@@ -55,8 +52,16 @@ const GRID_PADDING = 24;
 const GRID_GAP = 12;
 const NUM_COLUMNS = 3;
 const ITEM_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2) / NUM_COLUMNS - GRID_GAP;
+const OUTFIT_COLUMNS = 3;
+const OUTFIT_ITEM_WIDTH = (SCREEN_WIDTH - GRID_PADDING * 2) / OUTFIT_COLUMNS - GRID_GAP;
 
-type TabType = "logros" | "tienda";
+const hapticsLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+const hapticsMed = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+const hapticsHeavy = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+const hapticsSuccess = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+const hapticsSel = () => Haptics.selectionAsync().catch(() => {});
+
+type TabType = "logros" | "outfits" | "backgrounds" | "eggs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Memoized shop item card — only re-renders when its specific props change.
@@ -67,7 +72,6 @@ type ShopItemCardProps = {
   owned: boolean;
   active: boolean;
   canAfford: boolean;
-  proLocked: boolean;
   onItemPress: (item: ShopItem) => void;
   onApply: (item: ShopItem) => void;
 };
@@ -77,121 +81,300 @@ const ShopItemCard = React.memo(function ShopItemCard({
   owned,
   active,
   canAfford,
-  proLocked,
   onItemPress,
   onApply,
 }: ShopItemCardProps) {
   const { t } = useTranslation();
+
+  const cardPress = () => {
+    if (item.type !== "outfit") return;
+    hapticsLight();
+    if (owned) {
+      onApply(item);
+    } else {
+      onItemPress(item);
+    }
+  };
+
+  const isOutfit = item.type === "outfit";
+  const isBackground = item.type === "background";
+
   return (
-    <View style={styles.shopItemCard}>
-      <View
-        style={[
-          styles.shopImageContainer,
-          active && styles.shopImageContainerActive,
-        ]}
-      >
-        <Image
-          source={item.imageUri ? { uri: item.imageUri } : item.image}
-          style={
-            item.type === "outfit" ? styles.shopOutfitImage : styles.shopImage
-          }
-          resizeMode={item.type === "outfit" ? "contain" : "cover"}
-        />
-        {!!item.isPro && (
-          <View style={styles.proBadge}>
-            <Crown size={12} color="#FFD700" fill="#FFD700" strokeWidth={2.5} />
+    <>
+      {isOutfit ? (
+        <Pressable
+          style={[
+            styles.outfitCard,
+            { borderColor: item.isPro ? "#FFD700" : "#FFFFFF", backgroundColor: item.isPro ? "#3D2B1F" : "#2A2A2A" },
+          ]}
+          onPress={cardPress}
+        >
+          {active && (
+            <>
+              <View style={styles.cornerTopLeft} />
+              <View style={styles.cornerTopRight} />
+              <View style={styles.cornerBottomLeft} />
+              <View style={styles.cornerBottomRight} />
+            </>
+          )}
+          <View style={[styles.outfitImageContainer]}>
+            <Image
+              source={item.imageUri ? { uri: item.imageUri } : item.image}
+              style={styles.shopOutfitImage}
+              resizeMode="contain"
+            />
+            {item.isPro && (
+              <View style={styles.lockerBadge}>
+                <Image source={require("@/assets/images/store_Locker.png")} style={styles.lockerIcon} resizeMode="contain" />
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      <View style={styles.shopItemDetails}>
-        {!owned ? (
-          proLocked ? (
-            <Pressable
-              style={[styles.actionButton, styles.proLockedButton]}
-              onPress={() => onItemPress(item)}
-            >
-              <Crown
-                size={14}
-                color="#FFD700"
-                fill="#FFD700"
-                strokeWidth={2.5}
-              />
-              <Text style={styles.proLockedButtonText}>PRO</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              style={[
-                styles.actionButton,
-                canAfford ? styles.buyButtonAffordable : styles.buyButtonLocked,
-              ]}
-              onPress={() => onItemPress(item)}
-              disabled={!canAfford}
-            >
-              {!canAfford ? (
-                <Lock size={14} color="#9CA3AF" strokeWidth={2.5} />
-              ) : (
-                <Crown size={14} color="#FFFFFF" strokeWidth={2.5} />
-              )}
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  canAfford
-                    ? styles.buyButtonTextAffordable
-                    : styles.buyButtonTextLocked,
-                ]}
-              >
-                {item.price}
-              </Text>
-            </Pressable>
-          )
-        ) : (
-          <Pressable
+          <View style={styles.outfitBottomBar}>
+            {owned ? (
+              <Text style={styles.outfitOwnedCheck}>✓</Text>
+            ) : (
+              <>
+                <Image
+                  source={require("@/assets/images/crownIcon.png")}
+                  style={styles.outfitCrownIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.outfitPriceText}>{item.price}</Text>
+              </>
+            )}
+          </View>
+        </Pressable>
+      ) : (
+        <View style={styles.shopItemCard}>
+          <View
             style={[
-              styles.actionButton,
-              active ? styles.applyButtonActive : styles.applyButton,
+              styles.shopImageContainer,
             ]}
-            onPress={() => onApply(item)}
           >
-            <Text
-              style={[
-                styles.actionButtonText,
-                active ? styles.applyButtonTextActive : styles.applyButtonText,
-              ]}
-            >
-              {active
-                ? t("achievements.shop.equipped")
-                : t("achievements.shop.equip")}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-    </View>
+            <Image
+              source={item.imageUri ? { uri: item.imageUri } : item.image}
+              style={styles.shopImage}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={styles.shopItemDetails}>
+            {!owned ? (
+              <Pressable
+                style={[
+                  styles.actionButton,
+                  canAfford ? styles.buyButtonAffordable : styles.buyButtonLocked,
+                ]}
+                onPress={() => onItemPress(item)}
+                disabled={!canAfford}
+              >
+                {!canAfford ? (
+                  <Lock size={14} color="#9CA3AF" strokeWidth={2.5} />
+                ) : (
+                  <Image source={require("@/assets/images/crownIcon.png")} style={styles.crownBuyIcon} />
+                )}
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    canAfford
+                      ? styles.buyButtonTextAffordable
+                      : styles.buyButtonTextLocked,
+                  ]}
+                >
+                  {item.price}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={[
+                  styles.actionButton,
+                  active ? styles.applyButtonActive : styles.applyButton,
+                ]}
+                onPress={() => onApply(item)}
+              >
+                <Text
+                  style={[
+                    styles.actionButtonText,
+                    active ? styles.applyButtonTextActive : styles.applyButtonText,
+                  ]}
+                >
+                  {active
+                    ? t("achievements.shop.equipped")
+                    : t("achievements.shop.equip")}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+    </>
   );
 });
 
+const EGG_RARITY_STYLES: Record<
+  EggRarity,
+  { border: string; bg: string }
+> = {
+  common: { border: "#67E8F9", bg: "#164e63" },
+  rare: { border: "#A855F7", bg: "#4C1D95" },
+  legendary: { border: "#F97316", bg: "#7C2D12" },
+};
+
+type EggCardProps = {
+  egg: CatalogEgg;
+  owned: boolean;
+  hatched: boolean;
+  onBuy: (egg: CatalogEgg) => void;
+};
+
+const EggCard = React.memo(function EggCard({
+  egg,
+  owned,
+  hatched,
+  onBuy,
+}: EggCardProps) {
+  const rarityStyle = EGG_RARITY_STYLES[egg.rarity];
+  const showLocker = egg.rarity !== "common" && !hatched;
+  const Wrapper = owned ? View : Pressable;
+
+  return (
+    <Wrapper
+      {...(!owned ? { onPress: () => onBuy(egg) } : {})}
+      style={[
+        styles.eggCard,
+        { borderColor: rarityStyle.border, backgroundColor: rarityStyle.bg },
+      ]}
+    >
+      <View style={[styles.eggImageContainer, owned && styles.eggImageOwned]}>
+        <Image source={hatched ? egg.petImage : egg.image} style={styles.eggImage} resizeMode="contain" />
+        {showLocker && (
+          <View style={styles.lockerBadge}>
+            <Image source={require("@/assets/images/store_Locker.png")} style={styles.lockerIcon} resizeMode="contain" />
+          </View>
+        )}
+      </View>
+      <View style={styles.eggBottomBar}>
+        {hatched ? (
+          <Text style={styles.eggHatchedText}>✦</Text>
+        ) : owned ? (
+          <Text style={styles.eggOwnedCheck}>✓</Text>
+        ) : (
+          <>
+            <Image
+              source={require("@/assets/images/crownIcon.png")}
+              style={styles.eggCrownIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.eggPriceText}>{egg.cost}</Text>
+          </>
+        )}
+      </View>
+    </Wrapper>
+  );
+});
+
+type EggGridProps = {
+  catalog: CatalogEgg[];
+  eggs: EggData[];
+  totalCoins: number;
+  isPro: boolean;
+  spendCoins: (amount: number) => Promise<boolean>;
+};
+
+function EggGrid({ catalog, eggs, totalCoins, isPro, spendCoins }: EggGridProps) {
+  const { t } = useTranslation();
+  const unlockEgg = useEggStore((s) => s.unlockEgg);
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const handleBuy = useCallback(async (egg: CatalogEgg) => {
+    hapticsLight();
+    if (egg.rarity !== "common" && !isPro) {
+      setShowPaywall(true);
+      return;
+    }
+    if (totalCoins < egg.cost) {
+      Alert.alert(
+        t("achievements.shop.insufficient_title"),
+        t("achievements.shop.insufficient_message", {
+          missing: egg.cost - totalCoins,
+          item: egg.name,
+        }),
+      );
+      return;
+    }
+    Alert.alert(
+      egg.name,
+      `${egg.cost} crowns`,
+      [
+        { text: t("achievements.shop.cancel"), style: "cancel" },
+        {
+          text: t("achievements.shop.buy"),
+          onPress: async () => {
+            const success = await spendCoins(egg.cost);
+            if (success) {
+              unlockEgg(egg.id as any);
+              hapticsSuccess();
+            }
+          },
+        },
+      ],
+    );
+  }, [isPro, totalCoins, spendCoins, unlockEgg, t]);
+
+  return (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.shopContentContainer}
+    >
+      <View style={styles.shopGrid}>
+          {catalog.map((egg) => {
+          const eggData = eggs.find((e) => e.id === egg.id);
+          const owned = eggData?.unlocked ?? false;
+          const hatched = eggData?.evolved ?? false;
+          return (
+            <EggCard
+              key={egg.id}
+              egg={egg}
+              owned={owned}
+              hatched={hatched}
+              onBuy={handleBuy}
+            />
+          );
+        })}
+      </View>
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        source="debug_panel"
+      />
+    </ScrollView>
+  );
+}
+
 export default function AchievementsScreen() {
   const { t } = useTranslation();
-  const {
-    achievements,
-    loadAchievements,
-    totalCoins,
-    purchasedBackgrounds,
-    purchasedOutfits,
-    activeBackground,
-    activeOutfit,
-    spendCoins,
-    onPurchaseMade,
-    setActiveBackground,
-    setActiveOutfit,
-  } = useAchievementsStore();
+  // ── Atomic selectors: only re-render when the specific field changes ──
+  const achievements = useAchievementsStore((s) => s.achievements);
+  const loadAchievements = useAchievementsStore((s) => s.loadAchievements);
+  const totalCoins = useAchievementsStore((s) => s.totalCoins);
+  const purchasedBackgrounds = useAchievementsStore((s) => s.purchasedBackgrounds);
+  const purchasedOutfits = useAchievementsStore((s) => s.purchasedOutfits);
+  const activeBackground = useAchievementsStore((s) => s.activeBackground);
+  const activeOutfit = useAchievementsStore((s) => s.activeOutfit);
+  const spendCoins = useAchievementsStore((s) => s.spendCoins);
+  const onPurchaseMade = useAchievementsStore((s) => s.onPurchaseMade);
+  const setActiveBackground = useAchievementsStore((s) => s.setActiveBackground);
+  const setActiveOutfit = useAchievementsStore((s) => s.setActiveOutfit);
+  const claimAchievement = useAchievementsStore((s) => s.claimAchievement);
+  const storeLoaded = useAchievementsStore((s) => s._loaded);
   const { streak: appStreak, getMultiplier } = useAppStreakStore();
   const { isPro } = useProStore();
   const shopItems = useShopItems();
+  const catalog = useEggCatalog();
+  const eggs = useEggStore((s) => s.eggs);
   const [activeTab, setActiveTab] = useState<TabType>("logros");
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [showStreakDev, setShowStreakDev] = useState(false);
-  const [showReviewDev, setShowReviewDev] = useState(false);
+  const debugTapCount = useRef(0);
 
   useEffect(() => {
     void loadAchievements();
@@ -201,9 +384,9 @@ export default function AchievementsScreen() {
     (tab: TabType) => {
       if (tab === activeTab) return;
       if (Platform.OS === "ios") {
-        Haptics.selectionAsync();
+        hapticsSel();
       } else {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        hapticsLight();
       }
       setActiveTab(tab);
     },
@@ -212,6 +395,7 @@ export default function AchievementsScreen() {
 
   const isOwned = useCallback(
     (item: ShopItem) => {
+      if (item.id === "outfit_default") return true;
       if (item.type === "background")
         return purchasedBackgrounds.includes(item.id);
       return purchasedOutfits.includes(item.id);
@@ -221,6 +405,7 @@ export default function AchievementsScreen() {
 
   const isActive = useCallback(
     (item: ShopItem) => {
+      if (item.id === "outfit_default") return activeOutfit === null || activeOutfit === undefined;
       if (item.type === "background") return activeBackground === item.id;
       return activeOutfit === item.id;
     },
@@ -229,6 +414,7 @@ export default function AchievementsScreen() {
 
   const handleItemPress = useCallback(
     (item: ShopItem) => {
+      hapticsLight();
       if (isOwned(item)) return; // owned items use the "Aplicar" button
 
       // Pro-exclusive gate: non-pro users see the paywall
@@ -273,22 +459,23 @@ export default function AchievementsScreen() {
     if (success) {
       // Fire achievement checks (item already saved by spendCoins)
       await onPurchaseMade(confirmItem.type, confirmItem.id);
+      const actualCoinsAfter = useAchievementsStore.getState().totalCoins;
       posthog.capture("shop_item_purchased", {
         item_type: confirmItem.type,
         item_id: confirmItem.id,
         item_name: confirmItem.name,
         price: confirmItem.price,
         is_pro_item: !!confirmItem.isPro,
-        coins_after: totalCoins - confirmItem.price,
+        coins_after: actualCoinsAfter,
       });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticsSuccess();
     }
     setConfirmItem(null);
   }, [confirmItem, isPro, totalCoins, spendCoins, onPurchaseMade]);
 
   const handleApply = useCallback(
     async (item: ShopItem) => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      hapticsMed();
       if (item.type === "background") {
         // Toggle: if already active, deactivate
         const isDeactivatingBg = activeBackground === item.id;
@@ -320,8 +507,9 @@ export default function AchievementsScreen() {
           }
         }
       } else {
+        const isDefaultOutfit = item.id === "outfit_default";
         const isDeactivating = activeOutfit === item.id;
-        if (isDeactivating) {
+        if (isDeactivating || isDefaultOutfit) {
           await setActiveOutfit(null, null);
         } else {
           await setActiveOutfit(item.id, item.imageUri ?? null);
@@ -332,12 +520,12 @@ export default function AchievementsScreen() {
           try {
             await AsyncStorage.setItem(
               WIDGET_OUTFIT_ID_KEY,
-              isDeactivating ? "" : item.id,
+              isDeactivating || isDefaultOutfit ? "" : item.id,
             );
             // Persist remote URI so the widget can load it when outfitId is not in the local map
             await AsyncStorage.setItem(
               WIDGET_OUTFIT_URI_KEY,
-              isDeactivating ? "" : (item.imageUri ?? ""),
+              isDeactivating || isDefaultOutfit ? "" : (item.imageUri ?? ""),
             );
             requestWidgetUpdate({
               widgetName: "RoutinesWidget",
@@ -355,19 +543,28 @@ export default function AchievementsScreen() {
   // Memoized derived data — avoids recomputation on unrelated renders
   const achievementsList = useMemo<Achievement[]>(
     () =>
-      Object.values(ACHIEVEMENT_DEFINITIONS).map((def) => {
-        const progress = achievements[def.id];
-        return {
-          id: def.id,
-          title: t(`achievements.items.${def.id}`, { defaultValue: def.title }),
-          icon: def.icon,
-          gradient: def.gradient,
-          progress: progress?.progress || 0,
-          total: def.total,
-          completed: progress?.completed || false,
-          coins: def.coins,
-        };
-      }),
+      Object.values(ACHIEVEMENT_DEFINITIONS)
+        .map((def) => {
+          const progress = achievements[def.id];
+          return {
+            id: def.id,
+            title: t(`achievements.items.${def.id}`, { defaultValue: def.title }),
+            icon: def.icon,
+            gradient: def.gradient,
+            progress: progress?.progress || 0,
+            total: def.total,
+            completed: progress?.completed || false,
+            claimed: progress?.claimed ?? false,
+            coins: def.coins,
+          };
+        })
+        .sort((a, b) => {
+          if (a.completed && !a.claimed && !(b.completed && !b.claimed)) return -1;
+          if (!(a.completed && !a.claimed) && b.completed && !b.claimed) return 1;
+          if (a.claimed && !b.claimed) return 1;
+          if (!a.claimed && b.claimed) return -1;
+          return 0;
+        }),
     [achievements, t],
   );
 
@@ -381,203 +578,145 @@ export default function AchievementsScreen() {
     [shopItems],
   );
 
+  if (!storeLoaded) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+        <Stack.Screen options={{ headerShown: false }} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <ChevronLeft size={28} color="#111827" strokeWidth={2.5} />
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <View style={styles.crownsPill}>
-          <Crown size={20} color={colors.surface} strokeWidth={2.5} />
-          <CoinsCounter coins={totalCoins} size="special" color="#1A1C20" />
-        </View>
-      </View>
-
-      {/* Debug: Test Buttons (solo en desarrollo) */}
-      {__DEV__ && (
-        <View
-          style={{
-            flexDirection: "row",
-            paddingHorizontal: 24,
-            gap: 8,
-            marginTop: 10,
-            marginBottom: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <Pressable
-            onPress={() => setShowStreakDev(true)}
-            style={{
-              flex: 1,
-              backgroundColor: "#EF4444",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              🔥 Streak
-            </Text>
+      <ImageBackground
+        source={require("@/assets/images/storefront.jpeg")}
+        style={styles.storefrontBg}
+        imageStyle={styles.storefrontImage}
+      >
+        <View style={styles.header}>
+          <Pressable onPress={() => { hapticsLight(); router.back(); }} style={styles.backButton}>
+            <ChevronLeft size={28} color="#edeff1" strokeWidth={2.5} />
           </Pressable>
-          <Pressable
-            onPress={() => setShowPaywall(true)}
-            style={{
-              flex: 1,
-              backgroundColor: "#8B5CF6",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              💰 Pay
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={async () => {
-              useAchievementsStore.setState((prev) => ({
-                totalCoins: prev.totalCoins + 1000,
-              }));
-              await loadAchievements();
-            }}
-            style={{
-              flex: 1,
-              backgroundColor: "#F59E0B",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              👑 +1k
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setShowReviewDev(true)}
-            style={{
-              flex: 1,
-              backgroundColor: "#FBBF24",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              ⭐ Review
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/onboarding-v3")}
-            style={{
-              flex: 1,
-              backgroundColor: "#10B981",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              🚀 Onboard
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: "/onboarding-v3",
-                params: { startAt: "last3" },
-              })
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={() => {
+            debugTapCount.current += 1;
+            if (debugTapCount.current >= 5) {
+              debugTapCount.current = 0;
+              const previewItem = outfitItems[0];
+              if (previewItem) setConfirmItem(previewItem);
             }
-            style={{
-              flex: 1,
-              backgroundColor: "#6366F1",
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
+          }} style={styles.crownsPill}>
+            <Image source={require("@/assets/images/crownIcon.png")} style={styles.crownHeaderIcon} />
+            <CoinsCounter coins={totalCoins} size="special" color="#2c2d30" />
+          </Pressable>
+        </View>
+      </ImageBackground>
+
+      <ImageBackground
+        source={require("@/assets/images/storewall.jpeg")}
+        style={styles.mainContent}
+        imageStyle={styles.storewallImage}
+      >
+        {/* Top Tabs */}
+        <View style={styles.topTabsContainer}>
+          <Pressable
+            style={[styles.topTab, activeTab === "logros" && styles.topTabActive]}
+            onPress={() => handleTabPress("logros")}
           >
-            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>
-              🔚 Last 3
+            <Image
+              source={require("@/assets/images/storeIcon_logro.png")}
+              style={[
+                styles.tabIcon,
+                activeTab === "logros" && styles.tabIconActive,
+              ]}
+              resizeMode="contain"
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === "logros" && styles.tabLabelActive,
+              ]}
+            >
+              {t("achievements.tab_achievements")}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.topTab, activeTab === "outfits" && styles.topTabActive]}
+            onPress={() => handleTabPress("outfits")}
+          >
+            <Image
+              source={require("@/assets/images/storeIcon_outfit.png")}
+              style={[
+                styles.tabIcon,
+                activeTab === "outfits" && styles.tabIconActive,
+              ]}
+              resizeMode="contain"
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === "outfits" && styles.tabLabelActive,
+              ]}
+            >
+              {t("achievements.shop.outfits")}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.topTab, activeTab === "backgrounds" && styles.topTabActive]}
+            onPress={() => handleTabPress("backgrounds")}
+          >
+            <Image
+              source={require("@/assets/images/storeIcon_background.png")}
+              style={[
+                styles.tabIcon,
+                activeTab === "backgrounds" && styles.tabIconActive,
+              ]}
+              resizeMode="contain"
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === "backgrounds" && styles.tabLabelActive,
+              ]}
+            >
+              {t("achievements.shop.backgrounds")}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.topTab, activeTab === "eggs" && styles.topTabActive]}
+            onPress={() => handleTabPress("eggs")}
+          >
+            <Image
+              source={require("@/assets/images/storeIcon_egg.png")}
+              style={[
+                styles.tabIcon,
+                activeTab === "eggs" && styles.tabIconActive,
+              ]}
+              resizeMode="contain"
+            />
+            <Text
+              style={[
+                styles.tabLabel,
+                activeTab === "eggs" && styles.tabLabelActive,
+              ]}
+            >
+              Eggs
             </Text>
           </Pressable>
         </View>
-      )}
 
-      <View style={styles.mainContent}>
         {/* Content */}
         {activeTab === "logros" ? (
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.contentContainer}
           >
-            {/* Top Dashboard Headers */}
-            <View style={styles.dashboardContainer}>
-              {/* Top Stat: Logros Completados */}
-              <View style={styles.dashboardTopCard}>
-                <View style={styles.dashboardRow}>
-                  <Calendar
-                    size={22}
-                    color={colors.background}
-                    strokeWidth={2.5}
-                  />
-                  <Text style={styles.dashboardValueText}>
-                    {achievementsList.filter((a) => a.completed).length}/
-                    {achievementsList.length}
-                  </Text>
-                </View>
-                <Text style={styles.dashboardLabelText}>
-                  {t("achievements.completed_achievements")}
-                </Text>
-              </View>
-
-              {/* Split Stats: Streak and Multiplier */}
-              <View style={styles.dashboardSplitContainer}>
-                <View style={styles.dashboardSplitCard}>
-                  <View style={styles.dashboardRow}>
-                    <Flame size={22} color="#EF4444" strokeWidth={2.5} />
-                    <Text style={styles.dashboardValueText}>{appStreak}</Text>
-                  </View>
-                  <Text style={styles.dashboardLabelText}>
-                    {t("achievements.daily_streak")}
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.dashboardSplitCard,
-                    {
-                      backgroundColor: colors.primary,
-                      borderColor: colors.primary,
-                      elevation: 4,
-                      shadowColor: colors.primary,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 8,
-                    },
-                  ]}
-                >
-                  <View style={styles.dashboardRow}>
-                    <Crown size={22} color="#111827" strokeWidth={2.5} />
-                    <Text style={styles.dashboardValueText}>
-                      x{getMultiplier()}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[styles.dashboardLabelText, { color: "#374151" }]}
-                  >
-                    {t("achievements.multiplier")}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeaderTitle}>
-              {t("achievements.title")}
-            </Text>
-
             {/* Achievement Cards with Progress Line */}
             <View style={styles.achievementsContainer}>
               {achievementsList.map((achievement, index) => (
@@ -586,43 +725,69 @@ export default function AchievementsScreen() {
                   achievement={achievement}
                   isLast={index === achievementsList.length - 1}
                   onPress={() => {}}
+                  onClaim={() => claimAchievement(achievement.id as any)}
                 />
               ))}
             </View>
           </ScrollView>
-        ) : (
+        ) : activeTab === "backgrounds" ? (
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.shopContentContainer}
           >
-            {/* Backgrounds Section */}
-            <Text style={styles.shopSectionTitle}>
-              {t("achievements.shop.backgrounds")}
-            </Text>
-            <View style={[styles.shopGrid, { marginBottom: 24 }]}>
-              {bgItems.map((item) => (
-                <ShopItemCard
-                  key={item.id}
-                  item={item}
-                  owned={purchasedBackgrounds.includes(item.id)}
-                  active={activeBackground === item.id}
-                  canAfford={totalCoins >= item.price}
-                  proLocked={
-                    !!item.isPro &&
-                    !isPro &&
-                    !purchasedBackgrounds.includes(item.id)
-                  }
-                  onItemPress={handleItemPress}
-                  onApply={handleApply}
-                />
-              ))}
+            <View style={styles.bgList}>
+              {bgItems.map((item) => {
+                const isOwned = purchasedBackgrounds.includes(item.id);
+                return (
+                <Pressable key={item.id} style={styles.bgItem}
+                  onPress={() => isOwned ? handleApply(item) : handleItemPress(item)}
+                >
+                  <View style={styles.bgPreviewWrap}>
+                    <Image
+                      source={item.imageUri ? { uri: item.imageUri } : item.image}
+                      style={styles.bgPreview}
+                      resizeMode="cover"
+                    />
+                    <Image
+                      source={require("@/assets/images/store_BackgroundBorder.png")}
+                      style={styles.bgBorder}
+                      resizeMode="stretch"
+                    />
+                    {!!item.isPro && !isOwned && (
+                      <View style={styles.bgLockerBadge}>
+                        <Image source={require("@/assets/images/store_Locker.png")} style={styles.bgLockerIcon} resizeMode="contain" />
+                      </View>
+                    )}
+                    <View style={styles.bgPricePill}>
+                      {isOwned ? (
+                        <Text style={styles.bgPricePillText}>
+                          {activeBackground === item.id
+                            ? t("achievements.shop.equipped")
+                            : "✓"}
+                        </Text>
+                      ) : (
+                        <>
+                          <Image
+                            source={require("@/assets/images/crownIcon.png")}
+                            style={styles.bgPricePillIcon}
+                            resizeMode="contain"
+                          />
+                          <Text style={styles.bgPricePillText}>{item.price}</Text>
+                        </>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+                );
+              })}
             </View>
-
-            {/* Outfits Section */}
-            <Text style={styles.shopSectionTitle}>
-              {t("achievements.shop.outfits")}
-            </Text>
-            <View style={styles.shopGrid}>
+          </ScrollView>
+        ) : activeTab === "outfits" ? (
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.outfitContentContainer}
+          >
+            <View style={styles.outfitGrid}>
               {outfitItems.map((item) => (
                 <ShopItemCard
                   key={item.id}
@@ -630,32 +795,44 @@ export default function AchievementsScreen() {
                   owned={purchasedOutfits.includes(item.id)}
                   active={activeOutfit === item.id}
                   canAfford={totalCoins >= item.price}
-                  proLocked={
-                    !!item.isPro &&
-                    !isPro &&
-                    !purchasedOutfits.includes(item.id)
-                  }
                   onItemPress={handleItemPress}
                   onApply={handleApply}
                 />
               ))}
             </View>
           </ScrollView>
-        )}
+        ) : activeTab === "eggs" ? (
+          <EggGrid
+            catalog={catalog}
+            eggs={eggs}
+            totalCoins={totalCoins}
+            isPro={isPro}
+            spendCoins={spendCoins}
+          />
+        ) : null}
 
         {/* Purchase Confirmation Modal */}
         <Modal
           visible={!!confirmItem}
           transparent
           animationType="fade"
-          onRequestClose={() => setConfirmItem(null)}
+          onRequestClose={() => { hapticsLight(); setConfirmItem(null); }}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               {confirmItem && (
                 <>
-                  {/* Large image area at top */}
-                  <View style={styles.modalImageArea}>
+                  {/* Close X button */}
+                  <Pressable
+                    style={styles.modalCloseX}
+                    hitSlop={12}
+                    onPress={() => { hapticsLight(); setConfirmItem(null); }}
+                  >
+                    <X size={20} color="#8B6F5E" strokeWidth={3} />
+                  </Pressable>
+
+                  {/* Image preview with pixel-art border */}
+                  <View style={styles.modalImageWrap}>
                     <Image
                       source={
                         confirmItem.imageUri
@@ -667,42 +844,36 @@ export default function AchievementsScreen() {
                         confirmItem.type === "outfit" ? "contain" : "cover"
                       }
                     />
+                    {confirmItem.type === "background" && (
+                      <Image
+                        source={require("@/assets/images/store_BackgroundBorder.png")}
+                        style={styles.modalImageBorder}
+                        resizeMode="stretch"
+                      />
+                    )}
+                    {confirmItem.isPro && (
+                      <View style={styles.modalLockerBadge}>
+                        <Image source={require("@/assets/images/store_Locker.png")} style={styles.modalLockerIcon} resizeMode="contain" />
+                      </View>
+                    )}
                   </View>
 
-                  {/* Content: price badge + name + buttons */}
-                  <View style={styles.modalContent}>
-                    {/* Price badge overlapping the image */}
-                    <View style={styles.modalPriceBadge}>
-                      <Crown
-                        size={14}
-                        color={colors.background}
-                        strokeWidth={2.5}
-                      />
-                      <Text style={styles.modalPriceBadgeText}>
-                        {confirmItem.price}
-                      </Text>
+
+                  {/* Action row: price pill + GET button */}
+                  <View style={styles.modalActionRow}>
+                    <View style={styles.modalPricePillSmall}>
+                      <Image source={require("@/assets/images/crownIcon.png")} style={styles.modalPricePillSmallIcon} resizeMode="contain" />
+                      <Text style={styles.modalPricePillSmallText}>{confirmItem.price}</Text>
                     </View>
-
-                    <Text style={styles.modalItemName}>
-                      {t("achievements.shop.confirm_title")}
-                    </Text>
-
                     <Pressable
-                      style={styles.modalBuyButton}
+                      style={styles.modalGetButton}
                       onPress={handleConfirmPurchase}
                     >
-                      <Text style={styles.modalBuyButtonText}>
-                        {t("achievements.shop.buy")}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={styles.modalCancelPressable}
-                      onPress={() => setConfirmItem(null)}
-                    >
-                      <Text style={styles.modalCancelLink}>
-                        {t("achievements.shop.cancel")}
-                      </Text>
+                      <Image
+                        source={require("@/assets/images/achievement_getButton.png")}
+                        style={styles.modalGetImage}
+                        resizeMode="contain"
+                      />
                     </Pressable>
                   </View>
                 </>
@@ -710,66 +881,13 @@ export default function AchievementsScreen() {
             </View>
           </View>
         </Modal>
-      </View>
+      </ImageBackground>
 
-      {/* Footer Tabs */}
-      <View style={styles.footerContainer}>
-        <Pressable
-          style={styles.footerTab}
-          onPress={() => handleTabPress("logros")}
-        >
-          <Trophy
-            size={24}
-            color={activeTab === "logros" ? "#111827" : "#9CA3AF"}
-            strokeWidth={activeTab === "logros" ? 2.5 : 2}
-          />
-          <Text
-            style={[
-              styles.footerTabText,
-              activeTab === "logros" && styles.footerTabTextActive,
-            ]}
-          >
-            {t("achievements.tab_achievements")}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          style={styles.footerTab}
-          onPress={() => handleTabPress("tienda")}
-        >
-          <Store
-            size={24}
-            color={activeTab === "tienda" ? "#111827" : "#9CA3AF"}
-            strokeWidth={activeTab === "tienda" ? 2.5 : 2}
-          />
-          <Text
-            style={[
-              styles.footerTabText,
-              activeTab === "tienda" && styles.footerTabTextActive,
-            ]}
-          >
-            {t("achievements.tab_shop")}
-          </Text>
-        </Pressable>
-      </View>
       {/* Paywall Modal */}
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         source="debug_panel"
-      />
-      <DailyStreakScreen
-        visible={showStreakDev}
-        streak={appStreak}
-        history={[]}
-        maxStreak={appStreak}
-        shieldDates={[]}
-        onDismiss={() => setShowStreakDev(false)}
-      />
-      <ReviewRequestModal
-        visible={showReviewDev}
-        streak={appStreak}
-        onClose={() => setShowReviewDev(false)}
       />
     </SafeAreaView>
   );
@@ -783,10 +901,18 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
   },
+  storefrontBg: {
+    height: 240,
+  },
+  storefrontImage: {
+    resizeMode: "cover",
+  },
+  storewallImage: {
+    resizeMode: "cover",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 12,
     gap: 8,
@@ -794,37 +920,55 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
     width: 36,
+    color: "#f3f4f7",
+    
+    
   },
   crownsPill: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#EAF0FC", // soft grayish blue based on the image
     paddingHorizontal: 10,
+    paddingLeft: 32,
     paddingVertical: 2,
-    borderRadius: 42,
+    borderRadius: 32,
     gap: 6,
     position: "relative",
+    fontFamily: "Jersey10",
   },
   // Footer
-  footerContainer: {
+  topTabsContainer: {
     flexDirection: "row",
-    backgroundColor: "#EAF0FC",
-    paddingTop: 12,
-    paddingBottom: 8,
+    backgroundColor: "#c1d9dd",
+    paddingHorizontal: 24,
+    gap: 0,
   },
-  footerTab: {
+  topTab: {
     flex: 1,
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
-  footerTabText: {
+  topTabActive: {
+    borderBottomColor: "#111827",
+  },
+  tabIcon: {
+    width: 48,
+    height: 48,
+    opacity: 0.4,
+  },
+  tabIconActive: {
+    opacity: 1,
+  },
+  tabLabel: {
     fontFamily: "Jersey10",
-    fontSize: 14,
+    fontSize: 16,
     color: "#9CA3AF",
   },
-  footerTabTextActive: {
-    fontFamily: "Jersey10",
-    fontSize: 14,
+  tabLabelActive: {
     color: "#111827",
   },
   // Scroll
@@ -838,68 +982,14 @@ const styles = StyleSheet.create({
   achievementsContainer: {
     gap: 16,
   },
-  // Dashboard
-  dashboardContainer: {
-    gap: 12,
-    marginBottom: 24,
-  },
-  dashboardTopCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dashboardSplitContainer: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  dashboardSplitCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    padding: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dashboardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  dashboardValueText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  dashboardLabelText: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "600",
-  },
-  sectionHeaderTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 16,
-    marginLeft: 4,
-  },
   // Shop
   shopContentContainer: {
     padding: GRID_PADDING,
     paddingBottom: 40,
   },
-  shopSectionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 16,
-    marginTop: 8,
+  outfitContentContainer: {
+    padding: GRID_PADDING,
+    paddingBottom: 40,
   },
   shopGrid: {
     flexDirection: "row",
@@ -907,43 +997,238 @@ const styles = StyleSheet.create({
     marginHorizontal: -(GRID_GAP / 2),
     marginBottom: 24,
   },
+  outfitGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginHorizontal: -(GRID_GAP / 2),
+  },
+  bgList: {
+    gap: 20,
+  },
+  bgItem: {
+    borderRadius: 22,
+    overflow: "hidden",
+  },
+  bgPreviewWrap: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    position: "relative",
+  },
+  bgPreview: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 22,
+  },
+  bgBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: 22,
+  },
+  bgPricePill: {
+    position: "absolute",
+    bottom: 10,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  bgPricePillIcon: {
+    width: 24,
+    height: 24,
+  },
+  bgPricePillText: {
+    fontSize: 13,
+    fontFamily: "Jersey10",
+    color: "#FFFFFF",
+  },
+  bgLockerBadge: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 52,
+    height: 52,
+    marginLeft: -26,
+    marginTop: -26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bgLockerIcon: {
+    width: "100%",
+    height: "100%",
+  },
   shopFlatListRow: {
     justifyContent: "flex-start",
     marginHorizontal: -(GRID_GAP / 2),
   },
   shopItemCard: {
     width: ITEM_WIDTH,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#ffffff",
     borderRadius: 20,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#fdfdff",
     gap: 12,
     marginHorizontal: GRID_GAP / 2,
     marginBottom: GRID_GAP,
   },
+  outfitCard: {
+    width: OUTFIT_ITEM_WIDTH,
+    borderRadius: 8,
+    borderWidth: 2,
+    padding: 6,
+    gap: 0,
+    marginHorizontal: GRID_GAP / 2,
+    marginBottom: GRID_GAP,
+    position: "relative",
+  },
+  outfitImageContainer: {
+    borderRadius: 4,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    aspectRatio: 1,
+  },
+  shopOutfitImage: {
+    width: "100%",
+    height: "100%",
+    transform: [{ scale: 0.8 }],
+  },
+  outfitBottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  outfitCrownIcon: {
+    width: 28,
+    height: 28,
+  },
+  outfitPriceText: {
+    fontSize: 16,
+    fontFamily: "Jersey10",
+    color: "#FFFFFF",
+  },
+  outfitOwnedCheck: {
+    fontSize: 18,
+    color: "#FFFFFF",
+    fontFamily: "Jersey10",
+  },
+  cornerTopLeft: {
+    position: "absolute",
+    top: -6,
+    left: -6,
+    width: 52,
+    height: 52,
+    borderTopWidth: 6,
+    borderLeftWidth: 6,
+    borderColor: "#aeff78",
+    zIndex: 10,
+  },
+  cornerTopRight: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 52,
+    height: 52,
+    borderTopWidth: 6,
+    borderRightWidth: 6,
+    borderColor: "#aeff78",
+    zIndex: 10,
+  },
+  cornerBottomLeft: {
+    position: "absolute",
+    bottom: -6,
+    left: -6,
+    width: 52,
+    height: 52,
+    borderBottomWidth: 6,
+    borderLeftWidth: 6,
+    borderColor: "#aeff78",
+    zIndex: 10,
+  },
+  cornerBottomRight: {
+    position: "absolute",
+    bottom: -6,
+    right: -6,
+    width: 52,
+    height: 52,
+    borderBottomWidth: 6,
+    borderRightWidth: 6,
+    borderColor: "#aeff78",
+    zIndex: 10,
+  },
   shopImageContainer: {
     width: "100%",
     aspectRatio: 1,
-    borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#F3F4F6",
     position: "relative",
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-  shopImageContainerActive: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
   shopImage: {
     width: "100%",
     height: "100%",
   },
-  shopOutfitImage: {
+  eggCard: {
+    width: ITEM_WIDTH,
+    borderRadius: 8,
+    borderWidth: 2,
+    padding: 6,
+    gap: 0,
+    marginHorizontal: GRID_GAP / 2,
+    marginBottom: GRID_GAP,
+  },
+  eggImageContainer: {
+    backgroundColor: "rgba(0,0,0,0.3)",
+    borderWidth: 0,
+    borderRadius: 4,
+    aspectRatio: 1,
+  },
+  eggImageOwned: {
+    borderWidth: 2,
+    borderColor: "#10B981",
+  },
+  eggImage: {
     width: "100%",
     height: "100%",
-    transform: [{ scale: 0.8 }],
+    transform: [{ scale: 0.85 }],
+  },
+  eggBottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  eggCrownIcon: {
+    width: 28,
+    height: 28,
+  },
+  eggPriceText: {
+    fontSize: 16,
+    fontFamily: "Jersey10",
+    color: "#FFFFFF",
+  },
+  eggOwnedCheck: {
+    fontSize: 18,
+    color: "#FFFFFF",
+    fontFamily: "Jersey10",
+  },
+  eggHatchedText: {
+    fontSize: 18,
+    color: "#FFD700",
+    fontFamily: "Jersey10",
   },
   // Removed ownedBadge
   shopItemDetails: {
@@ -1001,29 +1286,35 @@ const styles = StyleSheet.create({
   applyButtonTextActive: {
     color: "#9CA3AF",
   },
-  // Pro badge (top-right corner of shop image)
-  proBadge: {
+  crownBuyIcon: {
+    width: 14,
+    height: 14,
+  },
+  lockerBadge: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
+  },
+  lockerIcon: {
+    width: "100%",
+    height: "100%",
+  },
+  crownHeaderIcon: {
+    width: 36,
+    height: 36,
+    position: "absolute",
+    left: -12,
+    top: "50%",
+    marginTop: -20,
+    
   },
   // PRO locked button for non-pro users
-  proLockedButton: {
-    backgroundColor: "#1A1C20",
-  },
-  proLockedButtonText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#FFD700",
-  },
-  // Confirmation Modal
+
+  // Confirmation Modal — pixel-art storefront style
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -1032,79 +1323,101 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   modalCard: {
-    backgroundColor: colors.background,
-    borderRadius: 32,
     width: "100%",
-    maxWidth: 300,
+    maxWidth: 320,
+    backgroundColor: "#F5E6D3",
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: "#8B6F5E",
     overflow: "hidden",
+    paddingTop: 10,
+    paddingBottom: 20,
   },
-  modalImageArea: {
+  modalCloseX: {
+    position: "absolute",
+    top: 20,
+    right: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(245,230,211,0.9)",
+    zIndex: 10,
+  },
+  modalImageWrap: {
     width: "100%",
-    height: 230,
-    backgroundColor: colors.primaryDim,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    overflow: "hidden",
+    aspectRatio: 16 / 9,
+    position: "relative",
   },
   modalImageFull: {
     width: "100%",
     height: "100%",
   },
-  modalContent: {
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 28,
-    marginTop: -32,
-    gap: 14,
+  modalImageBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: "100%",
+    height: "100%",
   },
-  modalPriceBadge: {
-    flexDirection: "row",
+  modalLockerBadge: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    width: 52,
+    height: 52,
+    marginLeft: -26,
+    marginTop: -26,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    backgroundColor: colors.primary,
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    zIndex: 2,
   },
-  modalPriceBadgeText: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.primaryContent,
+  modalLockerIcon: {
+    width: "100%",
+    height: "100%",
   },
   modalItemName: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    textAlign: "center",
-    letterSpacing: 0.5,
-    fontFamily: "Jersey10",
-  },
-  modalBuyButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 50,
-    paddingVertical: 14,
-    width: "100%",
-    alignItems: "center",
-    fontFamily: "Jersey10",
-  },
-  modalBuyButtonText: {
     fontSize: 22,
     fontFamily: "Jersey10",
-    color: colors.primaryContent,
-    textTransform: "uppercase",
-    letterSpacing: 1,
+    color: "#8B6F5E",
+    textAlign: "center",
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
-  modalCancelPressable: {
-    paddingVertical: 4,
+  modalActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 20,
+    paddingTop: 8,
   },
-  modalCancelLink: {
-    fontSize: 12,
-    color: colors.textTertiary,
+  modalPricePillSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  modalPricePillSmallIcon: {
+    width: 42,
+    height: 42,
+  },
+  modalPricePillSmallText: {
+    fontSize: 36,
+    fontFamily: "Jersey10",
+    color: "#080808",
+  },
+  modalGetButton: {
+    flex: 1,
+    height: 66,
+    justifyContent: "center",
+  },
+  modalGetImage: {
+    width: "100%",
+    height: "100%",
   },
 });

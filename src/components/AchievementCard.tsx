@@ -1,47 +1,42 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
-import {
-    Crown,
-    HelpCircle,
-    Hexagon,
-    LucideIcon
-} from "lucide-react-native";
+import * as Haptics from "expo-haptics";
 import React from "react";
-import { useTranslation } from "react-i18next";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
+
+const hapticsLight = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
 export interface Achievement {
   id: string;
   title: string;
-  icon: LucideIcon;
+  icon: any;
   gradient: string[];
   progress: number;
   total: number;
   completed: boolean;
   coins: number;
+  claimed?: boolean;
 }
 
 interface AchievementCardProps {
   achievement: Achievement;
-  isLast: boolean; // Mantenido por compatibilidad
+  isLast: boolean;
   onPress: () => void;
+  onClaim?: () => void;
 }
 
 export function AchievementCard({
   achievement,
   isLast,
   onPress,
+  onClaim,
 }: AchievementCardProps) {
-  const { t } = useTranslation();
   const isStarted = achievement.progress > 0;
   const isCompleted = achievement.progress >= achievement.total;
+  const isClaimed = achievement.claimed === true;
+  const showClaimButton = isCompleted && !isClaimed;
 
-  const Icon = isStarted ? achievement.icon : HelpCircle;
-  const mainColor = achievement.gradient[0] || colors.primary;
-
-  // Colores mejorados para alto contraste
-  const iconInsideColor = isStarted ? "#EAF0FC" : "#9CA3AF"; // Background screen color / Gris
-  const accentColor = isStarted ? colors.surface : "#9CA3AF"; // Morado fuerte / Gris para barra y nivel
+  const accentColor = isStarted ? colors.surface : "#9CA3AF";
 
   const progressPercentage = Math.min(
     (achievement.progress / achievement.total) * 100,
@@ -53,28 +48,23 @@ export function AchievementCard({
       onPress={onPress}
       style={({ pressed }) => [
         styles.cardContainer,
-        isCompleted && { opacity: 0.5 },
+        isClaimed && { opacity: 0.6 },
         pressed && {
-          opacity: isCompleted ? 0.4 : 0.9,
+          opacity: isClaimed ? 0.4 : 0.9,
           transform: [{ scale: 0.98 }],
         },
       ]}
     >
-      {/* Lado Izquierdo: Hexagon y Nivel */}
+      {/* Lado Izquierdo */}
       <View style={styles.leftSection}>
-        <View style={styles.hexagonWrapper}>
-          <Hexagon
-            size={68}
-            fill={isStarted ? mainColor : "#F3F4F6"}
-            color={isStarted ? mainColor : "#F3F4F6"}
-          />
-          <View style={styles.iconOverlay}>
-            <Icon size={28} color={iconInsideColor} strokeWidth={2.5} />
-          </View>
-        </View>
+        <Image
+          source={require("@/assets/images/crownIcon.png")}
+          style={styles.crownAchievementIcon}
+          resizeMode="contain"
+        />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-          <Crown size={12} color={accentColor} strokeWidth={2.5} />
-          <Text style={[styles.levelText, { color: accentColor }]}>
+
+          <Text style={[styles.levelText, { color: colors.surface }]}>
             +{achievement.coins}
           </Text>
         </View>
@@ -84,10 +74,6 @@ export function AchievementCard({
       <View style={styles.contentSection}>
         <View style={styles.textStack}>
           <Text style={styles.titleText}>{achievement.title}</Text>
-          {/* Si quieres agregar subtitulo mas adelante, lo harías aquí */}
-          <Text style={styles.subtitleText}>
-            {t("achievements.complete_goal")}
-          </Text>
         </View>
 
         <View style={styles.progressSection}>
@@ -102,10 +88,20 @@ export function AchievementCard({
               ]}
             />
           </View>
-          <Text style={[styles.progressNumber, { color: accentColor }]}>
+          <Text style={[styles.progressNumber, { color: colors.surface }]}>
             {achievement.progress}/{achievement.total}
           </Text>
         </View>
+
+        {showClaimButton && (
+          <Pressable onPress={() => { hapticsLight(); onClaim?.(); }} style={styles.claimButton}>
+            <Image
+              source={require("@/assets/images/achievement_getButton.png")}
+              style={styles.claimImage}
+              resizeMode="contain"
+            />
+          </Pressable>
+        )}
       </View>
     </Pressable>
   );
@@ -115,7 +111,7 @@ const styles = StyleSheet.create({
   cardContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#e4ce9d",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 16,
@@ -127,22 +123,16 @@ const styles = StyleSheet.create({
     gap: 6,
     width: 68,
   },
-  hexagonWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
+  crownAchievementIcon: {
     width: 68,
     height: 68,
-    position: "relative",
   },
-  iconOverlay: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
+  crownCoinIcon: {
+    width: 12,
+    height: 12,
   },
   levelText: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.5,
   },
@@ -156,12 +146,8 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827",
-  },
-  subtitleText: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
+    fontFamily: "Jersey10",
+    color: "#131211"
   },
   progressSection: {
     flexDirection: "row",
@@ -184,5 +170,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     minWidth: 32,
     textAlign: "right",
+  },
+  claimButton: {
+    alignSelf: "flex-end",
+  },
+  claimImage: {
+    width: 100,
+    height: 32,
   },
 });

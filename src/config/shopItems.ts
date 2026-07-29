@@ -137,6 +137,13 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
   // ── Outfits (PNG originales) ───────────────────────────────────────────────
   {
+    id: 'outfit_default',
+    name: 'Default',
+    price: 0,
+    type: 'outfit',
+    image: require('@/assets/images/logomain.png'),
+  },
+  {
     id: 'outfit_1_1',
     name: 'Outfit 1',
     price: OUTFIT_PRICE,

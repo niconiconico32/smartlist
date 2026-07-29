@@ -18,6 +18,7 @@ export interface AchievementProgress {
   progress: number;
   completed: boolean;
   completedAt?: string;
+  claimed?: boolean;
 }
 
 export type AchievementId =
@@ -310,7 +311,7 @@ const ALL_ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENT_DEFINITIONS) as AchievementI
 function createDefaultAchievements(): Record<AchievementId, AchievementProgress> {
   const map = {} as Record<AchievementId, AchievementProgress>;
   for (const id of ALL_ACHIEVEMENT_IDS) {
-    map[id] = { id, progress: 0, completed: false };
+    map[id] = { id, progress: 0, completed: false, claimed: false };
   }
   return map;
 }
@@ -376,12 +377,14 @@ function mergeAchievementMaps(
     const progress = Math.max(localProgress, cloudProgress);
     const completed = !!l?.completed || !!c?.completed;
     const completedAt = l?.completedAt || c?.completedAt;
+    const claimed = completed && !!(l?.claimed || c?.claimed);
 
     merged[id] = {
       ...base,
       progress,
       completed,
       completedAt,
+      claimed,
     };
   }
   return merged;
@@ -429,7 +432,10 @@ function mergeSnapshots(
 
   return {
     achievements: mergeAchievementMaps(local?.achievements, cloud?.achievements),
-    totalCoins: asFiniteNumber(primary?.totalCoins, 0),
+    totalCoins: Math.max(
+      asFiniteNumber(local?.totalCoins, 0),
+      asFiniteNumber(cloud?.totalCoins, 0),
+    ),
     routineStreak: asFiniteNumber(primary?.routineStreak, 0),
     lastRoutineCompletedDate: primary?.lastRoutineCompletedDate || null,
     distinctWeeks: asStringArray(primary?.distinctWeeks),
@@ -440,13 +446,13 @@ function mergeSnapshots(
       secondary?.activeBackground,
       purchasedBackgrounds,
     ),
-    activeBackgroundUri: primary?.activeBackgroundUri || null,
+    activeBackgroundUri: primary?.activeBackgroundUri || secondary?.activeBackgroundUri || null,
     activeOutfit: pickOwnedActive(
       primary?.activeOutfit,
       secondary?.activeOutfit,
       purchasedOutfits,
     ),
-    activeOutfitUri: primary?.activeOutfitUri || null,
+    activeOutfitUri: primary?.activeOutfitUri || secondary?.activeOutfitUri || null,
     rewardedRoutines: asStringRecord(primary?.rewardedRoutines),
     rewardedTasks: asStringRecord(primary?.rewardedTasks),
     todaysRewardedTaskIds: asStringArray(primary?.todaysRewardedTaskIds),
@@ -480,11 +486,14 @@ interface AchievementsStore {
 
   // True once loadAchievements has completed at least once
   _loaded: boolean;
+  // True if a persist was queued before hydration completed
+  _pendingPersist: boolean;
 
   // Actions
   loadAchievements: () => Promise<void>;
   updateAchievement: (id: AchievementId, progress: number) => Promise<void>;
   completeAchievement: (id: AchievementId) => Promise<void>;
+  claimAchievement: (id: AchievementId) => Promise<void>;
   checkAndUpdateAchievements: (activities: any[], currentStreak: number) => Promise<void>;
 
   // Existing triggers
@@ -501,8 +510,6 @@ interface AchievementsStore {
 
   // Shop actions
   spendCoins: (amount: number, purchase?: { type: 'outfit' | 'background'; itemId: string }) => Promise<boolean>;
-  /** Award coins to the player (e.g. pet level-up reward). Persists + syncs to cloud. */
-  addCoins: (amount: number) => Promise<void>;
   /** Award coins to the player (e.g. pet level-up reward). Persists + syncs to cloud. */
   addCoins: (amount: number) => Promise<void>;
   setActiveBackground: (id: string | null, uri?: string | null) => Promise<void>;
@@ -583,8 +590,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
   const persist = () => {
     if (!get()._loaded) {
-      // Do not persist before hydration completes, or defaults can overwrite
-      // purchased/equipped items from local/cloud backup.
+      set({ _pendingPersist: true });
       return Promise.resolve();
     }
 
@@ -629,6 +635,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     todaysRewardedTaskIds: [],
     lastRewardDate: null,
     _loaded: false,
+    _pendingPersist: false,
     isRoutineModalOpen: false,
 
     // =========================================================
@@ -639,6 +646,10 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     loadAchievements: async () => {
       if (get()._loaded) return;
       if (loadPromise) return loadPromise;
+
+      // Capture pre-hydration state so we can tell if the user
+      // changed equip selections while hydration was in progress.
+      const preLoadState = get();
 
       loadPromise = (async () => {
       try {
@@ -729,6 +740,14 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             }
           }
 
+          // Preserve in-memory equip state: if the user equipped a skin
+          // before loadAchievements completed, don't overwrite it.
+          // We compare against preLoadState (captured before async work)
+          // to detect whether the user actually changed the selection
+          // during the hydration window.
+          const current = get();
+          const userChangedBg = current.activeBackground !== preLoadState.activeBackground;
+          const userChangedOutfit = current.activeOutfit !== preLoadState.activeOutfit;
           set({
             _loaded: true,
             achievements: mergedAchievements,
@@ -738,10 +757,10 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             distinctWeeks: asStringArray(normalizedData.distinctWeeks),
             purchasedOutfits: asStringArray(normalizedData.purchasedOutfits),
             purchasedBackgrounds: asStringArray(normalizedData.purchasedBackgrounds),
-            activeBackground: normalizedData.activeBackground || null,
-            activeBackgroundUri: normalizedData.activeBackgroundUri || null,
-            activeOutfit: normalizedData.activeOutfit || null,
-            activeOutfitUri: normalizedData.activeOutfitUri || null,
+            activeBackground: userChangedBg ? current.activeBackground : (normalizedData.activeBackground || null),
+            activeBackgroundUri: userChangedBg ? current.activeBackgroundUri : (normalizedData.activeBackgroundUri || null),
+            activeOutfit: userChangedOutfit ? current.activeOutfit : (normalizedData.activeOutfit || null),
+            activeOutfitUri: userChangedOutfit ? current.activeOutfitUri : (normalizedData.activeOutfitUri || null),
             rewardedRoutines: asStringRecord(normalizedData.rewardedRoutines),
             rewardedTasks: asStringRecord(normalizedData.rewardedTasks),
             dailyTasksCompletedCount: asFiniteNumber(normalizedData.dailyTasksCompletedCount, 0),
@@ -749,12 +768,26 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             todaysRewardedTaskIds: asStringArray(normalizedData.todaysRewardedTaskIds),
             lastRewardDate: normalizedData.lastRewardDate || null,
           });
+          // If the user changed equip during hydration, persist it now
+          // (persist() was a no-op while _loaded was false).
+          if (userChangedBg || userChangedOutfit || get()._pendingPersist) {
+            set({ _pendingPersist: false });
+            persist();
+          }
         } else {
           set({ _loaded: true });
+          if (get()._pendingPersist) {
+            set({ _pendingPersist: false });
+            persist();
+          }
         }
       } catch (error) {
         console.error('Error loading achievements:', error);
         set({ _loaded: true });
+        if (get()._pendingPersist) {
+          set({ _pendingPersist: false });
+          persist();
+        }
       }
       })();
 
@@ -766,7 +799,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
     },
 
     // =========================================================
-    // UPDATE ACHIEVEMENT (core — applies multiplier on complete)
+    // UPDATE ACHIEVEMENT (core — marks complete, no auto coins)
     // =========================================================
     updateAchievement: async (id, progress) => {
       const state = get();
@@ -778,13 +811,6 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
       const newCompleted = progress >= definition.total;
 
-      // Apply streak multiplier when awarding coins
-      let coinsToAdd = 0;
-      if (newCompleted && !achievement.completed) {
-        const multiplier = useAppStreakStore.getState().getMultiplier();
-        coinsToAdd = Math.round(definition.coins * multiplier);
-      }
-
       set((prev) => ({
         achievements: {
           ...prev.achievements,
@@ -793,9 +819,9 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
             progress,
             completed: newCompleted,
             completedAt: newCompleted ? new Date().toISOString() : undefined,
+            claimed: newCompleted ? false : (prev.achievements[id]?.claimed ?? false),
           },
         },
-        totalCoins: prev.totalCoins + coinsToAdd,
       }));
       await persist();
 
@@ -803,7 +829,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
         posthog.capture('achievement_unlocked', {
           achievement_id: id,
           achievement_title: definition.title,
-          coins_awarded: coinsToAdd,
+          coins_awarded: definition.coins,
         });
       }
     },
@@ -813,6 +839,35 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
       if (definition) {
         await get().updateAchievement(id, definition.total);
       }
+    },
+
+    // =========================================================
+    // CLAIM ACHIEVEMENT (awards coins + marks claimed)
+    // =========================================================
+    claimAchievement: async (id) => {
+      const state = get();
+      const achievement = state.achievements[id];
+      if (!achievement || !achievement.completed || achievement.claimed) return;
+
+      const definition = ACHIEVEMENT_DEFINITIONS[id];
+      if (!definition) return;
+
+      let multiplier = 1;
+      try {
+        multiplier = useAppStreakStore.getState().getMultiplier();
+      } catch (e) {
+        console.warn('Failed to get streak multiplier:', e);
+      }
+      const coinsToAdd = Math.round(definition.coins * multiplier);
+
+      set((prev) => ({
+        achievements: {
+          ...prev.achievements,
+          [id]: { ...prev.achievements[id], claimed: true },
+        },
+        totalCoins: prev.totalCoins + coinsToAdd,
+      }));
+      await persist();
     },
 
     // =========================================================

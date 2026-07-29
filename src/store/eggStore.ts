@@ -150,6 +150,8 @@ interface EggStore {
    * No-op if petXp has not reached the next level threshold.
    */
   claimPetLevelUp: (routineId: string) => void;
+  /** DEBUG ONLY: increment XP by 1 bypassing the once-per-day guard. */
+  debugIncrementXp: (routineId: string) => void;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -276,6 +278,16 @@ export const useEggStore = create<EggStore>()(
             const threshold = e.petLevel * 30;
             if (e.petXp < threshold) return e; // not enough XP yet
             return { ...e, petLevel: e.petLevel + 1 };
+          }),
+        })),
+
+      debugIncrementXp: (routineId) =>
+        set((state) => ({
+          eggs: state.eggs.map((e) => {
+            if (e.routineId !== routineId) return e;
+            if (e.evolved) return e;
+            if (e.xp >= EGG_MAX_XP) return e;
+            return { ...e, xp: e.xp + 1 };
           }),
         })),
     }),
