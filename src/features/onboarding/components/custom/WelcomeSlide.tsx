@@ -1,9 +1,10 @@
 import { AppText as Text } from "@/src/components/AppText";
 import { GoogleButton } from "@/src/components/GoogleButton";
+import { LoginModal } from "@/src/components/LoginModal";
 import { useAuth } from "@/src/contexts/AuthContext";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Haptics from "expo-haptics";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -27,6 +28,7 @@ interface Props {
 
 const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const {
     signInWithOAuth,
     signInWithApple,
@@ -123,6 +125,19 @@ const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
             </View>
           </Pressable>
 
+          {/* Email login */}
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowLoginModal(true);
+            }}
+            style={styles.emailLoginRow}
+          >
+            <Text style={styles.emailLoginLink}>
+              {t("login.email_login")}
+            </Text>
+          </Pressable>
+
           {/* Disclaimer */}
           <RNText style={styles.disclaimer}>
             {"By continuing, you agree to our "}
@@ -148,6 +163,11 @@ const WelcomeSlide: React.FC<Props> = ({ onNext }) => {
             {"."}
           </RNText>
         </Animated.View>
+
+        <LoginModal
+          visible={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+        />
       </SafeAreaView>
     </View>
   );
@@ -178,10 +198,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: {
+    fontFamily: "Jersey10",
     fontSize: 42,
-    fontWeight: "900",
     color: "#1A1C20",
-    letterSpacing: -1.5,
     paddingBottom: 42,
   },
 
@@ -242,6 +261,21 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: 16,
+    fontWeight: "700",
+    color: "#1A1C20",
+  },
+
+  // Email login
+  emailLoginRow: {
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.04)",
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
+  },
+  emailLoginLink: {
+    fontSize: 15,
     fontWeight: "700",
     color: "#1A1C20",
   },

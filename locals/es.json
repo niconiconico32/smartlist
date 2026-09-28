@@ -10,15 +10,15 @@
     "tap_to_start": "Toca para empezar",
     "dialogue_intro_1": "¡Bienvenid@!",
     "dialogue_intro_2": "Soy Brainy, y desde ahora seré tu compañero :)",
-    "dialogue_intro_3": "Partamos nuestro viaje con unas simples preguntitas.",
+    "dialogue_intro_3": "Empecemos nuestro viaje con unas simples preguntitas.",
     "dialogue_mid_1": "¡ya empiezo a conocerte mejor!",
     "dialogue_mid_2": "ahora cuéntame...",
     "dialogue_support_1": "¡te entiendo muy bien, empezar cuesta mucho!",
     "dialogue_support_2": "pero tranquil@, juntos podemos lograrlo.",
     "dialogue_support_3": "déjame mostrarte cómo puedo ayudar a que te sea más fácil.",
-    "dialogue_progress_1": "¡qué bien! ya tienes tu primera tarea dividida.",
-    "dialogue_progress_2": "¿ves cómo se siente mucho más fácil empezar ahora?",
-    "dialogue_progress_3": "déjame contarte por qué esto funciona tan bien en tu cerebro...",
+    "dialogue_progress_0": "¡Genial! Ya tenemos un plan...",
+    "dialogue_progress_1": "¿Ves? Ahora no parece tan difícil empezar.",
+    "dialogue_progress_2": "¡Ahora déjame contarte lo que aprendí sobre ti!",
     "dialogue_legacy_intro_1": "¡Hola! Soy Brainy 👋",
     "dialogue_legacy_intro_2": "Solo unas preguntitas antes de iniciar nuestro viaje.",
     "v3": {
@@ -28,6 +28,8 @@
       "diagnosis_subtitle": "todos los cerebros son bienvenidos.",
       "age_title": "¿cuál es tu edad?",
       "age_subtitle": "esto nos ayudará a entenderte mejor.",
+      "situation_title": "¿cuál es tu situación actual?",
+      "situation_subtitle": "para adaptar Brainy a tu día a día.",
       "adhd_symptoms_title": "¿cómo te afecta el TDAH hoy?",
       "adhd_symptoms_subtitle": "selecciona las cosas que sueles experimentar.",
       "life_area_title": "¿qué área de tu día a día es con la que más te cuesta lidiar?",
@@ -52,29 +54,39 @@
         "yes": "Sí, tengo diagnóstico",
         "suspect": "Sospecho que lo tengo",
         "no_struggle": "No, pero me cuesta concentrarme",
+        "prefer_not_say": "Prefiero no decir",
         "optimize": "Solo quiero optimizar mi cerebro"
       },
       "adhd_symptoms": {
-        "paralysis": "😫 Me cuesta empezar tareas (Parálisis)",
-        "time": "⏰ Pierdo la noción del tiempo",
-        "overwhelm": "🤯 Me siento abrumado/a fácilmente",
+        "paralysis": "Me cuesta empezar tareas (Parálisis)",
+        "time": "Pierdo la noción del tiempo",
+        "overwhelm": "Me siento abrumado/a fácilmente",
         "forget": "💨 Olvido cosas importantes al instante",
-        "racing_mind": "🌪️ Mi mente no para nunca"
+        "racing_mind": "🌪️ Mi mente no para nunca",
+        "prefer_not_say": "Prefiero no decir"
       },
       "life_areas": {
-        "home": "🏠 Caos Doméstico",
-        "work": "💼 Trabajo y Estudios",
-        "health": "🧘 Salud y Autocuidado"
+        "home": "Caos Doméstico",
+        "work": "Trabajo y Estudios",
+        "health": "Salud y Autocuidado",
+        "prefer_not_say": "Prefiero no decir"
+      },
+      "user_situations": {
+        "student": "Estudiante (colegio o universidad)",
+        "employee": "Trabajador/a con jefe",
+        "freelancer": "Emprendedor/a o freelance",
+        "homemaker": "A cargo del hogar / papá o mamá"
       },
       "main_goal": {
-        "finish_projects": "🚀 Terminar mis proyectos a tiempo",
-        "less_stress": "🧘 Vivir con menos estrés y ansiedad",
-        "lasting_routines": "📅 Crear rutinas que duren más de 3 días",
+        "finish_projects": "Terminar mis proyectos a tiempo",
+        "less_stress": "Vivir con menos estrés y ansiedad",
+        "lasting_routines": "Crear rutinas que duren más de 3 días",
+        "no_guilt": "Dejar de sentirme culpable por lo que no hice",
         "feel_proud": "✨ Sentirme orgulloso/a al final del día"
       },
       "goal_options": {
-        "paralysis": "🧠 Vencer la parálisis por análisis",
-        "time": "⌜ Mejorar mi noción del tiempo",
+        "paralysis": "Vencer la parálisis por análisis",
+        "time": "Mejorar mi noción del tiempo",
         "noise": "⚡ Reducir el ruido mental",
         "consistent": "✅ Ser más consistente",
         "anxiety": "🧘 Bajar la ansiedad al empezar"
@@ -89,32 +101,32 @@
     },
     "statements": {
       "1": {
-        "main": "\"a menudo sé exactamente lo que tengo que hacer, pero me siento ",
-        "highlight": "físicamente incapaz de empezar\""
+        "main": "\"sé exactamente lo que tengo que hacer, pero ",
+        "highlight": "algo me frena para empezar\""
       },
       "2": {
-        "main": "\"paso más tiempo preocupándome por una tarea que lo que ",
-        "highlight": "realmente me tomaría completarla\""
+        "main": "\"paso más tiempo preocupándome por una tarea que ",
+        "highlight": "el tiempo que me tomaría hacerla\""
       },
       "3": {
-        "main": "\"suelo cometer errores cuando tengo que trabajar en un ",
-        "highlight": "proyecto aburrido o difícil.\""
+        "main": "\"cometo más errores cuando la tarea ",
+        "highlight": "es aburrida o repetitiva\""
       },
       "4": {
-        "main": "\"suelo sentirme abrumado cuando tengo que hacer ",
-        "highlight": "varias cosas a la vez\""
+        "main": "\"cuando tengo varias cosas pendientes, ",
+        "highlight": "siento que ninguna avanza\""
       },
       "5": {
-        "main": "\"suelo posponer tareas que requieren mucha concentración, como pagar cuentas o ",
-        "highlight": "hacer trámites\""
+        "main": "\"postergo tareas que requieren mucho enfoque, ",
+        "highlight": "como trámites o pagar cuentas\""
       },
       "6": {
-        "main": "\"en casa, suelo saltar de una tarea a otra, ",
-        "highlight": "dejando varias a medias\""
+        "main": "\"empiezo algo en casa y ",
+        "highlight": "termino haciendo otra cosa sin darme cuenta\""
       },
       "7": {
-        "main": "\"me distraigo fácilmente con mis pensamientos o cosas a mi alrededor cuando ",
-        "highlight": "intento concentrarme\""
+        "main": "\"mi cabeza se va a otro lado ",
+        "highlight": "apenas intento concentrarme en algo\""
       }
     },
     "task_demo": {
@@ -131,12 +143,53 @@
         "save_failed": "No se pudo guardar la tarea. Intenta de nuevo."
       },
       "suggestions": {
-        "clean_room_label": "🧹 Limpiar mi habitación",
-        "clean_room_text": "Limpiar mi habitación",
-        "unpack_suitcase_label": "🧳 Desempacar la maleta",
-        "unpack_suitcase_text": "Desempacar la maleta",
-        "make_omelette_label": "🍳 Hacer un omelette",
-        "make_omelette_text": "Hacer un omelette"
+        "clean_room_label": "Ordenar Mi Habitación",
+        "clean_room_text": "Ordenar Mi Habitación",
+        "make_cv_label": "Hacer Mi CV",
+        "make_cv_text": "Hacer Mi CV",
+        "monthly_budget_label": "Hacer un Presupuesto Mensual",
+        "monthly_budget_text": "Hacer un Presupuesto Mensual"
+      },
+      "microtasks": {
+        "clean_room": {
+          "0": "Poner un timer de 5 min y solo recoger la ropa sucia del suelo, meterla al cesto (nada más)",
+          "1": "Recoger la ropa limpia que está tirada y ponerla sobre la cama en un montón (sin doblar todavía)",
+          "2": "Recoger vasos, platos o basura visible y sacarlos de la pieza (a la cocina o al basurero)",
+          "3": "Despejar solo la mesita de noche: lo que no es de ahí, se pone en una caja \"sin hogar\"",
+          "4": "Despejar solo el escritorio igual: todo lo que no es de ahí va a la misma caja \"sin hogar\"",
+          "5": "Hacer la cama (estirar sábanas, acomodar cojines)",
+          "6": "Doblar el montón de ropa limpia de la cama y guardarla en el clóset/cajones",
+          "7": "Pasar la caja \"sin hogar\": cada objeto a su lugar, uno por uno, sin pensarlo mucho",
+          "8": "Pasar una bolsa de basura rápida por el suelo (papeles, envoltorios) y sacarla",
+          "9": "Mirar la pieza completa una vuelta y acomodar lo último que quede fuera de lugar a simple vista",
+          "10": "Recompensa — servirte algo rico (bebida, galleta, snack favorito) y sentarte 5 min a disfrutar la pieza ordenada"
+        },
+        "make_cv": {
+          "0": "Abrir un documento en blanco y ponerle el título \"CV - [tu nombre]\"",
+          "1": "Escribir tus datos de contacto arriba (nombre, mail, teléfono, ciudad)",
+          "2": "Crear los subtítulos vacíos: Experiencia, Educación, Habilidades (Proyectos si aplica)",
+          "3": "En \"Educación\", anotar rápido institución + carrera + año, sin formato bonito",
+          "4": "En \"Experiencia\", listar en bullets sueltos cada trabajo/práctica con 1 línea (qué hiciste, no cómo se lee)",
+          "5": "Elegir 1 trabajo y convertir su bullet en una frase con resultado concreto (ej: \"aumenté X en Y%\")",
+          "6": "Repetir el paso anterior con cada experiencia restante, una por una",
+          "7": "En \"Habilidades\", listar todo lo que se te ocurra sin filtrar (se recorta después)",
+          "8": "Leer de corrido una sola vez, marcando lo que sobra o suena raro (sin corregir todavía)",
+          "9": "Borrar/ajustar solo lo marcado, guardar el archivo como PDF",
+          "10": "Recompensa — date un snack o bebida rica y mándale el CV a alguien de confianza para que lo vea (o celébralo solo/a)"
+        },
+        "monthly_budget": {
+          "0": "Abrir la app del banco y anotar el saldo actual (solo ese número)",
+          "1": "Anotar tu ingreso mensual aproximado (sueldo, mesada, lo que entre)",
+          "2": "Abrir la tarjeta de crédito (si tienes) y anotar la deuda actual",
+          "3": "Listar tus gastos fijos que ya sabes de memoria: arriendo, plan celular, suscripciones",
+          "4": "Sumar todos los gastos fijos del paso 3",
+          "5": "Restar los gastos fijos a tu ingreso mensual → ese es tu \"dinero libre\"",
+          "6": "Revisar rápido los movimientos de la tarjeta/cuenta del último mes, sin analizar, solo escanear",
+          "7": "Anotar 3 categorías donde gastaste más de lo que esperabas",
+          "8": "Poner un límite semanal para esas 3 categorías (un número, sin sobrepensarlo)",
+          "9": "Guardar todo en una nota o planilla simple — no tiene que verse profesional, solo tiene que existir",
+          "10": "Recompensa — sírvete algo rico y revisa 2 minutos algo que quieras comprarte con la plata que \"encontraste\""
+        }
       }
     },
     "subtask_list": {
@@ -227,35 +280,18 @@
       "default_user_name": "amigo/a",
       "thanks_prefix": "gracias,",
       "subtitle": "basado en lo que compartiste, veamos juntos tu camino hacia adelante.",
+      "analysis_title": "Basado en tus respuestas, mi análisis indica que:",
       "pills": {
         "where_you_want_to_go": "a dónde quieres llegar",
         "where_you_are_now": "dónde estás ahora",
         "what_holds_you_back": "lo que te detiene"
       },
-      "goals": {
-        "default": "🚀 Lograr consistencia sin pelear contra tu propio cerebro",
-        "finish_projects": "🚀 Terminar lo que empiezas, sin agobiarte a la mitad",
-        "less_stress": "🧘 Recuperar la tranquilidad y el control de tu tiempo",
-        "lasting_routines": "📅 Crear hábitos reales que duren más de un par de días",
-        "feel_proud": "✨ Ir a la cama sintiendo que hoy sí lograste avanzar"
-      },
-      "life_areas": {
-        "default": "🎢 Sientes que tu energía y motivación son impredecibles",
-        "home": "🏠 El caos en casa suele consumir tu energía rápidamente",
-        "work": "💼 El trabajo o estudios se sienten como una montaña rusa",
-        "health": "🧘 Te cuesta priorizar tu propio bienestar de forma constante"
-      },
+      "goal_text": "Terminar lo que empiezas y crear rutinas que no dependan de tu fuerza de voluntad",
+      "area_text": "Empiezas con ganas, pero la procrastinación gana antes de que avances de verdad",
       "obstacles": {
-        "default_1": "Distracciones constantes y \"scroll\" infinito",
-        "default_2": "Falta de dopamina para tareas aburridas",
-        "default_3": "Dificultad para ordenar las prioridades"
-      },
-      "symptom_map": {
-        "paralysis": "La temida \"parálisis por análisis\" al empezar",
-        "time": "Ceguera del tiempo (las horas desaparecen)",
-        "overwhelm": "Sobrecarga mental cuando hay demasiados pasos",
-        "forget": "Olvidar cosas importantes al instante",
-        "racing_mind": "Una mente que corre a 1000 km/h sin parar"
+        "default_1": "No sabes por dónde partir. Cada tarea se ve como un bloque gigante.",
+        "default_2": "No hay recompensa inmediata, así que tu cerebro se aburre antes de terminar.",
+        "default_3": "Cuando fallas un día, sientes que rompiste la racha y sueltas todo."
       }
     },
     "commitment": {
@@ -302,8 +338,8 @@
       "body_suffix": "serás capaz de construir hábitos saludables y constantes."
     },
     "routine_picker": {
-      "title": "elige tus primeras rutinas diarias",
-      "subtitle": "acá tenemos unas que pensamos que te servirán, pero puedes crear las tuyas cuando quieras.",
+      "title": "Elige una rutina para empezar",
+      "subtitle": "Elige una rutina para comenzar. Puedes agregar más después.",
       "add_1_routine": "Añadir 1 rutina",
       "add_n_routines": "Añadir {{count}} rutinas",
       "skip": "luego agregaré la mía...",
@@ -447,6 +483,7 @@
   },
   "login": {
     "connect_account": "Conecta tu cuenta para guardar\ntu progreso de forma segura",
+    "title": "Hecho para cerebros que funcionan diferente.",
     "tagline": "Tu compañero diario para\nvencer la parálisis por análisis",
     "continue_with_google": "Continuar con Google",
     "continue_with_apple": "Continuar con Apple",
@@ -717,8 +754,8 @@
       "multiple_body": "Tu consistencia es inspiradora. Sigue adelante."
     },
     "trial_expiration": {
-      "title": "✨ ¿Te está gustando Brainy?",
-      "body": "Tu prueba premium termina en 2 días. ¡Sigue organizando tu vida sin límites!"
+      "title": "esperamos que Brainy esté siendo de ayuda",
+      "body": "en dos días se hará un cargo a tu cuenta con el valor de tu plan. si quieres seguir siendo usuario PRO, no es necesaria ninguna acción."
     },
     "streak_warning": {
       "title": "¡Salva tu racha!",
@@ -825,12 +862,15 @@
         "add_egg": "Agregar huevo"
       },
       "pets_preview": {
-        "title": "Conoce a tus Compañeros de Rutinas",
-        "subtitle": "Asocia un huevo a una rutina que hayas creado y complétala tres veces para que evolucione en tu nuevo compañero!"
+        "title": "Conoce a tus Compañeros de Rutina",
+        "subtitle": "Asocia un huevo a una rutina que hayas creado y complétala tres veces para que evolucione en tu nuevo compañero!",
+        "subtitle2": "¡y mucho más!"
       },
       "trial_reminder": {
         "title": "Si estás de acuerdo, te recordaremos 2 días antes de que termine tu prueba gratis.",
-        "cta": "Probar por $0.00"
+        "description": "Necesitamos tu permiso para enviarte una notificación cuando te queden 2 días de prueba. Puedes cambiar esto después en Ajustes.",
+        "cta": "Activar y Continuar",
+        "skip": "Omitir"
       },
       "paywall_slide": {
         "title": "Consigue BrainyPRO",
@@ -841,7 +881,8 @@
         "feature_store": "Desbloquea la tienda de ítems premium",
         "feature_companions": "Desbloquea compañeros raros y legendarios",
         "reassure": "No se cobra nada ahora",
-        "cta": "Probar por $0.00"
+        "cta": "Probar por $0.00",
+        "go_to_app": "Ir a la App"
       }
     },
     "schedule": {
@@ -857,6 +898,7 @@
       "minutes_before": "{{count}} minutos antes",
       "minutes_before_one": "{{count}} minuto antes",
       "minutes_before_other": "{{count}} minutos antes",
+      "day_short": ["L", "M", "M", "J", "V", "S", "D"],
       "confirm": "Confirmar"
     },
     "execution": {
@@ -922,7 +964,31 @@
     "email_in_use": "Ya existe una cuenta con este correo. Intenta iniciar sesión.",
     "sign_up_error_message": "No se pudo crear la cuenta. Intenta de nuevo.",
     "passwords_do_not_match": "Las contraseñas no coinciden.",
-    "password_too_short": "La contraseña debe tener al menos 6 caracteres."
+    "password_too_short": "La contraseña debe tener al menos 6 caracteres.",
+    "email_invalid": "Introduce un correo electrónico válido.",
+    "otp_send_error": "No pudimos enviar el código. Inténtalo de nuevo.",
+    "otp_invalid": "Ese código no es válido. Inténtalo de nuevo.",
+    "email_otp_title": "Continuar con correo",
+    "email_otp_subtitle": "Ingresa tu correo y te enviaremos un código para iniciar sesión.",
+    "send_otp_button": "Enviar código",
+    "verify_otp_button": "Verificar y continuar",
+    "otp_title": "Revisa tu correo",
+    "otp_subtitle": "Enviamos un código a {{email}}.",
+    "otp_footer": "¿No tienes el correo en este dispositivo?",
+    "use_password": "Entrar con contraseña",
+    "back_to_otp": "Usar el código enviado por email",
+    "resend_code": "Reenviar código",
+    "code_placeholder": "Código",
+    "use_other_email": "Usar otro correo"
+  },
+  "restore": {
+    "banner_title": "No pudimos confirmar tu suscripción.",
+    "banner_network": "Revisa tu conexión e inténtalo de nuevo.",
+    "banner_retry": "Reintentar",
+    "banner_terminal_title": "No pudimos confirmar tu suscripción.",
+    "banner_terminal_message": "Tu plan está listo, pero no pudimos vincular tu suscripción. Contacta a soporte; nunca se te cobrará dos veces.",
+    "banner_expired_title": "Revisa tu correo",
+    "banner_expired_message": "Enviamos un nuevo enlace de canje a tu correo de facturación. Los enlaces expiran a los 60 minutos — abre el más reciente para activar tu plan."
   },
   "achievements": {
     "title": "Logros",
@@ -1015,5 +1081,78 @@
     "exit_subtitle_other": "{{count}} subtareas pendientes",
     "exit_confirm": "Guardar y Salir",
     "exit_cancel": "Seguir Aquí"
+  },
+  "funnel": {
+    "claim": {
+      "processing": "Preparando tu plan...",
+      "error_title": "No pudimos activar tu plan",
+      "error_invalid_token": "Este enlace no es válido.",
+      "error_token_expired": "Este enlace ya expiró.",
+      "error_already_claimed": "Este plan ya fue activado con otra cuenta.",
+      "error_plan_not_ready": "Tu plan todavía no está listo. Inténtalo en unos minutos.",
+      "error_forbidden": "No tienes permiso para activar este plan.",
+      "error_network": "Revisa tu conexión e inténtalo de nuevo.",
+      "error_unknown": "Algo salió mal. Inténtalo de nuevo.",
+      "ok": "Entendido"
+    },
+    "plan_ready": {
+      "title": "Tu plan está aquí 🎉",
+      "subtitle": "Tareas, rutinas y compañeros listos para acompañarte hoy.",
+      "task_count_label": "tareas",
+      "routine_count_label": "rutinas",
+      "egg_count_label": "huevos",
+      "companions_title": "Tus compañeros te esperan",
+      "pairs_title": "Tus compañeros y sus rutinas",
+      "cta": "Empezar mi plan",
+      "pro_hint": "Ya estás en Brainy Pro. ¡Disfruta todo tu plan!",
+      "paywall_hint": "Desbloquea todo tu potencial con Brainy Pro."
+    },
+    "login": {
+      "title": "Confirma tu correo",
+      "subtitle": "Tu plan está listo — usa el código que te enviamos por email para entrar.",
+      "use_other_email": "Usar otro correo",
+      "use_saved_email": "Usar el correo de arriba",
+      "code_placeholder": "Código",
+      "resend_code": "Reenviar código",
+      "send_code": "Enviar código",
+      "verify_code": "Verificar y continuar",
+      "otp_footer": "¿No tienes el email en este dispositivo?",
+      "use_password": "Entrar con contraseña",
+      "back_to_otp": "Usar el código enviado por email"
+    },
+    "restore": {
+      "ready_title": "Tu Brainy está listo",
+      "ready_subtitle": "Esto es todo lo que hemos preparado para ti.",
+      "task_label": "tareas",
+      "routine_label": "rutinas",
+      "companion_label": "compañeros",
+      "ready_cta": "Empezar"
+    },
+    "handoff": {
+      "preparing_title": "Preparando tu Brainy…",
+      "step_pro": "Activando Brainy Pro",
+      "step_plan": "Recuperando tu plan",
+      "step_routines": "Preparando tus rutinas",
+      "step_pets": "Vinculando tus compañeros",
+      "error_network_title": "Hemos tenido un problema",
+      "error_network_message": "Revisa tu conexión e inténtalo de nuevo.",
+      "error_invalid_title": "Este enlace no es válido",
+      "error_invalid_message": "El enlace de activación parece no ser válido. Contacta con soporte.",
+      "error_expired_title": "Este enlace ha caducado",
+      "error_expired_message": "Este enlace de compra ya no es válido. Puedes obtener uno nuevo desde tu email de compra.",
+      "error_expired_message_email": "Este enlace de compra ha caducado. Abre de nuevo el email de compra enviado a {{email}} para activar Brainy Pro en este dispositivo.",
+      "error_other_user_title": "Esta compra está vinculada a otra cuenta",
+      "error_other_user_message": "Brainy Pro ya fue activado con una cuenta diferente. Inicia sesión con esa cuenta para usarlo aquí.",
+      "error_other_user_cta": "Entrar con otra cuenta",
+      "error_claim_title": "No pudimos recuperar tu plan",
+      "error_claim_message": "Tu compra se hizo correctamente, pero no pudimos recuperar tu plan. Inténtalo de nuevo en un momento.",
+      "error_redemption_title": "No pudimos activar Brainy Pro",
+      "error_redemption_message": "Tu plan está listo, pero no pudimos activar Brainy Pro. No te preocupes — nunca se te cobrará dos veces.",
+      "retry_claim": "Reintentar recuperar el plan",
+      "retry_redemption": "Reintentar activación",
+      "retry": "Reintentar",
+      "home": "Ir a mi plan",
+      "continue": "Continuar"
+    }
   }
 }

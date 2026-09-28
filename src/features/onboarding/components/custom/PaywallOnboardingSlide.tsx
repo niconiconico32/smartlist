@@ -1,15 +1,29 @@
 import { colors } from "@/constants/theme";
 import { PaywallModal } from "@/src/components/PaywallModal";
+import { posthog } from "@/src/config/posthog";
+import { getCustomerInfo, isPremiumActive } from "@/src/utils/purchases";
 import React, { useCallback } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
 
 interface Props {
   onNext: () => void;
 }
 
 const PaywallOnboardingSlide: React.FC<Props> = ({ onNext }) => {
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
+    try {
+      const info = await getCustomerInfo();
+      if (isPremiumActive(info)) {
+        posthog.capture("onboarding_trial_started", {
+          flow_version: "v3",
+          source: "paywall-onboarding",
+        });
+      }
+    } catch {
+      // Silently ignore — user continues either way
+    }
     onNext();
   }, [onNext]);
 
@@ -24,7 +38,7 @@ const PaywallOnboardingSlide: React.FC<Props> = ({ onNext }) => {
       <View style={s.content}>
         <Animated.Text
           entering={FadeInDown.delay(120).duration(400)}
-          style={s.title}
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
         >
           Loading your offer
         </Animated.Text>
@@ -55,10 +69,9 @@ const s = StyleSheet.create({
     gap: 14,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "800",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
   },
   subtitle: {
     fontSize: 14,

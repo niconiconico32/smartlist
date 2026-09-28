@@ -1,11 +1,6 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
+import { getAppLanguage } from "@/src/config/i18n";
 import { supabase } from "@/src/lib/supabase";
 import {
     fetchActivitiesFromCloud,
@@ -13,26 +8,25 @@ import {
 } from "@/src/lib/syncService";
 import { getLocalDateKey } from "@/src/utils/dateHelpers";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-import { Sparkles } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
     Alert,
     Modal,
-    Pressable,
     ScrollView,
     StyleSheet,
-    TextInput,
     View,
 } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { TASK_SUGGESTIONS } from "../../constants";
-import { layoutStyles, slideStyles } from "../../styles/shared";
+import { slideStyles } from "../../styles/shared";
 import type { OnboardingAnswers } from "../../types";
 import type { Subtask } from "./OnboardingSubtaskList";
 import { OnboardingSubtaskList } from "./OnboardingSubtaskList";
+import PixelCTAButton from "../PixelCTAButton";
+import PixelOptionButton from "../PixelOptionButton";
+import { TASK_SUGGESTION_ICONS } from "../PixelSuggestionIcons";
+import PixelTextInput from "../PixelTextInput";
 
 const ACTIVITIES_STORAGE_KEY = "@smartlist_activities";
 
@@ -81,12 +75,30 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    const suggestion = TASK_SUGGESTIONS.find((s) => t(s.text) === text);
+    if (suggestion) {
+      const transformedSubtasks: Subtask[] = suggestion.microtasks.map(
+        (mt, index) => ({
+          id: `${Date.now()}-${index}`,
+          title: t(mt.title),
+          duration: mt.duration,
+          isCompleted: false,
+        }),
+      );
+      setGeneratedTitle(text);
+      setGeneratedEmoji("✨");
+      setSubtasks(transformedSubtasks);
+      setShowSubtaskList(true);
+      return;
+    }
+
     setIsGenerating(true);
 
     try {
       const loc = await import("expo-localization");
       const deviceLocale = loc.getLocales?.()[0]?.languageCode ?? "en";
-      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+      const localeToUse = getAppLanguage(deviceLocale);
 
       const { data, error } = await supabase.functions.invoke("divide-task", {
         body: { task: text, locale: localeToUse },
@@ -188,8 +200,8 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        style={layoutStyles.slideScroll}
-        contentContainerStyle={layoutStyles.slideScrollContent}
+        style={styles.slideScroll}
+        contentContainerStyle={styles.slideScrollContent}
         showsVerticalScrollIndicator={false}
       >
         <Animated.Text
@@ -201,7 +213,11 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
 
         <Animated.Text
           entering={FadeInDown.delay(200).duration(500)}
-          style={[slideStyles.slideTitle, { color: colors.background }]}
+          style={[
+            slideStyles.slideTitle,
+            slideStyles.questionTitle,
+            { color: colors.background },
+          ]}
         >
           {t("onboarding.task_demo.title")}
         </Animated.Text>
@@ -210,29 +226,13 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
           entering={FadeInDown.delay(300).duration(500)}
           style={styles.inputContainer}
         >
-          <TextInput
-            style={[
-              {
-                textAlign: "left",
-                borderRadius: 16,
-                backgroundColor: "#FFFFFF", // Clean white on the light gray background
-                borderWidth: 0,
-                paddingHorizontal: 20,
-                paddingVertical: 20,
-                fontSize: 18, // Larger font
-                color: colors.background, // Dark text
-                minHeight: 200, // Enlarge the input box
-                textAlignVertical: "top",
-              },
-              isGenerating && { opacity: 0.5 },
-            ]}
-            placeholder={t("onboarding.task_demo.placeholder")}
-            placeholderTextColor={`${colors.surface}80`}
+          <PixelTextInput
             value={taskText}
             onChangeText={(text) => onAnswer("taskText", text)}
-            multiline
-            numberOfLines={6}
+            placeholder={t("onboarding.task_demo.placeholder")}
+            placeholderTextColor={`${colors.surface}80`}
             editable={!isGenerating}
+            isGenerating={isGenerating}
           />
         </Animated.View>
 
@@ -259,63 +259,27 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
 
         <Animated.View
           entering={FadeInDown.delay(500).duration(500)}
-          style={[
-            styles.suggestionsGrid,
-            {
-              flexDirection: "row",
-              flexWrap: "wrap",
-              justifyContent: "center",
-              paddingHorizontal: 0,
-            },
-          ]}
+          style={styles.suggestionsColumn}
         >
           {TASK_SUGGESTIONS.map((task, index) => {
             const suggestedText = t(task.text);
             const isSelected = taskText === suggestedText;
+            const Icon = TASK_SUGGESTION_ICONS[task.id];
             return (
               <Animated.View
                 key={task.id}
                 entering={FadeInDown.delay(600 + index * 50).duration(400)}
+                style={{ width: "100%" }}
               >
-                <Pressable
+                <PixelOptionButton
+                  label={t(task.label)}
+                  selected={isSelected}
+                  icon={<Icon size={24} color={colors.primaryContent} />}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     onAnswer("taskText", suggestedText);
                   }}
-                  disabled={isGenerating}
-                  style={({ pressed }) => [
-                    slideStyles.pill,
-                    {
-                      minHeight: 44, // Smaller height
-                      justifyContent: "center",
-                      alignItems: "center",
-                      backgroundColor: isSelected ? colors.surface : "#FFFFFF",
-                      borderWidth: 1,
-                      borderColor: isSelected
-                        ? colors.surface
-                        : `${colors.background}1A`,
-                      borderRadius: 22,
-                      paddingHorizontal: 16,
-                      paddingVertical: 8,
-                      flexDirection: "row",
-                    },
-                    pressed && { opacity: 0.7 },
-                    isGenerating && { opacity: 0.5 },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      slideStyles.pillLabel,
-                      {
-                        fontSize: 14,
-                        fontWeight: "500",
-                        color: isSelected ? "#FFFFFF" : colors.background,
-                      },
-                    ]}
-                  >
-                    {t(task.label)}
-                  </Text>
-                </Pressable>
+                />
               </Animated.View>
             );
           })}
@@ -327,41 +291,15 @@ const TaskDemoSlide: React.FC<Props> = ({ answers, onAnswer, onNext }) => {
         entering={FadeInDown.delay(700).duration(500)}
         style={styles.bottomButtonContainer}
       >
-        <Pressable
+        <PixelCTAButton
+          label={
+            isGenerating
+              ? t("onboarding.task_demo.generating")
+              : t("onboarding.generate")
+          }
           onPress={handleGenerate}
           disabled={isGenerating || !taskText?.trim()}
-          style={[
-            primaryButtonStyles,
-            !taskText?.trim() && !isGenerating && { opacity: 0.5 },
-          ]}
-        >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            {isGenerating ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.background}
-                style={{ marginRight: 8 }}
-              />
-            ) : (
-              <Sparkles
-                size={18}
-                color={colors.background}
-                strokeWidth={2.5}
-                style={{ marginRight: 8 }}
-              />
-            )}
-            <Text style={primaryButtonText}>
-              {isGenerating
-                ? t("onboarding.task_demo.generating")
-                : t("onboarding.generate")}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+        />
       </Animated.View>
 
       {/* Onboarding SubtaskList Modal */}
@@ -424,7 +362,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   subtitle: {
-    fontSize: 22,
+    fontSize: 12,
     fontWeight: "800",
     color: colors.textPrimary,
     textAlign: "center",
@@ -469,12 +407,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: colors.textSecondary,
   },
-  suggestionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
+  suggestionsColumn: {
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
     gap: 12,
-    paddingHorizontal: 20,
   },
   suggestionPill: {
     flexDirection: "row",

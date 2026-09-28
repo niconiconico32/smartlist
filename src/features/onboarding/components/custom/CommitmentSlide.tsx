@@ -1,12 +1,15 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { Check } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import Svg, { Path } from "react-native-svg";
 import { slideStyles } from "../../styles/shared";
+import CheckIcon from "../CheckIcon";
+import PixelCTAButton from "../PixelCTAButton";
+import { pixelButtonPath } from "../pixelGeometry";
 
 // ============================================
 // COMMITMENT SLIDE
@@ -16,6 +19,12 @@ const COMMITMENTS = [
   "onboarding.commitment.items.2",
   "onboarding.commitment.items.3",
 ];
+
+const SHADOW = 3;
+const MIN_HEIGHT = 60;
+const PADDING_H = 18;
+const PADDING_V = 16;
+const CHECK_SIZE = 26;
 
 interface Props {
   onNext: () => void;
@@ -50,7 +59,7 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
 
         {/* Header */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-          <Text style={[slideStyles.slideTitle, s.titleOverride]}>
+          <Text style={[slideStyles.slideTitle, slideStyles.questionTitle, s.titleOverride]}>
             {t("onboarding.commitment.title_line_1")}
             {"\n"}
             <Text style={{ color: colors.primary }}>
@@ -76,21 +85,11 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
                 key={idx}
                 entering={FadeInUp.delay(idx === 0 ? 350 : 100).duration(400)}
               >
-                <Pressable
+                <CommitmentRow
+                  label={t(text)}
+                  checked={checked[idx]}
                   onPress={() => toggleCheck(idx)}
-                  style={[s.commitRow, checked[idx] && s.commitRowActive]}
-                >
-                  <View style={[s.checkbox, checked[idx] && s.checkboxActive]}>
-                    {checked[idx] && (
-                      <Check size={14} color={colors.surface} strokeWidth={3} />
-                    )}
-                  </View>
-                  <Text
-                    style={[s.commitText, checked[idx] && s.commitTextActive]}
-                  >
-                    {t(text)}
-                  </Text>
-                </Pressable>
+                />
               </Animated.View>
             );
           })}
@@ -99,27 +98,109 @@ const CommitmentSlide: React.FC<Props> = ({ onNext }) => {
 
       {/* Button */}
       <View style={s.buttonContainer}>
-        <Pressable
+        <PixelCTAButton
+          label={
+            allChecked
+              ? t("onboarding.commitment.cta_ready")
+              : t("onboarding.commitment.cta_disabled")
+          }
           onPress={() => {
-            if (!allChecked) return;
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             onNext();
           }}
-          style={[s.button, !allChecked && s.buttonDisabled]}
           disabled={!allChecked}
-        >
-          <Text style={s.buttonText}>
-            {allChecked
-              ? t("onboarding.commitment.cta_ready")
-              : t("onboarding.commitment.cta_disabled")}
-          </Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
 };
 
 export default CommitmentSlide;
+
+// ============================================
+// COMMITMENT ROW (caja pixel + check.svg)
+// ============================================
+function CommitmentRow({
+  label,
+  checked,
+  onPress,
+}: {
+  label: string;
+  checked: boolean;
+  onPress: () => void;
+}) {
+  const [width, setWidth] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const height = Math.max(MIN_HEIGHT, contentHeight + PADDING_V * 2);
+  const textMaxWidth =
+    width - PADDING_H * 2 - (checked ? CHECK_SIZE + 14 : 0);
+
+  return (
+    <Pressable onPress={onPress} style={s.rowRoot}>
+      {({ pressed }) => (
+        <View
+          style={[s.rowContainer, { height: height + SHADOW }]}
+          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        >
+          {width > 0 && (
+            <>
+              <Svg
+                style={s.svg}
+                width={width + SHADOW}
+                height={height + SHADOW}
+                viewBox={`0 0 ${width + SHADOW} ${height + SHADOW}`}
+              >
+                {/* sombra: misma forma, offset 3,3, sin blur. Se oculta al presionar */}
+                {!pressed && (
+                  <Path
+                    d={pixelButtonPath(width, height)}
+                    fill="#0a0a0a"
+                    transform={`translate(${SHADOW} ${SHADOW})`}
+                  />
+                )}
+                {/* caja pixel blanca */}
+                <Path d={pixelButtonPath(width, height)} fill="#FFFFFF" />
+              </Svg>
+              {/* contenido: se desplaza 3px al presionar, como si se hundiera */}
+              <View
+                style={[
+                  s.rowContent,
+                  { width, height },
+                  pressed && s.rowContentPressed,
+                ]}
+              >
+                <View
+                  style={s.rowInner}
+                  onLayout={(e) =>
+                    setContentHeight(e.nativeEvent.layout.height)
+                  }
+                >
+                  {checked && (
+                    <View style={s.checkSlot}>
+                      <CheckIcon
+                        color={colors.primaryContent}
+                        size={CHECK_SIZE}
+                      />
+                    </View>
+                  )}
+                  <Text
+                    style={[
+                      s.commitText,
+                      { maxWidth: textMaxWidth },
+                      checked && s.commitTextActive,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 // ============================================
 // STYLES
@@ -136,6 +217,7 @@ const s = StyleSheet.create({
   titleOverride: {
     color: "#f2f2f2",
     textAlign: "left",
+    alignSelf: "stretch",
     marginBottom: 8,
   },
   subtitleOverride: {
@@ -154,67 +236,54 @@ const s = StyleSheet.create({
   checklistContainer: {
     gap: 14,
   },
-  commitRow: {
+  rowRoot: {
+    width: "100%",
+  },
+  rowContainer: {
+    width: "100%",
+  },
+  svg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+  },
+  rowContent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowContentPressed: {
+    transform: [{ translateX: SHADOW }, { translateY: SHADOW }],
+  },
+  rowInner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 20,
-    padding: 18,
+    alignSelf: "stretch",
     gap: 14,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: PADDING_H,
   },
-  commitRowActive: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderColor: "rgba(255,255,255,0.35)",
-  },
-  checkbox: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.4)",
+  checkSlot: {
+    width: CHECK_SIZE,
+    height: CHECK_SIZE,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-  },
-  checkboxActive: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#FFFFFF",
   },
   commitText: {
     flex: 1,
     fontSize: 15,
     fontWeight: "500",
-    color: "rgba(255,255,255,0.75)",
+    color: colors.primaryContent,
     lineHeight: 22,
   },
   commitTextActive: {
-    color: "#FFFFFF",
     fontWeight: "600",
   },
   buttonContainer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
-  },
-  button: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    color: colors.surface,
-    fontSize: 17,
-    fontWeight: "800",
   },
 });

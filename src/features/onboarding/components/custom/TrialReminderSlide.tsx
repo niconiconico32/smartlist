@@ -1,15 +1,11 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
+import { requestNotificationPermissions } from "@/src/lib/notificationService";
+import { useProStore } from "@/src/store/proStore";
+import { scheduleTrialExpirationNotification } from "@/src/utils/notifications";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { Bell } from "lucide-react-native";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
@@ -21,16 +17,19 @@ import Animated, {
     withSequence,
     withTiming,
 } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
-// ============================================
-// TRIAL REMINDER SLIDE
-// ============================================
+const TRIAL_DAYS = 14;
+
 interface Props {
   onNext: () => void;
 }
 
 const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
+  const [isGranting, setIsGranting] = useState(false);
+  const { isPro } = useProStore();
   const bellFloat = useSharedValue(0);
   const bellRotate = useSharedValue(0);
 
@@ -65,7 +64,18 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
     transform: [{ rotate: `${bellRotate.value}deg` }],
   }));
 
-  const handleContinue = () => {
+  const handleEnable = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsGranting(true);
+    const granted = await requestNotificationPermissions();
+    if (granted && isPro) {
+      await scheduleTrialExpirationNotification(TRIAL_DAYS);
+    }
+    setIsGranting(false);
+    onNext();
+  };
+
+  const handleSkip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onNext();
   };
@@ -75,7 +85,7 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
       <View style={s.content}>
         <Animated.Text
           entering={FadeInDown.delay(120).duration(450)}
-          style={s.title}
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
         >
           {t("index_tab.onboarding.trial_reminder.title")}
         </Animated.Text>
@@ -91,20 +101,27 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
             <Text style={s.badgeText}>1</Text>
           </View>
         </Animated.View>
+
+        <Animated.Text
+          entering={FadeInDown.delay(400).duration(450)}
+          style={s.description}
+        >
+          {t("index_tab.onboarding.trial_reminder.description")}
+        </Animated.Text>
       </View>
 
       <View style={s.buttonContainer}>
-        <Pressable onPress={handleContinue} style={primaryButtonStyles}>
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>
-              {t("index_tab.onboarding.trial_reminder.cta")}
-            </Text>
-          </LinearGradient>
+        <PixelCTAButton
+          label={t("index_tab.onboarding.paywall_slide.cta")}
+          onPress={handleEnable}
+          disabled={isGranting}
+          loading={isGranting}
+        />
+
+        <Pressable onPress={handleSkip} style={s.skipButton}>
+          <Text style={s.skipText}>
+            {t("index_tab.onboarding.trial_reminder.skip")}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -113,9 +130,6 @@ const TrialReminderSlide: React.FC<Props> = ({ onNext }) => {
 
 export default TrialReminderSlide;
 
-// ============================================
-// STYLES
-// ============================================
 const s = StyleSheet.create({
   container: {
     flex: 1,
@@ -128,12 +142,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "900",
     color: colors.background,
     textAlign: "center",
-    lineHeight: 32,
-    letterSpacing: -0.3,
+    alignSelf: "center",
     marginBottom: 28,
     paddingHorizontal: 10,
   },
@@ -170,18 +181,27 @@ const s = StyleSheet.create({
     fontWeight: "800",
     color: "#FFFFFF",
   },
-  reassureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  reassureText: {
+  description: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "500",
     color: colors.surface,
+    textAlign: "center",
+    lineHeight: 20,
+    paddingHorizontal: 16,
   },
   buttonContainer: {
     paddingHorizontal: 24,
     paddingBottom: 32,
+    gap: 12,
+  },
+  skipButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  skipText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: colors.surface,
+    opacity: 0.7,
   },
 });

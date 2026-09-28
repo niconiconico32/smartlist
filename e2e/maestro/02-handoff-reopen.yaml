@@ -1,0 +1,25 @@
+# E2E handoff – reapertura del MISMO link: valida idempotencia en UI.
+# El control definitivo de "sin duplicar datos" lo hace el runner comparando
+# los conteos backend antes/después (snapshot S1 vs S2); aquí solo esperamos a
+# que el wizard termine.
+appId: com.brainyahdh.app
+---
+# 1) Reabrir exactamente el mismo deep link (mismo token)
+- openLink: ${BRAINY_E2E_OPEN_URL}
+
+# 2) El wizard aparece…
+- extendedWaitUntil:
+    visible:
+      id: handoffPreparing
+    timeout: 60000
+- assertVisible:
+    id: handoffPreparing
+
+# 3) …y desaparece al terminar (plan-ready o terminal). Los no-duplicados
+#    se verifican en backend (snapshot S2 vs S1 en el runner).
+- extendedWaitUntil:
+    notVisible:
+      id: handoffPreparing
+    timeout: 120000
+- assertNotVisible:
+    id: handoffPreparing

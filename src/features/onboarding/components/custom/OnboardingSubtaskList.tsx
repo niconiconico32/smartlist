@@ -1,13 +1,6 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import {
     Check,
     Clock,
@@ -42,12 +35,11 @@ import Animated, {
     SlideInRight,
     useAnimatedKeyboard,
     useAnimatedStyle,
-    useSharedValue,
-    withSequence,
     withTiming,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // Enable LayoutAnimation for Android
 if (
@@ -79,9 +71,6 @@ interface OnboardingSubtaskListProps {
   ) => void;
 }
 
-// Animated Pressable
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 export function OnboardingSubtaskList({
   taskTitle,
   taskEmoji,
@@ -101,7 +90,6 @@ export function OnboardingSubtaskList({
   const timeoutRefs = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
   // Animation values
-  const buttonScale = useSharedValue(1);
   const keyboard = useAnimatedKeyboard();
 
   // Limpieza de timeouts
@@ -163,20 +151,12 @@ export function OnboardingSubtaskList({
 
   const handleAddToHomePress = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    buttonScale.value = withSequence(
-      withTiming(0.95, { duration: 100 }),
-      withTiming(1, { duration: 100 }),
-    );
 
     const validSubtasks = subtasks.filter((t) => t.title.trim() !== "");
     registerTimeout(() => onAddToHome(validSubtasks, difficulty), 200);
-  }, [subtasks, difficulty, onAddToHome, buttonScale, registerTimeout]);
+  }, [subtasks, difficulty, onAddToHome, registerTimeout]);
 
   // Animated styles
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
   const buttonsContainerAnimatedStyle = useAnimatedStyle(() => {
     const isEditingTask = editingId !== null;
 
@@ -348,6 +328,7 @@ export function OnboardingSubtaskList({
           entering={FadeInDown.delay(200).duration(500)}
           style={[
             slideStyles.slideTitle,
+            slideStyles.questionTitle,
             { color: colors.background, marginBottom: 24 },
           ]}
         >
@@ -417,22 +398,10 @@ export function OnboardingSubtaskList({
           style={[styles.buttonsContainer, buttonsContainerAnimatedStyle]}
           pointerEvents={editingId !== null ? "none" : "box-none"}
         >
-          <AnimatedPressable
+          <PixelCTAButton
+            label={t("onboarding.continue")}
             onPress={handleAddToHomePress}
-            style={[buttonAnimatedStyle, styles.createButton]}
-          >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.createButtonGradient}
-            >
-              <Plus size={20} color="#1E1E2E" style={{ marginRight: 8 }} />
-              <Text style={styles.createButtonText}>
-                {t("onboarding.continue")}
-              </Text>
-            </LinearGradient>
-          </AnimatedPressable>
+          />
         </Animated.View>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -449,7 +418,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 24,
+    paddingBottom: 12,
   },
   header: {
     paddingBottom: 16,
@@ -601,20 +571,11 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 20,
     backgroundColor: "#f2f2f2",
   },
   bottomSafeArea: {
     backgroundColor: "#f2f2f2",
-  },
-  createButton: {
-    ...primaryButtonStyles,
-  },
-  createButtonGradient: {
-    ...primaryButtonGradient,
-  },
-  createButtonText: {
-    ...primaryButtonText,
   },
   difficultySection: {
     marginTop: 20,

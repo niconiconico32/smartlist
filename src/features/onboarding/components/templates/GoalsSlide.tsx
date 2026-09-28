@@ -53,7 +53,7 @@ const GoalsSlide: React.FC<Props> = ({
 
       <Animated.Text
         entering={FadeInDown.delay(200).duration(500)}
-        style={slideStyles.slideTitle}
+        style={[slideStyles.slideTitle, slideStyles.questionTitle]}
       >
         {t(config.title)}
       </Animated.Text>

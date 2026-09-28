@@ -1,0 +1,25 @@
+# Funnel restore E2E — REOPEN (relaunch en frío con sesión persistida).
+# No se hace login: la sesión sigue viva, el plan ya está claimed y el restore
+# debe ir directo a HOME SIN overlay ("reopen" del test).
+#
+# Env: BRAINY_E2E_OPEN_URL (exp://localhost:8081).
+appId: com.brainyahdh.app
+---
+# 0) Si un diálogo de permiso del sistema estorba, descartarlo.
+- runFlow:
+    file: 00-dismiss-permission.yaml
+
+# 1) Relanzar el app (la sesión Supabase persiste; no hay deep link).
+- openLink: ${BRAINY_E2E_OPEN_URL}
+
+# 2) HOME debe aparecer directamente (sin wizard, sin overlay de restore).
+- extendedWaitUntil:
+    visible:
+      text: "Tareas"
+    timeout: 240000
+- assertVisible:
+    text: "Tareas"
+- assertNotVisible:
+    id: restoreReadyTitle
+- assertNotVisible:
+    id: restoreReadyCta

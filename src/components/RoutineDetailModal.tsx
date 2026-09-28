@@ -4,17 +4,14 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import * as routineService from "@/src/lib/routineService";
 import type { CompletionHistory } from "@/src/types/routine";
 import { addDays, format } from "date-fns";
-import { enUS, es } from "date-fns/locale";
+import { enUS, es, fr, it, ptBR, de } from "date-fns/locale";
 import * as Haptics from "expo-haptics";
 import LottieView from "lottie-react-native";
 import {
   Bell,
-  Calendar,
   Check,
   ChevronLeft,
   Crown,
-  Edit3,
-  Trash2,
 } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -26,10 +23,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from "react-native";
+import Svg, { Path, SvgXml } from "react-native-svg";
+import { pixelButtonPath } from "@/src/features/onboarding/components/pixelGeometry";
 import Animated, {
   FadeInDown,
   cancelAnimation,
@@ -70,6 +68,38 @@ const JS_DAY_TO_INDEX: Record<number, number> = {
   5: 4,
   6: 5,
 };
+
+function getDateLocale(lang?: string) {
+  const lng = (lang ?? "en").split("-")[0];
+  switch (lng) {
+    case "es":
+      return es;
+    case "fr":
+      return fr;
+    case "it":
+      return it;
+    case "pt":
+      return ptBR;
+    case "de":
+      return de;
+    default:
+      return enUS;
+  }
+}
+
+function getDatePattern(lang?: string) {
+  const lng = (lang ?? "en").split("-")[0];
+  switch (lng) {
+    case "es":
+      return "EEEE d 'de' MMMM";
+    case "pt":
+      return "EEEE, d 'de' MMMM";
+    case "de":
+      return "EEEE, d. MMMM";
+    default:
+      return "EEEE, MMMM d";
+  }
+}
 
 const CHEST_IMAGES = [
   require("@/assets/images/pets/chest/1.png"),
@@ -249,7 +279,9 @@ const CalendarDay = ({
   );
 };
 
-// Componente TaskRow con animaciones propias
+const PIXEL_BTN_SHADOW = 3;
+const SHADOW_COLOR = "#0a0a0a";
+
 const TaskRow = ({
   task,
   color,
@@ -267,6 +299,7 @@ const TaskRow = ({
   const rowScale = useSharedValue(1);
   const checkOpacity = useSharedValue(task.completed ? 1 : 0);
   const checkScale = useSharedValue(task.completed ? 1 : 0);
+  const [pillSize, setPillSize] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     checkOpacity.value = withTiming(task.completed ? 1 : 0, { duration: 200 });
@@ -305,47 +338,71 @@ const TaskRow = ({
     transform: [{ scale: checkScale.value }],
   }));
 
+  const isCompleted = task.completed;
+
   return (
     <Animated.View
       style={rowAnimatedStyle}
       entering={FadeInDown.delay(index * 50).duration(300)}
     >
-      <TouchableOpacity
+      <Pressable
         onPress={handlePress}
-        style={[
-          styles.taskRow,
-          task.completed ? styles.taskRowCompleted : styles.taskRowPending,
-          disabled && styles.taskRowDisabled,
-        ]}
-        activeOpacity={disabled ? 1 : 0.8}
+        style={[styles.taskRow, disabled && styles.taskRowDisabled]}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setPillSize((prev) => {
+            if (prev.w === width && prev.h === height) return prev;
+            return { w: width, h: height };
+          });
+        }}
       >
+        {pillSize.w > 0 && (
+          <Svg
+            style={styles.taskPillSvg}
+            width={pillSize.w + PIXEL_BTN_SHADOW}
+            height={pillSize.h + PIXEL_BTN_SHADOW}
+            viewBox={`0 0 ${pillSize.w + PIXEL_BTN_SHADOW} ${pillSize.h + PIXEL_BTN_SHADOW}`}
+          >
+            <Path
+              d={pixelButtonPath(pillSize.w, pillSize.h)}
+              fill={SHADOW_COLOR}
+              transform={`translate(${PIXEL_BTN_SHADOW} ${PIXEL_BTN_SHADOW})`}
+            />
+            <Path
+              d={pixelButtonPath(pillSize.w, pillSize.h)}
+              fill={isCompleted ? color : "#FFFFFF"}
+              stroke="transparent"
+              strokeWidth={2}
+            />
+          </Svg>
+        )}
         <Animated.View
           style={[
             styles.checkbox,
-            task.completed
-              ? { backgroundColor: color, borderColor: "transparent" }
+            isCompleted
+              ? { backgroundColor: colors.background, borderColor: "transparent" }
               : {
                   backgroundColor: "transparent",
-                  borderColor: `${colors.textSecondary}40`,
+                  borderColor: "transparent",
                 },
             checkboxAnimatedStyle,
             disabled && { opacity: 0.4 },
           ]}
         >
           <Animated.View style={checkAnimatedStyle}>
-            <Check size={16} color={colors.background} strokeWidth={3} />
+            <Check size={16} color={isCompleted ? color : "transparent"} strokeWidth={3} />
           </Animated.View>
         </Animated.View>
         <Text
           style={[
             styles.taskLabel,
-            task.completed && styles.taskLabelCompleted,
+            isCompleted && styles.taskLabelCompleted,
             disabled && { opacity: 0.5 },
           ]}
         >
           {task.title}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 };
@@ -397,7 +454,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     {},
   );
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
-  const dateLocale = i18n.language?.startsWith("es") ? es : enUS;
+  const dateLocale = getDateLocale(i18n.language);
   const { width: windowWidth } = useWindowDimensions();
   const [carouselPage, setCarouselPage] = useState(0);
   const carouselRef = useRef<ScrollView | null>(null);
@@ -416,9 +473,11 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     ? (eggs.find((e) => e.routineId === routine.id) ?? null)
     : null;
   // Always display an egg/pet image — prefer the actually assigned egg, fall back to colorIndex
-  const assignedEggMeta = eggData
-    ? (catalog.find((m) => m.id === eggData.id) ?? catalog[colorIndex % catalog.length])
-    : catalog[colorIndex % catalog.length];
+  const assignedEggMeta = catalog.length === 0
+    ? undefined
+    : eggData
+      ? (catalog.find((m) => m.id === eggData.id) ?? catalog[colorIndex % catalog.length])
+      : catalog[colorIndex % catalog.length];
   const eggXp = eggData?.xp ?? 0;
   const isEvolved = eggData?.evolved ?? false;
   const petXp = eggData?.petXp ?? 0;
@@ -523,6 +582,9 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
   // Evolucionar button: pulse when ready, explode on press
   const evolveButtonScale = useSharedValue(1);
   const evolveAnimatingRef = useRef(false);
+  const hatchAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const evolveResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chestResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const evolveButtonReady = eggXp >= EGG_MAX_XP && !isEvolved;
   useEffect(() => {
     if (evolveButtonReady) {
@@ -577,13 +639,22 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
     transform: [{ scale: rewardAmountScale.value }],
   }));
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (hatchAnimTimerRef.current) clearTimeout(hatchAnimTimerRef.current);
+      if (evolveResetTimerRef.current) clearTimeout(evolveResetTimerRef.current);
+      if (chestResetTimerRef.current) clearTimeout(chestResetTimerRef.current);
+    };
+  }, []);
+
   // Next scheduled day for read-only banner
   const nextRoutineDate =
     isReadOnly && routine ? getNextRoutineDate(routine.days) : null;
   const nextDayLabel = nextRoutineDate
     ? format(
         nextRoutineDate,
-        i18n.language?.startsWith("es") ? "EEEE d 'de' MMMM" : "EEEE, MMMM d",
+        getDatePattern(i18n.language),
         { locale: dateLocale },
       )
     : null;
@@ -607,10 +678,11 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
         mappedTasks.length > 0 && mappedTasks.every((t) => t.completed);
       setCompletedToday(allDone);
     }
-  }, [routine?.id, visible]);
+  }, [routine?.id, visible, JSON.stringify(routine?.tasks)]);
 
   // Cargar historial de completados cuando se abre el modal
   useEffect(() => {
+    let cancelled = false;
     async function loadCompletionHistory() {
       if (!routine || !visible || !user) return;
 
@@ -621,13 +693,14 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
           currentYear,
           currentMonth,
         );
-        setCompletionHistory(history);
+        if (!cancelled) setCompletionHistory(history);
       } catch (error) {
-        console.error("Error loading completion history:", error);
+        if (__DEV__) console.error("Error loading completion history:", error);
       }
     }
 
     loadCompletionHistory();
+    return () => { cancelled = true; };
   }, [routine?.id, visible, user, currentYear, currentMonth]);
 
   useEffect(() => {
@@ -703,11 +776,6 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
 
   if (!routine) return null;
 
-  // Cálculo de progreso
-  const completedCount = tasks.filter((t) => t.completed).length;
-  const progressPercent =
-    tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
-
   const toggleTask = (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     const willBeCompleted = !task?.completed;
@@ -719,33 +787,34 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
       } else {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-    } catch (e) {}
-
-    const newTasks = tasks.map((t) =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t,
-    );
-    setTasks(newTasks);
+    } catch (e) {
+      if (__DEV__) console.warn('Haptics error', e);
+    }
 
     if (task && onTaskToggle) {
       onTaskToggle(routine.id, taskId, !task.completed);
     }
 
-    // Verificar si se completaron todas las tareas
-    const allCompleted = newTasks.every((t) => t.completed);
-
-    if (allCompleted && willBeCompleted && newTasks.length > 0) {
-      // Marcar el día actual como completado
-      setCompletedToday(true);
-    } else if (!allCompleted) {
-      // Si se desmarca una tarea, quitar el estado de completado
-      setCompletedToday(false);
-    }
+    setTasks((prev) => {
+      const next = prev.map((t) =>
+        t.id === taskId ? { ...t, completed: !t.completed } : t,
+      );
+      const allDone = next.every((t) => t.completed);
+      if (allDone && willBeCompleted && next.length > 0) {
+        setCompletedToday(true);
+      } else if (!allDone) {
+        setCompletedToday(false);
+      }
+      return next;
+    });
   };
 
   const handleDelete = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    } catch (e) {}
+    } catch (e) {
+      if (__DEV__) console.warn('Haptics error', e);
+    }
 
     Alert.alert(
       t("routine_detail.delete_title"),
@@ -760,7 +829,9 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Warning,
               );
-            } catch (e) {}
+            } catch (e) {
+              if (__DEV__) console.warn('Haptics error', e);
+            }
             onDelete?.(routine.id);
             onClose();
           },
@@ -803,23 +874,35 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
               <ChevronLeft size={24} color={colors.textPrimary} />
             </Pressable>
             <Text style={styles.headerTitle}>{routine.name}</Text>
-            <View style={styles.headerActions}>
-              <Pressable
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch (e) {}
-                  onEdit?.(routine.id);
-                  onClose();
-                }}
-                style={styles.editIconButton}
-              >
-                <Edit3 size={20} color={colors.primary} />
+            {!isReadOnly && (
+              <View style={styles.headerActions}>
+                <Pressable
+                  onPress={() => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch (e) {
+                      if (__DEV__) console.warn('Haptics error', e);
+                    }
+                    onEdit?.(routine.id);
+                    onClose();
+                  }}
+                  style={styles.editIconButton}
+                >
+                <SvgXml
+                  xml={`<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><g><path d="M30.47 6.1H32v4.57h-1.53Z" fill="${colors.primary}"/><path d="M28.95 10.67h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M28.95 4.57h1.52V6.1h-1.52Z" fill="${colors.primary}"/><path d="M27.43 12.19h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M27.43 3.05h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M25.9 13.71h1.53v1.53H25.9Z" fill="${colors.primary}"/><path d="M25.9 10.67h1.53v1.52H25.9Z" fill="${colors.primary}"/><path d="M25.9 1.52h1.53v1.53H25.9Z" fill="${colors.primary}"/><path d="M24.38 15.24h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M24.38 9.14h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M22.85 16.76h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M22.85 10.67h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M22.85 7.62h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M21.33 0h4.57v1.52h-4.57Z" fill="${colors.primary}"/><path d="M21.33 18.29h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M21.33 12.19h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M21.33 6.1h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M19.81 19.81h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M19.81 13.71h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M19.81 7.62h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M19.81 4.57h1.52V6.1h-1.52Z" fill="${colors.primary}"/><path d="M19.81 1.52h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M18.28 21.33h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M18.28 15.24h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M18.28 9.14h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M18.28 3.05h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M16.76 22.86h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M16.76 16.76h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M16.76 10.67h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M16.76 4.57h1.52V6.1h-1.52Z" fill="${colors.primary}"/><path d="M15.24 24.38h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M15.24 18.29h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M15.24 12.19h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M15.24 6.1h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M13.71 25.9h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M13.71 19.81h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M13.71 13.71h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M13.71 7.62h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M12.19 27.43h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M12.19 21.33h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M12.19 15.24h1.52v1.52h-1.52Z" fill="${colors.primary}"/><path d="M12.19 9.14h1.52v1.53h-1.52Z" fill="${colors.primary}"/><path d="M10.66 22.86h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M10.66 16.76h1.53v1.53h-1.53Z" fill="${colors.primary}"/><path d="M10.66 10.67h1.53v1.52h-1.53Z" fill="${colors.primary}"/><path d="M10.66 30.48h1.53v-1.53h-1.53v-4.57H7.62v-3.05H3.05v-1.52H1.52v1.52H0V32h10.66Zm-1.52 0H4.57v-1.53H3.05v-1.52H1.52v-4.57h4.57v3.04h3.05Z" fill="${colors.primary}"/><path d="M9.14 18.29h1.52v1.52H9.14Z" fill="${colors.primary}"/><path d="M9.14 12.19h1.52v1.52H9.14Z" fill="${colors.primary}"/><path d="M7.62 19.81h1.52v1.52H7.62Z" fill="${colors.primary}"/><path d="M7.62 13.71h1.52v1.53H7.62Z" fill="${colors.primary}"/><path d="M6.09 15.24h1.53v1.52H6.09Z" fill="${colors.primary}"/><path d="M4.57 16.76h1.52v1.53H4.57Z" fill="${colors.primary}"/><path d="M3.05 18.29h1.52v1.52H3.05Z" fill="${colors.primary}"/></g></svg>`}
+                  width={24}
+                  height={24}
+                />
               </Pressable>
               <Pressable onPress={handleDelete} style={styles.deleteIconButton}>
-                <Trash2 size={20} color="#F38BA8" />
+                <SvgXml
+                  xml={`<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><g><path d="m25.905 8.38 0 16.76 1.53 0 0 -16.76 3.04 0 0 -1.52 -1.52 0 0 -1.53 -6.1 0 0 -3.05 -1.52 0 0 3.05 -10.67 0 0 -3.05 -1.52 0 0 3.05 -6.09 0 0 1.53 -1.53 0 0 1.52 3.05 0 0 16.76 1.52 0 0 -16.76 19.81 0z" fill="#F38BA8"/><path d="M24.385 25.14h1.52v4.57h-1.52Z" fill="#F38BA8"/><path d="M7.625 29.71h16.76v1.53H7.625Z" fill="#F38BA8"/><path d="M21.335 11.43h1.52v12.19h-1.52Z" fill="#F38BA8"/><path d="M19.815 23.62h1.52v3.04h-1.52Z" fill="#F38BA8"/><path d="M15.245 11.43h1.52v15.23h-1.52Z" fill="#F38BA8"/><path d="M10.665 0.76h10.67v1.52h-10.67Z" fill="#F38BA8"/><path d="M10.665 23.62h1.53v3.04h-1.53Z" fill="#F38BA8"/><path d="M9.145 11.43h1.52v12.19h-1.52Z" fill="#F38BA8"/><path d="M6.095 25.14h1.53v4.57h-1.53Z" fill="#F38BA8"/></g></svg>`}
+                  width={24}
+                  height={24}
+                />
               </Pressable>
-            </View>
+              </View>
+            )}
           </View>
 
           {/* Content ScrollView */}
@@ -873,15 +956,24 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                     <View
                       style={isEvolved ? styles.petImageContainer : styles.eggImageContainer}
                     >
-                      <Animated.Image
-                        source={displayPetImage}
-                        style={[
-                          isEvolved ? styles.petImage : styles.eggImage,
-                          isEvolved && petAnimatedStyle,
-                          !isEvolved && eggAnimatedStyle,
-                        ]}
-                        resizeMode="contain"
-                      />
+                      <Pressable
+                        onPress={() => {
+                          if (__DEV__ && !isEvolved && eggData?.routineId && eggXp < EGG_MAX_XP) {
+                            useEggStore.getState().debugIncrementXp(eggData.routineId);
+                          }
+                        }}
+                        disabled={!__DEV__ || isEvolved}
+                      >
+                        <Animated.Image
+                          source={displayPetImage}
+                          style={[
+                            isEvolved ? styles.petImage : styles.eggImage,
+                            isEvolved && petAnimatedStyle,
+                            !isEvolved && eggAnimatedStyle,
+                          ]}
+                          resizeMode="contain"
+                        />
+                      </Pressable>
                       {petLevel > 0 && isEvolved && (
                         <View style={styles.eggMedalBadge}>
                           <Text style={styles.eggMedalText}>
@@ -899,7 +991,7 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                           <Animated.View style={evolveButtonStyle}>
                             <Pressable
                               onPress={() => {
-                                if (eggData?.routineId) {
+                                if (eggData?.routineId && !evolveAnimatingRef.current) {
                                   evolveAnimatingRef.current = true;
                                   cancelAnimation(evolveButtonScale);
                                   evolveButtonScale.value = withSequence(
@@ -907,7 +999,8 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                                     withSpring(1.22, { damping: 6, stiffness: 280 }),
                                     withSpring(1, { damping: 14, stiffness: 200 }),
                                   );
-                                  setTimeout(() => {
+                                  if (evolveResetTimerRef.current) clearTimeout(evolveResetTimerRef.current);
+                                  evolveResetTimerRef.current = setTimeout(() => {
                                     evolveAnimatingRef.current = false;
                                   }, 700);
                                   try {
@@ -915,10 +1008,13 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                                     Haptics.notificationAsync(
                                       Haptics.NotificationFeedbackType.Success,
                                     );
-                                  } catch (e) {}
+                                  } catch (e) {
+                                    if (__DEV__) console.warn('Haptics error', e);
+                                  }
                                   useEggStore.getState().evolveEgg(eggData.routineId);
                                   setShowHatchAnim(true);
-                                  setTimeout(() => setShowHatchAnim(false), 3500);
+                                  if (hatchAnimTimerRef.current) clearTimeout(hatchAnimTimerRef.current);
+                                  hatchAnimTimerRef.current = setTimeout(() => setShowHatchAnim(false), 3500);
                                 }
                               }}
                               style={styles.hatchBarButton}
@@ -933,68 +1029,19 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                         ) : (
                           <>
                             <View style={styles.eggProgressBarShell}>
-                              <View style={styles.eggProgressBarInner}>
-                                <View
-                                  style={[
-                                    styles.eggProgressFill,
-                                    {
-                                      width: `${Math.min(
-                                        (eggXp / EGG_MAX_XP) * 100,
-                                        100,
-                                      )}%`,
-                                    },
-                                  ]}
-                                />
-                                <View style={styles.eggProgressOverlay}>
-                                  <View style={styles.eggProgressCheckpointsRow}>
-                                    <Text style={styles.eggProgressText}>
-                                      {t("routine_detail.day_progress", {
-                                        current: eggXp,
-                                        total: EGG_MAX_XP,
-                                      })}
-                                    </Text>
-                                    {[1, 2, 3].map((day) => (
-                                      <View
-                                        key={day}
-                                        style={styles.eggProgressCheckpointGroup}
-                                      >
-                                        <View
-                                          style={[
-                                            styles.eggProgressCheckpoint,
-                                            eggXp >= day &&
-                                              styles.eggProgressCheckpointActive,
-                                          ]}
-                                        >
-                                          <Text
-                                            style={[
-                                              styles.eggProgressCheckpointIcon,
-                                              eggXp >= day &&
-                                                styles.eggProgressCheckpointIconActive,
-                                            ]}
-                                          >
-                                            
-                                          </Text>
-                                        </View>
-                                      </View>
-                                    ))}
-                                  </View>
-                                </View>
-                              </View>
-                            </View>
-                            <View style={styles.eggProgressLabelsRow}>
-                              <View style={styles.eggProgressLabelsSpacer} />
-                              {[1, 2, 3].map((day) => (
-                                <Text
-                                  key={day}
-                                  style={[
-                                    styles.eggProgressDayLabel,
-                                    eggXp >= day &&
-                                      styles.eggProgressDayLabelActive,
-                                  ]}
-                                >
-                                
-                                </Text>
-                              ))}
+                              <Image
+                                source={
+                                  eggXp === 0
+                                    ? require("../../assets/images/expBarEmpty.png")
+                                    : eggXp === 1
+                                      ? require("../../assets/images/expBar1.png")
+                                      : eggXp === 2
+                                        ? require("../../assets/images/expBar2.png")
+                                        : require("../../assets/images/expBar3.png")
+                                }
+                                style={styles.eggProgressBgImage}
+                                resizeMode="stretch"
+                              />
                             </View>
                             <Text style={styles.eggProgressHint}>
                               {t("routine_detail.hatch_hint", {
@@ -1017,23 +1064,25 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                         </View>
                         <View style={styles.petXpBarRow}>
                           <View style={styles.petXpBarTrack}>
-                            <View
-                              style={[
-                                styles.petXpBarFill,
-                                {
-                                  width: `${Math.min(
-                                    (petXp / cumulativeXpTarget) * 100,
-                                    100,
-                                  )}%`,
-                                },
-                              ]}
+                            <Image
+                              source={
+                                petXp === 0
+                                  ? require("../../assets/images/expBarEmpty.png")
+                                  : petXp < cumulativeXpTarget * 0.34
+                                    ? require("../../assets/images/expBar1.png")
+                                    : petXp < cumulativeXpTarget * 0.67
+                                      ? require("../../assets/images/expBar2.png")
+                                      : require("../../assets/images/expBar3.png")
+                              }
+                              style={styles.petXpBgImage}
+                              resizeMode="stretch"
                             />
                           </View>
                           <Animated.View style={chestStyle}>
                             <Pressable
                               disabled={!canLevelUp}
                               onPress={() => {
-                                if (eggData?.routineId && canLevelUp) {
+                                if (eggData?.routineId && canLevelUp && !chestAnimatingRef.current) {
                                   chestAnimatingRef.current = true;
                                   cancelAnimation(chestScale);
                                   chestScale.value = withSequence(
@@ -1041,7 +1090,8 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                                     withSpring(1.25, { damping: 5, stiffness: 260 }),
                                     withSpring(1, { damping: 14, stiffness: 200 }),
                                   );
-                                  setTimeout(() => { chestAnimatingRef.current = false; }, 700);
+                                  if (chestResetTimerRef.current) clearTimeout(chestResetTimerRef.current);
+                                  chestResetTimerRef.current = setTimeout(() => { chestAnimatingRef.current = false; }, 700);
                                   useEggStore
                                     .getState()
                                     .claimPetLevelUp(eggData.routineId);
@@ -1059,7 +1109,9 @@ export const RoutineDetailModal: React.FC<RoutineDetailModalProps> = ({
                                     Haptics.notificationAsync(
                                       Haptics.NotificationFeedbackType.Success,
                                     );
-                                  } catch (e) {}
+                                  } catch (e) {
+                                    if (__DEV__) console.warn('Haptics error', e);
+                                  }
                                 }
                               }}
                               style={[
@@ -1280,6 +1332,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(243, 139, 168, 0.1)",
     borderRadius: 12,
   },
+  headerIcon: {
+    width: 24,
+    height: 24,
+  },
   scrollContent: {
     flex: 1,
   },
@@ -1448,35 +1504,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: 4,
   },
-  progressSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  progressInfo: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  progressText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: "500",
-  },
-  progressPercent: {
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
   tasksSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -1513,19 +1540,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 8,
-    borderRadius: 12,
+    position: "relative",
   },
-  taskRowPending: {
-    borderStyle: "dashed",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
-    backgroundColor: "transparent",
-  },
-  taskRowCompleted: {
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  taskPillSvg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
   },
   taskRowDisabled: {
     opacity: 0.55,
@@ -1540,15 +1560,16 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   taskLabel: {
-    fontSize: 15,
-    color: colors.textPrimary,
+    fontFamily: "Jersey10",
+    fontSize: 18,
     fontWeight: "500",
+    color: "#000000",
+    opacity: 0.8,
     flex: 1,
   },
   taskLabelCompleted: {
+    color: colors.background,
     textDecorationLine: "line-through",
-    color: colors.textSecondary,
-    opacity: 0.7,
   },
   // Calendar styles
   calendarSection: {
@@ -1797,94 +1818,11 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   eggProgressBarShell: {
-    borderWidth: 4,
-    borderColor: "#22263D",
-    padding: 4,
-    shadowColor: "#151827",
-    shadowOpacity: 1,
-    shadowRadius: 0,
+    width: "100%",
   },
-  eggProgressBarInner: {
-    minHeight: 44,
-    overflow: "hidden",
-    justifyContent: "center",
-  },
-  eggProgressFill: {
-    ...StyleSheet.absoluteFillObject,
-    right: undefined,
-    backgroundColor: "#F39AB6",
-  },
-  eggProgressOverlay: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  eggProgressText: {
-    fontSize: 26,
-    lineHeight: 26,
-    fontFamily: "Jersey10",
-    color: "#35273E",
-    letterSpacing: 1,
-    marginRight: 8,
-    flexShrink: 0,
-  },
-  eggProgressCheckpointsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 6,
-  },
-  eggProgressCheckpointGroup: {
-    alignItems: "center",
-    width: 34,
-  },
-  eggProgressCheckpoint: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 3,
-    borderColor: "#2B2437",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#232634",
-    shadowOffset: { width: 1, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 1,
-  },
-  eggProgressCheckpointActive: {
-    backgroundColor: "#F6A2BC",
-    borderColor: "#2A2032",
-  },
-  eggProgressCheckpointIcon: {
-    fontSize: 12,
-    lineHeight: 12,
-    color: "#DBDCE2",
-  },
-  eggProgressCheckpointIconActive: {
-    color: "#2A2032",
-  },
-  eggProgressLabelsRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingTop: 4,
-  },
-  eggProgressLabelsSpacer: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: 10,
-  },
-  eggProgressDayLabel: {
-    fontFamily: "Jersey10",
-    color: "#F0F1F5",
-    opacity: 0.82,
-    width: 34,
-    textAlign: "center",
-  },
-  eggProgressDayLabelActive: {
-    opacity: 1,
-    color: "#FFFFFF",
+  eggProgressBgImage: {
+    width: "100%",
+    height: 48,
   },
   eggProgressHint: {
     fontSize: 11,
@@ -1892,6 +1830,7 @@ const styles = StyleSheet.create({
     color: colors.surface,
     opacity: 0.42,
     textAlign: "center",
+    marginTop: 4,
   },
   hatchBarButton: {
     borderWidth: 4,
@@ -1945,17 +1884,10 @@ const styles = StyleSheet.create({
   },
   petXpBarTrack: {
     flex: 1,
-    height: 14,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 3,
-    borderWidth: 2,
-    borderColor: "#bbb",
-    overflow: "hidden",
   },
-  petXpBarFill: {
-    height: "100%",
-    backgroundColor: "#FFD700",
-    borderRadius: 1,
+  petXpBgImage: {
+    width: "100%",
+    height: 28,
   },
   chestButton: {
     width: 36,

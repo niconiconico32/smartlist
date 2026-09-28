@@ -45,19 +45,23 @@ function getRandomIconColor() {
   return palette[Math.floor(Math.random() * palette.length)];
 }
 
-// Dummy fallback for ConfettiCannon if not imported
-const ConfettiCannon = (props: any) => null;
-import { PRIMARY_GRADIENT_COLORS } from "@/constants/buttons";
+
 import { DEV_MODE } from "@/constants/config";
 import { colors } from "@/constants/theme";
 import { ActivityButton } from "@/src/components/ActivityButton";
 import { AppText as Text } from "@/src/components/AppText";
 import DebugPanel from "@/src/components/DebugPanel";
 import { FocusModeScreen } from "@/src/components/FocusModeScreen";
+import { OnboardingModal } from "@/src/components/OnboardingModal";
+import { PaywallModal } from "@/src/components/PaywallModal";
+import { ScheduleModal } from "@/src/components/ScheduleModal";
+import { StartTaskModal } from "@/src/components/StartTaskModal";
 import { StreakSuccessScreen } from "@/src/components/StreakSuccessScreen";
 import { SubtaskListScreen } from "@/src/components/SubtaskListScreen";
 import { TaskCelebration } from "@/src/components/TaskCelebration";
 import { TaskModalNew } from "@/src/components/TaskModalNew";
+import { TaskSuccessScreen } from "@/src/components/TaskSuccessScreen";
+import { getAppLanguage } from "@/src/config/i18n";
 import { posthog } from "@/src/config/posthog";
 import { useBottomTabInset } from "@/src/hooks/useBottomTabInset";
 import { useVoiceTask } from "@/src/hooks/useVoiceTask";
@@ -68,6 +72,7 @@ import {
 } from "@/src/lib/notificationService";
 import { supabase } from "@/src/lib/supabase";
 import {
+    debouncedSyncToCloud,
     fetchActivitiesFromCloud,
     syncActivitiesToCloud,
 } from "@/src/lib/syncService";
@@ -75,14 +80,9 @@ import {
     calculateStreak,
     useAchievementsStore,
 } from "@/src/store/achievementsStore";
-import {
-    ONBOARDING_BUTTONS,
-    ONBOARDING_COLORS,
-    ONBOARDING_DIMENSIONS,
-    ONBOARDING_DOTS,
-    ONBOARDING_SHADOWS,
-    ONBOARDING_TYPOGRAPHY,
-} from "@/src/styles/onboardingStyles";
+import { useProStore } from "@/src/store/proStore";
+import { useRedemptionStore } from "@/src/store/redemptionStore";
+import { useTaskCompleteCounterStore } from "@/src/store/taskCompleteCounterStore";
 import {
     getLocalDateKey,
     getLocalTodayDateKey,
@@ -90,23 +90,19 @@ import {
     isInCurrentWeek,
 } from "@/src/utils/dateHelpers";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { CalendarClock, Check, Clock, Sparkles, X } from "lucide-react-native";
+import { Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
-    Image,
     Modal,
     Pressable,
     Animated as RNAnimated,
     ScrollView,
     StyleSheet,
-    Switch,
     View,
 } from "react-native";
 import Animated, {
@@ -119,6 +115,84 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const ACTIVITIES_STORAGE_KEY = "@smartlist_activities";
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const AnimatedPressable = RNAnimated.createAnimatedComponent(Pressable);
+
+/**
+ * Home banner for the NEW funnel redemption path. Only transient failures and
+ * terminal errors from restore-funnel-plan / web redemption surface here.
+ * Retry re-runs RC redemption ONLY (never re-materializes the plan, never
+ * auto-charges). The banner is non-blocking and dismissible.
+ */
+function RedemptionBanner() {
+  const { t } = useTranslation();
+  const state = useRedemptionStore((s) => s.state);
+  const lastTerminal = useRedemptionStore((s) => s.lastTerminal);
+  const retry = useRedemptionStore((s) => s.retry);
+  const [dismissed, setDismissed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  if (dismissed || state !== "network_error" && state !== "terminal_error") {
+    return null;
+  }
+
+  const terminal = state === "terminal_error";
+  const expired = terminal && lastTerminal === "expired";
+
+  const handleRetry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    try {
+      await retry();
+    } finally {
+      setRetrying(false);
+    }
+    setDismissed(false);
+  };
+
+  return (
+    <View
+      testID="redemptionRetryBanner"
+      style={[styles.redemptionBanner, terminal && styles.redemptionBannerTerminal]}
+    >
+      <Pressable
+        style={styles.redemptionBannerClose}
+        onPress={() => setDismissed(true)}
+        hitSlop={8}
+      >
+        <X size={14} color="rgba(255,255,255,0.7)" />
+      </Pressable>
+      <Text style={styles.redemptionBannerTitle}>
+        {terminal && expired
+          ? t("restore.banner_expired_title")
+          : terminal
+            ? t("restore.banner_terminal_title")
+            : t("restore.banner_title")}
+      </Text>
+      <Text style={styles.redemptionBannerMessage}>
+        {terminal && expired
+          ? t("restore.banner_expired_message")
+          : terminal
+            ? t("restore.banner_terminal_message")
+            : t("restore.banner_network")}
+      </Text>
+      {!terminal && (
+        <Pressable
+          testID="redemptionRetryButton"
+          style={styles.redemptionBannerButton}
+          onPress={handleRetry}
+          disabled={retrying}
+        >
+          {retrying ? (
+            <ActivityIndicator size="small" color="#1A1C20" />
+          ) : (
+            <Text style={styles.redemptionBannerButtonText}>
+              {t("restore.banner_retry")}
+            </Text>
+          )}
+        </Pressable>
+      )}
+    </View>
+  );
+}
 
 const PlanScreen = React.forwardRef(function PlanScreen(
   {
@@ -143,6 +217,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const router = useRouter();
   const { initializeAppOpened, checkAndUpdateAchievements } =
     useAchievementsStore();
+  const { isPro } = useProStore();
 
   // Local state for isFirstTime if not passed from parent
   const [taskInput, setTaskInput] = useState("");
@@ -183,9 +258,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   // Onboarding Modal State
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState(1);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const onboardingSlideAnim = useRef(new RNAnimated.Value(0)).current;
 
   // Task Modal States
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -245,6 +317,9 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const [celebratedTaskName, setCelebratedTaskName] = useState("");
   const [earnedTaskCoins, setEarnedTaskCoins] = useState(0);
 
+  // Paywall trigger after 2 completed tasks
+  const [showPaywall, setShowPaywall] = useState(false);
+
   const [elapsedTime, setElapsedTime] = useState(0);
   const executionSlideAnim = useRef(new RNAnimated.Value(0)).current;
   const micVibrationAnim = useRef(new RNAnimated.Value(0)).current;
@@ -256,16 +331,6 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(true);
-
-  // Función para avanzar al siguiente paso del onboarding
-  const goToNextStep = () => {
-    setOnboardingStep((prev) => prev + 1);
-  };
-
-  // Función para volver al paso anterior (solo para la pantalla 1)
-  const goToPreviousStep = () => {
-    setOnboardingStep(1);
-  };
 
   // Exponer función para abrir modal desde el botón +
   useImperativeHandle(ref, () => ({
@@ -320,6 +385,11 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     loadActivities();
     // Initialize app opened achievement on first load
     initializeAppOpened();
+  }, []);
+
+  // Load task completion counter for paywall
+  useEffect(() => {
+    useTaskCompleteCounterStore.getState().load();
   }, []);
 
   // Track focus session start
@@ -592,7 +662,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   const saveActivities = async () => {
     try {
-      await syncActivitiesToCloud(activities);
+      debouncedSyncToCloud(activities);
     } catch (error) {
       console.error("Error saving activities:", error);
     }
@@ -616,7 +686,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
       // ✅ SECURE: Using Supabase SDK instead of manual fetch with hardcoded token
       const loc = await import("expo-localization");
       const deviceLocale = loc.getLocales?.()[0]?.languageCode ?? "en";
-      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+      const localeToUse = getAppLanguage(deviceLocale);
 
       const { data, error } = await supabase.functions.invoke("divide-task", {
         body: { task: inputText.trim(), locale: localeToUse },
@@ -839,6 +909,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           setCelebratedTaskName(title || "Tarea completada");
           setShowTaskCelebration(true);
         }
+
+        if (!isPro) {
+          const thresholdReached =
+            await useTaskCompleteCounterStore.getState().increment();
+          if (thresholdReached) {
+            setShowPaywall(true);
+          }
+        }
       }
     }
 
@@ -1004,6 +1082,12 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           task_id: id,
           recurrence_type: activityToToggle.recurrence?.type || "none",
         });
+
+        if (!isPro) {
+          useTaskCompleteCounterStore.getState().increment().then((reached) => {
+            if (reached) setShowPaywall(true);
+          });
+        }
       }
     }
 
@@ -1131,6 +1215,8 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           </Text>
         </Animated.View>
 
+        <RedemptionBanner />
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -1223,143 +1309,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           </View>
         </ScrollView>
 
-        {/* Onboarding Modal */}
-        <Modal
+        <OnboardingModal
           visible={showOnboardingModal}
-          animationType="slide"
-          transparent={false}
-        >
-          <SafeAreaView style={styles.onboardingContainer}>
-            <View style={styles.onboardingHeader}>
-              <Pressable
-                onPress={() => {
-                  setShowOnboardingModal(false);
-                  setOnboardingStep(1);
-                  onboardingSlideAnim.setValue(0);
-                }}
-                style={styles.backButton}
-              >
-                <X size={24} color={colors.textPrimary} />
-              </Pressable>
-            </View>
-
-            <View style={styles.onboardingScrollContainer}>
-              {/* Progress Dots - Hidden on first screen */}
-              {onboardingStep !== 1 && (
-                <View style={styles.progressDotsContainer}>
-                  {[0, 1, 2, 3, 4, 5].map((index) => (
-                    <View
-                      key={index}
-                      style={
-                        index === onboardingStep - 1
-                          ? {
-                              width: 16,
-                              height: 14,
-                              borderRadius: 25,
-                              backgroundColor: colors.primary,
-                            }
-                          : {
-                              width: 9,
-                              height: 9,
-                              borderRadius: 55,
-                              backgroundColor: colors.primary,
-                            }
-                      }
-                    />
-                  ))}
-                </View>
-              )}
-
-              {/* Fixed Height Content Container */}
-              <View style={styles.onboardingContentWrapper}>
-                {/* Title Section - Fixed Height */}
-                <View style={styles.onboardingTitleSection}>
-                  <Text style={styles.onboardingTitle}>
-                    {onboardingStep === 1 &&
-                      t("index_tab.onboarding.title_step_1")}
-                    {onboardingStep === 3 &&
-                      t("index_tab.onboarding.title_step_3")}
-                    {(onboardingStep === 2 ||
-                      onboardingStep === 4 ||
-                      onboardingStep === 5 ||
-                      onboardingStep === 6) &&
-                      t("index_tab.onboarding.title_question")}
-                  </Text>
-                </View>
-
-                {/* Subtitle Section - Fixed Height */}
-                <View style={styles.onboardingSubtitleSection}>
-                  {onboardingStep === 1 && (
-                    <Text style={styles.onboardingSubtitle}>
-                      {t("index_tab.onboarding.subtitle_step_1")}
-                    </Text>
-                  )}
-                  {onboardingStep === 3 && (
-                    <Text style={styles.onboardingSubtitle}>
-                      {t("index_tab.onboarding.subtitle_step_3")}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Image Section - Fixed Height & Size */}
-                <View style={styles.onboardingImageSection}>
-                  {(onboardingStep === 1 || onboardingStep === 3) && (
-                    <Image
-                      source={require("@/assets/images/Scrum board-rafiki.png")}
-                      style={styles.onboardingImage}
-                      resizeMode="contain"
-                    />
-                  )}
-                </View>
-
-                {/* Options Section - Flex for different layouts */}
-                <View style={styles.onboardingOptionsSection}>
-                  {(onboardingStep === 2 ||
-                    onboardingStep === 4 ||
-                    onboardingStep === 5 ||
-                    onboardingStep === 6) && (
-                    <View style={styles.optionsContainer}>
-                      {[
-                        t("index_tab.onboarding.option_0"),
-                        t("index_tab.onboarding.option_1"),
-                        t("index_tab.onboarding.option_2"),
-                      ].map((option, idx) => (
-                        <Pressable
-                          key={idx}
-                          style={[
-                            styles.optionButton,
-                            selectedOption === idx && {
-                              borderColor: colors.primary,
-                              borderWidth: 3,
-                            },
-                          ]}
-                          onPress={() => {
-                            setSelectedOption(idx);
-                            setTimeout(() => {
-                              setSelectedOption(null);
-                              goToNextStep();
-                            }, 200);
-                          }}
-                        >
-                          <Text style={styles.optionText}>{option}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Button - Positioned at bottom */}
-              {onboardingStep === 1 && (
-                <Pressable style={styles.comenzarButton} onPress={goToNextStep}>
-                  <Text style={styles.comenzarButtonText}>
-                    {t("index_tab.onboarding.start")}
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-          </SafeAreaView>
-        </Modal>
+          onClose={() => setShowOnboardingModal(false)}
+        />
 
         {/* Task Creation Modal - New Design */}
         <TaskModalNew
@@ -1534,6 +1487,14 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                     if (onTaskCompleted) {
                       onTaskCompleted();
                     }
+
+                    if (!isPro) {
+                      const thresholdReached =
+                        await useTaskCompleteCounterStore.getState().increment();
+                      if (thresholdReached) {
+                        setShowPaywall(true);
+                      }
+                    }
                   }
                 }
 
@@ -1603,243 +1564,30 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           />
         </Modal>
 
-        {/* Schedule Modal - Copy from add.tsx */}
-        <Modal
+        <ScheduleModal
           visible={showScheduleModal}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() => setShowScheduleModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderLeft}>
-                  <CalendarClock size={22} color={colors.primary} />
-                  <Text style={styles.modalTitle}>
-                    {t("index_tab.schedule.title")}
-                  </Text>
-                </View>
-                <Pressable
-                  style={styles.modalCloseButton}
-                  onPress={() => setShowScheduleModal(false)}
-                >
-                  <X size={20} color={colors.textSecondary} />
-                </Pressable>
-              </View>
-
-              <ScrollView
-                style={styles.modalBody}
-                showsVerticalScrollIndicator={false}
-              >
-                {/* Frequency Chips */}
-                <Text style={styles.sectionLabel}>
-                  {t("index_tab.schedule.frequency")}
-                </Text>
-                <View style={styles.frequencyChips}>
-                  <Pressable
-                    style={[
-                      styles.chip,
-                      recurrenceType === "once" && styles.chipActive,
-                    ]}
-                    onPress={() => setRecurrenceType("once")}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        recurrenceType === "once" && styles.chipTextActive,
-                      ]}
-                    >
-                      {t("index_tab.schedule.once")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.chip,
-                      recurrenceType === "daily" && styles.chipActive,
-                    ]}
-                    onPress={() => setRecurrenceType("daily")}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        recurrenceType === "daily" && styles.chipTextActive,
-                      ]}
-                    >
-                      {t("index_tab.schedule.daily")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={[
-                      styles.chip,
-                      recurrenceType === "weekly" && styles.chipActive,
-                    ]}
-                    onPress={() => setRecurrenceType("weekly")}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        recurrenceType === "weekly" && styles.chipTextActive,
-                      ]}
-                    >
-                      {t("index_tab.schedule.weekly")}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {/* Day Selector for Weekly */}
-                {recurrenceType === "weekly" && (
-                  <>
-                    <Text style={styles.sectionLabel}>
-                      {t("index_tab.schedule.days")}
-                    </Text>
-                    <View style={styles.daySelector}>
-                      {["L", "M", "M", "J", "V", "S", "D"].map((day, index) => (
-                        <Pressable
-                          key={index}
-                          style={[
-                            styles.dayChip,
-                            selectedDays.includes(index) &&
-                              styles.dayChipActive,
-                          ]}
-                          onPress={() => {
-                            setSelectedDays((prev) =>
-                              prev.includes(index)
-                                ? prev.filter((d) => d !== index)
-                                : [...prev, index].sort(),
-                            );
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dayChipText,
-                              selectedDays.includes(index) &&
-                                styles.dayChipTextActive,
-                            ]}
-                          >
-                            {day}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  </>
-                )}
-
-                {/* Time Picker */}
-                <Text style={styles.sectionLabel}>
-                  {t("index_tab.schedule.time_optional")}
-                </Text>
-                <Pressable
-                  style={styles.timePickerButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Clock size={20} color={colors.textSecondary} />
-                  <Text style={styles.timePickerText}>
-                    {scheduledTime
-                      ? `${String(scheduledTime.getHours()).padStart(2, "0")}:${String(scheduledTime.getMinutes()).padStart(2, "0")}`
-                      : t("index_tab.schedule.select_time")}
-                  </Text>
-                  {scheduledTime && (
-                    <Pressable
-                      onPress={() => {
-                        setScheduledTime(null);
-                        setReminderEnabled(false);
-                      }}
-                      hitSlop={8}
-                    >
-                      <X size={16} color={colors.textSecondary} />
-                    </Pressable>
-                  )}
-                </Pressable>
-
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={scheduledTime || new Date()}
-                    mode="time"
-                    is24Hour={true}
-                    themeVariant="dark"
-                    onChange={(event, selectedDate) => {
-                      setShowTimePicker(false);
-                      if (selectedDate) {
-                        setScheduledTime(selectedDate);
-                      }
-                    }}
-                  />
-                )}
-
-                {/* Reminder Toggle */}
-                {scheduledTime && (
-                  <View style={styles.reminderSection}>
-                    <View style={styles.reminderToggle}>
-                      <Text style={styles.sectionLabel}>
-                        {t("index_tab.schedule.reminder")}
-                      </Text>
-                      <Switch
-                        value={reminderEnabled}
-                        onValueChange={setReminderEnabled}
-                        trackColor={{
-                          false: "rgba(255,255,255,0.15)",
-                          true: colors.primary,
-                        }}
-                        thumbColor={"#FFFFFF"}
-                      />
-                    </View>
-                    {reminderEnabled && (
-                      <View style={styles.reminderOptions}>
-                        {[5, 15, 30, 60].map((mins) => (
-                          <Pressable
-                            key={mins}
-                            style={[
-                              styles.chip,
-                              reminderTime === mins && styles.chipActive,
-                            ]}
-                            onPress={() => setReminderTime(mins)}
-                          >
-                            <Text
-                              style={[
-                                styles.chipText,
-                                reminderTime === mins && styles.chipTextActive,
-                              ]}
-                            >
-                              {t("index_tab.schedule.minutes_before", {
-                                count: mins,
-                              })}
-                            </Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                )}
-              </ScrollView>
-
-              <View style={styles.modalFooter}>
-                <Pressable
-                  style={styles.modalButton}
-                  onPress={() => {
-                    setIsScheduled(true);
-                    setShowScheduleModal(false);
-                    if (shouldShowTaskModalAfterSchedule) {
-                      setShowTaskModal(true);
-                      setShouldShowTaskModalAfterSchedule(false);
-                    }
-                  }}
-                >
-                  <LinearGradient
-                    colors={PRIMARY_GRADIENT_COLORS}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.modalButtonGradient}
-                  >
-                    <Text style={styles.modalButtonText}>
-                      {t("index_tab.schedule.confirm")}
-                    </Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+          onClose={() => setShowScheduleModal(false)}
+          onConfirm={() => {
+            setIsScheduled(true);
+            setShowScheduleModal(false);
+            if (shouldShowTaskModalAfterSchedule) {
+              setShowTaskModal(true);
+              setShouldShowTaskModalAfterSchedule(false);
+            }
+          }}
+          recurrenceType={recurrenceType}
+          setRecurrenceType={setRecurrenceType}
+          selectedDays={selectedDays}
+          setSelectedDays={setSelectedDays}
+          scheduledTime={scheduledTime}
+          setScheduledTime={setScheduledTime}
+          showTimePicker={showTimePicker}
+          setShowTimePicker={setShowTimePicker}
+          reminderEnabled={reminderEnabled}
+          setReminderEnabled={setReminderEnabled}
+          reminderTime={reminderTime}
+          setReminderTime={setReminderTime}
+        />
 
         {/* Execution Modal */}
         <Modal
@@ -1868,25 +1616,10 @@ const PlanScreen = React.forwardRef(function PlanScreen(
         >
           <SafeAreaView style={styles.executionContainer}>
             {showSuccessScreen ? (
-              /* Success Screen */
-              <View style={styles.successScreen}>
-                <View style={styles.successIcon}>
-                  <Check size={80} color="#FFFFFF" strokeWidth={4} />
-                </View>
-                <Text style={styles.successTitle}>
-                  {t("index_tab.execution.completed")}
-                </Text>
-                <Text style={styles.successSubtitle}>
-                  {executingActivity?.title}
-                </Text>
-                <ConfettiCannon
-                  count={200}
-                  origin={{ x: SCREEN_WIDTH / 2, y: 0 }}
-                  autoStart={false}
-                  fadeOut={true}
-                  fallSpeed={3000}
-                />
-              </View>
+              <TaskSuccessScreen
+                taskTitle={executingActivity?.title}
+                screenWidth={SCREEN_WIDTH}
+              />
             ) : (
               /* Execution Screen */
               <>
@@ -1957,7 +1690,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
                 <View style={styles.sliderContainer}>
                   <View style={styles.sliderTrack}>
                     <Text style={styles.sliderLabel}>
-                      desliza para completar
+                      {t("focus_mode.slider_swipe")}
                     </Text>
                     <RNAnimated.View
                       style={[
@@ -2007,105 +1740,33 @@ const PlanScreen = React.forwardRef(function PlanScreen(
           </SafeAreaView>
         </Modal>
 
-        {/* Start Task Modal */}
-        <Modal
+        <StartTaskModal
           visible={showStartTaskModal}
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
+          activity={pendingActivityToStart}
+          onClose={() => {
             setShowStartTaskModal(false);
             setPendingActivityToStart(null);
           }}
-        >
-          <View style={styles.startTaskModalOverlay}>
-            <View style={styles.startTaskModalContent}>
-              <LinearGradient
-                colors={["#CBA6F7", "#DFC0FF", "#CBA6F7"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
-              />
-
-              {/* Content */}
-              <View style={styles.startTaskModalInner}>
-                {/* Close Button */}
-                <Pressable
-                  onPress={() => {
-                    setShowStartTaskModal(false);
-                    setPendingActivityToStart(null);
-                  }}
-                  style={styles.startTaskCloseButton}
-                >
-                  <X size={24} color="rgba(59, 66, 97, 0.6)" />
-                </Pressable>
-
-                {/* Emoji */}
-                <Text style={styles.startTaskEmoji}>
-                  {pendingActivityToStart?.emoji}
-                </Text>
-
-                {/* Title */}
-                <Text style={styles.startTaskTitle}>
-                  {t("index_tab.start_task_title")}
-                </Text>
-
-                {/* Subtitle */}
-                <Text style={styles.startTaskSubtitle}>
-                  {pendingActivityToStart?.title}
-                </Text>
-
-                {/* Buttons */}
-                <View style={styles.startTaskButtonsContainer}>
-                  {/* Cancel Button */}
-                  <Pressable
-                    onPress={() => {
-                      setShowStartTaskModal(false);
-                      setPendingActivityToStart(null);
-                    }}
-                    style={styles.startTaskCancelButton}
-                  >
-                    <Text style={styles.startTaskCancelButtonText}>
-                      {t("index_tab.start_task_later")}
-                    </Text>
-                  </Pressable>
-
-                  {/* Start Button */}
-                  <Pressable
-                    onPress={() => {
-                      if (pendingActivityToStart) {
-                        setGeneratedTaskTitle(pendingActivityToStart.title);
-                        setGeneratedEmoji(pendingActivityToStart.emoji);
-                        setFocusModeSubtasks(
-                          pendingActivityToStart.subtasks || [],
-                        );
-                        setCurrentFocusModeActivityId(
-                          pendingActivityToStart.id,
-                        );
-                        setShowStartTaskModal(false);
-                        setTimeout(() => {
-                          setShowFocusMode(true);
-                        }, 100);
-                      }
-                    }}
-                    style={styles.startTaskStartButton}
-                  >
-                    <LinearGradient
-                      colors={["#1E1E2E", "#252536"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.startTaskStartButtonGradient}
-                    >
-                      <Text style={styles.startTaskStartButtonText}>
-                        {t("index_tab.start_task_start")}
-                      </Text>
-                    </LinearGradient>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
+          onStart={(activity) => {
+            setGeneratedTaskTitle(activity.title);
+            setGeneratedEmoji(activity.emoji);
+            setFocusModeSubtasks(activity.subtasks || []);
+            setCurrentFocusModeActivityId(activity.id);
+            setShowStartTaskModal(false);
+            setTimeout(() => setShowFocusMode(true), 100);
+          }}
+        />
       </View>
+
+      {/* Paywall — shown after completing 2 tasks with all subtasks */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => {
+          setShowPaywall(false);
+          useTaskCompleteCounterStore.getState().reset();
+        }}
+        source="completion_milestone"
+      />
 
       {/* Debug Panel - Solo en modo developer */}
       {DEV_MODE && (
@@ -2151,6 +1812,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 150,
   } as any,
+  redemptionBanner: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: "rgba(251, 191, 36, 0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.4)",
+  } as any,
+  redemptionBannerTerminal: {
+    backgroundColor: "rgba(248, 113, 113, 0.12)",
+    borderColor: "rgba(248, 113, 113, 0.4)",
+  } as any,
+  redemptionBannerClose: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    zIndex: 2,
+  } as any,
+  redemptionBannerTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    paddingRight: 18,
+  } as any,
+  redemptionBannerMessage: {
+    fontSize: 12.5,
+    color: colors.textSecondary,
+    marginTop: 4,
+    lineHeight: 17,
+  } as any,
+  redemptionBannerButton: {
+    alignSelf: "flex-start",
+    marginTop: 12,
+    paddingHorizontal: 16,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#FBBF24",
+    alignItems: "center",
+    justifyContent: "center",
+  } as any,
+  redemptionBannerButtonText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#1A1C20",
+  } as any,
   notificationWrapper: { paddingHorizontal: 20, marginBottom: 32 } as any,
   sectionHeader: { paddingHorizontal: 20, marginBottom: 16 } as any,
   sectionTitle: {
@@ -2165,34 +1872,7 @@ const styles = StyleSheet.create({
   activitiesContainer: {
     gap: 12,
   } as any,
-  testOnboardingButton: {
-    marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 40,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 8,
-  } as any,
-  testOnboardingGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  testOnboardingText: {
-    color: colors.background,
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  } as any,
-  testOnboardingButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.97 }],
-  } as any,
+
   // Subtasks Modal Styles
   subtasksContainer: {
     flex: 1,
@@ -2309,152 +1989,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   } as any,
-  onboardingContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  } as any,
-  onboardingHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  } as any,
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  onboardingContentWrapper: {
-    flex: 1,
-    width: "100%",
-    paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
-    justifyContent: "flex-start",
-    alignItems: "center",
-  } as any,
-  onboardingTitleSection: {
-    height: ONBOARDING_DIMENSIONS.titleSectionHeight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: ONBOARDING_DIMENSIONS.marginTop,
-  } as any,
-  onboardingSubtitleSection: {
-    height: ONBOARDING_DIMENSIONS.subtitleSectionHeight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
-  } as any,
-  onboardingImageSection: {
-    height: ONBOARDING_DIMENSIONS.imageSectionHeight,
-    justifyContent: "center",
-    alignItems: "center",
-    marginVertical: ONBOARDING_DIMENSIONS.verticalGap,
-  } as any,
-  onboardingOptionsSection: {
-    flex: 1,
-    width: "100%",
-    justifyContent: "flex-start",
-    alignItems: "center",
-  } as any,
-  onboardingContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    width: "100%",
-  } as any,
-  onboardingScrollContainer: {
-    flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingBottom: 20,
-  } as any,
-  progressDotsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: ONBOARDING_DOTS.gap,
-    marginBottom: ONBOARDING_DOTS.marginBottom,
-  } as any,
-  progressDot: {
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
-    backgroundColor: "#000000",
-  } as any,
-  // Fix misplaced properties
-  progressDotText: {
-    textAlign: "left",
-    marginBottom: 32,
-    paddingHorizontal: 20,
-    lineHeight: 30,
-  } as any,
-  optionsContainer: {
-    width: "100%",
-    paddingHorizontal: ONBOARDING_DIMENSIONS.horizontalPadding,
-    gap: ONBOARDING_BUTTONS.optionButtonGap,
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  optionButton: {
-    backgroundColor: ONBOARDING_COLORS.optionButtonBg,
-    paddingVertical: ONBOARDING_BUTTONS.optionButtonPaddingVertical,
-    paddingHorizontal: ONBOARDING_BUTTONS.optionButtonPaddingHorizontal,
-    borderRadius: ONBOARDING_BUTTONS.optionButtonBorderRadius,
-    borderWidth: ONBOARDING_BUTTONS.optionButtonBorderWidth,
-    borderColor: ONBOARDING_COLORS.optionButtonBorder,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  optionText: {
-    fontSize: ONBOARDING_TYPOGRAPHY.optionFontSize,
-    fontWeight: ONBOARDING_TYPOGRAPHY.optionFontWeight,
-    color: ONBOARDING_COLORS.optionTextColor,
-    textAlign: "center",
-  } as any,
-  onboardingSubtitle: {
-    fontSize: ONBOARDING_TYPOGRAPHY.subtitleFontSize,
-    fontWeight: ONBOARDING_TYPOGRAPHY.subtitleFontWeight,
-    color: ONBOARDING_COLORS.subtitleColor,
-    textAlign: "center",
-    lineHeight: ONBOARDING_TYPOGRAPHY.subtitleLineHeight,
-  } as any,
-  onboardingImage: {
-    width: ONBOARDING_DIMENSIONS.imageWidth,
-    height: ONBOARDING_DIMENSIONS.imageHeight,
-    resizeMode: "contain",
-  } as any,
-  onboardingFooter: {
-    paddingHorizontal: 40,
-    paddingBottom: 40,
-  } as any,
-  comenzarButton: {
-    backgroundColor: ONBOARDING_COLORS.primaryButton,
-    paddingVertical: ONBOARDING_BUTTONS.primaryButtonPaddingVertical,
-    paddingHorizontal: ONBOARDING_BUTTONS.primaryButtonPaddingHorizontal,
-    borderRadius: ONBOARDING_BUTTONS.primaryButtonBorderRadius,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: ONBOARDING_BUTTONS.primaryButtonMarginBottom,
-    minWidth: ONBOARDING_BUTTONS.primaryButtonMinWidth,
-    shadowColor: ONBOARDING_COLORS.shadowColor,
-    shadowOffset: ONBOARDING_SHADOWS.shadowOffset,
-    shadowOpacity: ONBOARDING_SHADOWS.shadowOpacity,
-    shadowRadius: ONBOARDING_SHADOWS.shadowRadius,
-    elevation: ONBOARDING_SHADOWS.elevation,
-  } as any,
-  comenzarButtonText: {
-    color: ONBOARDING_COLORS.buttonTextColor,
-    fontSize: ONBOARDING_TYPOGRAPHY.buttonFontSize,
-    fontWeight: ONBOARDING_TYPOGRAPHY.buttonFontWeight,
-  } as any,
-  onboardingTitle: {
-    fontSize: ONBOARDING_TYPOGRAPHY.titleFontSize,
-    fontWeight: ONBOARDING_TYPOGRAPHY.titleFontWeight,
-    color: ONBOARDING_COLORS.titleColor,
-    textAlign: "center",
-    marginBottom: ONBOARDING_DIMENSIONS.verticalGap,
-  } as any,
+
+
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -2877,163 +2413,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#1E1E2E",
   } as any,
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  } as any,
-  modalContent: {
-    backgroundColor: colors.background,
-    borderRadius: 24,
-    width: "100%",
-    maxHeight: "80%",
-    overflow: "hidden",
-  } as any,
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
-  } as any,
-  modalHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  } as any,
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  } as any,
-  modalCloseButton: {
-    padding: 3,
-  } as any,
-  modalBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-  } as any,
-  modalFooter: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  } as any,
-  modalButton: {
-    borderRadius: 32,
-    overflow: "hidden",
-  } as any,
-  modalButtonGradient: {
-    paddingVertical: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: colors.background,
-    letterSpacing: 0.3,
-  } as any,
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginBottom: 10,
-    marginTop: 4,
-  } as any,
-  frequencyChips: {
-    flexDirection: "row",
-    gap: 10,
-    flexWrap: "wrap",
-    marginBottom: 20,
-  } as any,
-  chip: {
-    flex: 1,
-    minWidth: 70,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-  } as any,
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  } as any,
-  chipText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  } as any,
-  chipTextActive: {
-    color: "#1E1E2E",
-    fontWeight: "700",
-  } as any,
-  daySelector: {
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "space-between",
-    marginBottom: 20,
-  } as any,
-  dayChip: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  } as any,
-  dayChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  } as any,
-  dayChipText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.textSecondary,
-  } as any,
-  dayChipTextActive: {
-    color: "#1E1E2E",
-    fontWeight: "700",
-  } as any,
-  timePickerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    padding: 14,
-    marginBottom: 16,
-  } as any,
-  timePickerText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.textPrimary,
-  } as any,
-  reminderSection: {
-    marginTop: 4,
-  } as any,
-  reminderToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  } as any,
-  reminderOptions: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  } as any,
+
   executionContainer: {
     flex: 1,
     backgroundColor: "#ffc300",
@@ -3121,101 +2501,5 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   } as any,
-  successScreen: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#A6E3A1",
-  } as any,
-  successIcon: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 32,
-  } as any,
-  successTitle: {
-    fontSize: 36,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    marginBottom: 12,
-    letterSpacing: -1,
-  } as any,
-  startTaskModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  } as any,
-  startTaskModalContent: {
-    width: "85%",
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#CBA6F7",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
-  } as any,
-  startTaskModalInner: {
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    alignItems: "center",
-  } as any,
-  startTaskCloseButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    padding: 8,
-    zIndex: 10,
-  } as any,
-  startTaskEmoji: {
-    fontSize: 60,
-    marginBottom: 20,
-  } as any,
-  startTaskTitle: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#3B4261",
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  } as any,
-  startTaskSubtitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "rgba(59, 66, 97, 0.75)",
-    textAlign: "center",
-    marginBottom: 28,
-    paddingHorizontal: 12,
-  } as any,
-  startTaskButtonsContainer: {
-    width: "100%",
-    gap: 12,
-  } as any,
-  startTaskCancelButton: {
-    paddingVertical: 12,
-    alignItems: "center",
-  } as any,
-  startTaskCancelButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "rgba(59, 66, 97, 0.6)",
-  } as any,
-  startTaskStartButton: {
-    borderRadius: 50,
-    overflow: "hidden",
-  } as any,
-  startTaskStartButtonGradient: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: "center",
-  } as any,
-  startTaskStartButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#ffffff",
-    letterSpacing: -0.3,
-  } as any,
+
 }) as any;

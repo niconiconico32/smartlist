@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Bug, Calendar, Database, Trash2, X } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Bug, Calendar, Database, Rocket, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText as Text } from '@/src/components/AppText';
@@ -172,6 +173,35 @@ export default function DebugPanel({ onTriggerStreak }: DebugPanelProps) {
                 </Pressable>
               </View>
 
+              {/* Onboarding Testing */}
+              <Text style={styles.sectionTitle}>Testear Onboarding</Text>
+              <View style={styles.section}>
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => {
+                    setIsOpen(false);
+                    router.push("/onboarding-v3");
+                  }}
+                >
+                  <Rocket size={20} color="#F9E2AF" />
+                  <Text style={styles.actionButtonText}>Reabrir Onboarding (desde 0)</Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.actionButton}
+                  onPress={() => {
+                    setIsOpen(false);
+                    router.push({
+                      pathname: "/onboarding-v3",
+                      params: { startAt: "last5" },
+                    });
+                  }}
+                >
+                  <Rocket size={20} color="#CBA6F7" />
+                  <Text style={styles.actionButtonText}>Onboarding (últimos 3 slides)</Text>
+                </Pressable>
+              </View>
+
               {/* Streak Simulation */}
               <Text style={styles.sectionTitle}>Simular Rachas</Text>
               <View style={styles.section}>
@@ -235,7 +265,7 @@ export default function DebugPanel({ onTriggerStreak }: DebugPanelProps) {
 const styles = StyleSheet.create({
   floatingButton: {
     position: 'absolute',
-    bottom: 100,
+    top: '50%',
     right: 20,
     width: 56,
     height: 56,
@@ -257,13 +287,13 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: 24,
   },
   modalContent: {
     backgroundColor: '#1E1E2E',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '85%',
+    borderRadius: 24,
+    height: '80%',
     paddingTop: 20,
   },
   header: {

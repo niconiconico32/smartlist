@@ -6,11 +6,10 @@ import type { OnboardingAnswers } from './types';
 
 const FLOW_VERSION = 'v3';
 
-/**
- * Sanitize an answer value for PostHog.
- * - Free-text fields (userName, taskText) → boolean (provided or not)
- * - Everything else → pass through as-is (option IDs, not labels)
- */
+function generateSessionId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 function sanitizeAnswer(
   answerKey: string | null,
   answers: OnboardingAnswers,
@@ -20,7 +19,6 @@ function sanitizeAnswer(
   const value = answers[answerKey as keyof OnboardingAnswers];
   if (value === null || value === undefined) return null;
 
-  // Privacy: don't send raw text for free-form fields
   if (answerKey === 'userName' || answerKey === 'taskText') {
     return typeof value === 'string' ? value.trim().length > 0 : false;
   }
@@ -29,6 +27,7 @@ function sanitizeAnswer(
 }
 
 export function useOnboardingTracking() {
+  const sessionIdRef = useRef<string>(generateSessionId());
   const startTimestampRef = useRef<number>(0);
   const stepTimestampRef = useRef<number>(0);
   const backCountRef = useRef<number>(0);
@@ -36,20 +35,24 @@ export function useOnboardingTracking() {
   const stepsCompletedRef = useRef<number>(0);
   const isFinishedRef = useRef<boolean>(false);
 
-  // ── Track: Onboarding Started ──
+  const getProgress = useCallback((stepIndex: number) => {
+    return Math.round(((stepIndex + 1) / TOTAL_SLIDES_V3) * 100);
+  }, []);
+
   const trackStart = useCallback(() => {
     const now = Date.now();
     startTimestampRef.current = now;
     stepTimestampRef.current = now;
+    sessionIdRef.current = generateSessionId();
 
     posthog.capture('onboarding_started', {
       flow_version: FLOW_VERSION,
+      session_id: sessionIdRef.current,
       is_anonymous: true,
       total_steps: TOTAL_SLIDES_V3,
     });
   }, []);
 
-  // ── Track: Step Viewed ──
   const trackStepViewed = useCallback(
     (stepIndex: number, direction: 'forward' | 'backward') => {
       const config = SLIDES_V3[stepIndex];
@@ -63,14 +66,15 @@ export function useOnboardingTracking() {
         step_id: config.id,
         step_type: config.type,
         flow_version: FLOW_VERSION,
+        session_id: sessionIdRef.current,
         total_steps: TOTAL_SLIDES_V3,
+        progress_percentage: getProgress(stepIndex),
         direction,
       });
     },
-    [],
+    [getProgress],
   );
 
-  // ── Track: Step Completed ──
   const trackStepCompleted = useCallback(
     (stepIndex: number, answers: OnboardingAnswers) => {
       const config = SLIDES_V3[stepIndex];
@@ -78,7 +82,7 @@ export function useOnboardingTracking() {
 
       const now = Date.now();
       const timeSpent = stepTimestampRef.current
-        ? Math.round((now - stepTimestampRef.current) / 1000 * 10) / 10
+        ? Math.round(((now - stepTimestampRef.current) / 1000) * 10) / 10
         : 0;
 
       stepsCompletedRef.current += 1;
@@ -89,14 +93,36 @@ export function useOnboardingTracking() {
         step_type: config.type,
         time_spent_seconds: timeSpent,
         flow_version: FLOW_VERSION,
+        session_id: sessionIdRef.current,
+        progress_percentage: getProgress(stepIndex),
         answer_key: config.answerKey ?? null,
         answer_value: sanitizeAnswer(config.answerKey, answers),
+      });
+    },
+    [getProgress],
+  );
+
+  const trackStepBack = useCallback(
+    (fromStepIndex: number, toStepIndex: number) => {
+      const fromConfig = SLIDES_V3[fromStepIndex];
+      const toConfig = SLIDES_V3[toStepIndex];
+      backCountRef.current += 1;
+
+      posthog.capture('onboarding_step_back', {
+        from_step_index: fromStepIndex,
+        from_step_id: fromConfig?.id ?? 'unknown',
+        from_step_type: fromConfig?.type ?? 'unknown',
+        to_step_index: toStepIndex,
+        to_step_id: toConfig?.id ?? 'unknown',
+        to_step_type: toConfig?.type ?? 'unknown',
+        steps_completed_so_far: stepsCompletedRef.current,
+        flow_version: FLOW_VERSION,
+        session_id: sessionIdRef.current,
       });
     },
     [],
   );
 
-  // ── Track: Onboarding Completed (enhanced) ──
   const trackCompleted = useCallback((answers: OnboardingAnswers) => {
     isFinishedRef.current = true;
 
@@ -106,6 +132,7 @@ export function useOnboardingTracking() {
 
     posthog.capture('onboarding_completed', {
       flow_version: FLOW_VERSION,
+      session_id: sessionIdRef.current,
       total_time_seconds: totalTime,
       steps_completed: stepsCompletedRef.current,
       back_count: backCountRef.current,
@@ -123,37 +150,52 @@ export function useOnboardingTracking() {
     });
   }, []);
 
-  // ── Track: Back Navigation ──
-  const trackBack = useCallback(() => {
-    backCountRef.current += 1;
+  const trackTrialStarted = useCallback((source: string) => {
+    posthog.capture('onboarding_trial_started', {
+      flow_version: FLOW_VERSION,
+      session_id: sessionIdRef.current,
+      source,
+      last_step_index: lastSlideIndexRef.current,
+      last_step_id: SLIDES_V3[lastSlideIndexRef.current]?.id ?? 'unknown',
+    });
   }, []);
 
-  // ── Track: Abandoned (AppState) ──
+  const trackAbandoned = useCallback((reason: 'background' | 'unmount') => {
+    if (isFinishedRef.current || startTimestampRef.current === 0) return;
+
+    const totalTime = Math.round((Date.now() - startTimestampRef.current) / 1000);
+    const config = SLIDES_V3[lastSlideIndexRef.current];
+
+    posthog.capture('onboarding_abandoned', {
+      last_step_index: lastSlideIndexRef.current,
+      last_step_id: config?.id ?? 'unknown',
+      last_step_type: config?.type ?? 'unknown',
+      time_spent_seconds: totalTime,
+      steps_completed: stepsCompletedRef.current,
+      flow_version: FLOW_VERSION,
+      session_id: sessionIdRef.current,
+      reason,
+    });
+  }, []);
+
   useEffect(() => {
     const handleAppState = (nextState: AppStateStatus) => {
-      if (nextState === 'background' && !isFinishedRef.current && startTimestampRef.current > 0) {
-        const totalTime = Math.round((Date.now() - startTimestampRef.current) / 1000);
-        const config = SLIDES_V3[lastSlideIndexRef.current];
-
-        posthog.capture('onboarding_abandoned', {
-          last_step_index: lastSlideIndexRef.current,
-          last_step_id: config?.id ?? 'unknown',
-          time_spent_seconds: totalTime,
-          steps_completed: stepsCompletedRef.current,
-          flow_version: FLOW_VERSION,
-        });
+      if (nextState === 'background') {
+        trackAbandoned('background');
       }
     };
 
     const subscription = AppState.addEventListener('change', handleAppState);
     return () => subscription.remove();
-  }, []);
+  }, [trackAbandoned]);
 
   return {
     trackStart,
     trackStepViewed,
     trackStepCompleted,
+    trackStepBack,
     trackCompleted,
-    trackBack,
+    trackTrialStarted,
+    trackAbandoned,
   };
 }

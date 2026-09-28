@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { EditRoutineModal } from "@/src/components/EditRoutineModal";
+import { PaywallModal } from "@/src/components/PaywallModal";
 import {
     ReviewRequestModal,
     shouldAskForReview,
@@ -20,6 +21,7 @@ import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useEggStore } from "@/src/store/eggStore";
 import { useProStore } from "@/src/store/proStore";
+import { useRoutineCompleteCounterStore } from "@/src/store/routineCompleteCounterStore";
 import { useRoutineStreakStore } from "@/src/store/routineStreakStore";
 import { useRoutinesRefreshStore } from "@/src/store/routinesRefreshStore";
 import type { Routine } from "@/src/types/routine";
@@ -117,6 +119,13 @@ export default function RoutinesScreen({
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const counterStore = useRoutineCompleteCounterStore();
+
+  // Load routine completion counter
+  useEffect(() => {
+    counterStore.load();
+  }, []);
 
   // Check if selected date is today
   const isToday = useMemo(() => {
@@ -511,6 +520,14 @@ export default function RoutinesScreen({
           onRoutineCompleted();
         }
 
+        // Show paywall after completing 3 routines
+        if (!isPro) {
+          const thresholdReached = await counterStore.increment();
+          if (thresholdReached) {
+            setShowPaywall(true);
+          }
+        }
+
         // Ask for a store review every 5 days of streak (day 5, 10, 15, 20...)
         const appStreak = useAppStreakStore.getState().streak;
         const askReview = await shouldAskForReview(appStreak);
@@ -633,6 +650,16 @@ export default function RoutinesScreen({
         visible={showReviewModal}
         streak={useAppStreakStore.getState().streak}
         onClose={() => setShowReviewModal(false)}
+      />
+
+      {/* Paywall — shown after completing 3 routines */}
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => {
+          setShowPaywall(false);
+          counterStore.reset();
+        }}
+        source="completion_milestone"
       />
     </View>
   );

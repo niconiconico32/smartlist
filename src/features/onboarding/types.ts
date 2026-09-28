@@ -5,6 +5,7 @@
 export type SlideType =
   | 'welcome'
   | 'dialogue'
+  | 'video-intro'
   | 'text-input'
   | 'single-select'
   | 'multi-select'
@@ -15,8 +16,6 @@ export type SlideType =
   | 'growth-potential'
   | 'success-timeline'
   | 'reverse-trial'
-  | 'neuroscience'
-  | 'processing'
   | 'results'
   | 'commitment'
   | 'testimonial'
@@ -54,14 +53,20 @@ export interface StatementData {
   textHighlight: string;
 }
 
+export interface TaskMicrotask {
+  title: string;
+  duration: number;
+}
+
 export interface TaskSuggestion {
   id: string;
   label: string;
   text: string;
+  microtasks: TaskMicrotask[];
 }
 
 /** String reference to a constant array in constants.ts */
-export type OptionsRef = 'RANGOS_EDAD' | 'ADHD_SYMPTOMS' | 'LIFE_AREAS' | 'GOAL_OPTIONS' | 'ADHD_DIAGNOSIS' | 'MAIN_GOAL';
+export type OptionsRef = 'RANGOS_EDAD' | 'USER_SITUATIONS' | 'ADHD_SYMPTOMS' | 'LIFE_AREAS' | 'GOAL_OPTIONS' | 'ADHD_DIAGNOSIS' | 'MAIN_GOAL';
 
 // ============================================
 // SLIDE CONFIGS (discriminated union)
@@ -165,14 +170,6 @@ export interface ReverseTrialSlideConfig extends BaseSlideConfig {
   type: 'reverse-trial';
 }
 
-export interface NeuroscienceSlideConfig extends BaseSlideConfig {
-  type: 'neuroscience';
-}
-
-export interface ProcessingSlideConfig extends BaseSlideConfig {
-  type: 'processing';
-}
-
 export interface ResultsSlideConfig extends BaseSlideConfig {
   type: 'results';
 }
@@ -195,6 +192,10 @@ export interface PremiumBenefitsSlideConfig extends BaseSlideConfig {
 
 export interface TrialReminderSlideConfig extends BaseSlideConfig {
   type: 'trial-reminder';
+}
+
+export interface VideoIntroSlideConfig extends BaseSlideConfig {
+  type: 'video-intro';
 }
 
 export interface PaywallOnboardingSlideConfig extends BaseSlideConfig {
@@ -225,14 +226,13 @@ export type SlideConfig =
   | AllDoneSlideConfig
   | SuccessTimelineSlideConfig
   | ReverseTrialSlideConfig
-  | NeuroscienceSlideConfig
-  | ProcessingSlideConfig
   | ResultsSlideConfig
   | CommitmentSlideConfig
   | TestimonialSlideConfig
   | NotificationsSlideConfig
   | PremiumBenefitsSlideConfig
   | TrialReminderSlideConfig
+  | VideoIntroSlideConfig
   | PaywallOnboardingSlideConfig
   | PlanSelectorSlideConfig
   | PaywallSlideConfig

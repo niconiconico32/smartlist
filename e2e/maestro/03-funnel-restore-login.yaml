@@ -1,0 +1,49 @@
+# Funnel restore E2E — LOGIN (fresh y replay; se reutiliza en ambos).
+# Entrada normal del dev build via Metro (exp://) — NO deep link brainy://claim.
+#
+# Env (inyectadas por el runner, nunca en el repo):
+#   BRAINY_E2E_OPEN_URL   URL del dev build (exp://localhost:8081 con adb reverse)
+#   BRAINY_E2E_EMAIL      email del checkout (el runner la lee de la DB, no la loguea)
+#
+# El flow TERMINA cuando loginOtpInput está visible: a partir de ahí el OPERADOR
+# lee el OTP de su inbox y lo teclea en el app (pausa manual por diseño).
+appId: com.brainyahdh.app
+---
+# 0) Si un diálogo de permiso del sistema estorba, descartarlo.
+- runFlow:
+    file: 00-dismiss-permission.yaml
+
+# 1) Abrir el app normalmente (dev client conectado a Metro).
+- openLink: ${BRAINY_E2E_OPEN_URL}
+
+# 2) Arranque en frío tras pm clear: el bundler puede tardar en servir.
+- extendedWaitUntil:
+    visible:
+      id: loginEmailOpen
+    timeout: 240000
+- assertVisible:
+    id: loginEmailOpen
+
+# 3) Abrir el modal de email (OTP-first).
+- tapOn:
+    id: loginEmailOpen
+- extendedWaitUntil:
+    visible:
+      id: loginEmailInput
+    timeout: 15000
+- tapOn:
+    id: loginEmailInput
+- inputText: ${BRAINY_E2E_EMAIL}
+
+# 4) Enviar el código OTP al inbox.
+- tapOn:
+    id: loginOtpSend
+
+# 5) Esperar el campo de código. AQUÍ SE DETIENE EL FLOW:
+#    el operador introduce manualmente el OTP y pulsa "Verificar y continuar".
+- extendedWaitUntil:
+    visible:
+      id: loginOtpInput
+    timeout: 60000
+- assertVisible:
+    id: loginOtpInput

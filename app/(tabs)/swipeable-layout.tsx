@@ -524,16 +524,6 @@ export default function SwipeableLayout() {
           await scheduleRoutineReminders(newRoutine as any);
         }
 
-        const daysText = routine.days
-          .map((day) => t(DAY_ABBREV_TO_I18N_KEY[day] ?? day))
-          .join(", ");
-        Alert.alert(
-          t("routines_alerts.success_title"),
-          t("routines_alerts.create_success_message", {
-            name: routine.name,
-            days: daysText,
-          }),
-        );
       } else {
         Alert.alert(
           t("routines_alerts.error_title"),

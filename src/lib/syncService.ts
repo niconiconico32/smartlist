@@ -57,6 +57,7 @@ export async function fetchActivitiesFromCloud(): Promise<any[]> {
 /**
  * Saves activities to Async storage immediately for snappy UI,
  * then silently syncs them to Supabase `user_state`.
+ * Use this for explicit, immediate syncs (e.g. clearAll, initial push).
  */
 export async function syncActivitiesToCloud(activities: any[]): Promise<void> {
   try {
@@ -82,4 +83,54 @@ export async function syncActivitiesToCloud(activities: any[]): Promise<void> {
   } catch (error) {
     console.error('syncActivitiesToCloud Error:', error);
   }
+}
+
+// ─── Debounced cloud sync (for high-frequency saves) ─────────────────────────
+
+let _syncTimer: ReturnType<typeof setTimeout> | null = null;
+let _pendingActivities: any[] | null = null;
+
+async function _flushSync() {
+  if (!_pendingActivities) return;
+  const activities = _pendingActivities;
+  _pendingActivities = null;
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+
+    if (user) {
+      const { error } = await supabase
+        .from('user_state')
+        .upsert(
+          { user_id: user.id, activities },
+          { onConflict: 'user_id' },
+        );
+      if (error) {
+        console.error('Error syncing activities TO cloud:', error.message);
+      }
+    }
+  } catch (error) {
+    console.error('debouncedSyncToCloud flush error:', error);
+  }
+}
+
+/**
+ * Saves activities to AsyncStorage immediately, then debounces the
+ * Supabase upload by 3 seconds. Ideal for high-frequency state updates
+ * (e.g. toggling tasks in a useEffect).
+ */
+export function debouncedSyncToCloud(activities: any[]): void {
+  // Local save is immediate — never debounce this
+  AsyncStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities)).catch(
+    () => {},
+  );
+
+  // Debounce the cloud upload
+  _pendingActivities = activities;
+  if (_syncTimer) clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null;
+    _flushSync();
+  }, 3000);
 }

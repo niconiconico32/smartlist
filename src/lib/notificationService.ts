@@ -126,11 +126,6 @@ export async function scheduleRoutineReminders(
     // Parsear la hora del recordatorio
     const [hours, minutes] = routine.reminderTime.split(":").map(Number);
 
-    // Obtener un mensaje aleatorio
-    const messages = getRoutineNotificationMessages();
-    const randomMessage =
-      messages[Math.floor(Math.random() * messages.length)];
-
     // Programar una notificación para cada día seleccionado
     for (const day of routine.days) {
       const weekday = DAY_TO_WEEKDAY[day];
@@ -142,6 +137,11 @@ export async function scheduleRoutineReminders(
 
       const notificationId = getNotificationId(routine.id, day);
 
+      // Mensaje aleatorio independiente por día
+      const messages = getRoutineNotificationMessages();
+      const randomMessage =
+        messages[Math.floor(Math.random() * messages.length)];
+
       await Notifications.scheduleNotificationAsync({
         identifier: notificationId,
         content: {
@@ -151,7 +151,7 @@ export async function scheduleRoutineReminders(
             routineId: routine.id,
             type: "routine_reminder",
           },
-          sound: "default",
+          sound: undefined,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
         trigger: {
@@ -325,7 +325,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
               taskId: task.id,
               type: "task_reminder",
             },
-            sound: "default",
+            sound: undefined,
             priority: Notifications.AndroidNotificationPriority.HIGH,
           },
           trigger: {
@@ -366,7 +366,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
             taskId: task.id,
             type: "task_reminder",
           },
-          sound: "default",
+          sound: undefined,
           priority: Notifications.AndroidNotificationPriority.HIGH,
         },
         trigger: {
@@ -422,7 +422,7 @@ export async function scheduleTaskReminders(task: Task): Promise<void> {
               taskId: task.id,
               type: "task_reminder",
             },
-            sound: "default",
+            sound: undefined,
             priority: Notifications.AndroidNotificationPriority.HIGH,
           },
           trigger: {

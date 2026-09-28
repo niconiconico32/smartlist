@@ -9,5 +9,6 @@ module.exports = ({ config }) => ({
     ...(config.plugins || []),
     "expo-localization",
     "@react-native-community/datetimepicker",
+    "expo-video",
   ],
 });

@@ -1,28 +1,28 @@
 import { colors } from "@/constants/theme";
-import { AppText as Text } from "@/src/components/AppText";
-import { EGG_METADATA, EggId, useEggStore } from "@/src/store/eggStore";
-import { Check } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { EGG_METADATA, EggId } from "@/src/store/eggStore";
+import { hapticLight, hapticSuccess } from "@/utils/haptics";
+import { playSuccessChime } from "@/utils/sounds";
+import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { slideStyles } from "../../styles/shared";
+import ChevronLeftIcon from "../ChevronLeftIcon";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
-// PRESET COMMON EGGS (IDs y assets de ejemplo)
+// DISPLAY NAMES (solo visuales — no tocan EGG_METADATA/database)
 // ============================================
-interface EggOption {
-  id: EggId;
-  name: string;
-  image: any;
-}
+const DISPLAY_NAMES: Record<number, string> = {
+  1: "Mochi",
+  2: "Pip",
+  3: "Bao",
+  4: "Miso",
+  5: "Nimo",
+  6: "Dot",
+  7: "Kobo",
+  8: "Yumi",
+};
 
 // ============================================
 // COMPONENT
@@ -31,30 +31,40 @@ interface Props {
   onNext: (eggId: EggId) => void;
 }
 
+const SCREEN_WIDTH = Dimensions.get("window").width;
+
 export default function EggPickerSlide({ onNext }: Props) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<EggId | null>(null);
-  const [saving, setSaving] = useState(false);
-  const storeEggs = useEggStore((s) => s.eggs);
-  const availableEggs: EggOption[] = useMemo(() => {
-    const availableIds = new Set(
-      storeEggs
-        .filter((egg) => egg.unlocked && egg.routineId === null)
-        .map((egg) => egg.id),
-    );
+  const [index, setIndex] = React.useState(0);
+  const [saving, setSaving] = React.useState(false);
 
-    return EGG_METADATA.filter(
-      (egg) => egg.rarity === "common" && availableIds.has(egg.id),
-    ).map((egg) => ({ id: egg.id, name: egg.name, image: egg.image }));
-  }, [storeEggs]);
+  const availableEggs = useMemo(
+    () => EGG_METADATA.filter((egg) => egg.rarity === "common"),
+    [],
+  );
+
+  const current = availableEggs[index];
+  if (!current) return null;
+  const currentName = DISPLAY_NAMES[current.id] ?? current.name;
+
+  const goPrev = () => {
+    hapticLight();
+    setIndex((prev) => Math.max(0, prev - 1));
+  };
+  const goNext = () => {
+    hapticLight();
+    setIndex((next) => Math.min(availableEggs.length - 1, next + 1));
+  };
 
   const handleContinue = () => {
-    if (selected == null) return;
+    if (!current) return;
     setSaving(true);
+    hapticSuccess();
+    playSuccessChime();
     setTimeout(() => {
       setSaving(false);
-      onNext(selected);
-    }, 400); // Simula acción async
+      onNext(current.id);
+    }, 400);
   };
 
   return (
@@ -68,6 +78,7 @@ export default function EggPickerSlide({ onNext }: Props) {
           entering={FadeInDown.delay(100).duration(500)}
           style={[
             slideStyles.slideTitle,
+            slideStyles.questionTitle,
             { marginBottom: 8, color: colors.background },
           ]}
         >
@@ -88,32 +99,58 @@ export default function EggPickerSlide({ onNext }: Props) {
           })}
         </Animated.Text>
 
-        {/* Pills grid */}
+        {/* Swipeable egg picker */}
         <Animated.View
           entering={FadeInDown.delay(300).duration(500)}
-          style={s.pillsContainer}
+          style={s.pickerArea}
         >
-          {availableEggs.map((egg) => {
-            const isSelected = selected === egg.id;
-            return (
-              <Pressable
-                key={egg.id}
-                onPress={() => setSelected(egg.id)}
-                style={[s.pill, isSelected && s.pillSelected]}
-              >
-                {isSelected && (
-                  <View style={s.checkCircle}>
-                    <Check size={11} color="#fff" strokeWidth={3} />
-                  </View>
-                )}
-                <Image source={egg.image} style={s.eggImage} />
-                <Text style={[s.pillLabel, isSelected && s.pillLabelSelected]}>
-                  {egg.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {/* Left arrow */}
+          <Pressable
+            onPress={goPrev}
+            disabled={index === 0}
+            style={({ pressed }) => [
+              s.arrowBtn,
+              (pressed || index === 0) && s.arrowBtnDisabled,
+            ]}
+          >
+            <ChevronLeftIcon color={colors.primaryContent} size={32} />
+          </Pressable>
+
+          {/* Egg display */}
+          <View style={s.eggPage}>
+            <View style={s.eggContainer}>
+              <Image
+                source={current.image}
+                style={s.eggImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={s.eggName}>{currentName}</Text>
+          </View>
+
+          {/* Right arrow */}
+          <Pressable
+            onPress={goNext}
+            disabled={index === availableEggs.length - 1}
+            style={({ pressed }) => [
+              s.arrowBtn,
+              (pressed || index === availableEggs.length - 1) &&
+                s.arrowBtnDisabled,
+            ]}
+          >
+            <View style={s.flip}>
+              <ChevronLeftIcon color={colors.primaryContent} size={32} />
+            </View>
+          </Pressable>
         </Animated.View>
+
+        {/* Counter */}
+        <Animated.Text
+          entering={FadeInDown.delay(400).duration(500)}
+          style={s.counter}
+        >
+          {index + 1} / {availableEggs.length}
+        </Animated.Text>
       </ScrollView>
 
       {/* Footer */}
@@ -121,23 +158,14 @@ export default function EggPickerSlide({ onNext }: Props) {
         entering={FadeInDown.delay(600).duration(500)}
         style={s.footer}
       >
-        <Pressable
+        <PixelCTAButton
+          label={t("index_tab.onboarding.egg_picker.add_egg", {
+            defaultValue: "Add egg",
+          })}
           onPress={handleContinue}
-          style={[s.button, (!selected || saving) && s.buttonDisabled]}
-          disabled={!selected || saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.background} />
-          ) : (
-            <Text style={s.buttonText}>
-              {selected
-                ? t("index_tab.onboarding.egg_picker.add_egg", {
-                    defaultValue: "Add egg",
-                  })
-                : t("onboarding.continue", { defaultValue: "Continue" })}
-            </Text>
-          )}
-        </Pressable>
+          disabled={saving}
+          loading={saving}
+        />
       </Animated.View>
     </View>
   );
@@ -146,6 +174,7 @@ export default function EggPickerSlide({ onNext }: Props) {
 // ============================================
 // STYLES
 // ============================================
+
 const s = StyleSheet.create({
   container: {
     flex: 1,
@@ -158,76 +187,59 @@ const s = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 20,
   },
-  pillsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  pill: {
+  pickerArea: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 100,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
-  pillSelected: {
-    borderColor: colors.surface,
-    backgroundColor: `${colors.surface}10`,
+  arrowBtn: {
+    width: 44,
+    height: 180,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.surface,
+  arrowBtnDisabled: {
+    opacity: 0.3,
+  },
+  eggsScrollContent: {
+    alignItems: "center",
+  },
+  eggPage: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eggContainer: {
+    width: "100%",
+    height: 180,
     alignItems: "center",
     justifyContent: "center",
   },
   eggImage: {
-    width: 28,
-    height: 28,
+    width: 140,
+    height: 160,
     resizeMode: "contain",
   },
-  pillLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
+  eggName: {
+    marginTop: 16,
+    fontFamily: "Jersey10",
+    fontSize: 28,
+    color: colors.background,
+    textAlign: "center",
   },
-  pillLabelSelected: {
-    color: colors.surface,
-    fontWeight: "700",
+  flip: {
+    transform: [{ scaleX: -1 }],
+  },
+  counter: {
+    marginTop: 24,
+    textAlign: "center",
+    fontFamily: "Jersey10",
+    fontSize: 22,
+    color: colors.textTertiary,
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
     gap: 12,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: colors.surface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
   },
 });

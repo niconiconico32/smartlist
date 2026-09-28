@@ -1,0 +1,25 @@
+# Funnel restore E2E — REPLAY VERIFY (2º login con OTP nuevo sobre el MISMO plan).
+# El runner hace pm clear (borra la sesión local) y el operador vuelve a entrar
+# con login OTP (flow 03). El plan ya está claimed/owner -> restore -> discovery
+# alreadyRestored -> HOME directo SIN overlay. Los no-duplicados se verifican en
+# backend por el runner (snapshot S2 vs S1).
+#
+# NOTA: este flow se ejecuta DESPUÉS de volver a correr 03 (login + send OTP) y
+# de que el operador haya tecleado el nuevo OTP y pulsado verificar.
+appId: com.brainyahdh.app
+---
+# 0) Si un diálogo de permiso del sistema estorba, descartarlo.
+- runFlow:
+    file: 00-dismiss-permission.yaml
+
+# 1) El restore debe saltar el overlay y aterrizar en HOME.
+- extendedWaitUntil:
+    visible:
+      text: "Tareas"
+    timeout: 300000
+- assertVisible:
+    text: "Tareas"
+- assertNotVisible:
+    id: restoreReadyTitle
+- assertNotVisible:
+    id: restoreReadyCta

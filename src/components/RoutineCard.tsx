@@ -32,6 +32,7 @@ import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   Easing,
   FadeIn,
   Layout,
@@ -159,6 +160,9 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
       -1,
       false,
     );
+    return () => {
+      cancelAnimation(eggBounce);
+    };
   }, []);
 
   // Actualizar barra de progreso con animación suave

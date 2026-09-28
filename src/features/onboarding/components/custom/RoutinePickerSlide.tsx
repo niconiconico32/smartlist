@@ -3,18 +3,13 @@ import { AppText as Text } from "@/src/components/AppText";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { createRoutine } from "@/src/lib/routineService";
 import * as Haptics from "expo-haptics";
-import { Check } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
-} from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
+import PixelOptionButton from "../PixelOptionButton";
 
 // ============================================
 // PRESET ROUTINES
@@ -24,6 +19,7 @@ interface PresetRoutine {
   emoji: string;
   label: string;
   icon: string;
+  image: number;
   tasks: string[];
 }
 
@@ -33,6 +29,7 @@ const PRESET_ROUTINES: PresetRoutine[] = [
     emoji: "🐕",
     label: "onboarding.routine_picker.presets.walk_dog.label",
     icon: "Heart",
+    image: require("@/assets/routineIcons/dogRoutine.png"),
     tasks: [
       "onboarding.routine_picker.presets.walk_dog.tasks.1",
       "onboarding.routine_picker.presets.walk_dog.tasks.2",
@@ -44,6 +41,7 @@ const PRESET_ROUTINES: PresetRoutine[] = [
     emoji: "💧",
     label: "onboarding.routine_picker.presets.drink_water.label",
     icon: "Activity",
+    image: require("@/assets/routineIcons/waterRoutine.png"),
     tasks: [
       "onboarding.routine_picker.presets.drink_water.tasks.1",
       "onboarding.routine_picker.presets.drink_water.tasks.2",
@@ -56,6 +54,7 @@ const PRESET_ROUTINES: PresetRoutine[] = [
     emoji: "🐱",
     label: "onboarding.routine_picker.presets.feed_cat.label",
     icon: "Home",
+    image: require("@/assets/routineIcons/catRoutine.png"),
     tasks: [
       "onboarding.routine_picker.presets.feed_cat.tasks.1",
       "onboarding.routine_picker.presets.feed_cat.tasks.2",
@@ -67,6 +66,7 @@ const PRESET_ROUTINES: PresetRoutine[] = [
     emoji: "☀️",
     label: "onboarding.routine_picker.presets.morning_routine.label",
     icon: "Sun",
+    image: require("@/assets/routineIcons/morningRoutine.png"),
     tasks: [
       "onboarding.routine_picker.presets.morning_routine.tasks.1",
       "onboarding.routine_picker.presets.morning_routine.tasks.2",
@@ -78,6 +78,7 @@ const PRESET_ROUTINES: PresetRoutine[] = [
     emoji: "🌙",
     label: "onboarding.routine_picker.presets.wind_down.label",
     icon: "Moon",
+    image: require("@/assets/routineIcons/nightroutine.png"),
     tasks: [
       "onboarding.routine_picker.presets.wind_down.tasks.1",
       "onboarding.routine_picker.presets.wind_down.tasks.2",
@@ -169,6 +170,7 @@ export default function RoutinePickerSlide({
           entering={FadeInDown.delay(100).duration(500)}
           style={[
             slideStyles.slideTitle,
+            slideStyles.questionTitle,
             { marginBottom: 8, color: colors.background },
           ]}
         >
@@ -193,21 +195,19 @@ export default function RoutinePickerSlide({
           {PRESET_ROUTINES.map((routine) => {
             const isSelected = selected === routine.id;
             return (
-              <Pressable
+              <PixelOptionButton
                 key={routine.id}
+                label={t(routine.label)}
+                selected={isSelected}
+                icon={
+                  <Image
+                    source={routine.image}
+                    style={s.routineIcon}
+                    resizeMode="contain"
+                  />
+                }
                 onPress={() => toggleRoutine(routine.id)}
-                style={[s.pill, isSelected && s.pillSelected]}
-              >
-                {isSelected && (
-                  <View style={s.checkCircle}>
-                    <Check size={11} color="#fff" strokeWidth={3} />
-                  </View>
-                )}
-                <Text style={[s.pillEmoji]}>{routine.emoji}</Text>
-                <Text style={[s.pillLabel, isSelected && s.pillLabelSelected]}>
-                  {t(routine.label)}
-                </Text>
-              </Pressable>
+              />
             );
           })}
         </Animated.View>
@@ -218,24 +218,16 @@ export default function RoutinePickerSlide({
         entering={FadeInDown.delay(600).duration(500)}
         style={s.footer}
       >
-        <Pressable
+        <PixelCTAButton
+          label={
+            selected
+              ? t("onboarding.routine_picker.add_1_routine")
+              : t("onboarding.continue")
+          }
           onPress={handleContinue}
-          style={[
-            s.button,
-            (saving || (requireSelection && !selected)) && s.buttonDisabled,
-          ]}
-          disabled={saving || (requireSelection && !selected)}
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.background} />
-          ) : (
-            <Text style={s.buttonText}>
-              {selected
-                ? t("onboarding.routine_picker.add_1_routine")
-                : t("onboarding.continue")}
-            </Text>
-          )}
-        </Pressable>
+          disabled={requireSelection && !selected}
+          loading={saving}
+        />
       </Animated.View>
     </View>
   );
@@ -257,74 +249,20 @@ const s = StyleSheet.create({
     paddingBottom: 20,
   },
   pillsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
     gap: 12,
   },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 100,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  pillSelected: {
-    borderColor: colors.surface,
-    backgroundColor: `${colors.surface}10`,
-  },
-  checkCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pillEmoji: {
-    fontSize: 18,
-  },
-  pillLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-  },
-  pillLabelSelected: {
-    color: colors.surface,
-    fontWeight: "700",
+  routineIcon: {
+    width: 28,
+    height: 28,
   },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
     gap: 12,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: colors.surface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
   },
   skipButton: {
     alignItems: "center",

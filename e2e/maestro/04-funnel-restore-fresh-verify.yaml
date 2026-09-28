@@ -1,0 +1,44 @@
+# Funnel restore E2E — VERIFY del arranque FRESCO.
+# Tras el login OTP, el app corre restore -> RC login -> redeem -> finalize y
+# muestra el overlay "Tu Brainy está listo" con los counts REALES materializados.
+#
+# Env (inyectadas por el runner):
+#   BRAINY_EXP_TASKS / BRAINY_EXP_ROUTINES / BRAINY_EXP_EGGS   counts esperados
+#   BRAINY_LBL_TASKS / BRAINY_LBL_ROUTINES / BRAINY_LBL_EGGS   labels (es-US)
+appId: com.brainyahdh.app
+---
+# 0) Si un diálogo de permiso del sistema estorba, descartarlo.
+- runFlow:
+    file: 00-dismiss-permission.yaml
+
+# 1) Esperar el overlay de confirmación (restore ya corrió tras el OTP).
+- extendedWaitUntil:
+    visible:
+      id: restoreReadyTitle
+    timeout: 300000
+- assertVisible:
+    id: restoreReadyTitle
+
+# 2) Los counts visibles son los del summary REAL de finalize. El testID del
+#    valor embebe la label localizada (device es-US -> tareas/rutinas/compañeros).
+- assertVisible:
+    id: restoreReadyCount_${BRAINY_LBL_TASKS}
+    text: "${BRAINY_EXP_TASKS}"
+- assertVisible:
+    id: restoreReadyCount_${BRAINY_LBL_ROUTINES}
+    text: "${BRAINY_EXP_ROUTINES}"
+- assertVisible:
+    id: restoreReadyCount_${BRAINY_LBL_EGGS}
+    text: "${BRAINY_EXP_EGGS}"
+
+# 3) CTA "Empezar" -> HOME.
+- tapOn:
+    id: restoreReadyCta
+
+# 4) HOME: tab "Tareas" visible y overlay fuera.
+- extendedWaitUntil:
+    visible:
+      text: "Tareas"
+    timeout: 30000
+- assertNotVisible:
+    id: restoreReadyTitle

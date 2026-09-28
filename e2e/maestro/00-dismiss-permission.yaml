@@ -1,0 +1,14 @@
+# Descarta los diálogos de permiso del sistema si están presentes
+# (p. ej. "¿Permitir que Brainy te envíe notificaciones?"). No-op si no aparecen.
+appId: com.brainyahdh.app
+---
+- runFlow:
+    when:
+      visible: "Permitir"
+    commands:
+      - tapOn: "Permitir"
+- runFlow:
+    when:
+      visible: "Permitir a Brainy"
+    commands:
+      - tapOn: "Permitir a Brainy"

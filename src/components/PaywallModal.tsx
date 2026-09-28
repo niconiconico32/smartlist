@@ -4,6 +4,7 @@ import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 
+import { Alert } from "react-native";
 import { useProStore } from "@/src/store/proStore";
 import {
     configurePurchases,
@@ -11,6 +12,7 @@ import {
     getCustomerInfo,
     getOffering,
     isPremiumActive,
+    OFFERING_ID,
 } from "@/src/utils/purchases";
 
 const isExpoGo = Constants.appOwnership === "expo";
@@ -54,6 +56,19 @@ export function PaywallModal({
 
         console.log("[PaywallModal] Fetching offerings...");
         const offering = await getOffering(offeringId);
+
+        if (!offering || offering.availablePackages.length === 0) {
+          console.warn(
+            "[PaywallModal] No available packages for this platform. Aborting.",
+          );
+          Alert.alert(
+            "Not Available",
+            "Subscriptions are not available right now. Please try again later.",
+            [{ text: "OK" }],
+          );
+          return;
+        }
+
         console.log(
           "[PaywallModal] Offering fetched:",
           offering ? offering.identifier : "null",
@@ -99,7 +114,14 @@ export function PaywallModal({
         ) {
           const info = await getCustomerInfo();
           if (isPremiumActive(info)) {
-            await useProStore.getState().activatePermanentPro();
+            // El welcome bonus de 10,000 coronas SOLO se otorga desde el
+            // paywall principal (offering default). Los paywalls de onboarding
+            // u otros offerings no lo activan.
+            const resolvedOfferingId = offeringId ?? OFFERING_ID;
+            const isMainPaywall = resolvedOfferingId === OFFERING_ID;
+            await useProStore
+              .getState()
+              .activatePermanentPro({ awardWelcomeBonus: isMainPaywall });
             await Haptics.notificationAsync(
               Haptics.NotificationFeedbackType.Success,
             );

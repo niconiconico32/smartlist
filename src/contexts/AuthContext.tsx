@@ -34,6 +34,8 @@ interface AuthContextType {
   signInAnonymously: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
+  sendOtp: (email: string) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -49,6 +51,8 @@ const AuthContext = createContext<AuthContextType>({
   signInAnonymously: async () => {},
   signInWithEmail: async () => {},
   signUpWithEmail: async () => {},
+  sendOtp: async () => {},
+  verifyOtp: async () => {},
   signOut: async () => {},
 });
 
@@ -108,15 +112,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user && !session.user.is_anonymous) {
           const provider =
             (session.user.app_metadata?.provider as string | undefined) ?? null;
-          const email = session.user.email ?? null;
-
           // Note: RevenueCat identity sync is handled by PurchasesContext
           // to avoid duplicate loginUser() calls.
 
           // Identify authenticated user in PostHog
           posthog.identify(session.user.id, {
             $set: {
-              email,
               provider,
             },
             $set_once: {
@@ -375,6 +376,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── OTP (passwordless email — funnel login) ────────────────────────────────
+
+  const sendOtp = async (email: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          // Deep link back into the app when the user taps the emailed link.
+          emailRedirectTo: Linking.createURL("/(tabs)"),
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("❌ OTP send error:", error.message);
+      throw new Error(error?.message || i18n.t("auth.otp_send_error"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const verifyOtp = async (email: string, token: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "email",
+      });
+      if (error) throw error;
+      if (!data.session) throw new Error(i18n.t("auth.otp_invalid"));
+    } catch (error: any) {
+      console.error("❌ OTP verify error:", error.message);
+      throw new Error(error?.message || i18n.t("auth.otp_invalid"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ── Sign Out ──────────────────────────────────────────────────────────────
 
   const signOut = async (): Promise<void> => {
@@ -405,6 +445,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInAnonymously,
         signInWithEmail,
         signUpWithEmail,
+        sendOtp,
+        verifyOtp,
         signOut,
       }}
     >

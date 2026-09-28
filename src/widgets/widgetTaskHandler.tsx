@@ -223,6 +223,18 @@ async function syncToggleInBackground(
         console.warn("Widget: could not capture routine_completed", e);
       }
 
+      // Increment routine completion counter (for paywall trigger)
+      if (!isPro) {
+        try {
+          const { useRoutineCompleteCounterStore } = await import(
+            "../store/routineCompleteCounterStore"
+          );
+          await useRoutineCompleteCounterStore.getState().increment();
+        } catch (e) {
+          console.warn("Widget: could not increment counter", e);
+        }
+      }
+
       // Re-render once coins are known
       const freshRoutine =
         updatedRoutines.length > 0 ? updatedRoutines[routineIdx] : null;

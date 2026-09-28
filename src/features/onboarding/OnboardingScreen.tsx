@@ -1,25 +1,14 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, View } from "react-native";
-import Animated, {
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-} from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import OnboardingCTAButton from "./components/OnboardingCTAButton";
 import SlideRenderer from "./components/SlideRenderer";
 import { SLIDES, TOTAL_SLIDES } from "./slides";
 import { INITIAL_ANSWERS, OnboardingAnswers } from "./types";
@@ -31,7 +20,6 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
-  const buttonScale = useSharedValue(1);
 
   const config = SLIDES[currentSlide];
 
@@ -65,19 +53,6 @@ export default function OnboardingScreen() {
     },
     [],
   );
-
-  // ── Button animation ──
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
 
   // ── Can continue? ──
   const canContinue = config.canContinue ? config.canContinue(answers) : true;
@@ -142,26 +117,11 @@ export default function OnboardingScreen() {
       {/* Bottom nav button (only for slides that opt-in via showNavButton) */}
       {config.showNavButton && (
         <View style={s.navigationContainer}>
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={goToNextSlide}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              disabled={!canContinue}
-              style={[primaryButtonStyles, !canContinue && { opacity: 0.5 }]}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>
-                  {t(config.buttonText ?? "onboarding.continue")}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <OnboardingCTAButton
+            title={t(config.buttonText ?? "onboarding.continue")}
+            onPress={goToNextSlide}
+            disabled={!canContinue}
+          />
         </View>
       )}
     </SafeAreaView>

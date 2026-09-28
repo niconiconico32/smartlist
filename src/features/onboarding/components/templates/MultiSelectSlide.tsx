@@ -1,12 +1,11 @@
-import { colors } from "@/constants/theme";
-import * as Haptics from "expo-haptics";
-import { Check, Plus } from "lucide-react-native";
+import { hapticLight } from "@/utils/haptics";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, View } from "react-native";
-import { AppText as Text } from "@/src/components/AppText";
+import { Image, ScrollView } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { LIGHT_BACKGROUND, LIGHT_SUBTITLE, LIGHT_TITLE } from "../../constants";
 import { layoutStyles, slideStyles } from "../../styles/shared";
+import PixelOptionButton from "../PixelOptionButton";
 import {
   MultiSelectSlideConfig,
   OnboardingAnswers,
@@ -31,9 +30,10 @@ const MultiSelectSlide: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const selected = (answers[config.answerKey!] as string[]) ?? [];
+  const isLight = config.backgroundColor === LIGHT_BACKGROUND;
 
   const toggleItem = (id: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    hapticLight();
     const key = config.answerKey! as "adhdSymptoms" | "goals";
     if (selected.includes(id)) {
       onAnswer(
@@ -51,10 +51,17 @@ const MultiSelectSlide: React.FC<Props> = ({
       contentContainerStyle={layoutStyles.slideScrollContent}
       showsVerticalScrollIndicator={false}
     >
+      <Animated.Image
+        entering={FadeInDown.delay(50).duration(500)}
+        source={require("@/assets/images/logomain.png")}
+        style={slideStyles.questionLogo}
+        resizeMode="contain"
+      />
+
       {config.subtitle && (
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
-          style={slideStyles.slideSubtitle}
+          style={[slideStyles.slideSubtitle, isLight && { color: LIGHT_SUBTITLE }]}
         >
           {t(config.subtitle)}
         </Animated.Text>
@@ -62,7 +69,11 @@ const MultiSelectSlide: React.FC<Props> = ({
 
       <Animated.Text
         entering={FadeInDown.delay(200).duration(500)}
-        style={slideStyles.slideTitle}
+        style={[
+          slideStyles.slideTitle,
+          slideStyles.questionTitle,
+          isLight && { color: LIGHT_TITLE },
+        ]}
       >
         {t(config.title)}
       </Animated.Text>
@@ -87,57 +98,11 @@ const MultiSelectSlide: React.FC<Props> = ({
               entering={FadeInDown.delay(400 + index * 50).duration(400)}
               style={{ width: "100%" }}
             >
-              <Pressable
+              <PixelOptionButton
+                label={t(option.label)}
+                selected={isSelected}
                 onPress={() => toggleItem(option.id)}
-                style={({ pressed }) => [
-                  slideStyles.pill,
-                  {
-                    width: "100%",
-                    minHeight: 64,
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    backgroundColor: isSelected ? colors.surface : "#f2f2f2",
-                    borderWidth: 2,
-                    borderColor: isSelected ? colors.primary : "transparent",
-                    borderRadius: 16,
-                    paddingHorizontal: 20,
-                  },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text
-                  style={[
-                    slideStyles.pillLabel,
-                    {
-                      fontSize: 16,
-                      fontWeight: "600",
-                      color: isSelected ? "#f2f2f2" : "black",
-                    },
-                  ]}
-                >
-                  {t(option.label)}
-                </Text>
-                {isSelected ? (
-                  <View
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
-                      backgroundColor: colors.primary,
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
-                  >
-                    <Check
-                      size={16}
-                      color={colors.background}
-                      strokeWidth={3}
-                    />
-                  </View>
-                ) : (
-                  <View style={{ width: 24, height: 24 }} /> // Placeholder for alignment
-                )}
-              </Pressable>
+              />
             </Animated.View>
           );
         })}

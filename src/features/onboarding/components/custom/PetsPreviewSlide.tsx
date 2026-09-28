@@ -1,18 +1,12 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { EGG_METADATA } from "@/src/store/eggStore";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import PixelCTAButton from "../PixelCTAButton";
 
 interface Props {
   onNext: () => void;
@@ -79,13 +73,12 @@ export default function PetsPreviewSlide({ onNext }: Props) {
           style={s.grid}
         >
           {pets.map((pet) => (
-            <View key={pet.id} style={s.petCard}>
-              <Image
-                source={pet.petImage}
-                style={s.petImage}
-                resizeMode="contain"
-              />
-            </View>
+            <Image
+              key={pet.id}
+              source={pet.petImage}
+              style={s.petImage}
+              resizeMode="contain"
+            />
           ))}
         </Animated.View>
 
@@ -98,16 +91,10 @@ export default function PetsPreviewSlide({ onNext }: Props) {
       </ScrollView>
 
       <View style={s.buttonContainer}>
-        <Pressable onPress={handleContinue} style={primaryButtonStyles}>
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
-          </LinearGradient>
-        </Pressable>
+        <PixelCTAButton
+          label={t("onboarding.continue")}
+          onPress={handleContinue}
+        />
       </View>
     </View>
   );
@@ -156,18 +143,9 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     rowGap: 12,
   },
-  petCard: {
+  petImage: {
     width: "33%",
     aspectRatio: 1,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(148, 163, 184, 0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  petImage: {
-    width: "78%",
-    height: "78%",
   },
   buttonContainer: {
     paddingHorizontal: 24,

@@ -12,7 +12,7 @@ export const PRIMARY_GRADIENT_COLORS = ['#ECF230', '#F2E852'] as const;
 export const primaryButtonStyles = {
   borderRadius: 32,
   overflow: 'hidden' as const,
-  shadowColor: colors.primary,
+  shadowColor: colors.PROB,
   shadowOffset: { width: 0, height: 6 },
   shadowOpacity: 0.25,
   shadowRadius: 12,

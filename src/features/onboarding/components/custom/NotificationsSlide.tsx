@@ -1,14 +1,7 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { requestNotificationPermissions } from "@/src/lib/notificationService";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Image, Pressable, StyleSheet, View } from "react-native";
@@ -21,6 +14,8 @@ import Animated, {
     withSequence,
     withTiming,
 } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // NOTIFICATIONS SLIDE
@@ -101,7 +96,7 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
 
         <Animated.Text
           entering={FadeInDown.delay(200).duration(400)}
-          style={s.title}
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
         >
           {t("onboarding.notifications.title")}
         </Animated.Text>
@@ -128,18 +123,10 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
       <View style={s.buttonContainer}>
         {!granted ? (
           <>
-            <Pressable onPress={requestPermission} style={primaryButtonStyles}>
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>
-                  {t("onboarding.notifications.activate_cta")}
-                </Text>
-              </LinearGradient>
-            </Pressable>
+            <PixelCTAButton
+              label={t("onboarding.notifications.activate_cta")}
+              onPress={requestPermission}
+            />
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -153,22 +140,13 @@ const NotificationsSlide: React.FC<Props> = ({ onNext }) => {
             </Pressable>
           </>
         ) : (
-          <Pressable
+          <PixelCTAButton
+            label={t("onboarding.continue")}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onNext();
             }}
-            style={primaryButtonStyles}
-          >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={primaryButtonGradient}
-            >
-              <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
-            </LinearGradient>
-          </Pressable>
+          />
         )}
       </View>
     </View>
@@ -206,12 +184,10 @@ const s = StyleSheet.create({
     fontSize: 32,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
     marginBottom: 12,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,

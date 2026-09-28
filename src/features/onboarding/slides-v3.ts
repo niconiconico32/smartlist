@@ -1,4 +1,5 @@
 import { colors } from '@/constants/theme';
+import { LIGHT_BACKGROUND } from './constants';
 import type { SlideConfig } from './types';
 
 /**
@@ -7,28 +8,27 @@ import type { SlideConfig } from './types';
  * Slide order:
  *  0  welcome
  *  1  dialogue
- *  2  name (text-input)
- *  3  age (single-select)
+ *  2  situation (single-select)
+ *  3  diagnosis (single-select)
  *  4  adhd-symptoms (multi-select)
  *  5  life-area (single-select)
- *  6  habit-days (custom animation)
- *  7  goals (multi-select goals)
+ *  6  main-goal (multi-select)
+ *  7  dialogue-2
  *  8  statement1 (agreement)
  *  9  statement2 (agreement)
  * 10  statement3 (agreement)
- * 11  task-demo
- * 12  growth-potential (custom)
- * 13  success-timeline (custom)
- * 14  neuroscience (custom)
- * 15  processing (animated analysis)
- * 16  results (bar chart profile)
- * 17  commitment (checkboxes)
- * 18  testimonial (social proof)
- * 19  notifications (permission request)
- * 20  premium-benefits (feature list)
- * 21  paywall (trial CTA)
- * 22  trial reminder
- * 23  commitment
+ * 11  statement4 (agreement)
+ * 12  dialogue-3
+ * 13  task-demo
+ * 14  dialogue-4
+ * 15  results
+ * 16  success-chart
+ * 17  routine-egg-flow
+ * 18  paywall
+ * 19  trial-reminder
+ * 20  paywall-onboarding
+ * 21  commitment
+ * 22  all-done
  */
 export const SLIDES_V3: SlideConfig[] = [
   // === 0: Welcome ===
@@ -53,17 +53,17 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: '#f2f2f2',
   },
 
-  // === 2: Name ===
+  // === 2: User Situation ===
   {
-    type: 'text-input',
-    id: 'name',
-    answerKey: 'userName',
+    type: 'single-select',
+    id: 'situation',
+    answerKey: 'ageRange',
     showNavButton: true,
-    title: 'onboarding.v3.name_title',
-    subtitle: 'onboarding.v3.name_subtitle',
-    placeholder: 'onboarding.name_placeholder',
-    showLogo: false,
-    canContinue: (answers) => !!answers.userName.trim(),
+    title: 'onboarding.v3.situation_title',
+    subtitle: 'onboarding.v3.situation_subtitle',
+    options: 'USER_SITUATIONS',
+    backgroundColor: LIGHT_BACKGROUND,
+    canContinue: (answers) => !!answers.ageRange,
     buttonText: 'onboarding.continue',
   },
 
@@ -76,20 +76,8 @@ export const SLIDES_V3: SlideConfig[] = [
     title: 'onboarding.v3.diagnosis_title',
     subtitle: 'onboarding.v3.diagnosis_subtitle',
     options: 'ADHD_DIAGNOSIS',
+    backgroundColor: LIGHT_BACKGROUND,
     canContinue: (answers) => !!answers.diagnosis,
-    buttonText: 'onboarding.continue',
-  },
-
-  // === 4: Age ===
-  {
-    type: 'single-select',
-    id: 'age',
-    answerKey: 'ageRange',
-    showNavButton: true,
-    title: 'onboarding.v3.age_title',
-    subtitle: 'onboarding.v3.age_subtitle',
-    options: 'RANGOS_EDAD',
-    canContinue: (answers) => !!answers.ageRange,
     buttonText: 'onboarding.continue',
   },
 
@@ -102,6 +90,7 @@ export const SLIDES_V3: SlideConfig[] = [
     title: 'onboarding.v3.adhd_symptoms_title',
     subtitle: 'onboarding.v3.adhd_symptoms_subtitle',
     options: 'ADHD_SYMPTOMS',
+    backgroundColor: LIGHT_BACKGROUND,
     canContinue: (answers) => answers.adhdSymptoms.length > 0,
     buttonText: 'onboarding.continue',
   },
@@ -115,6 +104,7 @@ export const SLIDES_V3: SlideConfig[] = [
     title: 'onboarding.v3.life_area_title',
     subtitle: 'onboarding.v3.life_area_subtitle',
     options: 'LIFE_AREAS',
+    backgroundColor: LIGHT_BACKGROUND,
     canContinue: (answers) => !!answers.lifeArea,
     buttonText: 'onboarding.continue',
   },
@@ -128,6 +118,7 @@ export const SLIDES_V3: SlideConfig[] = [
     title: 'onboarding.v3.main_goal_title',
     subtitle: 'onboarding.v3.main_goal_subtitle',
     options: 'MAIN_GOAL',
+    backgroundColor: LIGHT_BACKGROUND,
     canContinue: (answers) => answers.mainGoal.length > 0,
     buttonText: 'onboarding.continue',
   },
@@ -154,6 +145,7 @@ export const SLIDES_V3: SlideConfig[] = [
     showNavButton: false,
     statementIndex: 0,
     autoAdvance: true,
+    backgroundColor: LIGHT_BACKGROUND,
   },
 
   // === 9: Statement 2 ===
@@ -164,6 +156,7 @@ export const SLIDES_V3: SlideConfig[] = [
     showNavButton: false,
     statementIndex: 1,
     autoAdvance: true,
+    backgroundColor: LIGHT_BACKGROUND,
   },
 
   // === 10: Statement 3 ===
@@ -174,16 +167,18 @@ export const SLIDES_V3: SlideConfig[] = [
     showNavButton: false,
     statementIndex: 2,
     autoAdvance: true,
+    backgroundColor: LIGHT_BACKGROUND,
   },
 
 
   {
     type: 'agreement',
     id: 'statement4',
-    answerKey: 'statement1',
+    answerKey: 'statement4',
     showNavButton: false,
     statementIndex: 3,
     autoAdvance: true,
+    backgroundColor: LIGHT_BACKGROUND,
   },
 
   // === 11: Dialogue 3 ===
@@ -219,53 +214,17 @@ export const SLIDES_V3: SlideConfig[] = [
     answerKey: null,
     showNavButton: false,
     messages: [
+      'onboarding.dialogue_progress_0',
       'onboarding.dialogue_progress_1',
-      'onboarding.dialogue_progress_2',
-      'onboarding.dialogue_progress_3'
+      'onboarding.dialogue_progress_2'
     ],
     backgroundColor: '#f2f2f2',
     autoAdvanceAtEnd: true,
   },
 
-  // === 14: Statement 4 ===
-  {
-    type: 'agreement',
-    id: 'statement4',
-    answerKey: 'statement4',
-    showNavButton: false,
-    statementIndex: 4,
-  },
-
-  // === 15: Statement 5 ===
-  {
-    type: 'agreement',
-    id: 'statement5',
-    answerKey: 'statement5',
-    showNavButton: false,
-    statementIndex: 5,
-  },
-
-  // === 16: Statement 6 ===
-  {
-    type: 'agreement',
-    id: 'statement6',
-    answerKey: 'statement6',
-    showNavButton: false,
-    statementIndex: 6,
-  },
-
-
   // ─── NEW: Closing funnel slides ───
 
-  // === 15: Processing ===
-  {
-    type: 'processing',
-    id: 'processing',
-    answerKey: null,
-    showNavButton: false,
-  },
-
-  // === 16: Results ===
+  // === 15: Results ===
   {
     type: 'results',
     id: 'results',
@@ -274,7 +233,7 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: '#f2f2f2',
   },
 
-  // === 17: Success Chart ===
+  // === 16: Success Chart ===
   {
     type: 'success-chart',
     id: 'success-chart',
@@ -291,29 +250,15 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: '#f2f2f2',
   },
 
-  // === 18: Testimonial ===
-  {
-    type: 'testimonial',
-    id: 'testimonial',
-    answerKey: null,
-    showNavButton: false,
-  },
-  // === 19: All Done ===
-  {
-    type: 'all-done',
-    id: 'all-done',
-    answerKey: null,
-    showNavButton: false,
-    backgroundColor: '#f2f2f2',
-  },
+  // === Video Intro (fullscreen) ===
 
-  // === Paywall (trial CTA) ===
+  // === Paywall Slide ===
   {
     type: 'paywall',
     id: 'paywall',
     answerKey: null,
     showNavButton: false,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: colors.background,
   },
 
   // === Trial Reminder ===
@@ -334,7 +279,7 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: '#f2f2f2',
   },
 
-  // === 23: Commitment ===
+  // === Commitment ===
   {
     type: 'commitment',
     id: 'commitment',
@@ -343,6 +288,14 @@ export const SLIDES_V3: SlideConfig[] = [
     backgroundColor: colors.surface,
   },
 
+  // === All Done ===
+  {
+    type: 'all-done',
+    id: 'all-done',
+    answerKey: null,
+    showNavButton: false,
+    backgroundColor: '#f2f2f2',
+  },
   /* 
   --- DRAFTED SLIDES FOR LATER ---
   

@@ -16,6 +16,7 @@ import {
   MAIN_GOAL,
   RANGOS_EDAD,
   STATEMENTS,
+  USER_SITUATIONS,
 } from "../constants";
 
 // Templates
@@ -31,13 +32,11 @@ import CommitmentSlide from "./custom/CommitmentSlide";
 import DialogueSlide from "./custom/DialogueSlide";
 import GrowthPotentialSlide from "./custom/GrowthPotentialSlide";
 import HabitDaysSlide from "./custom/HabitDaysSlide";
-import NeuroscienceSlide from "./custom/NeuroscienceSlide";
 import NotificationsSlide from "./custom/NotificationsSlide";
 import PaywallOnboardingSlide from "./custom/PaywallOnboardingSlide";
 import PaywallSlide from "./custom/PaywallSlide";
 import PlanSelectorSlide from "./custom/PlanSelectorSlide";
 import PremiumBenefitsSlide from "./custom/PremiumBenefitsSlide";
-import ProcessingSlide from "./custom/ProcessingSlide";
 import ResultsSlide from "./custom/ResultsSlide";
 import ReverseTrialSlide from "./custom/ReverseTrialSlide";
 import RoutinePickerSlide from "./custom/RoutinePickerSlide";
@@ -53,6 +52,7 @@ import WelcomeSlide from "./custom/WelcomeSlide";
 // ============================================
 const OPTIONS_MAP: Record<string, SelectOption[] | GoalOption[]> = {
   RANGOS_EDAD,
+  USER_SITUATIONS,
   ADHD_DIAGNOSIS,
   ADHD_SYMPTOMS,
   LIFE_AREAS,
@@ -160,12 +160,6 @@ const SlideRenderer: React.FC<Props> = ({
 
     case "reverse-trial":
       return <ReverseTrialSlide onFinish={onFinish} />;
-
-    case "neuroscience":
-      return <NeuroscienceSlide />;
-
-    case "processing":
-      return <ProcessingSlide answers={answers} onNext={onNext} />;
 
     case "results":
       return <ResultsSlide answers={answers} onNext={onNext} />;

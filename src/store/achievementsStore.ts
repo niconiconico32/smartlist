@@ -653,43 +653,31 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
 
       loadPromise = (async () => {
       try {
-        let localData: AchievementsSnapshot | null = null;
-        const stored = await AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY);
+        // Parallel AsyncStorage reads — halves the time vs sequential.
+        const [primaryRaw, backupRaw] = await Promise.all([
+          AsyncStorage.getItem(ACHIEVEMENTS_STORAGE_KEY),
+          AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY),
+        ]);
 
-        if (stored) {
+        let localData: AchievementsSnapshot | null = null;
+
+        // Prefer primary, fall back to backup
+        if (primaryRaw) {
           try {
-            localData = JSON.parse(stored);
+            localData = JSON.parse(primaryRaw);
           } catch {
             console.warn('Primary achievements data corrupted, trying backup...');
-            try {
-              const backupStored = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
-              if (backupStored) {
-                localData = JSON.parse(backupStored);
-              }
-            } catch (backupError) {
-              console.error('Backup data also corrupted:', backupError);
-            }
           }
-        } else {
-          // Si stored está vacío, intentamos cargar el backup por si acaso
-          try {
-            const backupStored = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
-            if (backupStored) {
-              localData = JSON.parse(backupStored);
-            }
-          } catch (backupError) {}
         }
 
-        if (!localData) {
-          const backup = await AsyncStorage.getItem(ACHIEVEMENTS_BACKUP_KEY);
-          if (backup) {
-            try {
-              localData = JSON.parse(backup);
-              await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, backup);
-              console.log('Restored achievements from backup');
-            } catch {
-              console.error('Backup also corrupted');
-            }
+        if (!localData && backupRaw) {
+          try {
+            localData = JSON.parse(backupRaw);
+            // Restore primary from backup
+            await AsyncStorage.setItem(ACHIEVEMENTS_STORAGE_KEY, backupRaw).catch(() => {});
+            console.log('Restored achievements from backup');
+          } catch {
+            console.error('Backup also corrupted');
           }
         }
 

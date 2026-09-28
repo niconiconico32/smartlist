@@ -1,18 +1,16 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import ChevronLeftIcon from "../ChevronLeftIcon";
+import PixelCTAButton from "../PixelCTAButton";
 
+// ============================================
+// TESTIMONIAL SLIDE — Carousel style with swipe
 // ============================================
 // TESTIMONIAL SLIDE — Carousel style
 const TESTIMONIALS = [
@@ -45,18 +43,19 @@ interface Props {
 
 const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
-  const [current, setCurrent] = useState(0);
-  const testimonial = TESTIMONIALS[current];
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const goTo = useCallback((dir: -1 | 1) => {
+  const testimonial = TESTIMONIALS[currentIndex];
+
+  const goPrev = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setCurrent((prev) => {
-      const next = prev + dir;
-      if (next < 0) return TESTIMONIALS.length - 1;
-      if (next >= TESTIMONIALS.length) return 0;
-      return next;
-    });
-  }, []);
+    setCurrentIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const goNext = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCurrentIndex((next) => Math.min(TESTIMONIALS.length - 1, next + 1));
+  };
 
   return (
     <View style={s.container}>
@@ -68,99 +67,100 @@ const TestimonialSlide: React.FC<Props> = ({ onNext }) => {
         {/* Title */}
         <Animated.Text
           entering={FadeInDown.delay(100).duration(400)}
-          style={s.title}
+          style={[
+            slideStyles.slideTitle,
+            slideStyles.questionTitle,
+            s.title,
+          ]}
         >
           {t("onboarding.testimonials.title")}
         </Animated.Text>
 
-        {/* Avatar area */}
-        <View style={s.avatarSection}>
-          {/* Left arrow */}
-          <Pressable
-            onPress={() => goTo(-1)}
-            style={s.arrowButton}
-            hitSlop={12}
-          >
-            <Text style={s.arrowText}>‹</Text>
-          </Pressable>
+        {/* Testimonial card */}
+        <Animated.View
+          entering={FadeInDown.delay(200).duration(500)}
+          style={s.carouselContainer}
+        >
+          <View style={s.pickerArea}>
+            {/* Left arrow */}
+            <Pressable
+              onPress={goPrev}
+              disabled={currentIndex === 0}
+              style={({ pressed }) => [
+                s.arrowBtn,
+                (pressed || currentIndex === 0) && s.arrowBtnDisabled,
+              ]}
+            >
+              <ChevronLeftIcon color={colors.primaryContent} size={32} />
+            </Pressable>
 
-          {/* Circular avatar with accent ring */}
-          <Animated.View
-            entering={FadeIn.delay(200).duration(500)}
-            style={s.avatarWrapper}
-          >
-            <View style={s.avatarRingOuter}>
-              <View style={s.avatarRing}>
-                <View style={s.avatar}>
-                  {testimonial.image ? (
-                    <Image source={testimonial.image} style={s.avatarImage} />
-                  ) : (
-                    <Text style={s.avatarInitials}>{testimonial.initials}</Text>
-                  )}
+            {/* Current testimonial */}
+            <View style={s.testimonialPage}>
+              {/* Circular avatar with accent ring */}
+              <View style={s.avatarWrapper}>
+                <View style={s.avatarRingOuter}>
+                  <View style={s.avatarRing}>
+                    <View style={s.avatar}>
+                      {testimonial.image ? (
+                        <Image source={testimonial.image} style={s.avatarImage} />
+                      ) : (
+                        <Text style={s.avatarInitials}>{testimonial.initials}</Text>
+                      )}
+                    </View>
+                  </View>
                 </View>
               </View>
+
+              {/* Name */}
+              <Text style={s.name}>{testimonial.name}</Text>
+              <Text style={s.age}>{t(testimonial.age)}</Text>
+
+              {/* Big quote mark */}
+              <Text style={s.quoteDecoration}>"</Text>
+
+              {/* Quote text */}
+              <Text style={s.quoteText}>{t(testimonial.quote)}</Text>
             </View>
-          </Animated.View>
 
-          {/* Right arrow */}
-          <Pressable onPress={() => goTo(1)} style={s.arrowButton} hitSlop={12}>
-            <Text style={s.arrowText}>›</Text>
-          </Pressable>
-        </View>
+            {/* Right arrow */}
+            <Pressable
+              onPress={goNext}
+              disabled={currentIndex === TESTIMONIALS.length - 1}
+              style={({ pressed }) => [
+                s.arrowBtn,
+                (pressed || currentIndex === TESTIMONIALS.length - 1) &&
+                  s.arrowBtnDisabled,
+              ]}
+            >
+              <View style={s.flip}>
+                <ChevronLeftIcon color={colors.primaryContent} size={32} />
+              </View>
+            </Pressable>
+          </View>
 
-        {/* Name */}
-        <Animated.Text
-          entering={FadeInDown.delay(300).duration(400)}
-          key={`name-${current}`}
-          style={s.name}
-        >
-          {testimonial.name}
-        </Animated.Text>
-        <Text style={s.age}>{t(testimonial.age)}</Text>
-
-        {/* Big quote mark */}
-        <Animated.Text
-          entering={FadeIn.delay(350).duration(300)}
-          style={s.quoteDecoration}
-        >
-          "
-        </Animated.Text>
-
-        {/* Quote text */}
-        <Animated.Text
-          entering={FadeInDown.delay(400).duration(500)}
-          key={`quote-${current}`}
-          style={s.quoteText}
-        >
-          {t(testimonial.quote)}
-        </Animated.Text>
-
-        {/* Dots indicator */}
-        <View style={s.dots}>
-          {TESTIMONIALS.map((_, idx) => (
-            <View key={idx} style={[s.dot, idx === current && s.dotActive]} />
-          ))}
-        </View>
+          {/* Dots indicator */}
+          <View style={s.dots}>
+            {TESTIMONIALS.map((_, idx) => (
+              <Pressable key={idx} onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setCurrentIndex(idx);
+              }}>
+                <View style={[s.dot, idx === currentIndex && s.dotActive]} />
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
       </ScrollView>
 
       {/* Button */}
       <View style={s.buttonContainer}>
-        <Pressable
+        <PixelCTAButton
+          label={t("onboarding.continue")}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onNext();
           }}
-          style={primaryButtonStyles}
-        >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
-          </LinearGradient>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -187,45 +187,39 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 20,
   },
-  // ── Title ──
   title: {
-    fontSize: 28,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "left",
     alignSelf: "flex-start",
     paddingHorizontal: 32,
     marginBottom: 32,
-    letterSpacing: -0.5,
-    lineHeight: 36,
   },
-  // ── Avatar section ──
-  avatarSection: {
+  carouselContainer: {
+    alignItems: "center",
+  },
+  pickerArea: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    paddingHorizontal: 20,
-    marginBottom: 20,
   },
-  arrowButton: {
+  arrowBtn: {
     width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
+    height: 180,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: `${colors.textPrimary}1A`,
   },
-  arrowText: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: -2,
+  arrowBtnDisabled: {
+    opacity: 0.3,
+  },
+  flip: {
+    transform: [{ scaleX: -1 }],
+  },
+  testimonialPage: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 32,
   },
   avatarWrapper: {
-    marginHorizontal: 16,
+    marginBottom: 20,
   },
   avatarRingOuter: {
     width: RING_OUTER_SIZE,
@@ -264,7 +258,6 @@ const s = StyleSheet.create({
     height: "100%",
     resizeMode: "cover",
   },
-  // ── Name ──
   name: {
     fontSize: 20,
     fontWeight: "800",
@@ -275,11 +268,11 @@ const s = StyleSheet.create({
   age: {
     fontSize: 14,
     fontWeight: "500",
+    fontFamily: "Inter",
     color: colors.textSecondary,
     textAlign: "center",
     marginBottom: 16,
   },
-  // ── Quote ──
   quoteDecoration: {
     fontSize: 56,
     fontWeight: "900",
@@ -290,17 +283,17 @@ const s = StyleSheet.create({
   quoteText: {
     fontSize: 15,
     fontWeight: "500",
+    fontFamily: "Inter",
     color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 24,
     paddingHorizontal: 40,
     marginBottom: 20,
   },
-  // ── Dots ──
   dots: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 4,
+    marginTop: 16,
   },
   dot: {
     width: 8,
@@ -312,7 +305,6 @@ const s = StyleSheet.create({
     backgroundColor: colors.primary,
     width: 24,
   },
-  // ── Button ──
   buttonContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,

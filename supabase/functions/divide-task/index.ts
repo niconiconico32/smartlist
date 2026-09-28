@@ -40,6 +40,10 @@ serve(async (req) => {
     // Normalise to a simple language code, default to English
     const lang = (locale ?? "en").split("-")[0].toLowerCase();
     const isSpanish = lang === "es";
+    const isFrench = lang === "fr";
+    const isItalian = lang === "it";
+    const isPortuguese = lang === "pt";
+    const isGerman = lang === "de";
 
     if (!task || !task.trim()) {
       throw new Error("Task is required");
@@ -81,6 +85,14 @@ serve(async (req) => {
 
     const languageInstruction = isSpanish
       ? "Responde SIEMPRE en español, independientemente del idioma de la tarea."
+      : isFrench
+      ? "Réponds TOUJOURS en français, quel que soit le langage de la tâche."
+      : isItalian
+      ? "Rispondi SEMPRE in italiano, indipendentemente dalla lingua del compito."
+      : isPortuguese
+      ? "Responda SEMPRE em português, independentemente do idioma da tarefa."
+      : isGerman
+      ? "Antworte IMMER auf Deutsch, unabhängig von der Sprache der Aufgabe."
       : "Always respond in English, regardless of the language of the task.";
 
     const systemPrompt = `You are an expert assistant that breaks complex tasks into simple, actionable subtasks.
@@ -149,7 +161,7 @@ Respond ONLY with valid JSON, no explanations.`;
       .trim();
 
     // Parse y validación
-    let result: TaskDivisionResult;
+    let result: TaskDivisionResult & { error?: string };
     try {
       result = JSON.parse(rawContent);
     } catch (parseError) {
@@ -158,8 +170,8 @@ Respond ONLY with valid JSON, no explanations.`;
     }
 
     // Validar estructura
-    if (!result.tasks || !Array.isArray(result.tasks)) {
-      throw new Error("Formato de respuesta inválido");
+    if (!result.tasks || !Array.isArray(result.tasks) || result.tasks.length === 0) {
+      throw new Error(result.error === "rejected" ? "Task rejected by safety filter" : "Formato de respuesta inválido");
     }
 
     result.title = result.title || task;

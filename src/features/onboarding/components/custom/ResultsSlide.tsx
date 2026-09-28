@@ -1,74 +1,109 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
-import * as Haptics from "expo-haptics";
-import React from "react";
+import { hapticMedium } from "@/utils/haptics";
+import { playWhoosh } from "@/utils/sounds";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import {
+  AccessibilityInfo,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { slideStyles } from "../../styles/shared";
 import type { OnboardingAnswers } from "../../types";
+import PixelCTAButton from "../PixelCTAButton";
+import {
+  HorrorGhostIcon,
+  MapNavigationPinIcon,
+  UserWomanIncreasingArrowIcon,
+} from "../PixelSuggestionIcons";
 
 interface Props {
   answers: OnboardingAnswers;
   onNext: () => void;
 }
 
-const ResultsSlide: React.FC<Props> = ({ answers, onNext }) => {
+// ============================================
+// REVEAL BLOCK
+// Fade-in + translateY(20 -> 0) con spring.
+// Dispara onReveal en el momento exacto en que
+// el bloque empieza a hacerse visible (para haptic).
+// ============================================
+interface RevealBlockProps {
+  delay: number;
+  onReveal?: () => void;
+  animate?: boolean;
+  style?: object;
+  children: React.ReactNode;
+}
+
+const RevealBlock: React.FC<RevealBlockProps> = ({
+  delay,
+  onReveal,
+  animate = true,
+  style,
+  children,
+}) => {
+  const opacity = useSharedValue(animate ? 0 : 1);
+  const translateY = useSharedValue(animate ? 20 : 0);
+
+  useEffect(() => {
+    if (!animate) return;
+    const timer = setTimeout(() => {
+      onReveal?.();
+      opacity.value = withSpring(1, { damping: 16, stiffness: 130 });
+      translateY.value = withSpring(0, { damping: 16, stiffness: 130 });
+    }, delay);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [delay, animate]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return (
+    <Animated.View style={[style, animate && animatedStyle]}>
+      {children}
+    </Animated.View>
+  );
+};
+
+const ResultsSlide: React.FC<Props> = ({ answers: _answers, onNext }) => {
   const { t } = useTranslation();
-  const userName =
-    answers.userName || t("onboarding.results.default_user_name");
+  const [reduceMotion, setReduceMotion] = useState(false);
 
-  // 1. Map Main Goal to an empathetic phrase
-  const mainGoalId = answers.mainGoal?.[0];
-  let goalText = t("onboarding.results.goals.default");
-  if (mainGoalId === "finish_projects")
-    goalText = t("onboarding.results.goals.finish_projects");
-  else if (mainGoalId === "less_stress")
-    goalText = t("onboarding.results.goals.less_stress");
-  else if (mainGoalId === "lasting_routines")
-    goalText = t("onboarding.results.goals.lasting_routines");
-  else if (mainGoalId === "feel_proud")
-    goalText = t("onboarding.results.goals.feel_proud");
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (mounted) setReduceMotion(value);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  // 2. Map Life Area to current state
-  const lifeAreaId = answers.lifeArea;
-  let areaText = t("onboarding.results.life_areas.default");
-  if (lifeAreaId === "home") areaText = t("onboarding.results.life_areas.home");
-  else if (lifeAreaId === "work")
-    areaText = t("onboarding.results.life_areas.work");
-  else if (lifeAreaId === "health")
-    areaText = t("onboarding.results.life_areas.health");
-
-  // 3. Map Symptoms to the obstacles
-  const symptoms = answers.adhdSymptoms || [];
-  const defaultObstacles = [
+  const goalText = t("onboarding.results.goal_text");
+  const areaText = t("onboarding.results.area_text");
+  const symptomsText = [
     t("onboarding.results.obstacles.default_1"),
     t("onboarding.results.obstacles.default_2"),
     t("onboarding.results.obstacles.default_3"),
   ];
 
-  const symptomMap: Record<string, string> = {
-    paralysis: t("onboarding.results.symptom_map.paralysis"),
-    time: t("onboarding.results.symptom_map.time"),
-    overwhelm: t("onboarding.results.symptom_map.overwhelm"),
-    forget: t("onboarding.results.symptom_map.forget"),
-    racing_mind: t("onboarding.results.symptom_map.racing_mind"),
-  };
-
-  const selectedTexts = symptoms
-    .slice(0, 3)
-    .map((id) => symptomMap[id])
-    .filter(Boolean);
-
-  // Fill array up to exactly 3 items using defaults if needed
-  const symptomsText = [...selectedTexts];
-  let defaultIdx = 0;
-  while (symptomsText.length < 3 && defaultIdx < defaultObstacles.length) {
-    if (!symptomsText.includes(defaultObstacles[defaultIdx])) {
-      symptomsText.push(defaultObstacles[defaultIdx]);
-    }
-    defaultIdx++;
-  }
+  // Delay base + 150ms entre bloques
+  const base = useMemo(() => (reduceMotion ? 0 : 100), [reduceMotion]);
+  const blockDelay = useMemo(
+    () => (index: number) => base + 150 * index,
+    [base],
+  );
 
   return (
     <View style={s.container}>
@@ -77,97 +112,108 @@ const ResultsSlide: React.FC<Props> = ({ answers, onNext }) => {
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.Text
-          entering={FadeInDown.delay(100).duration(500)}
-          style={[
-            slideStyles.slideTitle,
-            { color: colors.background, marginBottom: 8 },
-          ]}
+        <RevealBlock delay={blockDelay(0)} animate={!reduceMotion}>
+          <Text
+            style={[
+              slideStyles.slideTitle,
+              slideStyles.questionTitle,
+              { color: colors.background, marginBottom: 32 },
+            ]}
+          >
+            {t("onboarding.results.analysis_title")}
+          </Text>
+        </RevealBlock>
+
+        {/* SECTION 1 */}
+        <RevealBlock
+          delay={blockDelay(1)}
+          onReveal={hapticMedium}
+          animate={!reduceMotion}
+          style={s.section}
         >
-          {t("onboarding.results.thanks_prefix")}{" "}
-          <Text style={{ color: colors.surface }}>{userName}</Text>.
-        </Animated.Text>
+          <View style={s.sectionHeader}>
+            <UserWomanIncreasingArrowIcon size={20} color={colors.surface} />
+            <Text style={s.sectionLabel}>
+              {t("onboarding.results.pills.where_you_want_to_go")}
+            </Text>
+          </View>
+          <Text style={s.sectionText}>{goalText}</Text>
+        </RevealBlock>
 
-        <Animated.Text
-          entering={FadeInDown.delay(200).duration(500)}
-          style={[
-            slideStyles.slideSubtitle,
-            { color: colors.surface, marginBottom: 40, textTransform: "none" },
-          ]}
+        <RevealBlock delay={blockDelay(2)} animate={!reduceMotion}>
+          <View style={s.dashedLine} />
+        </RevealBlock>
+
+        {/* SECTION 2 */}
+        <RevealBlock
+          delay={blockDelay(3)}
+          onReveal={hapticMedium}
+          animate={!reduceMotion}
+          style={s.section}
         >
-          {t("onboarding.results.subtitle")}
-        </Animated.Text>
+          <View style={s.sectionHeader}>
+            <MapNavigationPinIcon size={20} color={colors.surface} />
+            <Text style={s.sectionLabel}>
+              {t("onboarding.results.pills.where_you_are_now")}
+            </Text>
+          </View>
+          <Text style={s.sectionText}>{areaText}</Text>
+        </RevealBlock>
 
-        <View style={s.cardsContainer}>
-          {/* CARD 1 */}
-          <Animated.View
-            entering={FadeInDown.delay(300).duration(500)}
-            style={s.card}
-          >
-            <View style={s.pill}>
-              <Text style={s.pillText}>
-                {t("onboarding.results.pills.where_you_want_to_go")}
-              </Text>
-            </View>
-            <Text style={s.cardTextMain}>{goalText}</Text>
-          </Animated.View>
+        <RevealBlock delay={blockDelay(4)} animate={!reduceMotion}>
+          <View style={s.dashedLine} />
+        </RevealBlock>
 
-          {/* CARD 2 */}
-          <Animated.View
-            entering={FadeInDown.delay(450).duration(500)}
-            style={s.card}
-          >
-            <View style={s.pill}>
-              <Text style={s.pillText}>
-                {t("onboarding.results.pills.where_you_are_now")}
-              </Text>
-            </View>
-            <Text style={s.cardTextMain}>{areaText}</Text>
-          </Animated.View>
-
-          {/* CARD 3 */}
-          <Animated.View
-            entering={FadeInDown.delay(600).duration(500)}
-            style={s.card}
-          >
-            <View style={s.pill}>
-              <Text style={s.pillText}>
-                {t("onboarding.results.pills.what_holds_you_back")}
-              </Text>
-            </View>
-            <View style={s.listContainer}>
-              {symptomsText.map((txt, i) => (
-                <View
-                  key={i}
-                  style={[
-                    s.listItem,
-                    i === symptomsText.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                >
-                  <View style={s.bullet} />
-                  <Text style={s.cardTextList}>{txt}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        </View>
+        {/* SECTION 3: cada punto se revela individualmente */}
+        <RevealBlock
+          delay={blockDelay(5)}
+          onReveal={hapticMedium}
+          animate={!reduceMotion}
+          style={s.section}
+        >
+          <View style={s.sectionHeader}>
+            <Text style={s.sectionLabel}>
+              {t("onboarding.results.pills.what_holds_you_back")}
+            </Text>
+          </View>
+          <View style={s.listContainer}>
+            {symptomsText.map((txt, i) => (
+              <RevealBlock
+                key={i}
+                delay={blockDelay(6) + 150 * i}
+                onReveal={
+                  i === symptomsText.length - 1
+                    ? () => {
+                        hapticMedium();
+                        playWhoosh();
+                      }
+                    : hapticMedium
+                }
+                animate={!reduceMotion}
+                style={s.listItem}
+              >
+                <HorrorGhostIcon size={16} color={colors.surface} />
+                <Text style={s.sectionText}>{txt}</Text>
+              </RevealBlock>
+            ))}
+          </View>
+        </RevealBlock>
       </ScrollView>
 
       {/* Button to continue */}
-      <Animated.View
-        entering={FadeInDown.delay(800).duration(500)}
+      <RevealBlock
+        delay={blockDelay(7) + 150 * Math.max(symptomsText.length - 1, 0)}
+        animate={!reduceMotion}
         style={s.footer}
       >
-        <Pressable
+        <PixelCTAButton
+          label={t("onboarding.continue")}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            hapticMedium();
             onNext();
           }}
-          style={s.button}
-        >
-          <Text style={s.buttonText}>{t("onboarding.continue")}</Text>
-        </Pressable>
-      </Animated.View>
+        />
+      </RevealBlock>
     </View>
   );
 };
@@ -183,56 +229,35 @@ const s = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     paddingTop: 24,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: colors.background,
-    marginBottom: 12,
-    letterSpacing: -1,
+  section: {
+    paddingVertical: 20,
   },
-  subtitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: colors.textSecondary,
-    marginBottom: 40,
-    lineHeight: 22,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
-  cardsContainer: {
-    gap: 16,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  pill: {
-    backgroundColor: `${colors.surface}15`,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-    marginBottom: 16,
-  },
-  pillText: {
+  sectionLabel: {
     color: colors.surface,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "lowercase",
   },
-  cardTextMain: {
+  sectionText: {
     fontSize: 18,
     fontWeight: "700",
     color: colors.background,
     lineHeight: 24,
+  },
+  dashedLine: {
+    borderTopWidth: 2,
+    borderStyle: "dashed",
+    borderColor: colors.surface,
   },
   listContainer: {
     gap: 12,
@@ -241,41 +266,10 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: `${colors.background}10`,
-    paddingBottom: 12,
-  },
-  bullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.surface,
-  },
-  cardTextList: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.background,
-    flex: 1,
   },
   footer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     paddingBottom: 40,
     paddingTop: 20,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: colors.surface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
   },
 });

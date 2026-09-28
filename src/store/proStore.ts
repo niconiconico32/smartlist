@@ -8,21 +8,25 @@
  * - streakShieldCount: 0-2 (refills to 2 every Monday)
  * - lastShieldRefillDate: "YYYY-MM-DD" of last Monday refill
  * - pendingShieldOffer: whether there is a pending shield offer to show the user
+ * - proBonusClaimed: whether the 10,000 coins welcome bonus has been awarded
  */
 
 import { posthog } from '@/src/config/posthog';
 import { getLocalTodayDateKey } from '@/src/utils/dateHelpers';
+import { useAchievementsStore } from '@/src/store/achievementsStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 const PRO_STORE_KEY = '@smartlist_pro_store';
 const MAX_SHIELDS = 2;
+const PRO_BONUS_COINS = 10000;
 
 interface ProStoreState {
   isPro: boolean;
   streakShieldCount: number;
   lastShieldRefillDate: string | null;
   pendingShieldOffer: boolean;
+  proBonusClaimed: boolean;
   isLoaded: boolean;
 }
 
@@ -53,8 +57,13 @@ interface ProStoreActions {
   /**
   * Activate a permanent Pro subscription (e.g., via RevenueCat/Stripe).
   * Sets isPro to true.
+  *
+  * El welcome bonus de 10,000 coronas SOLO se otorga cuando
+  * `options.awardWelcomeBonus` es true (paywall principal). Comprar desde
+  * otros paywalls no lo gasta: si luego se suscribe desde el principal,
+  * el bonus se otorga en ese momento.
    */
-  activatePermanentPro: () => Promise<void>;
+  activatePermanentPro: (options?: { awardWelcomeBonus?: boolean }) => Promise<void>;
 
   /**
    * Cancel or expire a permanent Pro subscription.
@@ -70,6 +79,7 @@ const defaultState: ProStoreState = {
   streakShieldCount: MAX_SHIELDS,
   lastShieldRefillDate: null,
   pendingShieldOffer: false,
+  proBonusClaimed: false,
   isLoaded: false,
 };
 
@@ -82,6 +92,7 @@ const persist = async (state: ProStoreState) => {
         streakShieldCount: state.streakShieldCount,
         lastShieldRefillDate: state.lastShieldRefillDate,
         pendingShieldOffer: state.pendingShieldOffer,
+        proBonusClaimed: state.proBonusClaimed,
       }),
     );
   } catch (error) {
@@ -107,6 +118,7 @@ export const useProStore = create<ProStore>((set, get) => ({
           streakShieldCount: data.streakShieldCount ?? MAX_SHIELDS,
           lastShieldRefillDate: data.lastShieldRefillDate ?? null,
           pendingShieldOffer: data.pendingShieldOffer ?? false,
+          proBonusClaimed: data.proBonusClaimed ?? false,
           isLoaded: true,
         };
         set(newState);
@@ -129,12 +141,25 @@ export const useProStore = create<ProStore>((set, get) => ({
     console.log(`[proStore] Pro toggled → ${newIsPro ? 'ON' : 'OFF'}`);
   },
 
-  activatePermanentPro: async () => {
+  activatePermanentPro: async (options?: { awardWelcomeBonus?: boolean }) => {
     const state = get();
     const newState: ProStoreState = {
       ...state,
       isPro: true,
     };
+
+    const shouldAwardBonus = options?.awardWelcomeBonus ?? false;
+    if (shouldAwardBonus && !state.proBonusClaimed) {
+      try {
+        await useAchievementsStore.getState().addCoins(PRO_BONUS_COINS);
+        posthog.capture('pro_bonus_claimed', { coins: PRO_BONUS_COINS });
+        console.log(`[proStore] Pro welcome bonus awarded: ${PRO_BONUS_COINS} coins`);
+      } catch (error) {
+        console.error('[proStore] Error awarding Pro bonus:', error);
+      }
+      newState.proBonusClaimed = true;
+    }
+
     set(newState);
     await persist(newState);
     console.log(`[proStore] Permanent Pro subscription activated.`);

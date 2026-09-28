@@ -1,9 +1,3 @@
-import {
-  PRIMARY_GRADIENT_COLORS,
-  primaryButtonGradient,
-  primaryButtonStyles,
-  primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
@@ -19,8 +13,17 @@ import {
 } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // PAYWALL SLIDE
@@ -54,6 +57,8 @@ const FEATURES = [
 
 const PaywallSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const topImageHeight = Dimensions.get("window").height / 3;
   const handleContinue = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onNext();
@@ -67,6 +72,22 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
         end={{ x: 0, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
+      {/* Imagen de cabecera a todo el ancho, superpuesta al header y safe area */}
+      <Animated.View
+        entering={FadeInDown.delay(100).duration(400)}
+        style={[
+          StyleSheet.absoluteFill,
+          { top: -insets.top },
+          { height: topImageHeight + insets.top },
+        ]}
+      >
+        <Image
+          source={require("@/assets/images/onboardingPaywallTop.jpeg")}
+          style={[s.topImage, { height: topImageHeight + insets.top }]}
+          resizeMode="cover"
+        />
+      </Animated.View>
+
       <View style={s.header}>
         <Pressable
           onPress={() => {
@@ -81,20 +102,12 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
       </View>
       <ScrollView
         style={s.scroll}
-        contentContainerStyle={s.scrollContent}
+        contentContainerStyle={[
+          s.scrollContent,
+          { paddingTop: topImageHeight + insets.top + 16 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View
-          entering={FadeInDown.delay(100).duration(400)}
-          style={s.mascotContainer}
-        >
-          <Image
-            source={require("@/assets/images/streak.png")}
-            style={s.mascot}
-            resizeMode="contain"
-          />
-        </Animated.View>
-
         <Animated.Text
           entering={FadeInDown.delay(200).duration(400)}
           style={s.title}
@@ -135,18 +148,10 @@ const PaywallSlide: React.FC<Props> = ({ onNext }) => {
       </ScrollView>
 
       <View style={s.buttonContainer}>
-        <Pressable onPress={handleContinue} style={primaryButtonStyles}>
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>
-              {t("index_tab.onboarding.paywall_slide.cta")}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+        <PixelCTAButton
+          label={t("index_tab.onboarding.paywall_slide.cta")}
+          onPress={handleContinue}
+        />
       </View>
     </View>
   );
@@ -162,6 +167,11 @@ const s = StyleSheet.create({
     flex: 1,
   },
   header: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    left: 0,
+    zIndex: 10,
     paddingHorizontal: 20,
     paddingTop: 10,
     alignItems: "flex-end",
@@ -179,16 +189,14 @@ const s = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 16,
     paddingBottom: 24,
     alignItems: "center",
   },
-  mascotContainer: {
-    marginBottom: 20,
-  },
-  mascot: {
-    width: 180,
-    height: 180,
+  topImage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
   },
   title: {
     fontSize: 45,

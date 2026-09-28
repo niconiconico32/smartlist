@@ -56,6 +56,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { getAppLanguage } from "../config/i18n";
 import { useAchievementsStore } from "../store/achievementsStore";
 import { C, copilotStyles as styles } from "./CopilotStyles";
 import { OUTFIT_IMAGES } from "./FocusHeroCard";
@@ -614,7 +615,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
 
     try {
       const deviceLocale = Localization.getLocales?.()[0]?.languageCode ?? "en";
-      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+      const localeToUse = getAppLanguage(deviceLocale);
 
       const { data, error } = await supabase.functions.invoke("copilot-chat", {
         body: { task: text, locale: localeToUse },
@@ -637,7 +638,7 @@ export function Copilot({ onClose, onAddTask }: CopilotProps) {
 
     try {
       const deviceLocale = Localization.getLocales?.()[0]?.languageCode ?? "en";
-      const localeToUse = deviceLocale.startsWith("es") ? "es" : "en";
+      const localeToUse = getAppLanguage(deviceLocale);
 
       const { data, error } = await supabase.functions.invoke("divide-task", {
         body: { task: expandedParagraph, locale: localeToUse },

@@ -18,8 +18,7 @@ import type { SlideConfig } from './types';
  * 11  task-demo
  * 12  growth-potential (custom)
  * 13  success-timeline (custom)
- * 14  neuroscience (custom)
- * 15  reverse-trial (custom - final)
+ * 14  reverse-trial (custom - final)
  */
 export const SLIDES: SlideConfig[] = [
   // === 0: Welcome ===
@@ -171,16 +170,7 @@ export const SLIDES: SlideConfig[] = [
     showNavButton: false,
   },
 
-  // === 14: Neuroscience ===
-  {
-    type: 'neuroscience',
-    id: 'neuroscience',
-    answerKey: null,
-    showNavButton: true,
-    buttonText: 'Continuar',
-  },
-
-  // === 15: Reverse Trial ===
+  // === 14: Reverse Trial ===
   {
     type: 'reverse-trial',
     id: 'reverse-trial',

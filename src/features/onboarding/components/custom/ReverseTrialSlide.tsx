@@ -1,9 +1,3 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { posthog } from "@/src/config/posthog";
@@ -16,10 +10,8 @@ import { CreditCard, Shield, Unlock } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
     Alert,
     Image,
-    Pressable,
     ScrollView,
     StyleSheet,
     View,
@@ -31,9 +23,10 @@ import Animated, {
     useSharedValue,
     withRepeat,
     withSequence,
-    withSpring,
     withTiming,
 } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 interface Props {
   onFinish: () => void;
@@ -46,7 +39,6 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
   const cardY = useSharedValue(0);
   const badgePulse = useSharedValue(1);
   const glowOpacity = useSharedValue(0.3);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
     cardY.value = withRepeat(
@@ -82,16 +74,6 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
     transform: [{ scale: badgePulse.value }],
   }));
   const glowStyle = useAnimatedStyle(() => ({ opacity: glowOpacity.value }));
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
 
   const TRIAL_DAYS = 7;
 
@@ -148,7 +130,11 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
       >
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
-          style={s.headerTitle}
+          style={[
+            slideStyles.slideTitle,
+            slideStyles.questionTitle,
+            s.headerTitle,
+          ]}
         >
           {t("onboarding.reverse_trial.title")}
         </Animated.Text>
@@ -225,30 +211,12 @@ const ReverseTrialSlide: React.FC<Props> = ({ onFinish }) => {
           entering={FadeInDown.delay(700).duration(500)}
           style={s.buttonContainer}
         >
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={handleStartTrial}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              disabled={isPurchasing || isLoadingPurchases}
-              style={primaryButtonStyles}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                {isPurchasing ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <Text style={primaryButtonText}>
-                    {t("onboarding.reverse_trial.cta")}
-                  </Text>
-                )}
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <PixelCTAButton
+            label={t("onboarding.reverse_trial.cta")}
+            onPress={handleStartTrial}
+            disabled={isPurchasing || isLoadingPurchases}
+            loading={isPurchasing}
+          />
         </Animated.View>
 
         <Animated.Text
@@ -271,12 +239,10 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 32,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
     marginBottom: 32,
-    letterSpacing: -0.5,
   },
   cardGlow: {
     position: "absolute",

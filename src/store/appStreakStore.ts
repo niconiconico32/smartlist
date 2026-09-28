@@ -236,7 +236,7 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
     // Multiplier is a Pro-only feature
     if (!useProStore.getState().isPro) return 1;
     if (streak <= 0) return 1;
-    return 1 + streak * 0.15;
+    return 2 + streak * 0.15;
   },
 
   resetStreak: async () => {

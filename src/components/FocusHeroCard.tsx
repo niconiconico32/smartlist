@@ -74,18 +74,16 @@ export function FocusHeroCard({
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeBackground = useAchievementsStore((s) => s.activeBackground);
-  const activeBackgroundUri = useAchievementsStore((s) => s.activeBackgroundUri);
   const activeOutfit = useAchievementsStore((s) => s.activeOutfit);
   const activeOutfitUri = useAchievementsStore((s) => s.activeOutfitUri);
 
-  // Resolve background image source
-  const bgSource =
-    activeBackground && BG_IMAGES[activeBackground]
-      ? BG_IMAGES[activeBackground]
-      : activeBackground && activeBackgroundUri
-        ? { uri: activeBackgroundUri }
-        : DEFAULT_BG;
+  // Resolve outfit image source (same pattern as background source in swipeable-layout)
+  const outfitSource =
+    activeOutfit && activeOutfitUri
+      ? { uri: activeOutfitUri }
+      : activeOutfit && OUTFIT_IMAGES[activeOutfit]
+        ? OUTFIT_IMAGES[activeOutfit]
+        : require("../../assets/images/logomain.png");
 
   // Animación de "Fuego Vivo" para el streak badge
   useEffect(() => {
@@ -182,25 +180,11 @@ export function FocusHeroCard({
           style={{ alignItems: "center", justifyContent: "center" }}
         >
           <Animated.View style={[styles.mascotWrapper, mascotAnimatedStyle]}>
-            {activeOutfit && OUTFIT_IMAGES[activeOutfit] ? (
-              <Image
-                source={OUTFIT_IMAGES[activeOutfit]}
-                style={styles.mascot}
-                resizeMode="contain"
-              />
-            ) : activeOutfit && activeOutfitUri ? (
-              <Image
-                source={{ uri: activeOutfitUri }}
-                style={styles.mascot}
-                resizeMode="contain"
-              />
-            ) : (
-              <Image
-                source={require("../../assets/images/logomain.png")}
-                style={styles.mascot}
-                resizeMode="contain"
-              />
-            )}
+            <Image
+              source={outfitSource}
+              style={styles.mascot}
+              resizeMode="contain"
+            />
             <View style={styles.mascotShadow} />
             <StreakBadge />
           </Animated.View>

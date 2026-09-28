@@ -1,15 +1,7 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
-import { AppText as Text } from "@/src/components/AppText";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import { hapticLight, hapticSelection, hapticSuccess } from "@/utils/haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import React, {
@@ -22,14 +14,19 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { BackHandler, Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-    FadeInDown,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+  Easing,
+  FadeIn,
+  FadeInDown,
+  SlideInLeft,
+  SlideInRight,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Polygon } from "react-native-svg";
 
+import ChevronLeftIcon from "./components/ChevronLeftIcon";
+import PixelCTAButton from "./components/PixelCTAButton";
 import SlideRenderer from "./components/SlideRenderer";
+import { LIGHT_BACKGROUND } from "./constants";
 import { SLIDES_V3, TOTAL_SLIDES_V3 } from "./slides-v3";
 import { INITIAL_ANSWERS, OnboardingAnswers } from "./types";
 import { useOnboardingTracking } from "./useOnboardingTracking";
@@ -54,16 +51,20 @@ export default function OnboardingV3Screen() {
   }, [startAt]);
   const [currentSlide, setCurrentSlide] = useState(initialSlide);
   const [answers, setAnswers] = useState<OnboardingAnswers>(INITIAL_ANSWERS);
-  const buttonScale = useSharedValue(1);
+  const [slideDirection, setSlideDirection] = useState<"forward" | "backward">(
+    "forward",
+  );
   const { signInAnonymously } = useAuth();
   const prevSlideRef = useRef(initialSlide);
+  const restoredRef = useRef(false);
 
   const {
     trackStart,
     trackStepViewed,
     trackStepCompleted,
+    trackStepBack,
     trackCompleted,
-    trackBack,
+    trackAbandoned,
   } = useOnboardingTracking();
 
   const config = SLIDES_V3[currentSlide];
@@ -74,6 +75,24 @@ export default function OnboardingV3Screen() {
     trackStepViewed(initialSlide, "forward");
   }, [initialSlide]);
 
+  // ── Restore saved progress on mount ──
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const store = useOnboardingStore.getState();
+    store.loadProgress().then((saved) => {
+      if (saved && saved.currentSlide > 0) {
+        const safeSlide = Math.min(saved.currentSlide, TOTAL_SLIDES_V3 - 1);
+        const sanitizedAnswers = { ...saved.answers };
+        if (typeof sanitizedAnswers.taskText !== 'string') {
+          sanitizedAnswers.taskText = '';
+        }
+        setCurrentSlide(safeSlide);
+        setAnswers((prev) => ({ ...prev, ...sanitizedAnswers }));
+      }
+    });
+  }, []);
+
   useEffect(() => {
     if (currentSlide === 0) return; // handled by mount effect
     const direction =
@@ -82,10 +101,24 @@ export default function OnboardingV3Screen() {
     prevSlideRef.current = currentSlide;
   }, [currentSlide]);
 
+  // ── Track: abandon on unmount (user navigates away) ──
+  useEffect(() => {
+    return () => {
+      trackAbandoned('unmount');
+    };
+  }, [trackAbandoned]);
+
+  // ── Persist progress on every slide/answer change ──
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const store = useOnboardingStore.getState();
+    store.saveProgress({ currentSlide, answers: answers as unknown as Record<string, unknown> });
+  }, [currentSlide, answers]);
+
   // ── Navigation ──
   const finishOnboarding = useCallback(async () => {
     try {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      hapticSuccess();
       // Persist answers to the onboarding store
       const store = useOnboardingStore.getState();
       store.setName(answers.userName);
@@ -93,6 +126,7 @@ export default function OnboardingV3Screen() {
       store.setGoal(answers.goals.join(", "));
 
       await store.completeOnboarding();
+      await store.clearProgress();
 
       trackCompleted(answers);
     } catch (e) {
@@ -109,7 +143,8 @@ export default function OnboardingV3Screen() {
   const goToNextSlide = useCallback(() => {
     trackStepCompleted(currentSlide, answers);
     if (currentSlide < TOTAL_SLIDES_V3 - 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      hapticSelection();
+      setSlideDirection("forward");
       setCurrentSlide((s) => s + 1);
     } else {
       finishOnboarding();
@@ -118,11 +153,12 @@ export default function OnboardingV3Screen() {
 
   const goToPrevSlide = useCallback(() => {
     if (currentSlide > 0) {
-      trackBack();
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      trackStepBack(currentSlide, currentSlide - 1);
+      hapticLight();
+      setSlideDirection("backward");
       setCurrentSlide((s) => s - 1);
     }
-  }, [currentSlide, trackBack]);
+  }, [currentSlide, trackStepBack]);
 
   // ── Answer handler ──
   const handleAnswer = useCallback(
@@ -135,32 +171,42 @@ export default function OnboardingV3Screen() {
     [],
   );
 
-  // ── Button animation ──
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
-
   // ── Can continue? ──
   const canContinue = config.canContinue ? config.canContinue(answers) : true;
 
-  // Slides that should hide the back button (auto-advancing slides like processing)
+  // Slides that should hide the back button (auto-advancing slides)
   const hideBackOnSlides = [
     "welcome",
-    "processing",
     "paywall",
     "trial-reminder",
     "paywall-onboarding",
     ...(__DEV__ ? [] : ["dialogue"]),
   ];
   const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
+
+  // Slides sobre fondo claro (preguntas): adapta back/progress a color oscuro
+  const isLightBackground =
+    config.backgroundColor === LIGHT_BACKGROUND ||
+    config.backgroundColor === "#f2f2f2";
+
+  // Banda diagonal #e3e3e3 en el tercio superior de las pantallas con opciones
+  const showOptionBand = ["single-select", "multi-select", "agreement"].includes(
+    config.type,
+  );
+  const [optionBandSize, setOptionBandSize] = useState({ width: 0, height: 0 });
+
+  // ── Transición entre preguntas: slide horizontal + fade, 250ms ease-out ──
+  const transitionSlide = useMemo(() => {
+    const easing = Easing.out(Easing.ease);
+    return slideDirection === "forward"
+      ? SlideInRight.duration(250).easing(easing)
+      : SlideInLeft.duration(250).easing(easing);
+  }, [slideDirection]);
+
+  const transitionFade = useMemo(
+    () => FadeIn.duration(250).easing(Easing.out(Easing.ease)),
+    [],
+  );
 
   // ── hardware back handler ──
   React.useEffect(() => {
@@ -204,6 +250,37 @@ export default function OnboardingV3Screen() {
           resizeMode="cover"
         />
       )}
+
+      {/* Tercio superior #e3e3e3 con corte diagonal desde la mitad del tercio hasta
+          la esquina inferior derecha del tercio (pantallas con opciones) */}
+      {showOptionBand && (
+        <View
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          onLayout={(e) =>
+            setOptionBandSize({
+              width: e.nativeEvent.layout.width,
+              height: e.nativeEvent.layout.height,
+            })
+          }
+        >
+          {optionBandSize.width > 0 && (
+            <Svg
+              width="100%"
+              height="100%"
+              viewBox={`0 0 ${optionBandSize.width} ${optionBandSize.height}`}
+            >
+              <Polygon
+                points={`0,0 ${optionBandSize.width},0 ${optionBandSize.width},${
+                  optionBandSize.height / 3
+                } 0,${optionBandSize.height / 6}`}
+                fill="#e3e3e3"
+              />
+            </Svg>
+          )}
+        </View>
+      )}
+
       <SafeAreaView style={s.container}>
         {/* Disable iOS swipe back and header */}
         <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
@@ -220,17 +297,20 @@ export default function OnboardingV3Screen() {
                     pressed && s.backButtonPressed,
                   ]}
                 >
-                  <Ionicons
-                    name="chevron-back"
-                    size={24}
-                    color={colors.textPrimary}
+                  <ChevronLeftIcon
+                    color={isLightBackground ? colors.primaryContent : colors.textPrimary}
                   />
                 </Pressable>
               </Animated.View>
             </View>
 
             <View style={s.progressBarWrapper}>
-              <View style={s.progressBarBackground}>
+              <View
+                style={[
+                  s.progressBarBackground,
+                  isLightBackground && s.progressBarBackgroundLight,
+                ]}
+              >
                 <Animated.View
                   entering={FadeInDown.duration(400)}
                   style={[
@@ -246,39 +326,33 @@ export default function OnboardingV3Screen() {
         )}
 
         <View style={s.slideContainer}>
-          <SlideRenderer
-            config={config}
-            answers={answers}
-            onAnswer={handleAnswer}
-            onNext={goToNextSlide}
-            onBack={goToPrevSlide}
-            onFinish={finishOnboarding}
-          />
+          <Animated.View
+            key={currentSlide}
+            entering={transitionFade}
+            style={{ flex: 1 }}
+          >
+            <Animated.View entering={transitionSlide} style={{ flex: 1 }}>
+              <SlideRenderer
+                config={config}
+                answers={answers}
+                onAnswer={handleAnswer}
+                onNext={goToNextSlide}
+                onBack={goToPrevSlide}
+                onFinish={finishOnboarding}
+              />
+            </Animated.View>
+          </Animated.View>
         </View>
 
         {/* Bottom nav button (only for slides that opt-in via showNavButton) */}
         {config.showNavButton && (
           <View style={s.navigationContainer}>
-            <Animated.View style={buttonAnimatedStyle}>
-              <Pressable
-                onPress={goToNextSlide}
-                onPressIn={handleButtonPressIn}
-                onPressOut={handleButtonPressOut}
-                disabled={!canContinue}
-                style={[primaryButtonStyles, !canContinue && { opacity: 0.5 }]}
-              >
-                <LinearGradient
-                  colors={PRIMARY_GRADIENT_COLORS}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={primaryButtonGradient}
-                >
-                  <Text style={primaryButtonText}>
-                    {t(config.buttonText ?? "onboarding.continue")}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            </Animated.View>
+            {/* TEST: PixelCTAButton prototipo; OnboardingCTAButton se conserva sin tocar */}
+            <PixelCTAButton
+              label={t(config.buttonText ?? "onboarding.continue")}
+              onPress={goToNextSlide}
+              disabled={!canContinue}
+            />
           </View>
         )}
       </SafeAreaView>
@@ -312,8 +386,8 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 20,
+    paddingBottom: 8,
     gap: 12,
   },
   backButtonArea: {
@@ -333,16 +407,20 @@ const s = StyleSheet.create({
   progressBarWrapper: {
     flex: 1,
     justifyContent: "center",
+    marginRight: 60,
   },
   progressBarBackground: {
-    height: 6,
+    height: 10,
     backgroundColor: `${colors.textPrimary}1A`,
-    borderRadius: 3,
+    borderRadius: 9,
     overflow: "hidden",
+  },
+  progressBarBackgroundLight: {
+    backgroundColor: `${colors.primaryContent}1A`,
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surface,
     borderRadius: 3,
   },
   navigationContainer: {

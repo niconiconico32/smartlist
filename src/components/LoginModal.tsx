@@ -1,5 +1,6 @@
 import { colors } from "@/constants/theme";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { posthog } from "@/src/config/posthog";
 import * as Haptics from "expo-haptics";
 import { LogIn, UserPlus, X } from "lucide-react-native";
 import React, { useState } from "react";
@@ -21,24 +22,41 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
-type Mode = "login" | "signup";
+type Step = "otp_email" | "otp_code" | "password";
 
+const VALID_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const domain = email.slice(at);
+  const head = local.slice(0, Math.min(2, local.length));
+  return `${head}***${domain}`;
+}
+
+/**
+ * Single email login: OTP-first (signInWithOtp auto-creates the account, so
+ * there is no separate "create account with password" form). Works identically
+ * for funnel buyers and organic users — both enter with the same flow and the
+ * plan is discovered automatically AFTER authentication (no claim banner).
+ */
 export function LoginModal({ visible, onClose }: LoginModalProps) {
   const { t } = useTranslation();
-  const { signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithEmail, sendOtp, verifyOtp } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("login");
+  const [step, setStep] = useState<Step>("otp_email");
   const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const reset = () => {
-    setMode("login");
+    setStep("otp_email");
     setEmail("");
+    setOtp("");
     setPassword("");
-    setConfirmPassword("");
     setLoading(false);
     setError("");
   };
@@ -48,13 +66,54 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
     onClose();
   };
 
-  const handleLogin = async () => {
-    if (!email.trim() || !password) return;
+  const handleSendCode = async () => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !VALID_EMAIL.test(normalized)) {
+      setError(t("auth.email_invalid"));
+      return;
+    }
 
     setError("");
     setLoading(true);
     try {
-      await signInWithEmail(email.trim().toLowerCase(), password);
+      await sendOtp(normalized);
+      posthog.capture("auth_otp_sent");
+      setOtp("");
+      setStep("otp_code");
+    } catch (err: any) {
+      setError(err.message || t("auth.otp_send_error"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!otp.trim()) return;
+    const normalized = email.trim().toLowerCase();
+
+    setError("");
+    setLoading(true);
+    try {
+      await verifyOtp(normalized, otp.trim());
+      posthog.capture("auth_otp_verified");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleClose();
+    } catch (err: any) {
+      setError(err.message || t("auth.otp_invalid"));
+      setOtp("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordLogin = async () => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !password) return;
+
+    setError("");
+    setLoading(true);
+    try {
+      await signInWithEmail(normalized, password);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleClose();
     } catch (err: any) {
@@ -65,36 +124,41 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
     }
   };
 
-  const handleSignUp = async () => {
-    if (!email.trim() || !password) return;
-
-    if (password !== confirmPassword) {
-      setError(t("auth.passwords_do_not_match"));
-      return;
-    }
-    if (password.length < 6) {
-      setError(t("auth.password_too_short"));
-      return;
-    }
-
-    setError("");
-    setLoading(true);
-    try {
-      await signUpWithEmail(email.trim().toLowerCase(), password);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleClose();
-    } catch (err: any) {
-      setError(err.message || t("auth.sign_up_error_message"));
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const switchMode = () => {
-    setMode(mode === "login" ? "signup" : "login");
+  const showPassword = () => {
+    setStep("password");
     setError("");
   };
+
+  const showOtpEmail = () => {
+    setStep("otp_email");
+    setOtp("");
+    setError("");
+  };
+
+  const showOtpCode = () => {
+    setStep("otp_code");
+    setError("");
+  };
+
+  const useOtherEmail = () => {
+    setOtp("");
+    setError("");
+    setStep("otp_email");
+  };
+
+  const title =
+    step === "password"
+      ? t("auth.email_login_title")
+      : step === "otp_code"
+        ? t("auth.otp_title")
+        : t("auth.email_otp_title");
+
+  const subtitle =
+    step === "password"
+      ? t("auth.email_login_subtitle")
+      : step === "otp_code"
+        ? t("auth.otp_subtitle", { email: maskEmail(email.trim().toLowerCase()) })
+        : t("auth.email_otp_subtitle");
 
   return (
     <Modal
@@ -114,16 +178,12 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              {mode === "login" ? (
+              {step === "password" ? (
                 <LogIn size={20} color={colors.primary} strokeWidth={2} />
               ) : (
                 <UserPlus size={20} color={colors.primary} strokeWidth={2} />
               )}
-              <Text style={styles.title}>
-                {mode === "login"
-                  ? t("auth.email_login_title")
-                  : t("auth.email_signup_title")}
-              </Text>
+              <Text style={styles.title}>{title}</Text>
             </View>
             <Pressable
               onPress={handleClose}
@@ -134,110 +194,169 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
             </Pressable>
           </View>
 
-          <Text style={styles.subtitle}>
-            {mode === "login"
-              ? t("auth.email_login_subtitle")
-              : t("auth.email_signup_subtitle")}
-          </Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
 
-          {/* Email */}
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={(t_) => {
-              setEmail(t_);
-              if (error) setError("");
-            }}
-            placeholder={t("auth.email_placeholder")}
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            returnKeyType="next"
-            editable={!loading}
-          />
-
-          {/* Password */}
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={(t_) => {
-              setPassword(t_);
-              if (error) setError("");
-            }}
-            placeholder={t("auth.password_placeholder")}
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete={mode === "signup" ? "new-password" : "password"}
-            textContentType={mode === "signup" ? "newPassword" : "password"}
-            secureTextEntry
-            returnKeyType={mode === "signup" ? "next" : "done"}
-            onSubmitEditing={mode === "signup" ? undefined : handleLogin}
-            editable={!loading}
-          />
-
-          {/* Confirm Password (signup only) */}
-          {mode === "signup" && (
+          {/* Email — always visible, editable on first/other-email steps */}
+          {step !== "otp_code" ? (
             <TextInput
+              testID="loginEmailInput"
               style={styles.input}
-              value={confirmPassword}
+              value={email}
               onChangeText={(t_) => {
-                setConfirmPassword(t_);
+                setEmail(t_);
                 if (error) setError("");
               }}
-              placeholder={t("auth.confirm_password_placeholder")}
+              placeholder={t("auth.email_placeholder")}
               placeholderTextColor="rgba(255,255,255,0.25)"
               autoCapitalize="none"
               autoCorrect={false}
-              autoComplete="new-password"
-              textContentType="newPassword"
+              autoComplete="email"
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              returnKeyType="done"
+              editable={!loading}
+            />
+          ) : (
+            <View style={styles.maskedRow}>
+              <Text style={styles.maskedText}>{maskEmail(email)}</Text>
+              <Pressable
+                testID="loginUseOtherEmail"
+                onPress={useOtherEmail}
+                hitSlop={8}
+              >
+                <Text style={styles.linkBtn}>
+                  {t("auth.use_other_email")}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Password (optional secondary login for existing accounts) */}
+          {step === "password" && (
+            <TextInput
+              testID="loginPasswordInput"
+              style={styles.input}
+              value={password}
+              onChangeText={(t_) => {
+                setPassword(t_);
+                if (error) setError("");
+              }}
+              placeholder={t("auth.password_placeholder")}
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="password"
+              textContentType="password"
               secureTextEntry
               returnKeyType="done"
-              onSubmitEditing={handleSignUp}
+              onSubmitEditing={handlePasswordLogin}
               editable={!loading}
+            />
+          )}
+
+          {/* OTP code input */}
+          {step === "otp_code" && (
+            <TextInput
+              testID="loginOtpInput"
+              style={styles.input}
+              value={otp}
+              onChangeText={(t_) => {
+                setOtp(t_);
+                if (error) setError("");
+              }}
+              placeholder={t("auth.code_placeholder")}
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              keyboardType="number-pad"
+              autoComplete="one-time-code"
+              textContentType="oneTimeCode"
+              returnKeyType="done"
+              editable={!loading}
+              maxLength={8}
             />
           )}
 
           {/* Error */}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Submit button */}
-          <Pressable
-            style={[
-              styles.submitButton,
-              (!email.trim() || !password || loading) &&
-                styles.submitButtonDisabled,
-            ]}
-            onPress={mode === "login" ? handleLogin : handleSignUp}
-            disabled={!email.trim() || !password || loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#1A1C20" />
-            ) : (
-              <Text style={styles.submitButtonText}>
-                {mode === "login"
-                  ? t("auth.email_login_button")
-                  : t("auth.email_signup_button")}
-              </Text>
-            )}
-          </Pressable>
+          {/* Primary action */}
+          {step !== "password" && (
+            <Pressable
+              testID={step === "otp_email" ? "loginOtpSend" : "loginOtpVerify"}
+              style={[
+                styles.submitButton,
+                loading && styles.submitButtonDisabled,
+              ]}
+              onPress={step === "otp_email" ? handleSendCode : handleVerifyCode}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#1A1C20" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {step === "otp_email"
+                    ? t("auth.send_otp_button")
+                    : t("auth.verify_otp_button")}
+                </Text>
+              )}
+            </Pressable>
+          )}
 
-          {/* Switch mode */}
-          <Pressable onPress={switchMode} style={styles.switchRow}>
-            <Text style={styles.switchText}>
-              {mode === "login"
-                ? t("auth.no_account")
-                : t("auth.has_account")}
-            </Text>
-            <Text style={styles.switchLink}>
-              {mode === "login"
-                ? t("auth.sign_up_link")
-                : t("auth.log_in_link")}
-            </Text>
-          </Pressable>
+          {step === "password" && (
+            <Pressable
+              testID="loginSubmit"
+              style={[
+                styles.submitButton,
+                (loading || !email.trim() || !password) && styles.submitButtonDisabled,
+              ]}
+              onPress={handlePasswordLogin}
+              disabled={loading || !email.trim() || !password}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#1A1C20" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {t("auth.email_login_button")}
+                </Text>
+              )}
+            </Pressable>
+          )}
+
+          {/* Secondary actions per step */}
+          {step === "otp_email" && (
+            <View style={styles.otpFooter}>
+              <Text style={styles.switchText}>{t("auth.otp_footer")}</Text>
+              <Pressable testID="loginPasswordToggle" onPress={showPassword} hitSlop={8}>
+                <Text style={styles.linkBtn}>{t("auth.use_password")}</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {step === "otp_code" && (
+            <>
+              <View style={styles.otpFooter}>
+                <Text style={styles.switchText}>{t("auth.otp_footer")}</Text>
+                <Pressable testID="loginPasswordToggle" onPress={showPassword} hitSlop={8}>
+                  <Text style={styles.linkBtn}>{t("auth.use_password")}</Text>
+                </Pressable>
+              </View>
+              <Pressable testID="loginOtpResend" onPress={handleSendCode} hitSlop={8}>
+                <Text style={[styles.linkBtn, styles.centerLink]}>
+                  {t("auth.resend_code")}
+                </Text>
+              </Pressable>
+            </>
+          )}
+
+          {step === "password" && (
+            <Pressable
+              testID="loginOtpToggle"
+              onPress={showOtpEmail}
+              hitSlop={8}
+              style={styles.otpFooter}
+            >
+              <Text style={styles.linkBtn}>{t("auth.back_to_otp")}</Text>
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -304,6 +423,34 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: 10,
   },
+  maskedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  maskedText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+  linkBtn: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+    textAlign: "center",
+  },
+  centerLink: {
+    alignSelf: "center",
+    marginTop: 10,
+  },
   errorText: {
     fontSize: 12,
     color: "#F87171",
@@ -326,22 +473,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#1A1C20",
   },
-  switchRow: {
+  otpFooter: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
+    justifyContent: "center",
+    gap: 6,
     marginTop: 16,
     paddingVertical: 4,
   },
   switchText: {
     fontSize: 13,
     color: colors.textSecondary,
-  },
-  switchLink: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: "700",
-    textDecorationLine: "underline",
   },
 });

@@ -40,22 +40,27 @@ export default function OnboardingRoutineWithEggFlow({
   // Paso 1: Selección de rutina
   const handleRoutineNext = async (preset: any) => {
     if (!user?.id || !preset) return;
-    // Creamos la rutina
-    const routine = await createRoutine(user.id, {
-      name: `${preset.emoji} ${t(preset.label)}`,
-      days: ALL_DAYS,
-      tasks: preset.tasks.map((title: string, index: number) => ({
-        title: t(title),
-        position: index,
-      })),
-      icon: preset.icon,
-      reminderEnabled: false,
-    });
-    if (routine && routine.id) {
-      setCreatedRoutineId(routine.id);
-      lastRoutineRef.current = preset;
-      setStep("pets");
-      useRoutinesRefreshStore.getState().bump();
+    try {
+      const routine = await createRoutine(user.id, {
+        name: `${preset.emoji} ${t(preset.label)}`,
+        days: ALL_DAYS,
+        tasks: preset.tasks.map((title: string, index: number) => ({
+          title: t(title),
+          position: index,
+        })),
+        icon: preset.icon,
+        reminderEnabled: false,
+      });
+      if (routine && routine.id) {
+        setCreatedRoutineId(routine.id);
+        lastRoutineRef.current = preset;
+        setStep("pets");
+        useRoutinesRefreshStore.getState().bump();
+      } else {
+        onDone();
+      }
+    } catch {
+      onDone();
     }
   };
 

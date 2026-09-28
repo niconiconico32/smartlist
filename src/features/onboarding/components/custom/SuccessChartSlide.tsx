@@ -5,7 +5,6 @@ import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Dimensions,
-    Pressable,
     ScrollView,
     StyleSheet,
     View,
@@ -27,6 +26,7 @@ import Svg, {
     LinearGradient as SvgLinearGradient,
 } from "react-native-svg";
 import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -92,6 +92,7 @@ export default function SuccessChartSlide({ onNext }: any) {
           entering={FadeInDown.delay(100).duration(500)}
           style={[
             slideStyles.slideTitle,
+            slideStyles.questionTitle,
             { color: "#FFFFFF", marginBottom: 8 },
           ]}
         >
@@ -277,15 +278,13 @@ export default function SuccessChartSlide({ onNext }: any) {
         entering={FadeInDown.delay(2600).duration(500)}
         style={s.buttonContainer}
       >
-        <Pressable
+        <PixelCTAButton
+          label={t("onboarding.continue")}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onNext();
           }}
-          style={s.button}
-        >
-          <Text style={s.buttonText}>{t("onboarding.continue")}</Text>
-        </Pressable>
+        />
       </Animated.View>
     </View>
   );
@@ -353,21 +352,5 @@ const s = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
-  },
-  button: {
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  buttonText: {
-    color: colors.surface,
-    fontSize: 18,
-    fontWeight: "800",
   },
 });

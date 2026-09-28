@@ -1,9 +1,3 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
@@ -11,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Crown, Flame, Sparkles } from "lucide-react-native";
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -23,6 +17,8 @@ import Animated, {
     withSpring,
     withTiming,
 } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // TIMELINE NODE (internal)
@@ -108,7 +104,6 @@ interface Props {
 const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
   const { t } = useTranslation();
   const mascotY = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
     mascotY.value = withRepeat(
@@ -124,16 +119,6 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
   const mascotStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: mascotY.value }],
   }));
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
 
   return (
     <LinearGradient colors={[colors.background, "#16213E"]} style={s.container}>
@@ -143,7 +128,7 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
       >
         <Animated.Text
           entering={FadeInDown.delay(100).duration(500)}
-          style={s.title}
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
         >
           {t("onboarding.success_timeline.title")}
         </Animated.Text>
@@ -229,28 +214,13 @@ const SuccessTimelineSlide: React.FC<Props> = ({ onNext }) => {
           entering={FadeInDown.delay(2200).duration(500)}
           style={s.buttonContainer}
         >
-          <Animated.View style={buttonAnimatedStyle}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                onNext();
-              }}
-              onPressIn={handleButtonPressIn}
-              onPressOut={handleButtonPressOut}
-              style={primaryButtonStyles}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT_COLORS}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={primaryButtonGradient}
-              >
-                <Text style={primaryButtonText}>
-                  {t("onboarding.success_timeline.cta")}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
+          <PixelCTAButton
+            label={t("onboarding.success_timeline.cta")}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onNext();
+            }}
+          />
         </Animated.View>
       </ScrollView>
     </LinearGradient>
@@ -265,12 +235,10 @@ const s = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
     marginBottom: 8,
-    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,

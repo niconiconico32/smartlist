@@ -29,7 +29,6 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
   const [bubbleReady, setBubbleReady] = useState(false);
 
   const breathingAnim = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
   const bubbleScale = useSharedValue(0);
   const bubbleOpacity = useSharedValue(0);
 
@@ -104,18 +103,6 @@ const DialogueSlide: React.FC<Props> = ({ config, onNext }) => {
       { scale: 1 + breathingAnim.value * 0.03 },
     ],
   }));
-
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
 
   const translatedMessage = t(messages[dialoguePhase]);
 

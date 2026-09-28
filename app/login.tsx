@@ -44,6 +44,10 @@ export default function LoginScreen() {
 
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  useEffect(() => {
+    posthog.capture("login_view");
+  }, []);
+
   // HIG: only render the Apple button if the API is actually available on this device
   const [appleAvailable, setAppleAvailable] = useState(false);
   useEffect(() => {
@@ -159,6 +163,7 @@ export default function LoginScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowLoginModal(true);
                 }}
+                testID="loginEmailOpen"
                 style={styles.emailLoginRow}
               >
                 <Text style={styles.emailLoginLink}>
@@ -332,13 +337,43 @@ const styles = StyleSheet.create({
   // Email login
   emailLoginRow: {
     alignItems: "center",
-    paddingVertical: 6,
+    paddingVertical: 10,
+    backgroundColor: "rgba(0,0,0,0.04)",
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.1)",
   },
   emailLoginLink: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1A1C20",
+  },
+
+  // Funnel hint (same original screen, funnel context)
+  funnelHint: {
+    backgroundColor: "#16182A",
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 2,
+  },
+  funnelHintTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#ECF0ED",
+  },
+  funnelHintEmail: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "#6B7280",
-    textDecorationLine: "underline",
+    fontWeight: "700",
+    color: "#F5D06A",
+    marginTop: 2,
+  },
+  funnelHintSubtitle: {
+    fontSize: 12,
+    color: "rgba(236,240,237,0.7)",
+    textAlign: "center",
+    marginTop: 2,
   },
 
   // Disclaimer

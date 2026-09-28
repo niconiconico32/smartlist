@@ -39,6 +39,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.e2e.local
 
 # typescript
 *.tsbuildinfo
@@ -48,3 +49,6 @@ yarn-error.*
 /android
 .env
 .gradle-local/
+
+# E2E artifacts (Maestro results/screenshots — never commits secrets-content)
+e2e/.artifacts/

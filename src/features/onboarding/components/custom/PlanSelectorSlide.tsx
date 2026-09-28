@@ -1,17 +1,12 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // PLAN SELECTOR SLIDE
@@ -65,7 +60,11 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
         entering={FadeInDown.delay(100).duration(500)}
         style={s.header}
       >
-        <Text style={s.title}>{t("onboarding.plan_selector.title")}</Text>
+        <Text
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
+        >
+          {t("onboarding.plan_selector.title")}
+        </Text>
       </Animated.View>
 
       {/* Plans */}
@@ -130,24 +129,13 @@ const PlanSelectorSlide: React.FC<Props> = ({ onNext }) => {
         entering={FadeInUp.delay(600).duration(400)}
         style={s.ctaArea}
       >
-        <TouchableOpacity
-          activeOpacity={0.85}
+        <PixelCTAButton
+          label={t("onboarding.plan_selector.cta")}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onNext();
           }}
-        >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[primaryButtonGradient, primaryButtonStyles]}
-          >
-            <Text style={primaryButtonText}>
-              {t("onboarding.plan_selector.cta")}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        />
 
         <Text style={s.cancelText}>
           {t("onboarding.plan_selector.cancel_note")}
@@ -173,11 +161,9 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
-    letterSpacing: -0.3,
+    alignSelf: "center",
   },
   // ── Plan list ──
   planList: {

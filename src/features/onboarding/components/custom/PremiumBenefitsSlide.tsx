@@ -1,16 +1,10 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
     FadeInDown,
@@ -21,6 +15,8 @@ import Animated, {
     withSequence,
     withTiming,
 } from "react-native-reanimated";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // PREMIUM BENEFITS SLIDE — Comparison table
@@ -93,7 +89,7 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
         >
           <Animated.Text
             entering={FadeInDown.delay(100).duration(400)}
-            style={s.title}
+            style={[slideStyles.slideTitle, slideStyles.questionTitle, s.title]}
           >
             {t("onboarding.premium_benefits.title_prefix")}{" "}
             <Text style={s.titleHighlight}>4.2x</Text>{" "}
@@ -156,22 +152,13 @@ const PremiumBenefitsSlide: React.FC<Props> = ({ onNext }) => {
 
       {/* Button */}
       <View style={s.buttonContainer}>
-        <Pressable
+        <PixelCTAButton
+          label={t("onboarding.continue")}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             onNext();
           }}
-          style={primaryButtonStyles}
-        >
-          <LinearGradient
-            colors={PRIMARY_GRADIENT_COLORS}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={primaryButtonGradient}
-          >
-            <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
-          </LinearGradient>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -255,12 +242,10 @@ const s = StyleSheet.create({
     paddingHorizontal: 28,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
     lineHeight: 32,
-    letterSpacing: -0.3,
     marginBottom: 16,
   },
   titleHighlight: {

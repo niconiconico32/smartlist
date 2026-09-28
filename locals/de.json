@@ -1,0 +1,1122 @@
+{
+  "onboarding": {
+    "welcome_title": "willkommen!",
+    "welcome_subtitle": "bringen wir ruhe und struktur in deine gedanken.",
+    "continue": "verstanden",
+    "generate": "los geht's",
+    "common_error_title": "ups! da ist etwas schiefgelaufen.",
+    "help_me_with_this": "ich brauche hierbei hilfe",
+    "name_placeholder": "wie soll ich dich nennen?",
+    "tap_to_start": "tippe, um deine reise zu starten",
+    "dialogue_intro_1": "hallo!",
+    "dialogue_intro_2": "ich bin brainy und ab jetzt dein copilot.",
+    "dialogue_intro_3": "lass uns mit ein paar kurzen fragen starten, um alles auf dich abzustimmen.",
+    "dialogue_mid_1": "ich fange an zu verstehen, wie dein kopf tickt!",
+    "dialogue_mid_2": "eine sache noch...",
+    "dialogue_support_1": "ich verstehe das – anzufangen ist oft das schwerste.",
+    "dialogue_support_2": "atme tief durch. wir schaffen das zusammen.",
+    "dialogue_support_3": "lass mich dir zeigen, wie 'anfangen' mühelos werden kann.",
+    "dialogue_progress_0": "Super! Wir haben schon einen Plan...",
+    "dialogue_progress_1": "Siehst du? Anfangen kommt dir jetzt nicht mehr so schwer vor.",
+    "dialogue_progress_2": "Lass mich dir jetzt erzählen, was ich über dich gelernt habe!",
+    "dialogue_progress_3": "genau so arbeiten wir mit deinem adhs-gehirn, nicht dagegen.",
+    "dialogue_legacy_intro_1": "hi! ich bin brainy 👋",
+    "dialogue_legacy_intro_2": "nur ein paar kurze fragen, bevor wir starten.",
+    "v3": {
+      "name_title": "wie soll ich dich nennen?",
+      "name_subtitle": "das wichtigste zuerst.",
+      "diagnosis_title": "wurde bei dir adhs diagnostiziert?",
+      "diagnosis_subtitle": "jede art von gehirn ist hier willkommen.",
+      "age_title": "wie alt bist du?",
+      "age_subtitle": "das hilft uns, dich besser zu verstehen.",
+      "situation_title": "wie ist deine aktuelle situation?",
+      "situation_subtitle": "damit ich brainy an deinen alltag anpassen kann.",
+      "adhd_symptoms_title": "wie zeigt sich adhs bei dir?",
+      "adhd_symptoms_subtitle": "wähle aus, was dir am bekanntesten vorkommt.",
+      "life_area_title": "was überfordert dich gerade am meisten?",
+      "life_area_subtitle": "deine größte hürde zu kennen, hilft mir, dich besser zu unterstützen.",
+      "main_goal_title": "was würdest du kurzfristig am liebsten erreichen?",
+      "main_goal_subtitle": "das wird unser leitstern sein."
+    },
+    "legacy": {
+      "name_title": "Wie heißt du?",
+      "name_subtitle": "Ich würde dich gerne besser kennenlernen!",
+      "age_title": "Wie alt bist du?",
+      "age_subtitle": "ADHS kann sich in jeder Lebensphase anders zeigen.",
+      "adhd_symptoms_title": "Wie wirkt sich ADHS heute auf dich aus?",
+      "adhd_symptoms_subtitle": "Wähle die Symptome aus, die du am häufigsten erlebst.",
+      "life_area_title": "Was fühlt sich gerade am überforderndsten an?",
+      "life_area_subtitle": "Lass Brainy dir hier helfen. Wir erstellen ein paar Aufgaben für dich.",
+      "goals_title": "Was möchtest du mit Brainy erreichen?",
+      "goals_subtitle": "Wähle deine Ziele, damit die KI deine Erfahrung personalisieren kann."
+    },
+    "options": {
+      "adhd_diagnosis": {
+        "yes": "Ja, ich habe eine Diagnose",
+        "suspect": "Ich vermute, dass ich es habe",
+        "no_struggle": "Nein, aber Konzentration fällt mir schwer",
+        "prefer_not_say": "Ich sage lieber nicht",
+        "optimize": "Ich möchte einfach mein Gehirn optimieren"
+      },
+      "adhd_symptoms": {
+        "paralysis": "Ich schaffe es kaum, Aufgaben anzufangen (Aufgabenparalyse)",
+        "time": "Ich verliere das Zeitgefühl",
+        "overwhelm": "Ich fühle mich schnell überfordert",
+        "forget": "💨 Ich vergesse wichtige Dinge sofort",
+        "racing_mind": "🌪️ Meine Gedanken kommen nie zur Ruhe",
+        "prefer_not_say": "Ich sage lieber nicht"
+      },
+      "life_areas": {
+        "home": "Chaos zu Hause",
+        "work": "Arbeit und Schule / Studium",
+        "health": "Gesundheit und Selbstfürsorge",
+        "prefer_not_say": "Ich sage lieber nicht"
+      },
+      "user_situations": {
+        "student": "Student/in (Schule oder Uni)",
+        "employee": "Angestellt mit Vorgesetztem",
+        "freelancer": "Selbstständig oder Freelancer",
+        "homemaker": "Führe den Haushalt / Mama oder Papa"
+      },
+      "main_goal": {
+        "finish_projects": "Meine Projekte pünktlich abschließen",
+        "less_stress": "Mit weniger Stress und Angst leben",
+        "lasting_routines": "Routinen aufbauen, die länger als 3 Tage halten",
+        "no_guilt": "Aufhören, mich schuldig zu fühlen für das, was ich nicht getan habe",
+        "feel_proud": "✨ Am Ende des Tages stolz auf mich sein"
+      },
+      "goal_options": {
+        "paralysis": "Analyse-Paralyse überwinden",
+        "time": "Mein Zeitgefühl verbessern",
+        "noise": "⚡ Mentales Chaos reduzieren",
+        "consistent": "✅ Beständiger werden",
+        "anxiety": "🧘 Ängste beim Anfangen abbauen"
+      }
+    },
+    "agreement_subtitle": "Wie sehr stimmst du dieser Aussage zu?",
+    "agreement_options": {
+      "strongly_agree": "Sehr",
+      "somewhat_agree": "Ziemlich",
+      "disagree": "Ein wenig",
+      "strongly_disagree": "Gar nicht"
+    },
+    "statements": {
+      "1": {
+        "main": "\"Ich weiß oft genau, was ich tun muss, fühle mich aber ",
+        "highlight": "körperlich unfähig, anzufangen.\""
+      },
+      "2": {
+        "main": "\"Ich verbringe mehr Zeit damit, mir Sorgen über eine Aufgabe zu machen, ",
+        "highlight": "als die Erledigung dauern würde.\""
+      },
+      "3": {
+        "main": "\"Ich neige zu Fehlern, wenn ich an einem ",
+        "highlight": "langweiligen oder schwierigen Projekt arbeite.\""
+      },
+      "4": {
+        "main": "\"Ich fühle mich oft überfordert, wenn ich ",
+        "highlight": "mehrere Dinge auf einmal tun muss.\""
+      },
+      "5": {
+        "main": "\"Ich schiebe Aufgaben oft auf, die tiefe Konzentration erfordern, wie Rechnungen zu bezahlen oder ",
+        "highlight": "Papierkram zu erledigen.\""
+      },
+      "6": {
+        "main": "\"Zu Hause springe ich von einer Aufgabe zur nächsten ",
+        "highlight": "und lasse mehrere unvollendet.\""
+      },
+      "7": {
+        "main": "\"Ich werde von meinen Gedanken oder Dingen um mich herum abgelenkt, wenn ",
+        "highlight": "ich versuche, mich zu konzentrieren.\""
+      }
+    },
+    "task_demo": {
+      "subtitle": "Lass uns einen kurzen Test machen",
+      "title": "Bei welcher Aufgabe brauchst du gerade Hilfe?",
+      "placeholder": "Tippe deine Aufgabe hier ein...",
+      "quick_option": "oder wähle eine Schnelloption",
+      "generating": "Wird generiert...",
+      "errors": {
+        "write_task_first": "Schreibe zuerst eine Aufgabe",
+        "unknown_error": "Unbekannter Fehler",
+        "no_subtasks_generated": "Teilaufgaben konnten nicht generiert werden",
+        "generate_failed": "Wir konnten keine Teilaufgaben generieren. Bitte versuche es erneut.",
+        "save_failed": "Aufgabe konnte nicht gespeichert werden. Bitte versuche es erneut."
+      },
+      "suggestions": {
+        "clean_room_label": "Mein Zimmer aufräumen",
+        "clean_room_text": "Mein Zimmer aufräumen",
+        "make_cv_label": "Meinen CV erstellen",
+        "make_cv_text": "Meinen CV erstellen",
+        "monthly_budget_label": "Ein Monatsbudget erstellen",
+        "monthly_budget_text": "Ein Monatsbudget erstellen"
+      },
+      "microtasks": {
+        "clean_room": {
+          "0": "Einen 5-Minuten-Timer stellen und nur die schmutzige Wäsche vom Boden aufheben, in den Wäschekorb (sonst nichts)",
+          "1": "Die saubere Kleidung aufheben, die herumliegt, und aufs Bett stapeln (noch nicht falten)",
+          "2": "Tassen, Teller oder sichtbaren Müll einsammeln und aus dem Zimmer bringen (in die Küche oder in den Mülleimer)",
+          "3": "Nur den Nachttisch aufräumen: alles, was nicht dorthin gehört, kommt in eine \"Obdachlosen\"-Box",
+          "4": "Nur den Schreibtisch genauso aufräumen: alles, was nicht dorthin gehört, kommt in dieselbe \"Obdachlosen\"-Box",
+          "5": "Das Bett machen (Laken glattziehen, Kissen zurechtlegen)",
+          "6": "Den sauberen Kleiderstapel auf dem Bett falten und in den Schrank/Schubladen verstauen",
+          "7": "Die \"Obdachlosen\"-Box durchgehen: jeden Gegenstand an seinen Platz, einen nach dem anderen, ohne viel nachzudenken",
+          "8": "Schnell mit einem Müllbeutel über den Boden gehen (Papiere, Verpackungen) und rausbringen",
+          "9": "Das Zimmer einmal komplett ansehen und das Letzte in Ordnung bringen, das auffällt",
+          "10": "Belohnung — gönn dir etwas Leckeres (Getränk, Keks, Lieblingssnack) und setz dich 5 Minuten hin und genieß das aufgeräumte Zimmer"
+        },
+        "make_cv": {
+          "0": "Ein leeres Dokument öffnen und mit \"CV - [dein Name]\" betiteln",
+          "1": "Deine Kontaktdaten oben schreiben (Name, E-Mail, Telefon, Stadt)",
+          "2": "Die leeren Abschnitte anlegen: Erfahrung, Ausbildung, Fähigkeiten (Projekte, falls zutreffend)",
+          "3": "Unter \"Ausbildung\" schnell Institution + Abschluss + Jahr notieren, ohne schönes Format",
+          "4": "Unter \"Erfahrung\" jeden Job/jedes Praktikum als lose Stichpunkte mit 1 Zeile auflisten (was du gemacht hast, nicht wie es klingt)",
+          "5": "1 Job auswählen und seinen Stichpunkt in einen Satz mit konkretem Ergebnis umwandeln (z.B. \"X um Y% gesteigert\")",
+          "6": "Den vorherigen Schritt mit jeder weiteren Erfahrung wiederholen, eine nach der anderen",
+          "7": "Unter \"Fähigkeiten\" alles auflisten, was dir einfällt, ohne zu filtern (kürzen kommt später)",
+          "8": "Einmal komplett durchlesen und markieren, was überflüssig ist oder komisch klingt (noch nicht korrigieren)",
+          "9": "Nur das Markierte löschen/anpassen und die Datei als PDF speichern",
+          "10": "Belohnung — gönn dir einen Snack oder ein Getränk und schick den CV jemandem, dem du vertraust (oder feier einfach dich selbst)"
+        },
+        "monthly_budget": {
+          "0": "Die Bank-App öffnen und den aktuellen Kontostand notieren (nur diese Zahl)",
+          "1": "Dein ungefähres Monatseinkommen notieren (Gehalt, Taschengeld, was reinkommt)",
+          "2": "Die Kreditkarte öffnen (falls du eine hast) und die aktuelle Schuld notieren",
+          "3": "Die Fixkosten auflisten, die du auswendig kennst: Miete, Handytarif, Abos",
+          "4": "Alle Fixkosten aus Schritt 3 zusammenzählen",
+          "5": "Fixkosten von deinem Monatseinkommen abziehen → das ist dein \"freies Geld\"",
+          "6": "Die Karten-/Kontobewegungen des letzten Monats schnell scannen, ohne zu analysieren",
+          "7": "3 Kategorien notieren, in denen du mehr ausgegeben hast als erwartet",
+          "8": "Für diese 3 Kategorien ein Wochenlimit setzen (eine Zahl, nicht lange nachdenken)",
+          "9": "Alles in einer einfachen Notiz oder Tabelle speichern — es muss nicht professionell aussehen, es muss nur existieren",
+          "10": "Belohnung — gönn dir etwas Schönes und schau dir 2 Minuten etwas an, das du dir mit dem \"gefundenen\" Geld kaufen willst"
+        }
+      }
+    },
+    "subtask_list": {
+      "empty_task": "Leere Aufgabe",
+      "list_title": "Aufgabenliste",
+      "subtitle": "Super! Ich habe deine Aufgabe aufgeteilt",
+      "edit_hint": "Tippe auf Titel oder Zeit zum Bearbeiten. Halten und ziehen zum Sortieren",
+      "title_prefix": "Hier ist ein Schritt-für-Schritt-Weg zum Starten",
+      "reorder_hint": "Gedrückt halten und ziehen, um neu anzuordnen",
+      "minute_abbr": "Min.",
+      "primary_start": "Aufgabe starten",
+      "primary_add_to_list": "Zu Aufgaben hinzufügen",
+      "primary_save_changes": "Änderungen speichern",
+      "primary_add_to_home": "Zum Startbildschirm hinzufügen"
+    },
+    "welcome_header": "Willkommen bei Brainy!",
+    "welcome_message": "Dein Gehirn ist nicht kaputt.\nEs braucht nur einen Copiloten.",
+    "continue_as_guest": "Als Gast fortfahren",
+    "habit_days": {
+      "title": "Baue deine tägliche Gewohnheit auf",
+      "subtitle": "Beständigkeit ist der Schlüssel zu dauerhaften Veränderungen",
+      "progress_text": "Fange klein an und bleibe dran",
+      "fact_text": "Menschen mit einer 7-Tage-Serie bauen 3x wahrscheinlicher nachhaltige Gewohnheiten auf"
+    },
+    "growth_potential": {
+      "title": "Dein ungenutztes Potenzial",
+      "subtitle": "Sieh, was du mit dem richtigen System erreichen kannst",
+      "current": "Aktuell",
+      "with_brainy": "Mit Brainy",
+      "mascot_speech": "Du schaffst das! Dein Potenzial ist riesig.",
+      "cta": "Mein Potenzial freischalten",
+      "cards": {
+        "improvement": {
+          "title": "Raum für Wachstum",
+          "badge": "HOCH",
+          "description": "Dein kreativer Kopf braucht nur den richtigen Rahmen, um zu glänzen."
+        },
+        "productivity": {
+          "title": "Fokus-Boost",
+          "description": "Nutzer wie du verdreifachen ihren Fokus in 4 Wochen."
+        },
+        "clarity": {
+          "title": "Mentale Ruhe",
+          "badge": "HOCH",
+          "description": "Bringe das mentale Rauschen zum Schweigen und konzentriere dich auf das, was wirklich zählt."
+        }
+      }
+    },
+    "success_timeline": {
+      "title": "Dein Erfolgszeitstrahl",
+      "subtitle": "Keine Zaubertricks. Nur Neurowissenschaft in deinem eigenen Tempo.",
+      "mascot_speech": "Die beste Version von dir ist näher als du denkst!",
+      "cta": "Mein Willkommensgeschenk sehen",
+      "nodes": {
+        "day30": {
+          "day": "Tag 30",
+          "title": "Volle Kontrolle",
+          "description": "Aufschieberitis hat nicht mehr das Sagen. Sondern du."
+        },
+        "day7": {
+          "day": "Tag 7",
+          "title": "Positiver Schwung",
+          "description": "Deine ersten Serien fühlen sich mühelos an, nicht erzwungen."
+        },
+        "day1": {
+          "day": "Tag 1 (Heute)",
+          "title": "Mentale Entlastung",
+          "description": "Trage nicht mehr die Last der ganzen Welt im Kopf. Deine Überforderung sinkt ab heute."
+        }
+      }
+    },
+    "neuroscience": {
+      "bubble_prefix": "Die Neurowissenschaft bestätigt, dass",
+      "bubble_highlight": "'Mikro-Erfolge'",
+      "bubble_suffix": "Dopamin freisetzen, was deine Motivation am Leben hält.",
+      "subtitle": "Basiert auf Forschung zur Kognitiven Verhaltenstherapie (KVT)"
+    },
+    "processing": {
+      "subtitle": "deine antworten werden analysiert...",
+      "title": "dein system wird eingerichtet",
+      "steps": {
+        "profile": "dein kognitives profil wird berechnet",
+        "dopamine_route": "deine dopamin-roadmap wird erstellt",
+        "reminders": "deine erinnerungen werden abgestimmt"
+      }
+    },
+    "results": {
+      "default_user_name": "freund/in",
+      "thanks_prefix": "danke,",
+      "subtitle": "basierend auf deinen angaben planen wir gemeinsam deinen weg nach vorne.",
+      "analysis_title": "Basierend auf deinen Antworten zeigt meine Analyse:",
+      "pills": {
+        "where_you_want_to_go": "wo du hinwillst",
+        "where_you_are_now": "wo du gerade stehst",
+        "what_holds_you_back": "was dich aufhält"
+      },
+      "goal_text": "Dinge zu Ende bringen und Routinen aufbauen, die nicht von deiner Willenskraft abhängen",
+      "area_text": "Du startest motiviert, aber die Prokrastination gewinnt, bevor du wirklich vorankommst",
+      "obstacles": {
+        "default_1": "Du weißt nicht, wo du anfangen sollst. Jede Aufgabe fühlt sich wie ein riesiger Block an.",
+        "default_2": "Es gibt keine sofortige Belohnung, also langweilt sich dein Gehirn, bevor du fertig bist.",
+        "default_3": "Wenn du einen Tag verpasst, fühlt es sich an, als hättest du die Serie unterbrochen — also lässt du gleich alles fallen."
+      }
+    },
+    "commitment": {
+      "title_line_1": "eine kleine vereinbarung",
+      "title_line_2": "unter uns",
+      "subtitle": "hake jeden punkt ab, um fortzufahren.",
+      "cta_ready": "Meine Vereinbarung unterzeichnen ✍️",
+      "cta_disabled": "Alle Punkte akzeptieren",
+      "items": {
+        "1": "Ich verspreche, nachsichtig mit mir zu sein, wenn ich einen Tag verpasse.",
+        "2": "Ich nehme mir täglich 2 Minuten Zeit, um meine Routinen zu prüfen.",
+        "3": "Ich vertraue darauf, dass mein Gehirn neue, gesunde Gewohnheiten lernen kann."
+      }
+    },
+    "testimonials": {
+      "title": "das sagen\nandere dazu",
+      "items": {
+        "alex": {
+          "age": "29 Jahre alt",
+          "quote": "Ich dachte immer, ich sei einfach faul. Aber ich brauchte nur ein anderes System. Mit Brainy komme ich endlich voran, ohne ständig gegen meinen eigenen Kopf zu kämpfen."
+        },
+        "camila": {
+          "age": "34 Jahre alt",
+          "quote": "Ich ziehe meine Routine seit über zwei Wochen durch und kann es ehrlich gesagt kaum glauben. Es fühlt sich an, als wäre diese App genau für Gehirne wie meins gemacht."
+        },
+        "diego": {
+          "age": "26 Jahre alt",
+          "quote": "Das Serien-System packt dich auf die beste Art. Anzufangen fühlte sich früher unmöglich an – jetzt habe ich eine 21-Tage-Serie."
+        }
+      }
+    },
+    "all_done": {
+      "title": "alles bereit!",
+      "subtitle": "Ich bin bereit, dein Copilot zu sein. Große Erfolge stehen dir bevor!",
+      "cta": "Meine Reise starten! 🚀"
+    },
+    "success_chart": {
+      "today_label": "Heute",
+      "title": "innerer frieden in 21 tagen",
+      "subtitle": "das können wir zusammen in nur 21 tagen erreichen.",
+      "tooltip_1": "alte muster durchbrechen",
+      "tooltip_2": "du hast die kontrolle",
+      "body_prefix": "basierend auf deiner analyse glauben wir, dass du bis zum",
+      "body_suffix": "jeden tag gesunde, beständige gewohnheiten meistern wirst."
+    },
+    "routine_picker": {
+      "title": "wähle eine Routine zum Starten",
+      "subtitle": "wähle eine Routine zum Beginnen. Du kannst später weitere hinzufügen.",
+      "add_1_routine": "1 Routine hinzufügen",
+      "add_n_routines": "{{count}} Routinen hinzufügen",
+      "skip": "Ich richte sie später ein...",
+      "presets": {
+        "walk_dog": {
+          "label": "Gassigehen mit dem Hund",
+          "tasks": {
+            "1": "Leine anlegen",
+            "2": "20 Minuten spazieren gehen",
+            "3": "Frisches Wasser für den Hund"
+          }
+        },
+        "drink_water": {
+          "label": "Ausreichend trinken",
+          "tasks": {
+            "1": "Ein Glas direkt nach dem Aufstehen",
+            "2": "Auffüllen am Vormittag",
+            "3": "Ein Glas zum Mittagessen",
+            "4": "Nachmittags-Hydratisierung"
+          }
+        },
+        "feed_cat": {
+          "label": "Katze füttern",
+          "tasks": {
+            "1": "Trockenfutter prüfen",
+            "2": "Wassernapf auffüllen",
+            "3": "Napf kurz reinigen"
+          }
+        },
+        "morning_routine": {
+          "label": "Morgen-Start",
+          "tasks": {
+            "1": "Bett machen",
+            "2": "Morgendusche",
+            "3": "Frühstücken"
+          }
+        },
+        "wind_down": {
+          "label": "Abend-Entspannung",
+          "tasks": {
+            "1": "Handy in ein anderes Zimmer legen",
+            "2": "10 Minuten lesen",
+            "3": "Tagesplan für morgen prüfen"
+          }
+        }
+      }
+    },
+    "premium_benefits": {
+      "title_prefix": "Brainy-Nutzer halten ihre Gewohnheiten",
+      "title_suffix": "wahrscheinlicher durch",
+      "other_apps": "Andere\nApps",
+      "brainy": "Brainy",
+      "features": {
+        "organize_tasks": "Aufgaben organisieren",
+        "unlimited_routines": "Unbegrenzte Routinen",
+        "no_ads": "Keine Werbung",
+        "ai_for_adhd": "KI für ADHS",
+        "smart_reminders": "Smarte Erinnerungen"
+      }
+    },
+    "notifications": {
+      "title": "Lass mich dein externes Gedächtnis sein",
+      "subtitle": "Ich brauche die Erlaubnis, dich daran zu erinnern, wenn deine Zeit zu glänzen gekommen ist. Ich verspreche, dich nicht zuzuspammen.",
+      "success": "Benachrichtigungen aktiviert!",
+      "activate_cta": "Benachrichtigungen aktivieren 🔔",
+      "skip": "Vielleicht später"
+    },
+    "paywall": {
+      "title": "Starte deine Transformation heute",
+      "subtitle": "Teste Brainy Premium 14 Tage kostenlos.\nWir erinnern dich 2 Tage vor Ablauf.",
+      "processing": "Wird verarbeitet...",
+      "start_trial_cta": "Meine 14-tägige kostenlose Testphase starten",
+      "skip": "Vielleicht später (Eingeschränkte Version)",
+      "timeline": {
+        "today": { "day": "Heute", "label": "Voller Zugriff" },
+        "day12": { "day": "Tag 12", "label": "Erinnerung" },
+        "day14": { "day": "Tag 14", "label": "Abrechnung" }
+      }
+    },
+    "reverse_trial": {
+      "title": "Teste alles. Ohne Risiko.",
+      "headline": "7 Tage alle Premium-Funktionen kostenlos.",
+      "body": "Wir möchten, dass du erlebtest, wie Brainy deinen Alltag verändert, bevor du dich entscheidest. Keine Tricks, kein Kleingedrucktes.",
+      "offer": "7 Premium-Tage.\n100% kostenlos.",
+      "offer_highlight": "Jederzeit kündbar vor Ablauf.",
+      "badge_no_charge": "Keine Abbuchung bis Tag 8",
+      "badge_full_access": "Voller Zugriff",
+      "cta": "7 kostenlose Tage starten",
+      "footer": "Nach 7 Tagen entscheidest du, ob es das Wert ist.",
+      "errors": {
+        "purchase_failed": "Der Kauf konnte nicht abgeschlossen werden. Bitte versuche es erneut.",
+        "unexpected": "Ein unerwarteter Fehler ist aufgetreten."
+      }
+    },
+    "plan_selector": {
+      "title": "Wähle deinen Tarif",
+      "monthly_label": "Monatlich",
+      "annual_label": "Jährlich",
+      "per_month": "/Monat",
+      "per_year": "/Jahr",
+      "popular_badge": "AM BELIEBTESTEN",
+      "trial_label": "14 TAGE KOSTENLOS TESTEN",
+      "cta": "14-Tage-Testphase starten",
+      "cancel_note": "Jederzeit im App Store kündbar"
+    },
+    "logs": {
+      "complete_onboarding_error": "Fehler bei completeOnboarding:"
+    }
+  },
+  "copilot": {
+    "idle_prompt": "Welche Aufgabe stresst dich heute?",
+    "expanded_prompt": "Okay, folgendes machen wir...",
+    "processing_expanding": "Deine Mission wird erweitert...",
+    "processing_dividing": "Wird in Schritte unterteilt...",
+    "divide_button": "Aufgabe aufteilen",
+    "divide_hint": "Du kannst den Text anpassen, damit er besser passt.",
+    "input_placeholder": "Tippen oder halten zum Diktieren...",
+    "recording_overlay": "Aufnahme... zum Senden loslassen",
+    "mic_hint_recording": "Zum Senden loslassen",
+    "mic_hint_processing": "Audio wird verarbeitet...",
+    "mic_hint_idle": "Gedrückt halten zum Sprechen",
+    "voice_error_title": "Ups!",
+    "voice_error_message": "Wir konnten dich nicht deutlich hören. Kannst du es noch einmal versuchen?",
+    "error_connect": "Verbindung zum Copiloten fehlgeschlagen",
+    "error_divide_title": "Verbindungsfehler. Erneut versuchen?",
+    "expand_fallback_prefix": "Ich muss ",
+    "pills": {
+      "laundry": "Wäsche waschen",
+      "laundry_label": "🧺 Wäsche waschen",
+      "room": "Zimmer aufräumen",
+      "room_label": "✨ Zimmer aufräumen",
+      "study": "Für die Prüfung lernen",
+      "study_label": "📚 Für die Prüfung lernen",
+      "breathe": "4-7-8 Atemübung",
+      "breathe_label": "💨 4-7-8 Atmung",
+      "focus": "Fokus-Modus starten",
+      "focus_label": "🎯 Fokus-Modus starten",
+      "water": "Mehr Wasser trinken",
+      "water_label": "💧 Mehr Wasser trinken"
+    }
+  },
+  "login": {
+    "connect_account": "Verbinde dein Konto, um deinen Fortschritt sicher zu speichern",
+    "title": "Gebaut für Gehirne, die anders funktionieren.",
+    "tagline": "der Begleiter, der lästige Aufgaben in ein belohnendes Spiel verwandelt",
+    "continue_with_google": "Mit Google fortfahren",
+    "continue_with_apple": "Mit Apple fortfahren",
+    "or": "oder",
+    "start_without_account": "Ohne Konto starten",
+    "email_login": "Anmelden mit Benutzername/Passwort",
+    "back_to_app": "Zurück zur App",
+    "terms": "Indem du fortfährst, stimmst du unseren Nutzungsbedingungen\nund der Datenschutzrichtlinie zu."
+  },
+  "benefits": {
+    "header": "Vorteile",
+    "title": "Die Vorteile von\ntäglichen Affirmationen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "items": {
+      "stress": {
+        "title": "Stress reduzieren",
+        "description": "Tägliche Affirmationen helfen dir, deinen Geist zu beruhigen und alltägliche Ängste abzubauen."
+      },
+      "positivity": {
+        "title": "Positivität steigern",
+        "description": "Programmiere deine Gedanken positiv um und ziehe bessere Erfahrungen in dein Leben."
+      },
+      "goals": {
+        "title": "Ziele erreichen",
+        "description": "Bleibe auf deine Ziele fokussiert und baue die mentale Einstellung auf, die du brauchst, um sie zu erreichen."
+      }
+    }
+  },
+  "menu": {
+    "title": "Menü",
+    "continue_with_google": "Mit Google fortfahren",
+    "unlock_pro": "Pro freischalten",
+    "notifications": "Benachrichtigungen",
+    "notifications_sublabel": "Benachrichtigungsrechte verwalten",
+    "manage_subscription": "Abo verwalten",
+    "manage_subscription_ios": "Im App Store kündigen oder ändern",
+    "manage_subscription_android": "In Google Play kündigen oder ändern",
+    "restore_purchases": "Käufe wiederherstellen",
+    "restore_purchases_sublabel": "Stelle dein Abo auf diesem Gerät wieder her",
+    "privacy_policy": "Datenschutzrichtlinie",
+    "terms": "Nutzungsbedingungen",
+    "report_issue": "Problem melden",
+    "redeem_code": "Code einlösen",
+    "redeem_code_sublabel": "Gib einen Code ein, um Kronen zu erhalten",
+    "sign_out": "Abmelden",
+    "delete_account": "Konto löschen",
+    "delete_account_sublabel": "Diese Aktion ist dauerhaft und unwiderruflich",
+    "deleting": "Dein Konto wird gelöscht…",
+    "delete_confirm_title": "Konto löschen",
+    "delete_confirm_message": "Diese Aktion ist dauerhaft. Alle deine Daten (Aufgaben, Routinen, Erfolge und Abo) werden gelöscht. Bist du sicher?",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "delete_error": "Konto konnte nicht gelöscht werden. Bitte kontaktiere den Support.",
+    "restored_title": "Fertig!",
+    "restored_message": "Dein Pro-Abo wurde erfolgreich wiederhergestellt.",
+    "no_purchases_title": "Keine vorherigen Käufe",
+    "no_purchases_message": "Es wurden keine Abonnements gefunden, die deinem Konto zugeordnet sind.",
+    "restore_error": "Käufe konnten nicht wiederhergestellt werden. Bitte versuche es erneut.",
+    "contact_subject": "Brainy Support",
+    "contact_body": "Hallo Brainy Team,\n\n"
+  },
+  "streak_shield": {
+    "title": "Deine Serie ist in Gefahr!",
+    "description": "Du hast die App gestern nicht geöffnet und bist kurz davor, deine {{streak}}-Tage-Serie zu verlieren.",
+    "shields_left": "Du hast noch {{count}} Schutzschild(e) übrig.",
+    "use_shield": "Schild nutzen 🛡️",
+    "lose_streak": "{{streak}}-Tage-Serie verlieren"
+  },
+  "redeem_code": {
+    "title": "Code einlösen",
+    "subtitle": "Gib deinen Aktionscode ein, um Kronen zu erhalten.",
+    "placeholder": "CODE123",
+    "redeem": "Einlösen",
+    "success_title": "Code eingelöst!",
+    "success_subtitle": "+{{coins}} Kronen zu deinem Konto hinzugefügt",
+    "done": "Super!"
+  },
+  "routine_celebration": {
+    "title": "Routine abgeschlossen!",
+    "subtitle": "Mache weiter so und halte deine Serie jeden Tag aufrecht",
+    "continue": "Weiter"
+  },
+  "task_celebration": {
+    "title": "Aufgabe erledigt!",
+    "subtitle": "Schritt für Schritt kommst du deiner besten Version näher.",
+    "continue": "Weiter"
+  },
+  "notification_card": {
+    "tasks_completed_day": "Heute {{count}} Aufgabe(n) erledigt",
+    "tasks_completed_week": "Diese Woche {{count}} Aufgabe(n) erledigt",
+    "tasks_completed_month": "Diesen Monat {{count}} Aufgabe(n) erledigt"
+  },
+  "streak_success": {
+    "day_one_0": "Der erste Schritt ist der mutigste! Du hast es geschafft.",
+    "day_one_1": "Heute hast du die Trägheit besiegt. Gut gemacht!",
+    "day_one_2": "Serie gestartet. Dein Gehirn dankt dir.",
+    "streak_0": "Unaufhaltsam! Ein weiterer Tag für deine Beständigkeit.",
+    "streak_1": "Schau dir an, wie deine Serie wächst. Fühlt sich gut an, oder?",
+    "streak_2": "Dein Einsatz zahlt sich aus. Weiter so!",
+    "streak_3": "Ein weiterer Tageserfolg für die Sammlung. Großartig!",
+    "streak_4": "Beständigkeit steht dir gut. Glückwunsch!",
+    "streak_5": "So wird's gemacht! Den Rhythmus Tag für Tag halten."
+  },
+  "force_update": {
+    "badge": "Update erforderlich",
+    "title": "Dein Haustier\nbraucht neue Medizin!",
+    "hint": "Tippe unten, um aus dem offiziellen Store zu aktualisieren.",
+    "click_below": "Klicke unten, um zum Store zu gelangen.",
+    "go_to_app_store": "Zum App Store",
+    "go_to_play_store": "Zum Play Store",
+    "update_info": "Dieses Update bringt Stabilität und neue Funktionen für dich 🧠✨"
+  },
+  "review_request": {
+    "title": "Gefällt dir Brainy?",
+    "body": "Unser Team hat hunderte Stunden investiert, um Brainy zum besten Copiloten für dein Gehirn zu machen. Hilfst du uns mit einer Bewertung? Es dauert nur 2 Minuten.",
+    "leave_review": "Bewertung abgeben ⭐",
+    "not_now": "Nicht jetzt"
+  },
+  "pro_trial": {
+    "gift_title": "Du hast ein Geschenk!",
+    "gift_subtitle": "Der erste Schritt ist der schwerste.\nDu hast dir einen Extra-Schub verdient.",
+    "gift_accept": "Geschenk annehmen",
+    "gift_decline": "Nein danke",
+    "revealed_title": "Du bist jetzt ein\nBrainyPro-Nutzer!",
+    "revealed_subtitle": "Nutze es, um mehr geschafft zu bekommen.",
+    "activate_trial": "7 Tage kostenlos testen!",
+    "footer": "7 Tage kostenlose Testphase. Danach wird dein Konto belastet, außer du kündigst. Wir senden dir an Tag 5 eine Erinnerung.",
+    "benefit_widget_title": "Startbildschirm-Widget",
+    "benefit_widget_subtitle": "Sieh deine Routinen und Serien auf einen Blick.",
+    "benefit_crowns_title": "Kronen-Multiplikator",
+    "benefit_crowns_subtitle": "Erhalte 15% mehr Kronen für jeden Serientag!",
+    "benefit_shield_title": "Serienschild",
+    "benefit_shield_subtitle": "Schütze deine Tages-Serie 2 Mal pro Woche.",
+    "benefit_store_title": "Exklusiver Shop-Zugang",
+    "benefit_store_subtitle": "Schalte neue Outfits und Hintergründe für Brainy frei."
+  },
+  "days": {
+    "mon": "Montag",
+    "tue": "Dienstag",
+    "wed": "Mittwoch",
+    "thu": "Donnerstag",
+    "fri": "Freitag",
+    "sat": "Samstag",
+    "sun": "Sonntag",
+    "mon_abbr": "Mo",
+    "tue_abbr": "Di",
+    "wed_abbr": "Mi",
+    "thu_abbr": "Do",
+    "fri_abbr": "Fr",
+    "sat_abbr": "Sa",
+    "sun_abbr": "So"
+  },
+  "routine_form": {
+    "new_title": "Neue Routine",
+    "edit_title": "Routine bearbeiten",
+    "name_label": "Routinename",
+    "name_placeholder_0": "Cardio-Routine",
+    "name_placeholder_1": "Hund Gassi gehen",
+    "name_placeholder_2": "Lernsession",
+    "which_days": "An welchen Tagen möchtest du sie machen?",
+    "routine_tasks": "Routine-Aufgaben",
+    "drag_to_reorder": "Gedrückt halten zum Neuordnen",
+    "reminder_question": "Möchtest du eine Erinnerung?",
+    "reminder_enabled": "Erinnerung aktiviert",
+    "reminder_disabled": "Keine Erinnerung",
+    "reminder_subtitle_on": "Wir benachrichtigen dich zu dieser Zeit",
+    "reminder_subtitle_off": "Tippen zum Aktivieren der Erinnerung",
+    "empty_task": "Leere Aufgabe",
+    "complete_fields": "Alle Felder ausfüllen",
+    "create": "Routine erstellen",
+    "get_pro": "Pro holen",
+    "unlock_egg": "Freischalten für 👑{{cost}}",
+    "save_changes": "Änderungen speichern",
+    "choose_icon": "Symbol wählen",
+    "choose_companion": "Begleiter wählen",
+    "busy": "beschäftigt",
+    "pro_label": "PRO",
+    "ok": "OK",
+    "unlock_for_crowns": "Für {{cost}} 👑 Kronen freischalten?\n\nDu hast: {{total}} 👑",
+    "not_enough_crowns": "Kostet {{cost}} 👑 Kronen.\nDu hast nur {{total}} 👑 – reicht nicht aus!",
+    "buy_for_crowns": "Kaufen · {{cost}} 👑",
+    "discard_title": "Änderungen verwerfen?",
+    "discard_message": "Du hast ungespeicherte Änderungen",
+    "cancel": "Abbrechen",
+    "discard": "Verwerfen",
+    "step_name_subtitle": "Gib ihm einen Namen zur Identifikation",
+    "step_days_subtitle": "Wähle die Tage aus, an denen du sie machst",
+    "step_tasks_subtitle": "Füge die Aufgaben dieser Routine hinzu",
+    "step_reminder_subtitle": "Lass dich erinnern, damit du es nicht vergisst",
+    "step_egg_subtitle": "Wähle einen Begleiter, der mit dir wächst",
+    "next": "Weiter"
+  },
+  "streak_screen": {
+    "current_streak": "AKTUELLE SERIE",
+    "shield_message": "🛡 Dein Schild hat deine Serie geschützt!\nÖffne die App weiterhin jeden Tag!",
+    "comeback_message": "Du hast die Trägheit durchbrochen. Das war der schwerste Teil. Komm morgen wieder und sieh deine Serie wachsen!",
+    "my_badges": "Meine Abzeichen",
+    "days_count": "{{count}} Tage"
+  },
+  "routines_screen": {
+    "title_count": "{{count}} Routinen für heute",
+    "title_count_one": "{{count}} Routine für heute",
+    "title_count_other": "{{count}} Routinen für heute",
+    "title_no_routines_day": "Keine Routinen für {{day}}",
+    "title_create_first": "Erstelle deine erste Routine",
+    "empty_title_no_day": "Keine Routinen für {{day}}",
+    "empty_title_none": "Noch keine Routinen",
+    "empty_subtitle_no_day": "Wähle einen anderen Tag oder erstelle eine neue Routine für diesen Tag",
+    "empty_subtitle_none": "Tippe auf +, um deine erste Routine zu erstellen und deine täglichen Gewohnheiten zu strukturieren"
+  },
+  "routines_alerts": {
+    "error_title": "Fehler",
+    "success_title": "Erfolg!",
+    "load_failed": "Routinen konnten nicht geladen werden. Bitte versuche es erneut.",
+    "delete_failed": "Routine konnte nicht gelöscht werden",
+    "delete_error": "Beim Löschen der Routine ist ein Fehler aufgetreten",
+    "update_failed": "Routine konnte nicht aktualisiert werden",
+    "save_error": "Beim Speichern der Routine ist ein Fehler aufgetreten",
+    "task_update_failed": "Aufgabe konnte nicht aktualisiert werden",
+    "task_update_error": "Beim Aktualisieren der Aufgabe ist ein Fehler aufgetreten",
+    "login_required_create": "Du musst dich anmelden, um Routinen zu erstellen",
+    "create_failed": "Routine konnte nicht erstellt werden",
+    "create_error": "Beim Erstellen der Routine ist ein Fehler aufgetreten",
+    "create_success_message": "Routine \"{{name}}\" für {{days}} erstellt"
+  },
+  "routine_card": {
+    "level": "Level {{level}}",
+    "all_days": "Jeden Tag"
+  },
+  "fab": {
+    "new_task": "Neue Aufgabe",
+    "new_routine": "Neue Routine"
+  },
+  "tabs": {
+    "tasks": "Aufgaben",
+    "routines": "Routinen"
+  },
+  "weekly_calendar": {
+    "day_name_0": "So",
+    "day_name_1": "Mo",
+    "day_name_2": "Di",
+    "day_name_3": "Mi",
+    "day_name_4": "Do",
+    "day_name_5": "Fr",
+    "day_name_6": "Sa",
+    "day_abbr_0": "So",
+    "day_abbr_1": "Mo",
+    "day_abbr_2": "Di",
+    "day_abbr_3": "Mi",
+    "day_abbr_4": "Do",
+    "day_abbr_5": "Fr",
+    "day_abbr_6": "Sa"
+  },
+  "notifications": {
+    "channel": {
+      "routines_name": "Routine-Erinnerungen",
+      "routines_description": "Benachrichtigungen für deine täglichen Routinen"
+    },
+    "routine_message_0": "Schau nicht auf die ganze Liste. Tippe hier und mach nur den ersten Schritt deiner Routine. 🎯",
+    "routine_message_1": "Denke nicht an alles, was du tun musst. Öffne die App, schaue dir deine Routine an und erledige nur, was du schaffst. ✨",
+    "routine_message_2": "Du hast eine geplante Routine. Wenn es dich überfordert, suche dir die einfachste Aufgabe aus und fange dort an! 🌟",
+    "task_reminder": {
+      "starts_in": "Deine Aufgabe beginnt in {{count}} Minuten",
+      "starts_in_one": "Deine Aufgabe beginnt in {{count}} Minute",
+      "starts_in_other": "Deine Aufgabe beginnt in {{count}} Minuten"
+    },
+    "streak": {
+      "first_title": "🎉 Erste Serie!",
+      "first_body": "Du hast deine Reise begonnen. Morgen ist Tag 2. Bleib dran!",
+      "week_title": "🔥 Eine ganze Woche!",
+      "week_body": "7 Tage in Folge. Das ist bereits eine Gewohnheit. Großartig.",
+      "month_title": "🏆 EIN GANZER MONAT!",
+      "month_body": "30 Tage. Du wirst bereits zu einer neuen Version deiner selbst.",
+      "multiple_title": "🔥 {{count}} Tage in Folge",
+      "multiple_body": "Deine Beständigkeit ist inspirierend. Geh weiter voran."
+    },
+    "trial_expiration": {
+      "title": "wir hoffen, Brainy hilft dir",
+      "body": "in zwei tagen wird dein konto für deinen tarif belastet. wenn du PRO-nutzer bleiben möchtest, musst du nichts weiter tun."
+    },
+    "streak_warning": {
+      "title": "Rette deine Serie!",
+      "body": "Wenn du heute wenig Energie hast, ist das völlig okay 💙. Aber wenn du noch 2 Minuten Akku hast, tippe hier, um deine {{count}}-Tage-Serie zu retten.",
+      "body_one": "Wenn du heute wenig Energie hast, ist das völlig okay 💙. Aber wenn du noch 2 Minuten Akku hast, tippe hier, um deine {{count}}-Tage-Serie zu retten.",
+      "body_other": "Wenn du heute wenig Energie hast, ist das völlig okay 💙. Aber wenn du noch 2 Minuten Akku hast, tippe hier, um deine {{count}}-Tage-Serie zu retten."
+    }
+  },
+  "activity_menu": {
+    "reset": "Zurücksetzen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen"
+  },
+  "activity_button": {
+    "continue_with": "Fortfahren mit",
+    "completed": "Erledigt"
+  },
+  "error_boundary": {
+    "title": "Etwas ist schiefgelaufen",
+    "message": "In der App ist ein unerwarteter Fehler aufgetreten.",
+    "restart": "Neu starten",
+    "not_found_title": "Diese Seite existiert nicht.",
+    "not_found_link": "Zum Startbildschirm!"
+  },
+  "habit_tracker": {
+    "morning_title": "Morgenroutine",
+    "morning_subtitle": "Energie für den Start",
+    "tasks": {
+      "water": "Ein Glas Wasser trinken",
+      "bed": "Bett machen",
+      "medication": "Medikamente einnehmen",
+      "stretch": "10 Minuten dehnen"
+    }
+  },
+  "task_modal": {
+    "title": "Neue Fokus-Aufgabe",
+    "processing": "Wird verarbeitet...",
+    "listening": "Höre zu...",
+    "processing_hint": "Ich verwandle deine Idee in eine klare Aufgabe",
+    "voice_empty_error": "Hast du etwas gesagt? Ich konnte deine Stimme leider nicht verarbeiten :( Versuche es noch einmal.",
+    "placeholder": "Was musst du erledigen?",
+    "suggestions_hint": "Probiere eine davon aus",
+    "generating": "Wird generiert...",
+    "create_focus_task": "Fokus-Aufgabe erstellen",
+    "tap_to_stop": "Tippen zum Stoppen",
+    "use_mic_hint": "Gedrückt halten für Spracheingabe",
+    "suggestions": {
+      "0": "Zimmer aufräumen",
+      "1": "Rucksack packen",
+      "2": "Pflanzen gießen",
+      "3": "Ausgaben überprüfen",
+      "4": "Anstehende Dokumente prüfen",
+      "5": "Für eine Prüfung lernen",
+      "6": "Essen für morgen vorbereiten",
+      "7": "Rechnungen bezahlen"
+    }
+  },
+  "routine_detail": {
+    "today": "Heute",
+    "delete_title": "Routine löschen",
+    "delete_message": "Möchtest du \"{{name}}\" löschen?",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "read_only_banner_prefix": "Du siehst gerade",
+    "progress": "Fortschritt: {{done}}/{{total}}",
+    "tasks": "Aufgaben",
+    "egg_title": "Dein Ei",
+    "egg_xp_label": "Erfahrung",
+    "no_egg_assigned": "Kein Ei zugewiesen",
+    "hatch": "AUSBRÜTEN",
+    "day_progress": "TAG {{current}}/{{total}}",
+    "hatch_hint": "Schließe diese Routine {{days}} Tage lang ab, um dein Ei auszubrüten.",
+    "pet_xp": "XP",
+    "pet_tab": "Haustier",
+    "history_tab": "Verlauf",
+    "reward_eyebrow": "LEVEL-BELOHNUNG",
+    "reward_title": "KRONEN ERHALTEN",
+    "reward_caption": "Dein Haustier ist im Level aufgestiegen.\nViel Spaß mit deinen neuen Kronen.",
+    "reward_cta": "GROSSARTIG"
+  },
+  "index_tab": {
+    "write_task_first": "Schreibe zuerst eine Aufgabe",
+    "generate_subtasks_first": "Generiere zuerst Teilaufgaben",
+    "loading_tasks": "Aufgaben werden geladen...",
+    "weekly_title": "{{count}} Aufgaben diese Woche",
+    "weekly_empty_title": "Keine Aufgaben diese Woche",
+    "weekly_empty_subtitle": "Tippe auf den +-Button, um deine erste Aufgabe für diese Woche hinzuzufügen",
+    "start_task_title": "Aufgabe starten?",
+    "start_task_later": "Später",
+    "start_task_start": "Starten",
+    "onboarding": {
+      "title_step_1": "Dein Fokus-Wächter",
+      "title_step_3": "Du bist nur einen Schritt entfernt",
+      "title_question": "Wobei brauchst du heute Hilfe?",
+      "subtitle_step_1": "Lass uns deine Erfahrung schnell personalisieren",
+      "subtitle_step_3": "Wähle eine Situation, um zu starten",
+      "option_0": "Ich schiebe Dinge sehr oft auf",
+      "option_1": "Ich fühle mich überfordert",
+      "option_2": "Ich lasse mich leicht ablenken",
+      "start": "Starten",
+      "egg_picker": {
+        "title": "Wähle ein Ei für deine Routine",
+        "subtitle": "Du kannst es später aus deinem Inventar ändern.",
+        "add_egg": "Ei hinzufügen"
+      },
+      "pets_preview": {
+        "title": "Lerne deine Routine-Begleiter kennen",
+        "subtitle": "Weise einer erstellten Routine ein Ei zu und schließe sie dreimal ab, damit es sich in deinen neuen Begleiter verwandelt!",
+        "subtitle2": "und mehr!"
+      },
+      "trial_reminder": {
+        "title": "Wenn du einverstanden bist, erinnern wir dich 2 Tage vor Ablauf deiner kostenlosen Testphase.",
+        "description": "Wir benötigen deine Erlaubnis, um dir eine Benachrichtigung zu senden, wenn noch 2 Tage deiner Testphase verbleiben. Du kannst dies später in den Einstellungen ändern.",
+        "cta": "Aktivieren & Fortfahren",
+        "skip": "Überspringen"
+      },
+      "paywall_slide": {
+        "title": "Hole dir BrainyPRO",
+        "subtitle": "BrainyPRO-Nutzer erreichen 3x wahrscheinlicher eine 28-Tage-Serie.",
+        "feature_ai": "Unbegrenzte KI-Aufgabenaufteilungen",
+        "feature_widget": "Unbegrenzte Routinen im Widget",
+        "feature_crowns": "15% mehr Kronen pro Serientag verdienen",
+        "feature_store": "Exklusiven Store für Gegenstände freischalten",
+        "feature_companions": "Seltene und legendäre Begleiter freischalten",
+        "reassure": "Jetzt keine Zahlung fällig",
+        "cta": "Für 0,00 € testen",
+        "go_to_app": "Zur App"
+      }
+    },
+    "schedule": {
+      "title": "Aufgabe planen",
+      "frequency": "Häufigkeit",
+      "once": "Einmalig",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "days": "Tage",
+      "time_optional": "Uhrzeit (optional)",
+      "select_time": "Uhrzeit wählen",
+      "reminder": "Erinnerung",
+      "minutes_before": "{{count}} Minuten vorher",
+      "minutes_before_one": "{{count}} Minute vorher",
+      "minutes_before_other": "{{count}} Minuten vorher",
+      "day_short": ["M", "D", "M", "D", "F", "S", "S"],
+      "confirm": "Bestätigen"
+    },
+    "execution": {
+      "exit_title": "Beenden?",
+      "exit_message": "Möchtest du diese Aufgabe verlassen?",
+      "continue": "Weiter machen",
+      "exit": "Beenden",
+      "completed": "Aufgabe abgeschlossen!"
+    }
+  },
+  "paywall": {
+    "title": "Verliere nicht deine Serie.",
+    "subtitle": "Wir hoffen, dir hat deine kostenlose Testphase gefallen. Wähle einen Tarif, um deinen Fortschritt fortzusetzen.",
+    "monthly_toggle": "Monatlich",
+    "annual_toggle": "Jährlich",
+    "best_value": "Bester Wert",
+    "annual_plan": "Jahres-Meisterschaft",
+    "monthly_plan": "Monatstarif",
+    "per_month": "/ Monat",
+    "billed_yearly": "Jährliche Abrechnung (${{price}}/Jahr)",
+    "billed_monthly": "Monatliche Abrechnung",
+    "feature_full_access": "Voller Zugriff",
+    "feature_cancel_anytime": "Jederzeit kündbar",
+    "feature_reduced_price": "Reduzierter Preis",
+    "cta_unlock": "Serie freischalten und fortfahren",
+    "microcopy": "Keine Überraschungen. Nur Klarheit.",
+    "trust_renewal": "Wir erinnern dich 2 Tage vor der Verlängerung.",
+    "trust_cancel": "In Sekunden direkt aus der App kündbar.",
+    "trust_data": "Deine Daten sind immer geschützt.",
+    "faq_title": "Häufig gestellte Fragen",
+    "faq_q1": "Was passiert mit meinen Daten, wenn ich kündige?",
+    "faq_a1": "Deine Daten bleiben sicher. Wenn du zurückkehrst, wird 30 Tage lang alles genau so sein, wie du es verlassen hast.",
+    "faq_q2": "Kann ich später den Tarif wechseln?",
+    "faq_a2": "Absolut. Du kannst jederzeit in den Einstellungen zwischen monatlicher und jährlicher Zahlung wechseln.",
+    "streak_badge": "🔥 Serie: {{count}} Tage",
+    "streak_badge_one": "🔥 Serie: {{count}} Tag",
+    "streak_badge_other": "🔥 Serie: {{count}} Tage"
+  },
+  "auth": {
+    "account_in_use_title": "Konto bereits in Verwendung",
+    "account_in_use_message": "Das ausgewählte Google-Konto ist bereits registriert. Um es zu verwenden, musst du dich aus deiner aktuellen anonymen Sitzung abmelden (ungespeicherte Daten gehen verloren). Möchtest du dich jetzt abmelden?",
+    "cancel": "Abbrechen",
+    "sign_out": "Abmelden",
+    "sign_in_error_title": "Anmeldefehler",
+    "sign_in_error_message": "Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut.",
+    "apple_sign_in_error_message": "Apple-Anmeldung konnte nicht abgeschlossen werden. Bitte versuche es erneut.",
+    "error_title": "Fehler",
+    "anonymous_sign_in_error_message": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
+    "email_login_title": "Anmelden",
+    "email_login_subtitle": "Gib deine E-Mail-Adresse und dein Passwort ein, um auf dein Konto zuzugreifen.",
+    "email_login_button": "Anmelden",
+    "email_signup_title": "Konto erstellen",
+    "email_signup_subtitle": "Gib deine E-Mail-Adresse ein und wähle ein Passwort.",
+    "email_signup_button": "Registrieren",
+    "email_placeholder": "E-Mail",
+    "password_placeholder": "Passwort",
+    "confirm_password_placeholder": "Passwort bestätigen",
+    "no_account": "Noch kein Konto?",
+    "has_account": "Bereits ein Konto?",
+    "sign_up_link": "Registrieren",
+    "log_in_link": "Anmelden",
+    "invalid_credentials": "Ungültige E-Mail oder ungültiges Passwort. Bitte versuche es erneut.",
+    "email_in_use": "Ein Konto mit dieser E-Mail existiert bereits. Versuche dich stattdessen anzumelden.",
+    "sign_up_error_message": "Konto konnte nicht erstellt werden. Bitte versuche es erneut.",
+    "passwords_do_not_match": "Passwörter stimmen nicht überein.",
+    "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein."
+  },
+  "achievements": {
+    "title": "Erfolge",
+    "tab_achievements": "Erfolge",
+    "tab_shop": "Shop",
+    "completed_achievements": "Abgeschlossene Erfolge",
+    "daily_streak": "Tägliche Serie",
+    "multiplier": "Multiplikator",
+    "complete_goal": "Ziel abschließen",
+    "items": {
+      "app_opened": "Öffne die App zum ersten Mal",
+      "first_task": "Erstelle deine erste Aufgabe",
+      "two_routines": "Erstelle deine ersten zwei Routinen",
+      "first_routine": "Schließe deine erste Routine zu 100% ab",
+      "streak_3": "Erreiche eine 3-Tage-Serie",
+      "edit_routine": "Ändere das Symbol oder den Namen einer Routine",
+      "first_reminder": "Stelle deine erste Erinnerung ein",
+      "tasks_3": "Erledige insgesamt 3 Aufgaben",
+      "routine_streak_4": "Erreiche eine 4-Tage-Routine-Serie",
+      "three_routines": "Halte 3 aktive Routinen aufrecht",
+      "first_outfit": "Kaufe dein erstes Outfit",
+      "edit_old_routine": "Bearbeite eine Routine, die älter als 5 Tage ist",
+      "streak_7": "Erreiche eine 7-Tage-Serie",
+      "routine_streak_9": "Erreiche eine 9-Tage-Routine-Serie",
+      "tasks_12": "Erledige insgesamt 12 Aufgaben",
+      "first_skin": "Kaufe deinen ersten Hintergrund",
+      "streak_14": "Erreiche eine 14-Tage-Serie",
+      "tasks_25": "Erledige insgesamt 25 Aufgaben",
+      "three_skins": "Kaufe 3 Hintergründe",
+      "streak_21": "Erreiche eine 21-Tage-Serie",
+      "weekly_4": "Nutze die App in 4 verschiedenen Wochen",
+      "streak_30": "Erreiche eine 30-Tage-Serie"
+    },
+    "shop": {
+      "backgrounds": "Hintergründe",
+      "outfits": "Outfits",
+      "equip": "Ausrüsten",
+      "equipped": "Ausgerüstet",
+      "confirm_title": "Möchtest du diesen Gegenstand kaufen?",
+      "buy": "KAUFEN",
+      "cancel": "Abbrechen",
+      "insufficient_title": "Nicht genug Kronen",
+      "insufficient_message": "Du brauchst {{missing}} weitere Kronen, um \"{{item}}\" zu kaufen."
+    }
+  },
+  "widgets": {
+    "pro_title": "Brainy PRO",
+    "pro_line_1": "Um deine Routinen hier zu sehen,",
+    "pro_line_2": "werde BrainyPRO-Mitglied ✨",
+    "no_routines_title": "Keine Routinen für heute!",
+    "no_routines_subtitle": "Die Routinen, die du in der App erstellst, werden hier angezeigt",
+    "tap_task_hint": "Tippe auf den Aufgabennamen, um sie zu erledigen",
+    "completed": "Erledigt!",
+    "no_tasks": "Keine Aufgaben",
+    "no_routine": "Keine Routine",
+    "enable_pro": "Aktiviere PRO, um deine Routinen hier zu sehen",
+    "routine_completed": "Routine abgeschlossen! 🎉",
+    "progress": "{{completed}} von {{total}} Aufgaben · {{pct}}%",
+    "action_queued": "Aktion in Warteschlange"
+  },
+  "routine_icons": {
+    "dumbbell": "Fitness",
+    "activity": "Aktivität",
+    "bike": "Radfahren",
+    "heart": "Gesundheit",
+    "book": "Lesen",
+    "graduation": "Lernen",
+    "lightbulb": "Ideen",
+    "brain": "Geist",
+    "briefcase": "Arbeit",
+    "coffee": "Kaffee",
+    "laptop": "Computer",
+    "target": "Ziel",
+    "home": "Zuhause",
+    "shopping": "Einkaufen",
+    "food": "Essen",
+    "sparkles": "Funkeln",
+    "moon": "Nacht",
+    "sun": "Tag",
+    "flower": "Natur",
+    "smile": "Wohlbefinden"
+  },
+  "focus_mode": {
+    "slider_swipe": "Wischen zum Abschließen...",
+    "slider_finish": "Beenden...",
+    "progress": "{{completed}} / {{total}} abgeschlossen",
+    "tip": "💡 Konzentriere dich nur auf diesen Schritt",
+    "exit_title": "Fokus-Modus verlassen?",
+    "exit_subtitle_one": "{{count}} ausstehende Teilaufgabe",
+    "exit_subtitle_other": "{{count}} ausstehende Teilaufgaben",
+    "exit_confirm": "Speichern und beenden",
+    "exit_cancel": "Hier bleiben"
+  },
+  "funnel": {
+    "claim": {
+      "processing": "Dein Plan wird vorbereitet...",
+      "error_title": "Dein Plan konnte nicht aktiviert werden",
+      "error_invalid_token": "Dieser Link ist ungültig.",
+      "error_token_expired": "Dieser Link ist abgelaufen.",
+      "error_already_claimed": "Dieser Plan wurde bereits mit einem anderen Konto aktiviert.",
+      "error_plan_not_ready": "Dein Plan ist noch nicht fertig. Versuche es in ein paar Minuten erneut.",
+      "error_forbidden": "Du hast keine Berechtigung, diesen Plan zu aktivieren.",
+      "error_network": "Prüfe deine Verbindung und versuche es erneut.",
+      "error_unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "ok": "Verstanden"
+    },
+    "plan_ready": {
+      "title": "Dein Plan ist da 🎉",
+      "subtitle": "Aufgaben, Routinen und Begleiter, bereit dich heute zu unterstützen.",
+      "task_count_label": "Aufgaben",
+      "routine_count_label": "Routinen",
+      "egg_count_label": "Eier",
+      "companions_title": "Deine Begleiter warten auf dich",
+      "pairs_title": "Deine Begleiter und ihre Routinen",
+      "cta": "Meinen Plan starten",
+      "pro_hint": "Du bist bereits bei Brainy Pro. Genieße deinen ganzen Plan!",
+      "paywall_hint": "Entfessle dein volles Potenzial mit Brainy Pro."
+    },
+    "handoff": {
+      "preparing_title": "Dein Brainy wird vorbereitet…",
+      "step_pro": "Brainy Pro wird aktiviert",
+      "step_plan": "Dein Plan wird wiederhergestellt",
+      "step_routines": "Deine Routinen werden vorbereitet",
+      "step_pets": "Deine Begleiter werden verknüpft",
+      "error_network_title": "Ein Problem ist aufgetreten",
+      "error_network_message": "Prüfe deine Verbindung und versuche es erneut.",
+      "error_invalid_title": "Dieser Link ist nicht gültig",
+      "error_invalid_message": "Der Aktivierungslink scheint ungültig zu sein. Kontaktiere den Support.",
+      "error_expired_title": "Dieser Link ist abgelaufen",
+      "error_expired_message": "Dieser Kauf-Link ist nicht mehr gültig. Du kannst einen neuen aus deiner Kauf-E-Mail erhalten.",
+      "error_expired_message_email": "Dieser Kauf-Link ist abgelaufen. Öffne die Kauf-E-Mail an {{email}} erneut, um Brainy Pro auf diesem Gerät zu aktivieren.",
+      "error_other_user_title": "Dieser Kauf ist mit einem anderen Konto verknüpft",
+      "error_other_user_message": "Brainy Pro wurde bereits mit einem anderen Konto aktiviert. Melde dich mit diesem Konto an, um es hier zu nutzen.",
+      "error_other_user_cta": "Mit einem anderen Konto anmelden",
+      "error_claim_title": "Dein Plan konnte nicht wiederhergestellt werden",
+      "error_claim_message": "Dein Kauf war erfolgreich, aber dein Plan konnte nicht wiederhergestellt werden. Versuche es gleich noch einmal.",
+      "error_redemption_title": "Brainy Pro konnte nicht aktiviert werden",
+      "error_redemption_message": "Dein Plan ist bereit, aber Brainy Pro konnte nicht aktiviert werden. Keine Sorge – es wird dir nie doppelt berechnet.",
+      "retry_claim": "Plan-Wiederherstellung erneut versuchen",
+      "retry_redemption": "Aktivierung erneut versuchen",
+      "retry": "Erneut versuchen",
+      "home": "Zu meinem Plan",
+      "continue": "Weiter"
+    }
+  }
+}

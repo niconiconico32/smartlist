@@ -1,12 +1,14 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
-import * as Haptics from "expo-haptics";
+import { hapticSuccess } from "@/utils/haptics";
+import { playSuccessChime } from "@/utils/sounds";
 import LottieView from "lottie-react-native";
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 interface Props {
   onNext: () => void;
@@ -15,6 +17,14 @@ interface Props {
 export default function AllDoneSlide({ onNext }: Props) {
   const { t } = useTranslation();
   const lottieRef = useRef<LottieView>(null);
+
+  // Chime de éxito sincronizado con el reveal de la animación/logo
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      playSuccessChime();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <View style={s.container}>
@@ -50,6 +60,7 @@ export default function AllDoneSlide({ onNext }: Props) {
         <Text
           style={[
             slideStyles.slideTitle,
+            slideStyles.questionTitle,
             s.centeredTitle,
             { color: colors.background },
           ]}
@@ -66,15 +77,13 @@ export default function AllDoneSlide({ onNext }: Props) {
         entering={FadeInDown.delay(800).duration(500)}
         style={s.footer}
       >
-        <Pressable
-          style={s.button}
+        <PixelCTAButton
+          label={t("index_tab.onboarding.paywall_slide.go_to_app")}
           onPress={() => {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            hapticSuccess();
             onNext();
           }}
-        >
-          <Text style={s.buttonText}>{t("onboarding.all_done.cta")}</Text>
-        </Pressable>
+        />
       </Animated.View>
     </View>
   );
@@ -123,21 +132,5 @@ const s = StyleSheet.create({
   footer: {
     width: "100%",
     marginTop: 40,
-  },
-  button: {
-    backgroundColor: colors.surface,
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: "center",
-    shadowColor: colors.surface,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
   },
 });

@@ -1,17 +1,10 @@
-import {
-    PRIMARY_GRADIENT_COLORS,
-    primaryButtonGradient,
-    primaryButtonStyles,
-    primaryButtonText,
-} from "@/constants/buttons";
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from "expo-linear-gradient";
 import { Flame } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, ScrollView, StyleSheet, View } from "react-native";
 import Animated, {
     FadeInDown,
     useAnimatedStyle,
@@ -22,6 +15,8 @@ import Animated, {
     withTiming,
 } from "react-native-reanimated";
 import { HABIT_DAYS } from "../../constants";
+import { slideStyles } from "../../styles/shared";
+import PixelCTAButton from "../PixelCTAButton";
 
 // ============================================
 // ANIMATED DAY CIRCLE
@@ -98,7 +93,6 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
   const subtitleOpacity = useSharedValue(0);
   const factOpacity = useSharedValue(0);
   const buttonOpacity = useSharedValue(0);
-  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
     titleOpacity.value = withDelay(100, withTiming(1, { duration: 500 }));
@@ -129,19 +123,8 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
 
   const buttonStyle = useAnimatedStyle(() => ({
     opacity: buttonOpacity.value,
-    transform: [
-      { translateY: (1 - buttonOpacity.value) * 20 },
-      { scale: buttonScale.value },
-    ],
+    transform: [{ translateY: (1 - buttonOpacity.value) * 20 }],
   }));
-
-  const handleButtonPressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 });
-  };
-
-  const handleButtonPressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 10, stiffness: 300 });
-  };
 
   const getDelay = (index: number) => 500 + index * 430;
 
@@ -164,7 +147,9 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
           />
         </Animated.View>
 
-        <Animated.Text style={[styles.title, titleStyle]}>
+        <Animated.Text
+          style={[slideStyles.slideTitle, slideStyles.questionTitle, styles.title, titleStyle]}
+        >
           {t("onboarding.habit_days.title")}
         </Animated.Text>
 
@@ -176,7 +161,7 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
           {HABIT_DAYS.map((day, index) => (
             <AnimatedDayCircle
               key={day.id}
-              label={day.label}
+              label={t(day.labelKey)}
               delay={getDelay(index)}
               onFilled={
                 index === 6
@@ -208,24 +193,13 @@ const HabitDaysSlide: React.FC<Props> = ({ onNext }) => {
 
       {showButton && (
         <Animated.View style={[styles.buttonContainer, buttonStyle]}>
-          <Pressable
+          <PixelCTAButton
+            label={t("onboarding.continue")}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               onNext();
             }}
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
-            style={primaryButtonStyles}
-          >
-            <LinearGradient
-              colors={PRIMARY_GRADIENT_COLORS}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={primaryButtonGradient}
-            >
-              <Text style={primaryButtonText}>{t("onboarding.continue")}</Text>
-            </LinearGradient>
-          </Pressable>
+          />
         </Animated.View>
       )}
     </View>
@@ -255,13 +229,10 @@ const styles = StyleSheet.create({
     marginBottom: -20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "900",
     color: colors.textPrimary,
     textAlign: "center",
+    alignSelf: "center",
     marginBottom: 16,
-    letterSpacing: -0.5,
-    lineHeight: 40,
   },
   subtitle: {
     fontSize: 15,

@@ -1,6 +1,9 @@
 import i18n from '@/src/config/i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { supabase } from '../lib/supabase';
 import { requestNotificationPermissions } from '../lib/notificationService';
+import { ENTITLEMENT_ID } from './purchases';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 let Notifications: any = {};
@@ -126,7 +129,7 @@ export async function scheduleTrialExpirationNotification(
       content: {
         title: i18n.t('notifications.trial_expiration.title'),
         body: i18n.t('notifications.trial_expiration.body'),
-        sound: 'default',
+        sound: undefined,
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: { type: 'trial_expiration' },
       },
@@ -172,7 +175,7 @@ export async function scheduleStreakWarningNotification(streak: number): Promise
       content: {
         title: i18n.t('notifications.streak_warning.title'),
         body: i18n.t('notifications.streak_warning.body', { count: streak }),
-        sound: 'default',
+        sound: undefined,
         priority: Notifications.AndroidNotificationPriority.HIGH,
         data: { type: 'streak_warning' },
       },
@@ -200,6 +203,112 @@ export async function cancelStreakWarningNotification(): Promise<void> {
   }
 }
 
+/**
+ * Register the current device's push token in Supabase for the given user.
+ * Does nothing if notification permissions haven't been granted.
+ */
+export async function registerPushToken(userId: string): Promise<void> {
+  if (isExpoGo) return;
+
+  try {
+    const hasPermissions = await checkNotificationPermissions();
+    if (!hasPermissions) return;
+
+    const token = await Notifications.getExpoPushTokenAsync();
+
+    const { error } = await supabase
+      .from('user_push_tokens')
+      .upsert(
+        { user_id: userId, token: token.data },
+        { onConflict: 'user_id' },
+      );
+
+    if (error) {
+      console.error('Error upserting push token:', error);
+    }
+  } catch (error) {
+    console.error('Error registering push token:', error);
+  }
+}
+
+/**
+ * Called whenever customer info is refreshed.
+ * 1. Registers / refreshes the device push token.
+ * 2. If the user has a trial ending in ~2 days, sends a push notification
+ *    via the send-trial-reminder Edge Function and also schedules a local
+ *    notification as backup.
+ *
+ * Uses AsyncStorage to avoid sending the same reminder multiple times per
+ * trial period.
+ */
+export async function syncPushTokenAndCheckTrial(
+  customerInfo: any,
+): Promise<void> {
+  if (isExpoGo) return;
+
+  try {
+    // Get the current user from Supabase session
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+    if (!userId) return;
+
+    // 1. Register push token (non-blocking)
+    await registerPushToken(userId);
+
+    // 2. Check trial status from RevenueCat customer info
+    const entitlement =
+      customerInfo?.entitlements?.active?.[ENTITLEMENT_ID];
+    if (!entitlement) return;
+
+    const isTrial =
+      entitlement.periodType === 'TRIAL' ||
+      entitlement.periodType === 'INTRO';
+    if (!isTrial || !entitlement.expirationDate) return;
+
+    const expirationDate = new Date(entitlement.expirationDate);
+    const now = new Date();
+    const daysRemaining = Math.ceil(
+      (expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    // Only remind between 1 and 3 days before expiration
+    if (daysRemaining < 1 || daysRemaining > 3) return;
+
+    // 3. Debounce: only send once per trial period
+    const reminderKey = `@trial_reminder_sent_${userId}_${entitlement.expirationDate}`;
+    const alreadySent = await AsyncStorage.getItem(reminderKey);
+    if (alreadySent) return;
+
+    // 4. Send push via Edge Function
+    const { error: fnError } = await supabase.functions.invoke(
+      'send-trial-reminder',
+      {
+        body: {
+          title: i18n.t('notifications.trial_expiration.title'),
+          body: i18n.t('notifications.trial_expiration.body'),
+          data: { type: 'trial_expiration' },
+        },
+      },
+    );
+
+    if (fnError) {
+      console.error('Error invoking send-trial-reminder:', fnError);
+    }
+
+    // 5. Mark as sent (key includes expiration date, so it resets per trial)
+    await AsyncStorage.setItem(reminderKey, 'true');
+
+    // 6. Schedule local notification as backup
+    await scheduleTrialExpirationNotification(daysRemaining);
+
+    console.log(
+      `✅ Trial reminder sent for user ${userId} (${daysRemaining} days remaining)`,
+    );
+  } catch (error) {
+    console.error('Error in syncPushTokenAndCheckTrial:', error);
+  }
+}
+
 export default {
   requestNotificationPermissions,
   checkNotificationPermissions,
@@ -207,4 +316,6 @@ export default {
   scheduleTrialExpirationNotification,
   scheduleStreakWarningNotification,
   cancelStreakWarningNotification,
+  registerPushToken,
+  syncPushTokenAndCheckTrial,
 };

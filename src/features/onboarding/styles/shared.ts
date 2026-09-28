@@ -123,16 +123,18 @@ export const slideStyles = StyleSheet.create({
     lineHeight: 40,
   },
   slideSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.surface,
+    fontSize: 15,
+    fontWeight: '400',
+    fontFamily: 'Inter',
+    color: colors.textTertiary,
     textAlign: 'left',
     alignSelf: 'stretch',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '500',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 12,
@@ -146,6 +148,20 @@ export const slideStyles = StyleSheet.create({
   logoImageSmall: {
     width: 80,
     height: 80,
+  },
+
+  // Logo + título de las pantallas de preguntas
+  questionLogo: {
+    width: 186,
+    height: 161,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  questionTitle: {
+    fontFamily: 'Jersey10',
+    fontSize: 42,
+    fontWeight: '400',
+    letterSpacing: 0,
   },
 
   // Pill grid (for single/multi-select)
@@ -173,7 +189,8 @@ export const slideStyles = StyleSheet.create({
   },
   pillLabel: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '400',
+    fontFamily: 'Inter',
     color: colors.textPrimary,
   },
 
@@ -206,6 +223,7 @@ export const slideStyles = StyleSheet.create({
   goalLabel: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Inter',
     color: colors.textPrimary,
   },
 
@@ -227,8 +245,9 @@ export const slideStyles = StyleSheet.create({
 
   // Agreement
   statementSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 4,
@@ -281,7 +300,7 @@ export const slideStyles = StyleSheet.create({
   },
   speechCardHighlight: {
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.surface,
   },
   agreementOptions: {
     width: '100%',
@@ -315,12 +334,13 @@ export const slideStyles = StyleSheet.create({
     shadowOpacity: 0.35,
   },
   agreementOptionInnerSelected: {
-    backgroundColor: '#F2E852',
+    backgroundColor: '#313128',
     borderColor: `${colors.textPrimary}26`,
   },
   agreementOptionText: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -365,6 +385,7 @@ export const slideStyles = StyleSheet.create({
   welcomeSubtitleCenter: {
     fontSize: 15,
     fontWeight: '500',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
@@ -385,6 +406,7 @@ export const slideStyles = StyleSheet.create({
   welcomeButtonSecondaryText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
     letterSpacing: 0.3,
   },
@@ -394,6 +416,9 @@ export const slideStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 0,
     minHeight: 90,
+    maxWidth: SCREEN_WIDTH - 55,
+
+
   },
   speechBubble: {
     backgroundColor: colors.background,
@@ -402,7 +427,7 @@ export const slideStyles = StyleSheet.create({
     borderColor: colors.textRoutineCard,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    maxWidth: SCREEN_WIDTH - 80,
+    maxWidth: SCREEN_WIDTH - 55,
     minWidth: SCREEN_WIDTH * 0.6,
     minHeight: 90,
     justifyContent: 'center',
@@ -419,8 +444,8 @@ export const slideStyles = StyleSheet.create({
     marginTop: -1,
   },
   speechBubbleText: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 24,
+    fontFamily: 'Jersey10',
     color: colors.background,
     textAlign: 'center',
     lineHeight: 26,
@@ -451,6 +476,7 @@ export const slideStyles = StyleSheet.create({
   taskSpeechText: {
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter',
     color: colors.textPrimary,
     lineHeight: 24,
   },
@@ -497,6 +523,7 @@ export const slideStyles = StyleSheet.create({
   generateButtonText: {
     fontSize: 16,
     fontWeight: '700',
+    fontFamily: 'Inter',
     color: colors.background,
     letterSpacing: 0.3,
   },
@@ -515,31 +542,7 @@ export const slideStyles = StyleSheet.create({
   dividerText: {
     fontSize: 13,
     fontWeight: '500',
+    fontFamily: 'Inter',
     color: colors.textSecondary,
-  },
-
-  // Neuroscience
-  neuroscienceContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  neuroscienceTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 40,
-    letterSpacing: -0.5,
-  },
-  neuroscienceSubtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 32,
-    paddingHorizontal: 40,
-    lineHeight: 20,
   },
 });
