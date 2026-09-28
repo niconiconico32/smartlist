@@ -973,7 +973,13 @@
     "email_in_use": "Esiste già un account con questa email. Prova ad accedere.",
     "sign_up_error_message": "Impossibile creare l'account. Riprova.",
     "passwords_do_not_match": "Le password non coincidono.",
-    "password_too_short": "La password deve contenere almeno 6 caratteri."
+    "password_too_short": "La password deve contenere almeno 6 caratteri.",
+    "forgot_password_link": "Password dimenticata?",
+    "forgot_password_title": "Reimposta password",
+    "forgot_password_subtitle": "Inserisci la tua email e ti invieremo un link per reimpostare la password.",
+    "forgot_password_button": "Invia link",
+    "password_reset_error": "Impossibile inviare il link. Riprova.",
+    "back_to_login": "Torna al login"
   },
   "achievements": {
     "title": "Obiettivi",

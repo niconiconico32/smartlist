@@ -990,7 +990,13 @@
     "email_in_use": "Já existe uma conta com este e-mail. Tente fazer login.",
     "sign_up_error_message": "Não foi possível criar a conta. Tente novamente.",
     "passwords_do_not_match": "As senhas não coincidem.",
-    "password_too_short": "A senha deve ter pelo menos 6 caracteres."
+    "password_too_short": "A senha deve ter pelo menos 6 caracteres.",
+    "forgot_password_link": "Esqueceu a senha?",
+    "forgot_password_title": "Redefinir senha",
+    "forgot_password_subtitle": "Digite seu e-mail e enviaremos um link para redefinir sua senha.",
+    "forgot_password_button": "Enviar link",
+    "password_reset_error": "Não foi possível enviar o link. Tente novamente.",
+    "back_to_login": "Voltar ao login"
   },
   "achievements": {
     "title": "Conquistas",

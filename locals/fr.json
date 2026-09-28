@@ -973,7 +973,13 @@
     "email_in_use": "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
     "sign_up_error_message": "Création du compte impossible. Réessayez.",
     "passwords_do_not_match": "Les mots de passe ne correspondent pas.",
-    "password_too_short": "Le mot de passe doit contenir au moins 6 caractères."
+    "password_too_short": "Le mot de passe doit contenir au moins 6 caractères.",
+    "forgot_password_link": "Mot de passe oublié ?",
+    "forgot_password_title": "Réinitialiser le mot de passe",
+    "forgot_password_subtitle": "Saisissez votre e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
+    "forgot_password_button": "Envoyer le lien",
+    "password_reset_error": "Le lien n'a pas pu être envoyé. Réessayez.",
+    "back_to_login": "Retour à la connexion"
   },
   "achievements": {
     "title": "Succès",

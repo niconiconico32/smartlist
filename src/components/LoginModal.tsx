@@ -22,7 +22,7 @@ interface LoginModalProps {
   onClose: () => void;
 }
 
-type Step = "otp_email" | "otp_code" | "password";
+type Step = "otp_email" | "otp_code" | "password" | "forgot_password";
 
 const VALID_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -43,7 +43,7 @@ export function maskEmail(email: string): string {
  */
 export function LoginModal({ visible, onClose }: LoginModalProps) {
   const { t } = useTranslation();
-  const { signInWithEmail, sendOtp, verifyOtp } = useAuth();
+  const { signInWithEmail, sendOtp, verifyOtp, resetPasswordForEmail } = useAuth();
 
   const [step, setStep] = useState<Step>("otp_email");
   const [email, setEmail] = useState("");
@@ -140,6 +140,33 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
     setError("");
   };
 
+  const showForgotPassword = () => {
+    setStep("forgot_password");
+    setError("");
+  };
+
+  const handleForgotPassword = async () => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !VALID_EMAIL.test(normalized)) {
+      setError(t("auth.email_invalid"));
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    try {
+      await resetPasswordForEmail(normalized);
+      posthog.capture("auth_password_reset_sent");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleClose();
+    } catch (err: any) {
+      setError(err.message || t("auth.password_reset_error"));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const useOtherEmail = () => {
     setOtp("");
     setError("");
@@ -149,16 +176,20 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
   const title =
     step === "password"
       ? t("auth.email_login_title")
-      : step === "otp_code"
-        ? t("auth.otp_title")
-        : t("auth.email_otp_title");
+      : step === "forgot_password"
+        ? t("auth.forgot_password_title")
+        : step === "otp_code"
+          ? t("auth.otp_title")
+          : t("auth.email_otp_title");
 
   const subtitle =
     step === "password"
       ? t("auth.email_login_subtitle")
-      : step === "otp_code"
-        ? t("auth.otp_subtitle", { email: maskEmail(email.trim().toLowerCase()) })
-        : t("auth.email_otp_subtitle");
+      : step === "forgot_password"
+        ? t("auth.forgot_password_subtitle")
+        : step === "otp_code"
+          ? t("auth.otp_subtitle", { email: maskEmail(email.trim().toLowerCase()) })
+          : t("auth.email_otp_subtitle");
 
   return (
     <Modal
@@ -348,14 +379,54 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
           )}
 
           {step === "password" && (
-            <Pressable
-              testID="loginOtpToggle"
-              onPress={showOtpEmail}
-              hitSlop={8}
-              style={styles.otpFooter}
-            >
-              <Text style={styles.linkBtn}>{t("auth.back_to_otp")}</Text>
-            </Pressable>
+            <>
+              <Pressable
+                testID="loginForgotPasswordLink"
+                onPress={showForgotPassword}
+                hitSlop={8}
+                style={styles.otpFooter}
+              >
+                <Text style={styles.linkBtn}>{t("auth.forgot_password_link")}</Text>
+              </Pressable>
+              <Pressable
+                testID="loginOtpToggle"
+                onPress={showOtpEmail}
+                hitSlop={8}
+                style={styles.otpFooter}
+              >
+                <Text style={styles.linkBtn}>{t("auth.back_to_otp")}</Text>
+              </Pressable>
+            </>
+          )}
+
+          {step === "forgot_password" && (
+            <>
+              <Pressable
+                testID="loginForgotPasswordSubmit"
+                style={[
+                  styles.submitButton,
+                  (loading || !email.trim()) && styles.submitButtonDisabled,
+                ]}
+                onPress={handleForgotPassword}
+                disabled={loading || !email.trim()}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#1A1C20" />
+                ) : (
+                  <Text style={styles.submitButtonText}>
+                    {t("auth.forgot_password_button")}
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable
+                testID="loginBackToLogin"
+                onPress={showOtpEmail}
+                hitSlop={8}
+                style={styles.otpFooter}
+              >
+                <Text style={styles.linkBtn}>{t("auth.back_to_login")}</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </KeyboardAvoidingView>

@@ -988,7 +988,13 @@
     "back_to_otp": "Use the code sent by email",
     "resend_code": "Resend code",
     "code_placeholder": "Code",
-    "use_other_email": "Use another email"
+    "use_other_email": "Use another email",
+    "forgot_password_link": "Forgot your password?",
+    "forgot_password_title": "Reset your password",
+    "forgot_password_subtitle": "Enter your email and we'll send you a link to reset your password.",
+    "forgot_password_button": "Send reset link",
+    "password_reset_error": "We couldn't send the reset link. Please try again.",
+    "back_to_login": "Back to log in"
   },
   "restore": {
     "banner_title": "We couldn't confirm your subscription.",

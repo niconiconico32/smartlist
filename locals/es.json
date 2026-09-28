@@ -979,7 +979,13 @@
     "back_to_otp": "Usar el código enviado por email",
     "resend_code": "Reenviar código",
     "code_placeholder": "Código",
-    "use_other_email": "Usar otro correo"
+    "use_other_email": "Usar otro correo",
+    "forgot_password_link": "¿Olvidaste tu contraseña?",
+    "forgot_password_title": "Restablecer contraseña",
+    "forgot_password_subtitle": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "forgot_password_button": "Enviar enlace",
+    "password_reset_error": "No pudimos enviar el enlace. Inténtalo de nuevo.",
+    "back_to_login": "Volver a iniciar sesión"
   },
   "restore": {
     "banner_title": "No pudimos confirmar tu suscripción.",

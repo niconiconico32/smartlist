@@ -36,6 +36,7 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -415,6 +416,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPasswordForEmail = async (email: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: Linking.createURL("/(tabs)"),
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error("❌ Password reset error:", error.message);
+      throw new Error(error?.message || i18n.t("auth.password_reset_error"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ── Sign Out ──────────────────────────────────────────────────────────────
 
   const signOut = async (): Promise<void> => {
@@ -447,6 +463,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUpWithEmail,
         sendOtp,
         verifyOtp,
+        resetPasswordForEmail,
         signOut,
       }}
     >

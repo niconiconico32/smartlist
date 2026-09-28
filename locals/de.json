@@ -973,7 +973,13 @@
     "email_in_use": "Ein Konto mit dieser E-Mail existiert bereits. Versuche dich stattdessen anzumelden.",
     "sign_up_error_message": "Konto konnte nicht erstellt werden. Bitte versuche es erneut.",
     "passwords_do_not_match": "Passwörter stimmen nicht überein.",
-    "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein."
+    "password_too_short": "Das Passwort muss mindestens 6 Zeichen lang sein.",
+    "forgot_password_link": "Passwort vergessen?",
+    "forgot_password_title": "Passwort zurücksetzen",
+    "forgot_password_subtitle": "Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Zurücksetzen.",
+    "forgot_password_button": "Link senden",
+    "password_reset_error": "Der Link konnte nicht gesendet werden. Bitte versuche es erneut.",
+    "back_to_login": "Zurück zum Login"
   },
   "achievements": {
     "title": "Erfolge",
