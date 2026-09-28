@@ -203,6 +203,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     onTaskCompleted,
     selectedDate,
     onActivitiesChange,
+    isActive = true,
   }: {
     setIsFirstTime?: (value: boolean) => void;
     pulseAnim?: any;
@@ -210,6 +211,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
     onTaskCompleted?: () => void;
     selectedDate?: Date;
     onActivitiesChange?: (activities: Activity[]) => void;
+    isActive?: boolean;
   },
   ref: any,
 ) {
@@ -387,15 +389,17 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 
   // Load activities from AsyncStorage
   useEffect(() => {
+    if (!isActive) return;
     loadActivities();
     // Initialize app opened achievement on first load
     initializeAppOpened();
-  }, []);
+  }, [initializeAppOpened, isActive]);
 
   // Load task completion counter for paywall
   useEffect(() => {
+    if (!isActive) return;
     useTaskCompleteCounterStore.getState().load();
-  }, []);
+  }, [isActive]);
 
   // Track focus session start
   useEffect(() => {

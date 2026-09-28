@@ -9,13 +9,13 @@ import { useProStore } from "../store/proStore";
 
 export const StreakShieldModal: React.FC = () => {
   const { t } = useTranslation();
-  const {
-    pendingShieldOffer,
-    streakShieldCount,
-    consumeShield,
-    clearPendingShieldOffer,
-  } = useProStore();
-  const { streak, resetStreak, markShieldUsed } = useAppStreakStore();
+  const pendingShieldOffer = useProStore((s) => s.pendingShieldOffer);
+  const streakShieldCount = useProStore((s) => s.streakShieldCount);
+  const consumeShield = useProStore((s) => s.consumeShield);
+  const clearPendingShieldOffer = useProStore((s) => s.clearPendingShieldOffer);
+  const streak = useAppStreakStore((s) => s.streak);
+  const resetStreak = useAppStreakStore((s) => s.resetStreak);
+  const markShieldUsed = useAppStreakStore((s) => s.markShieldUsed);
 
   if (!pendingShieldOffer) return null;
 

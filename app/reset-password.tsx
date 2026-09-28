@@ -15,26 +15,35 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type Phase = "form" | "success" | "error";
+type Phase = "validating" | "form" | "success" | "error";
 
 const MIN_PASSWORD_LENGTH = 6;
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const params = useLocalSearchParams<{ token?: string; email?: string }>();
+  const params = useLocalSearchParams<{
+    token_hash?: string;
+    code?: string;
+    email?: string;
+  }>();
   const { session, isLoading: authLoading, updateUserPassword, verifyRecoveryToken } = useAuth();
 
-  const [phase, setPhase] = useState<Phase>("form");
+  const [phase, setPhase] = useState<Phase>("validating");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const startedRef = useRef(false);
+  const tokenVerifiedRef = useRef(false);
 
-  const token = typeof params.token === "string" ? params.token.trim() : "";
+  const tokenHash =
+    typeof params.token_hash === "string" ? params.token_hash.trim() : "";
+  const code = typeof params.code === "string" ? params.code.trim() : "";
   const email = typeof params.email === "string" ? params.email.trim() : "";
+
+  const hasRecoveryParams = !!(tokenHash || code);
 
   const validate = useCallback((): string => {
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -57,13 +66,8 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
-      if (session?.user) {
-        const { error: updateError } = await updateUserPassword(password);
-        if (updateError) throw updateError;
-      } else {
-        const { error: otpError } = await verifyRecoveryToken(token, email || undefined);
-        if (otpError) throw otpError;
-      }
+      const { error: updateError } = await updateUserPassword(password);
+      if (updateError) throw updateError;
 
       setPhase("success");
     } catch (err: any) {
@@ -72,17 +76,49 @@ export default function ResetPasswordScreen() {
     } finally {
       setLoading(false);
     }
-  }, [validate, session, token, password, t]);
+  }, [validate, password, t]);
 
   useEffect(() => {
     if (authLoading || startedRef.current) return;
     startedRef.current = true;
 
-    if (!session?.user && !token) {
+    const establishSession = async () => {
+      if (session?.user) {
+        tokenVerifiedRef.current = true;
+        setPhase("form");
+        return;
+      }
+
+      if (!hasRecoveryParams) {
+        setPhase("error");
+        setError(t("auth.password_reset_error"));
+        return;
+      }
+
+      const type = code ? "pkce" : "token_hash";
+      const value = code || tokenHash;
+
+      const { error: verifyError } = await verifyRecoveryToken(
+        value,
+        email || undefined,
+        type,
+      );
+
+      if (verifyError) {
+        setPhase("error");
+        setError(verifyError.message || t("auth.password_reset_error"));
+        return;
+      }
+
+      tokenVerifiedRef.current = true;
+      setPhase("form");
+    };
+
+    establishSession().catch((err) => {
       setPhase("error");
-      setError(t("auth.password_reset_error"));
-    }
-  }, [authLoading, session, token, t]);
+      setError(err.message || t("auth.password_reset_error"));
+    });
+  }, [authLoading, session, hasRecoveryParams, code, tokenHash, email, t, verifyRecoveryToken]);
 
   const goToLogin = useCallback(() => {
     router.replace("/login");
@@ -91,6 +127,19 @@ export default function ResetPasswordScreen() {
   const goHome = useCallback(() => {
     router.replace("/(tabs)");
   }, [router]);
+
+  if (phase === "validating") {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.center}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.validatingText}>
+            {t("auth.reset_password_validating")}
+          </Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   if (phase === "success") {
     return (
@@ -105,12 +154,10 @@ export default function ResetPasswordScreen() {
           <Pressable
             testID="resetPasswordSuccessCta"
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-            onPress={session?.user ? goHome : goToLogin}
+            onPress={goHome}
           >
             <Text style={styles.ctaText}>
-              {session?.user
-                ? t("auth.password_reset_continue_home")
-                : t("auth.password_reset_continue_login")}
+              {t("auth.password_reset_continue_home")}
             </Text>
           </Pressable>
         </SafeAreaView>
@@ -334,5 +381,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
+  },
+  validatingText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 16,
   },
 });

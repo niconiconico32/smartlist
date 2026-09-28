@@ -1003,7 +1003,8 @@
     "password_reset_success_message": "Your password has been changed successfully.",
     "password_reset_continue_home": "Continue",
     "password_reset_continue_login": "Log in",
-    "password_reset_error_title": "Reset failed"
+    "password_reset_error_title": "Reset failed",
+    "reset_password_validating": "Verifying your reset link..."
   },
   "restore": {
     "banner_title": "We couldn't confirm your subscription.",

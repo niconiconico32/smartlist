@@ -12,9 +12,21 @@ interface CoinsCounterProps {
 export function CoinsCounter({ coins, size = 'small', color }: CoinsCounterProps) {
   const animatedValue = useRef(new Animated.Value(coins)).current;
   const previousCoins = useRef(coins);
+  const listenerRef = useRef<string | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [displayCoins, setDisplayCoins] = React.useState(coins);
 
   useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    if (listenerRef.current) {
+      animatedValue.removeListener(listenerRef.current);
+      listenerRef.current = null;
+    }
+    animatedValue.stopAnimation();
+
     // If coins increased, animate the number
     if (coins > previousCoins.current) {
 
@@ -29,10 +41,13 @@ export function CoinsCounter({ coins, size = 'small', color }: CoinsCounterProps
       const listener = animatedValue.addListener(({ value }) => {
         setDisplayCoins(Math.floor(value));
       });
+      listenerRef.current = listener;
 
       // Cleanup listener after animation
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         animatedValue.removeListener(listener);
+        listenerRef.current = null;
+        timeoutRef.current = null;
         setDisplayCoins(coins);
       }, 850);
     } else if (coins < previousCoins.current) {
@@ -42,6 +57,18 @@ export function CoinsCounter({ coins, size = 'small', color }: CoinsCounterProps
     }
 
     previousCoins.current = coins;
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      if (listenerRef.current) {
+        animatedValue.removeListener(listenerRef.current);
+        listenerRef.current = null;
+      }
+      animatedValue.stopAnimation();
+    };
   }, [coins]);
 
   const isSmall = size === 'small';

@@ -68,15 +68,25 @@ function transformRoutineWithTasks(routine: RoutineWithTasks): Routine {
  */
 export async function fetchRoutines(userId: string): Promise<Routine[]> {
   try {
-    const { data: routines, error } = await supabase
-      .from('routines')
-      .select(`
-        *,
-        tasks:routine_tasks(*)
-      `)
-      .eq('user_id', userId)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: true });
+    const today = getCurrentDate();
+    const [routinesResult, completionsResult] = await Promise.all([
+      supabase
+        .from('routines')
+        .select(`
+          *,
+          tasks:routine_tasks(*)
+        `)
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('task_completions')
+        .select('task_id')
+        .eq('user_id', userId)
+        .eq('date', today),
+    ]);
+
+    const { data: routines, error } = routinesResult;
 
     if (error) {
       console.error('Error fetching routines:', error);
@@ -90,8 +100,15 @@ export async function fetchRoutines(userId: string): Promise<Routine[]> {
     // Transform to Routine type
     const transformedRoutines = routines.map(transformRoutineWithTasks);
 
-    // Load today's task completions
-    return await loadTodayCompletions(transformedRoutines, userId);
+    if (completionsResult.error) {
+      console.error('Error loading today completions:', completionsResult.error);
+      return transformedRoutines;
+    }
+
+    const completedTaskIds = new Set(
+      completionsResult.data?.map((completion) => completion.task_id) || [],
+    );
+    return applyTodayCompletions(transformedRoutines, completedTaskIds);
   } catch (error) {
     console.error('fetchRoutines error:', error);
     return [];
@@ -101,38 +118,18 @@ export async function fetchRoutines(userId: string): Promise<Routine[]> {
 /**
  * Load today's task completions and mark tasks as completed
  */
-async function loadTodayCompletions(
+function applyTodayCompletions(
   routines: Routine[],
-  userId: string
-): Promise<Routine[]> {
-  const today = getCurrentDate();
-
-  try {
-    const { data: completions, error } = await supabase
-      .from('task_completions')
-      .select('task_id')
-      .eq('user_id', userId)
-      .eq('date', today);
-
-    if (error) {
-      console.error('Error loading today completions:', error);
-      return routines;
-    }
-
-    const completedTaskIds = new Set(completions?.map((c) => c.task_id) || []);
-
-    // Mark tasks as completed
-    return routines.map((routine) => ({
-      ...routine,
-      tasks: routine.tasks.map((task) => ({
-        ...task,
-        completed: completedTaskIds.has(task.id),
-      })),
-    }));
-  } catch (error) {
-    console.error('loadTodayCompletions error:', error);
-    return routines;
-  }
+  completedTaskIds: Set<string>,
+): Routine[] {
+  // Mark tasks as completed
+  return routines.map((routine) => ({
+    ...routine,
+    tasks: routine.tasks.map((task) => ({
+      ...task,
+      completed: completedTaskIds.has(task.id),
+    })),
+  }));
 }
 
 // =====================================================
@@ -235,6 +232,7 @@ export async function updateRoutine(
 
     // Update tasks if provided
     if (updates.tasks) {
+      const incomingTasks = updates.tasks;
       // UUID regex — distinguishes real DB IDs from local Date.now() IDs
       const isUUID = (id: string) =>
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -247,7 +245,7 @@ export async function updateRoutine(
 
       const dbTaskIds = new Set((dbTasks ?? []).map((t: any) => t.id as string));
       const incomingUUIDs = new Set(
-        updates.tasks.filter(t => isUUID(t.id)).map(t => t.id),
+        incomingTasks.filter(t => isUUID(t.id)).map(t => t.id),
       );
 
       // 1) Delete tasks the user removed (preserves task_completions for kept tasks)
@@ -258,26 +256,30 @@ export async function updateRoutine(
 
       // 2) Update existing tasks in place — their IDs stay the same,
       //    so task_completions FK references remain valid
-      const existingTasks = updates.tasks.filter(
+      const existingTasks = incomingTasks.filter(
         t => isUUID(t.id) && dbTaskIds.has(t.id),
       );
-      for (const task of existingTasks) {
-        const position = updates.tasks.findIndex(t => t.id === task.id);
-        await supabase
-          .from('routine_tasks')
-          .update({ title: task.title, position })
-          .eq('id', task.id);
-      }
+      const updateResults = await Promise.all(
+        existingTasks.map((task) => {
+          const position = incomingTasks.findIndex(t => t.id === task.id);
+          return supabase
+            .from('routine_tasks')
+            .update({ title: task.title, position })
+            .eq('id', task.id);
+        }),
+      );
+      const updateError = updateResults.find((result) => result.error)?.error;
+      if (updateError) throw updateError;
 
       // 3) Insert genuinely new tasks (local Date.now() IDs → DB assigns real UUIDs)
-      const newTasks = updates.tasks.filter(
+      const newTasks = incomingTasks.filter(
         t => !isUUID(t.id) || !dbTaskIds.has(t.id),
       );
       if (newTasks.length > 0) {
         const toInsert = newTasks.map(task => ({
           routine_id: routineId,
           title: task.title,
-          position: updates.tasks!.findIndex(t => t.id === task.id),
+          position: incomingTasks.findIndex(t => t.id === task.id),
         }));
         const { error: insertError } = await supabase
           .from('routine_tasks')

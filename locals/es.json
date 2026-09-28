@@ -994,7 +994,8 @@
     "password_reset_success_message": "Tu contraseña ha sido cambiada exitosamente.",
     "password_reset_continue_home": "Continuar",
     "password_reset_continue_login": "Iniciar sesión",
-    "password_reset_error_title": "Error al restablecer"
+    "password_reset_error_title": "Error al restablecer",
+    "reset_password_validating": "Verificando tu enlace de restablecimiento..."
   },
   "restore": {
     "banner_title": "No pudimos confirmar tu suscripción.",

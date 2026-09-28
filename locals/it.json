@@ -988,7 +988,8 @@
     "password_reset_success_message": "La tua password è stata modificata con successo.",
     "password_reset_continue_home": "Continua",
     "password_reset_continue_login": "Accedi",
-    "password_reset_error_title": "Reimpostazione fallita"
+    "password_reset_error_title": "Reimpostazione fallita",
+    "reset_password_validating": "Verifica del link di reimpostazione..."
   },
   "achievements": {
     "title": "Obiettivi",

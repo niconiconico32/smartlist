@@ -167,6 +167,7 @@ export default function SwipeableLayout() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const pulseAnimFirstTime = useRef(new Animated.Value(1)).current;
+  const firstTimePulseLoop = useRef<Animated.CompositeAnimation | null>(null);
   const router = useRouter();
   const hasLoadedOnce = useRef(false);
 
@@ -556,8 +557,11 @@ export default function SwipeableLayout() {
 
   // Pulse animation for first time overlay
   React.useEffect(() => {
+    firstTimePulseLoop.current?.stop();
+    firstTimePulseLoop.current = null;
+
     if (isFirstTime) {
-      Animated.loop(
+      firstTimePulseLoop.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnimFirstTime, {
             toValue: 1.15,
@@ -570,10 +574,16 @@ export default function SwipeableLayout() {
             useNativeDriver: true,
           }),
         ]),
-      ).start();
+      );
+      firstTimePulseLoop.current.start();
     } else {
       pulseAnimFirstTime.setValue(1);
     }
+
+    return () => {
+      firstTimePulseLoop.current?.stop();
+      firstTimePulseLoop.current = null;
+    };
   }, [isFirstTime]);
 
   return (
@@ -652,6 +662,7 @@ export default function SwipeableLayout() {
             onTaskCompleted={updateStreakOnTaskComplete}
             selectedDate={selectedDate}
             onActivitiesChange={setActivities}
+            isActive={currentPage === 0}
           />
         </View>
         <View key="2" style={styles.page}>
@@ -661,6 +672,7 @@ export default function SwipeableLayout() {
             onRoutineCompleted={updateStreakOnTaskComplete}
             onRoutinesChange={setRoutines}
             catalogEnabled={currentPage === 1}
+            isActive={currentPage === 1}
           />
         </View>
       </PagerView>
@@ -728,51 +740,57 @@ export default function SwipeableLayout() {
       </View>
 
       {/* Create Routine Modal */}
-      <CreateRoutineModal
-        visible={showCreateRoutineModal}
-        onClose={() => {
-          setShowCreateRoutineModal(false);
-          setIsFABOpen(false);
-        }}
-        onCreateRoutine={handleCreateRoutine}
-      />
+      {showCreateRoutineModal && (
+        <CreateRoutineModal
+          visible
+          onClose={() => {
+            setShowCreateRoutineModal(false);
+            setIsFABOpen(false);
+          }}
+          onCreateRoutine={handleCreateRoutine}
+        />
+      )}
 
       {/* Daily App-Open Streak Screen */}
-      <DailyStreakScreen
-        visible={shouldShowStreakScreen && !pendingShieldOffer}
-        streak={appStreak}
-        history={appStreakHistory}
-        shieldUsedToday={shieldUsedToday}
-        maxStreak={maxStreak}
-        shieldDates={shieldDates}
-        onDismiss={dismissStreakScreen}
-      />
+      {shouldShowStreakScreen && !pendingShieldOffer && (
+        <DailyStreakScreen
+          visible
+          streak={appStreak}
+          history={appStreakHistory}
+          shieldUsedToday={shieldUsedToday}
+          maxStreak={maxStreak}
+          shieldDates={shieldDates}
+          onDismiss={dismissStreakScreen}
+        />
+      )}
 
       {/* Streak Shield Protection Modal (Pro only) */}
-      <StreakShieldModal />
+      {pendingShieldOffer && <StreakShieldModal />}
 
       {/* Copilot Modal */}
-      <Modal
-        visible={showCopilot}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowCopilot(false)}
-      >
-        <Copilot
-          onClose={() => setShowCopilot(false)}
-          onAddTask={(title, emoji, subtasks, difficulty, startImmediately) => {
-            if (addTaskRef.current?.addActivityFromCopilot) {
-              addTaskRef.current.addActivityFromCopilot(
-                title,
-                emoji,
-                subtasks,
-                difficulty,
-                startImmediately,
-              );
-            }
-          }}
-        />
-      </Modal>
+      {showCopilot && (
+        <Modal
+          visible
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowCopilot(false)}
+        >
+          <Copilot
+            onClose={() => setShowCopilot(false)}
+            onAddTask={(title, emoji, subtasks, difficulty, startImmediately) => {
+              if (addTaskRef.current?.addActivityFromCopilot) {
+                addTaskRef.current.addActivityFromCopilot(
+                  title,
+                  emoji,
+                  subtasks,
+                  difficulty,
+                  startImmediately,
+                );
+              }
+            }}
+          />
+        </Modal>
+      )}
     </View>
   );
 }

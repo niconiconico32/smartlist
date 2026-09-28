@@ -44,14 +44,20 @@ import Constants from "expo-constants";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { Sparkles } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    AppState,
-    Platform,
-    ScrollView,
-    StyleSheet,
+  Alert,
+  AppState,
+  FlatList,
+  Platform,
+  StyleSheet,
     View,
 } from "react-native";
 import Animated, {
@@ -93,6 +99,7 @@ interface RoutinesScreenProps {
   onRoutineCompleted?: () => void;
   onRoutinesChange?: (routines: Routine[]) => void;
   catalogEnabled?: boolean;
+  isActive?: boolean;
 }
 
 function RoutinesScreen({
@@ -100,6 +107,7 @@ function RoutinesScreen({
   onRoutineCompleted,
   onRoutinesChange,
   catalogEnabled = true,
+  isActive = true,
 }: RoutinesScreenProps) {
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
@@ -134,6 +142,8 @@ function RoutinesScreen({
   const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
+  const routineLoadRef = useRef<Promise<void> | null>(null);
+  const lastRoutineLoadAtRef = useRef(0);
   const loadCounter = useRoutineCompleteCounterStore((s) => s.load);
   const incrementCounter = useRoutineCompleteCounterStore((s) => s.increment);
   const resetCounter = useRoutineCompleteCounterStore((s) => s.reset);
@@ -141,8 +151,9 @@ function RoutinesScreen({
 
   // Load routine completion counter
   useEffect(() => {
+    if (!isActive) return;
     loadCounter();
-  }, [loadCounter]);
+  }, [isActive, loadCounter]);
 
   // Check if selected date is today
   const isToday = useMemo(() => {
@@ -170,46 +181,30 @@ function RoutinesScreen({
   }, [routines, currentDayAbbrev]);
 
   useEffect(() => {
+    if (!isActive) return;
     const syncWidget = async () => {
       if (Platform.OS !== "android") return;
       try {
-        await AsyncStorage.setItem(
-          WIDGET_DATA_KEY,
-          JSON.stringify(filteredRoutines),
-        );
+        const widgetEntries: [string, string][] = [
+          [WIDGET_DATA_KEY, JSON.stringify(filteredRoutines)],
+          [WIDGET_OUTFIT_ID_KEY, activeOutfit ?? ""],
+          [WIDGET_OUTFIT_URI_KEY, activeOutfitUri ?? ""],
+          [WIDGET_BG_URI_KEY, activeBackgroundUri ?? ""],
+          [WIDGET_PRO_KEY, isPro ? "true" : "false"],
+        ];
 
-        // Persist user id so the widget handler can call Supabase
-        if (user?.id) {
-          await AsyncStorage.setItem(WIDGET_USER_KEY, user.id);
-        }
+        // Persist user id so the widget handler can call Supabase.
+        if (user?.id) widgetEntries.push([WIDGET_USER_KEY, user.id]);
 
-        // Persist outfit ID so the widget can resolve it via its own require() map
-        await AsyncStorage.setItem(WIDGET_OUTFIT_ID_KEY, activeOutfit ?? "");
-        // Persist remote outfit URI for Supabase Storage assets
-        await AsyncStorage.setItem(
-          WIDGET_OUTFIT_URI_KEY,
-          activeOutfitUri ?? "",
-        );
-
-        // Persist background ID for gradient selection in widget
+        // Preserve the widget's last selected mode when no background is active.
         if (activeBackground) {
-          await AsyncStorage.setItem(WIDGET_BG_ID_KEY, activeBackground);
+          widgetEntries.push([WIDGET_BG_ID_KEY, activeBackground]);
         }
-        // Persist remote background URI for Supabase Storage assets
-        await AsyncStorage.setItem(
-          WIDGET_BG_URI_KEY,
-          activeBackgroundUri ?? "",
-        );
-
-        // Only force "user" mode when the user has an active background.
-        // If no background is set, preserve whatever mode the user last
-        // selected via the widget's cycle button.
         if (activeBackground || activeBackgroundUri) {
-          await AsyncStorage.setItem(WIDGET_BG_MODE_KEY, "user");
+          widgetEntries.push([WIDGET_BG_MODE_KEY, "user"]);
         }
 
-        // Persist Pro status so the widget can show/hide content
-        await AsyncStorage.setItem(WIDGET_PRO_KEY, isPro ? "true" : "false");
+        await AsyncStorage.multiSet(widgetEntries);
 
         if (requestWidgetUpdate) {
           requestWidgetUpdate({
@@ -230,12 +225,14 @@ function RoutinesScreen({
     activeOutfitUri,
     activeBackgroundUri,
     isPro,
+    isActive,
   ]);
 
   // Solicitar permisos de notificación al montar
   useEffect(() => {
+    if (!isActive) return;
     requestNotificationPermissions();
-  }, []);
+  }, [isActive]);
 
   // Sincronizar cola de widgets antes de cargar rutinas
   const processPendingWidgetSync = async () => {
@@ -246,6 +243,8 @@ function RoutinesScreen({
 
       const pendingList = JSON.parse(pendingRaw);
       if (pendingList.length > 0) {
+        // Preserve queue order: consecutive toggles for one task must be
+        // applied in the same order they were recorded by the widget.
         for (const item of pendingList) {
           await routineService.updateTaskCompletion(
             item.taskId,
@@ -261,43 +260,58 @@ function RoutinesScreen({
     }
   };
 
-  const loadRoutines = useCallback(async () => {
+  const loadRoutines = useCallback(async (force = false) => {
     if (!user) return;
+    if (routineLoadRef.current) return routineLoadRef.current;
+    if (!force && Date.now() - lastRoutineLoadAtRef.current < 5000) return;
 
+    const request = (async () => {
+      try {
+        // Cargar rutinas desde Supabase
+        const fetchedRoutines = await routineService.fetchRoutines(user.id);
+
+        setRoutines(fetchedRoutines);
+        onRoutinesChange?.(fetchedRoutines);
+
+        // Assign a free common egg to any existing routine that doesn't have one yet
+        // (migration for users who had the app before the egg system was introduced)
+        useEggStore
+          .getState()
+          .migrateEggsForRoutines(fetchedRoutines.map((r) => r.id));
+
+        // Actualizar logro de cantidad de rutinas creadas
+        onRoutinesCountChanged(fetchedRoutines.length);
+        await rescheduleAllReminders(fetchedRoutines as any);
+        lastRoutineLoadAtRef.current = Date.now();
+      } catch (error) {
+        console.error("Error al cargar rutinas:", error);
+        Alert.alert(
+          t("routines_alerts.error_title"),
+          t("routines_alerts.load_failed"),
+        );
+      }
+    })();
+
+    routineLoadRef.current = request;
     try {
-      // Cargar rutinas desde Supabase
-      const fetchedRoutines = await routineService.fetchRoutines(user.id);
-
-      setRoutines(fetchedRoutines);
-      onRoutinesChange?.(fetchedRoutines);
-
-      // Assign a free common egg to any existing routine that doesn't have one yet
-      // (migration for users who had the app before the egg system was introduced)
-      useEggStore
-        .getState()
-        .migrateEggsForRoutines(fetchedRoutines.map((r) => r.id));
-
-      // Actualizar logro de cantidad de rutinas creadas
-      onRoutinesCountChanged(fetchedRoutines.length);
-      await rescheduleAllReminders(fetchedRoutines as any);
-    } catch (error) {
-      console.error("Error al cargar rutinas:", error);
-      Alert.alert(
-        t("routines_alerts.error_title"),
-        t("routines_alerts.load_failed"),
-      );
+      await request;
+    } finally {
+      if (routineLoadRef.current === request) {
+        routineLoadRef.current = null;
+      }
     }
   }, [onRoutinesChange, onRoutinesCountChanged, t, user]);
 
   // Cargar rutinas cuando la pantalla se enfoca o vuelve de 2do plano
   useFocusEffect(
     useCallback(() => {
-      let isActive = true;
+      if (!isActive) return undefined;
+      let effectActive = true;
 
       const refreshData = () => {
-        if (!authLoading && user && isActive) {
+        if (!authLoading && user) {
           processPendingWidgetSync().then(() => {
-            if (isActive) loadRoutines();
+            if (effectActive) loadRoutines();
           });
         }
       };
@@ -316,16 +330,16 @@ function RoutinesScreen({
       );
 
       return () => {
-        isActive = false;
+        effectActive = false;
         subscription.remove();
       };
-    }, [user, authLoading, loadRoutines]),
+    }, [authLoading, isActive, loadRoutines, user]),
   );
 
   useEffect(() => {
-    if (!user || authLoading || routinesRefreshToken === 0) return;
-    loadRoutines();
-  }, [routinesRefreshToken, user, authLoading, loadRoutines]);
+    if (!isActive || !user || authLoading || routinesRefreshToken === 0) return;
+    loadRoutines(true);
+  }, [authLoading, isActive, loadRoutines, routinesRefreshToken, user]);
 
   const handleDeleteRoutine = async (id: string) => {
     if (!user) return;
@@ -569,6 +583,24 @@ function RoutinesScreen({
     [filteredRoutines],
   );
 
+  const renderRoutine = useCallback(
+    ({ item: routine, index }: { item: Routine; index: number }) => (
+      <RoutineCard
+        id={routine.id}
+        name={routine.name}
+        days={routine.days}
+        tasks={routine.tasks}
+        catalog={catalog}
+        reminderEnabled={routine.reminderEnabled}
+        reminderTime={routine.reminderTime}
+        colorIndex={index}
+        icon={routine.icon}
+        onPress={handleRoutinePress}
+      />
+    ),
+    [catalog, handleRoutinePress],
+  );
+
   return (
     <View style={styles.container}>
       <Animated.View
@@ -588,12 +620,18 @@ function RoutinesScreen({
         </Text>
       </Animated.View>
 
-      <ScrollView
+      <FlatList
         style={styles.scrollView}
+        data={filteredRoutines}
+        renderItem={renderRoutine}
+        keyExtractor={(routine) => routine.id}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        {filteredRoutines.length === 0 ? (
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === "android"}
+        ListEmptyComponent={
           <Animated.View
             entering={FadeIn.delay(200).duration(500)}
             style={styles.emptyState}
@@ -623,47 +661,35 @@ function RoutinesScreen({
                 : t("routines_screen.empty_subtitle_none")}
             </Animated.Text>
           </Animated.View>
-        ) : (
-          filteredRoutines.map((routine, index) => (
-            <RoutineCard
-              key={routine.id}
-              id={routine.id}
-              name={routine.name}
-              days={routine.days}
-              tasks={routine.tasks}
-              catalog={catalog}
-              reminderEnabled={routine.reminderEnabled}
-              reminderTime={routine.reminderTime}
-              colorIndex={index}
-              icon={routine.icon}
-              onPress={handleRoutinePress}
-            />
-          ))
-        )}
-      </ScrollView>
+        }
+      />
 
       {/* Modal de Edición */}
-      <EditRoutineModal
-        visible={showEditModal}
-        routine={editingRoutine}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingRoutine(null);
-        }}
-        onSave={handleSaveEdit}
-      />
+      {showEditModal && (
+        <EditRoutineModal
+          visible
+          routine={editingRoutine}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingRoutine(null);
+          }}
+          onSave={handleSaveEdit}
+        />
+      )}
 
       {/* Modal de Detalle de Rutina */}
-      <RoutineDetailModal
-        visible={selectedRoutine !== null}
-        routine={selectedRoutine}
-        colorIndex={selectedRoutineIndex}
-        isReadOnly={!isToday}
-        onClose={() => setSelectedRoutine(null)}
-        onTaskToggle={isToday ? handleTaskToggle : undefined}
-        onDelete={handleDeleteRoutine}
-        onEdit={handleEditRoutine}
-      />
+      {selectedRoutine && (
+        <RoutineDetailModal
+          visible
+          routine={selectedRoutine}
+          colorIndex={selectedRoutineIndex}
+          isReadOnly={!isToday}
+          onClose={() => setSelectedRoutine(null)}
+          onTaskToggle={isToday ? handleTaskToggle : undefined}
+          onDelete={handleDeleteRoutine}
+          onEdit={handleEditRoutine}
+        />
+      )}
 
       {/* Review Request Modal — shown every 5 days of streak after first routine completion */}
       <ReviewRequestModal

@@ -988,7 +988,8 @@
     "password_reset_success_message": "Dein Passwort wurde erfolgreich geändert.",
     "password_reset_continue_home": "Weiter",
     "password_reset_continue_login": "Anmelden",
-    "password_reset_error_title": "Zurücksetzen fehlgeschlagen"
+    "password_reset_error_title": "Zurücksetzen fehlgeschlagen",
+    "reset_password_validating": "Dein Zurücksetzen-Link wird überprüft..."
   },
   "achievements": {
     "title": "Erfolge",

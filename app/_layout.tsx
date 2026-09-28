@@ -85,8 +85,13 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  const { initializeRoutineStreaks } = useRoutineStreakStore();
-  const { load: loadPro, rechargeShieldsIfNeeded } = useProStore();
+  const initializeRoutineStreaks = useRoutineStreakStore(
+    (s) => s.initializeRoutineStreaks,
+  );
+  const loadPro = useProStore((s) => s.load);
+  const rechargeShieldsIfNeeded = useProStore(
+    (s) => s.rechargeShieldsIfNeeded,
+  );
 
   // ─── Update gate ─────────────────────────────────────────────────────────
   const [updateGate, setUpdateGate] = useState<UpdateGateState>("checking");
@@ -154,7 +159,7 @@ export default function RootLayout() {
     };
 
     bootstrap();
-  }, []);
+  }, [initializeRoutineStreaks, loadPro, rechargeShieldsIfNeeded]);
 
   // Pre-fetch remote background/outfit images once achievements are loaded.
   // This avoids network-fetch flashing when the main screen renders.
@@ -502,15 +507,23 @@ function RootLayoutNav() {
   // Also handles password recovery deep links (brainy://reset-password?token=...).
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      if (url.includes("reset-password") || url.includes("recovery")) {
-        const tokenMatch = url.match(/[?&]token=([^&]+)/);
+      if (url.includes("reset-password") || url.includes("recovery") || url.includes("token_hash") || url.includes("type=recovery")) {
+        const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/);
+        const codeMatch = url.match(/[?&]code=([^&]+)/);
         const emailMatch = url.match(/[?&]email=([^&]+)/);
-        const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : undefined;
+        const tokenHash = tokenHashMatch ? decodeURIComponent(tokenHashMatch[1]) : undefined;
+        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : undefined;
         const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
-        if (token) {
+
+        if (tokenHash) {
           router.replace({
             pathname: "/reset-password" as any,
-            params: { token, ...(email ? { email } : {}) },
+            params: { token_hash: tokenHash, ...(email ? { email } : {}) },
+          });
+        } else if (code) {
+          router.replace({
+            pathname: "/reset-password" as any,
+            params: { code, ...(email ? { email } : {}) },
           });
         }
         return;
@@ -546,15 +559,23 @@ function RootLayoutNav() {
       .then((url) => {
         if (!url) return;
 
-        if (url.includes("reset-password") || url.includes("recovery")) {
-          const tokenMatch = url.match(/[?&]token=([^&]+)/);
+        if (url.includes("reset-password") || url.includes("recovery") || url.includes("token_hash") || url.includes("type=recovery")) {
+          const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/);
+          const codeMatch = url.match(/[?&]code=([^&]+)/);
           const emailMatch = url.match(/[?&]email=([^&]+)/);
-          const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : undefined;
+          const tokenHash = tokenHashMatch ? decodeURIComponent(tokenHashMatch[1]) : undefined;
+          const code = codeMatch ? decodeURIComponent(codeMatch[1]) : undefined;
           const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
-          if (token) {
+
+          if (tokenHash) {
             router.replace({
               pathname: "/reset-password" as any,
-              params: { token, ...(email ? { email } : {}) },
+              params: { token_hash: tokenHash, ...(email ? { email } : {}) },
+            });
+          } else if (code) {
+            router.replace({
+              pathname: "/reset-password" as any,
+              params: { code, ...(email ? { email } : {}) },
             });
           }
           return;

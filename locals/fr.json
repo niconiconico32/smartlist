@@ -988,7 +988,8 @@
     "password_reset_success_message": "Votre mot de passe a été modifié avec succès.",
     "password_reset_continue_home": "Continuer",
     "password_reset_continue_login": "Se connecter",
-    "password_reset_error_title": "Échec de la réinitialisation"
+    "password_reset_error_title": "Échec de la réinitialisation",
+    "reset_password_validating": "Vérification de votre lien de réinitialisation..."
   },
   "achievements": {
     "title": "Succès",
