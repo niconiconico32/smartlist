@@ -3,19 +3,31 @@ import { supabase } from './supabase';
 
 const ACTIVITIES_STORAGE_KEY = '@smartlist_activities';
 
+export async function getCachedActivities(): Promise<any[]> {
+  try {
+    const localStored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
+    if (!localStored) return [];
+    const parsed = JSON.parse(localStored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Loads activities from the cloud if the user is logged in, 
  * otherwise fallback to local AsyncStorage.
  * It also handles merging if cloud is missing but local exists.
  */
-export async function fetchActivitiesFromCloud(): Promise<any[]> {
+export async function fetchActivitiesFromCloud(
+  cachedActivities?: any[],
+): Promise<any[]> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const [{ data: { session } }, localActivities] = await Promise.all([
+      supabase.auth.getSession(),
+      cachedActivities ? Promise.resolve(cachedActivities) : getCachedActivities(),
+    ]);
     const user = session?.user;
-
-    // Grab local activities as a baseline
-    const localStored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
-    const localActivities = localStored ? JSON.parse(localStored) : [];
 
     // If not logged in, just return local
     if (!user) {
@@ -49,8 +61,7 @@ export async function fetchActivitiesFromCloud(): Promise<any[]> {
   } catch (error) {
     console.error('fetchActivitiesFromCloud error:', error);
     // Always fallback to local storage so UI doesn't break
-    const localStored = await AsyncStorage.getItem(ACTIVITIES_STORAGE_KEY);
-    return localStored ? JSON.parse(localStored) : [];
+    return cachedActivities ?? getCachedActivities();
   }
 }
 

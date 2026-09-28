@@ -994,7 +994,16 @@
     "forgot_password_subtitle": "Enter your email and we'll send you a link to reset your password.",
     "forgot_password_button": "Send reset link",
     "password_reset_error": "We couldn't send the reset link. Please try again.",
-    "back_to_login": "Back to log in"
+    "back_to_login": "Back to log in",
+    "reset_password_title": "Create new password",
+    "reset_password_subtitle": "Enter a new password for your account.",
+    "new_password_placeholder": "New password",
+    "reset_password_button": "Save password",
+    "password_reset_success_title": "Password updated",
+    "password_reset_success_message": "Your password has been changed successfully.",
+    "password_reset_continue_home": "Continue",
+    "password_reset_continue_login": "Log in",
+    "password_reset_error_title": "Reset failed"
   },
   "restore": {
     "banner_title": "We couldn't confirm your subscription.",

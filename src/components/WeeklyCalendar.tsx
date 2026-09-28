@@ -84,9 +84,13 @@ export function WeeklyCalendar({
   const { t } = useTranslation();
   const router = useRouter();
   const { isAnonymous } = useAuth();
-  const { totalCoins, loadAchievements, isRoutineModalOpen } =
-    useAchievementsStore();
-  const { streak: appStreak, getMultiplier } = useAppStreakStore();
+  const totalCoins = useAchievementsStore((s) => s.totalCoins);
+  const loadAchievements = useAchievementsStore((s) => s.loadAchievements);
+  const isRoutineModalOpen = useAchievementsStore(
+    (s) => s.isRoutineModalOpen,
+  );
+  const appStreak = useAppStreakStore((s) => s.streak);
+  const getMultiplier = useAppStreakStore((s) => s.getMultiplier);
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const scrollViewRef = useRef<ScrollView>(null);

@@ -32,7 +32,13 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CalendarCheck, Grid2x2 } from "lucide-react-native";
-import React, { createRef, useCallback, useRef, useState } from "react";
+import React, {
+  createRef,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import {
     ActivityIndicator,
@@ -104,28 +110,41 @@ export default function SwipeableLayout() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const {
-    onStreakChanged,
-    onRoutinesCountChanged,
-    loadAchievements,
-    trackWeeklyUsage,
-    onReminderActivated,
-  } = useAchievementsStore();
+  const onStreakChanged = useAchievementsStore((s) => s.onStreakChanged);
+  const loadAchievements = useAchievementsStore((s) => s.loadAchievements);
+  const trackWeeklyUsage = useAchievementsStore((s) => s.trackWeeklyUsage);
+  const onReminderActivated = useAchievementsStore(
+    (s) => s.onReminderActivated,
+  );
   const activeBackground = useAchievementsStore((s) => s.activeBackground);
   const activeBackgroundUri = useAchievementsStore(
     (s) => s.activeBackgroundUri,
   );
-  const {
-    streak: appStreak,
-    history: appStreakHistory,
-    shouldShowStreakScreen,
-    shieldUsedToday,
-    maxStreak,
-    shieldDates,
-    initializeAppStreak,
-    dismissStreakScreen,
-  } = useAppStreakStore();
-  const { isPro, pendingShieldOffer } = useProStore();
+  const backgroundSource = useMemo(
+    () =>
+      activeBackground && BG_IMAGES[activeBackground]
+        ? BG_IMAGES[activeBackground]
+        : activeBackground && activeBackgroundUri
+          ? { uri: activeBackgroundUri }
+          : DEFAULT_BG,
+    [activeBackground, activeBackgroundUri],
+  );
+  const appStreak = useAppStreakStore((s) => s.streak);
+  const appStreakHistory = useAppStreakStore((s) => s.history);
+  const shouldShowStreakScreen = useAppStreakStore(
+    (s) => s.shouldShowStreakScreen,
+  );
+  const shieldUsedToday = useAppStreakStore((s) => s.shieldUsedToday);
+  const maxStreak = useAppStreakStore((s) => s.maxStreak);
+  const shieldDates = useAppStreakStore((s) => s.shieldDates);
+  const initializeAppStreak = useAppStreakStore(
+    (s) => s.initializeAppStreak,
+  );
+  const dismissStreakScreen = useAppStreakStore(
+    (s) => s.dismissStreakScreen,
+  );
+  const isPro = useProStore((s) => s.isPro);
+  const pendingShieldOffer = useProStore((s) => s.pendingShieldOffer);
   const pagerRef = useRef<PagerView>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFABOpen, setIsFABOpen] = useState(false);
@@ -270,20 +289,6 @@ export default function SwipeableLayout() {
     }
   }, []);
 
-  // Load routines from Supabase
-  const loadRoutines = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      const fetchedRoutines = await routineService.fetchRoutines(user.id);
-      setRoutines(fetchedRoutines as any);
-      // Actualizar logro de cantidad de rutinas
-      onRoutinesCountChanged(fetchedRoutines.length);
-    } catch (error) {
-      console.error("Error loading routines:", error);
-    }
-  }, [user]);
-
   // Load routines and streak when screen focuses
   useFocusEffect(
     useCallback(() => {
@@ -298,7 +303,6 @@ export default function SwipeableLayout() {
           await loadAchievements();
 
           await Promise.all([
-            loadRoutines(),
             loadStreak(),
             useProStore.getState().load(),
           ]);
@@ -314,7 +318,7 @@ export default function SwipeableLayout() {
         }
       };
       loadAll();
-    }, [loadRoutines, loadStreak]),
+    }, [loadAchievements, loadStreak]),
   );
 
   // Calculate real completed tasks history from activities
@@ -441,8 +445,14 @@ export default function SwipeableLayout() {
     return history;
   };
 
-  const completedTasksHistory = calculateCompletedTasksHistory();
-  const scheduledTasksHistory = calculateScheduledTasksHistory();
+  const completedTasksHistory = useMemo(
+    () => calculateCompletedTasksHistory(),
+    [activities, routines],
+  );
+  const scheduledTasksHistory = useMemo(
+    () => calculateScheduledTasksHistory(),
+    [activities, routines],
+  );
 
   const handleTabPress = (page: number) => {
     if (Platform.OS === "ios") {
@@ -508,10 +518,7 @@ export default function SwipeableLayout() {
             .assignEggToRoutine(routine.eggId as any, newRoutine.id);
         }
 
-        // Recargar rutinas para actualizar calendario
-        await loadRoutines();
-
-        // Forzar recarga de TwoScreen incrementando el refresh key
+        // TwoScreen recarga y publica las rutinas al cambiar este key.
         setRoutinesRefreshKey((prev) => prev + 1);
 
         // Achievement: reminder activated on creation
@@ -582,14 +589,10 @@ export default function SwipeableLayout() {
       )}
 
       <ImageBackground
-        source={
-          activeBackground && BG_IMAGES[activeBackground]
-            ? BG_IMAGES[activeBackground]
-            : activeBackground && activeBackgroundUri
-              ? { uri: activeBackgroundUri }
-              : DEFAULT_BG
-        }
+        source={backgroundSource}
         style={[styles.fixedHeader, { paddingTop: insets.top }]}
+        resizeMethod="resize"
+        resizeMode="cover"
       >
         {/*
           ZONA DE AJUSTE MANUAL DEL GRADIENTE 🎨
@@ -656,6 +659,8 @@ export default function SwipeableLayout() {
             key={routinesRefreshKey}
             selectedDate={selectedDate}
             onRoutineCompleted={updateStreakOnTaskComplete}
+            onRoutinesChange={setRoutines}
+            catalogEnabled={currentPage === 1}
           />
         </View>
       </PagerView>

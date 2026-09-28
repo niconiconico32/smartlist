@@ -10,6 +10,7 @@ import { RoutineCard } from "@/src/components/RoutineCard";
 import { RoutineDetailModal } from "@/src/components/RoutineDetailModal";
 import { posthog } from "@/src/config/posthog";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useEggCatalog } from "@/src/hooks/useEggCatalog";
 import {
     cancelRoutineReminders,
     requestNotificationPermissions,
@@ -90,42 +91,58 @@ const DAY_NUMBER_TO_I18N_KEY: Record<number, string> = {
 interface RoutinesScreenProps {
   selectedDate?: Date;
   onRoutineCompleted?: () => void;
+  onRoutinesChange?: (routines: Routine[]) => void;
+  catalogEnabled?: boolean;
 }
 
-export default function RoutinesScreen({
+function RoutinesScreen({
   selectedDate,
   onRoutineCompleted,
+  onRoutinesChange,
+  catalogEnabled = true,
 }: RoutinesScreenProps) {
   const { user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
-  const {
-    onRoutineCompleted: achievementRoutineCompleted,
-    onRoutinesCountChanged,
-    onRoutineEdited,
-    onReminderActivated,
-    activeOutfit,
-    activeBackground,
-    activeOutfitUri,
-    activeBackgroundUri,
-  } = useAchievementsStore();
-  const { recordRoutineCompletion, unmarkRoutineCompletion } =
-    useRoutineStreakStore();
-  const { isPro } = useProStore();
+  const achievementRoutineCompleted = useAchievementsStore(
+    (s) => s.onRoutineCompleted,
+  );
+  const onRoutinesCountChanged = useAchievementsStore(
+    (s) => s.onRoutinesCountChanged,
+  );
+  const onRoutineEdited = useAchievementsStore((s) => s.onRoutineEdited);
+  const onReminderActivated = useAchievementsStore(
+    (s) => s.onReminderActivated,
+  );
+  const activeOutfit = useAchievementsStore((s) => s.activeOutfit);
+  const activeBackground = useAchievementsStore((s) => s.activeBackground);
+  const activeOutfitUri = useAchievementsStore((s) => s.activeOutfitUri);
+  const activeBackgroundUri = useAchievementsStore(
+    (s) => s.activeBackgroundUri,
+  );
+  const recordRoutineCompletion = useRoutineStreakStore(
+    (s) => s.recordRoutineCompletion,
+  );
+  const unmarkRoutineCompletion = useRoutineStreakStore(
+    (s) => s.unmarkRoutineCompletion,
+  );
+  const isPro = useProStore((s) => s.isPro);
   const routinesRefreshToken = useRoutinesRefreshStore((s) => s.refreshToken);
   const [routines, setRoutines] = useState<Routine[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
   const [selectedRoutineIndex, setSelectedRoutineIndex] = useState(0);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const counterStore = useRoutineCompleteCounterStore();
+  const loadCounter = useRoutineCompleteCounterStore((s) => s.load);
+  const incrementCounter = useRoutineCompleteCounterStore((s) => s.increment);
+  const resetCounter = useRoutineCompleteCounterStore((s) => s.reset);
+  const catalog = useEggCatalog(catalogEnabled);
 
   // Load routine completion counter
   useEffect(() => {
-    counterStore.load();
-  }, []);
+    loadCounter();
+  }, [loadCounter]);
 
   // Check if selected date is today
   const isToday = useMemo(() => {
@@ -245,18 +262,14 @@ export default function RoutinesScreen({
   };
 
   const loadRoutines = useCallback(async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user) return;
 
     try {
-      setIsLoading(true);
-
       // Cargar rutinas desde Supabase
       const fetchedRoutines = await routineService.fetchRoutines(user.id);
 
       setRoutines(fetchedRoutines);
+      onRoutinesChange?.(fetchedRoutines);
 
       // Assign a free common egg to any existing routine that doesn't have one yet
       // (migration for users who had the app before the egg system was introduced)
@@ -273,10 +286,8 @@ export default function RoutinesScreen({
         t("routines_alerts.error_title"),
         t("routines_alerts.load_failed"),
       );
-    } finally {
-      setIsLoading(false);
     }
-  }, [user, onRoutinesCountChanged, t]);
+  }, [onRoutinesChange, onRoutinesCountChanged, t, user]);
 
   // Cargar rutinas cuando la pantalla se enfoca o vuelve de 2do plano
   useFocusEffect(
@@ -522,7 +533,7 @@ export default function RoutinesScreen({
 
         // Show paywall after completing 3 routines
         if (!isPro) {
-          const thresholdReached = await counterStore.increment();
+          const thresholdReached = await incrementCounter();
           if (thresholdReached) {
             setShowPaywall(true);
           }
@@ -546,6 +557,17 @@ export default function RoutinesScreen({
       );
     }
   };
+
+  const handleRoutinePress = useCallback(
+    (routineId: string) => {
+      const index = filteredRoutines.findIndex((routine) => routine.id === routineId);
+      const routine = index >= 0 ? filteredRoutines[index] : null;
+      if (!routine) return;
+      setSelectedRoutine(routine);
+      setSelectedRoutineIndex(index);
+    },
+    [filteredRoutines],
+  );
 
   return (
     <View style={styles.container}>
@@ -609,14 +631,12 @@ export default function RoutinesScreen({
               name={routine.name}
               days={routine.days}
               tasks={routine.tasks}
+              catalog={catalog}
               reminderEnabled={routine.reminderEnabled}
               reminderTime={routine.reminderTime}
               colorIndex={index}
               icon={routine.icon}
-              onPress={() => {
-                setSelectedRoutine(routine);
-                setSelectedRoutineIndex(index);
-              }}
+              onPress={handleRoutinePress}
             />
           ))
         )}
@@ -657,13 +677,15 @@ export default function RoutinesScreen({
         visible={showPaywall}
         onClose={() => {
           setShowPaywall(false);
-          counterStore.reset();
+          resetCounter();
         }}
         source="completion_milestone"
       />
     </View>
   );
 }
+
+export default React.memo(RoutinesScreen);
 
 const styles = StyleSheet.create({
   container: {

@@ -979,7 +979,16 @@
     "forgot_password_subtitle": "Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Zurücksetzen.",
     "forgot_password_button": "Link senden",
     "password_reset_error": "Der Link konnte nicht gesendet werden. Bitte versuche es erneut.",
-    "back_to_login": "Zurück zum Login"
+    "back_to_login": "Zurück zum Login",
+    "reset_password_title": "Neues Passwort erstellen",
+    "reset_password_subtitle": "Gib ein neues Passwort für dein Konto ein.",
+    "new_password_placeholder": "Neues Passwort",
+    "reset_password_button": "Passwort speichern",
+    "password_reset_success_title": "Passwort aktualisiert",
+    "password_reset_success_message": "Dein Passwort wurde erfolgreich geändert.",
+    "password_reset_continue_home": "Weiter",
+    "password_reset_continue_login": "Anmelden",
+    "password_reset_error_title": "Zurücksetzen fehlgeschlagen"
   },
   "achievements": {
     "title": "Erfolge",

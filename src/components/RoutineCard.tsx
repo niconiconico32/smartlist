@@ -48,7 +48,7 @@ import {
   ROUTINE_BACKGROUND_COLORS,
   ROUTINE_COLORS,
 } from "@/constants/routineColors";
-import { useEggCatalog } from "@/src/hooks/useEggCatalog";
+import type { CatalogEgg } from "@/src/hooks/useEggCatalog";
 import { useEggStore } from "@/src/store/eggStore";
 
 const AVAILABLE_ICONS: Record<string, any> = {
@@ -95,10 +95,11 @@ interface RoutineCardProps {
   reminderTime?: string;
   colorIndex?: number;
   icon?: string;
-  onPress?: () => void;
+  catalog: CatalogEgg[];
+  onPress?: (id: string) => void;
 }
 
-export const RoutineCard: React.FC<RoutineCardProps> = ({
+export const RoutineCard = React.memo(function RoutineCard({
   id,
   name,
   days,
@@ -107,15 +108,15 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
   reminderTime,
   colorIndex = 0,
   icon,
+  catalog,
   onPress,
-}) => {
+}: RoutineCardProps) {
   const { t } = useTranslation();
   const color = ROUTINE_COLORS[colorIndex % ROUTINE_COLORS.length];
   const backgroundColor =
     ROUTINE_BACKGROUND_COLORS[colorIndex % ROUTINE_BACKGROUND_COLORS.length];
 
   // Egg / pet image for this routine
-  const catalog = useEggCatalog();
   const eggData = useEggStore(
     (s) => s.eggs.find((e) => e.routineId === id) ?? null,
   );
@@ -183,7 +184,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
       withSpring(1, { damping: 15, stiffness: 200 }),
     );
 
-    onPress?.();
+    onPress?.(id);
   };
 
   const onHeaderPressIn = () => {
@@ -297,7 +298,7 @@ export const RoutineCard: React.FC<RoutineCardProps> = ({
       </Animated.View>
     </Animated.View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

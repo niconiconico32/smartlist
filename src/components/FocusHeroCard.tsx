@@ -1,7 +1,7 @@
 import { AppText as Text } from "@/src/components/AppText";
 import { BlurView } from "expo-blur";
 import { Flame } from "lucide-react-native";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
     Easing,
@@ -78,12 +78,15 @@ export function FocusHeroCard({
   const activeOutfitUri = useAchievementsStore((s) => s.activeOutfitUri);
 
   // Resolve outfit image source (same pattern as background source in swipeable-layout)
-  const outfitSource =
-    activeOutfit && activeOutfitUri
-      ? { uri: activeOutfitUri }
-      : activeOutfit && OUTFIT_IMAGES[activeOutfit]
-        ? OUTFIT_IMAGES[activeOutfit]
-        : require("../../assets/images/logomain.png");
+  const outfitSource = useMemo(
+    () =>
+      activeOutfit && activeOutfitUri
+        ? { uri: activeOutfitUri }
+        : activeOutfit && OUTFIT_IMAGES[activeOutfit]
+          ? OUTFIT_IMAGES[activeOutfit]
+          : require("../../assets/images/logomain.png"),
+    [activeOutfit, activeOutfitUri],
+  );
 
   // Animación de "Fuego Vivo" para el streak badge
   useEffect(() => {
@@ -183,6 +186,7 @@ export function FocusHeroCard({
             <Image
               source={outfitSource}
               style={styles.mascot}
+              resizeMethod="resize"
               resizeMode="contain"
             />
             <View style={styles.mascotShadow} />

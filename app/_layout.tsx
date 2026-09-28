@@ -499,8 +499,23 @@ function RootLayoutNav() {
   // ── Warm deep links ────────────────────────────────────────────────────────
   // brainy://claim?token=...&redeem_url=... and rc-<appId>:// Redemption Links.
   // Persists the handoff immediately and routes to /claim.
+  // Also handles password recovery deep links (brainy://reset-password?token=...).
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
+      if (url.includes("reset-password") || url.includes("recovery")) {
+        const tokenMatch = url.match(/[?&]token=([^&]+)/);
+        const emailMatch = url.match(/[?&]email=([^&]+)/);
+        const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : undefined;
+        const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
+        if (token) {
+          router.replace({
+            pathname: "/reset-password" as any,
+            params: { token, ...(email ? { email } : {}) },
+          });
+        }
+        return;
+      }
+
       const parsed = parseHandoffUrl(url);
       if (!parsed.claimToken && !parsed.redemptionUrl) return;
 
@@ -525,10 +540,26 @@ function RootLayoutNav() {
   // expo-router resolves brainy://claim itself, but rc-<appId>:// does not map
   // to any route — catch it here, persist the Redemption Link and route to
   // /claim.
+  // Also handles password recovery deep links on cold start.
   useEffect(() => {
     Linking.getInitialURL()
       .then((url) => {
         if (!url) return;
+
+        if (url.includes("reset-password") || url.includes("recovery")) {
+          const tokenMatch = url.match(/[?&]token=([^&]+)/);
+          const emailMatch = url.match(/[?&]email=([^&]+)/);
+          const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : undefined;
+          const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
+          if (token) {
+            router.replace({
+              pathname: "/reset-password" as any,
+              params: { token, ...(email ? { email } : {}) },
+            });
+          }
+          return;
+        }
+
         const parsed = parseHandoffUrl(url);
         if (!parsed.claimToken && !parsed.redemptionUrl) return;
 
@@ -563,6 +594,7 @@ function RootLayoutNav() {
           <Stack.Screen name="onboarding-new" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding-v3" options={{ headerShown: false }} />
           <Stack.Screen name="claim" options={{ headerShown: false }} />
+          <Stack.Screen name="reset-password" options={{ headerShown: false }} />
           <Stack.Screen name="plan-ready" options={{ headerShown: false }} />
           <Stack.Screen name="achievements" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: "modal" }} />

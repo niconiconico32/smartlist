@@ -996,7 +996,16 @@
     "forgot_password_subtitle": "Digite seu e-mail e enviaremos um link para redefinir sua senha.",
     "forgot_password_button": "Enviar link",
     "password_reset_error": "Não foi possível enviar o link. Tente novamente.",
-    "back_to_login": "Voltar ao login"
+    "back_to_login": "Voltar ao login",
+    "reset_password_title": "Criar nova senha",
+    "reset_password_subtitle": "Digite uma nova senha para sua conta.",
+    "new_password_placeholder": "Nova senha",
+    "reset_password_button": "Salvar senha",
+    "password_reset_success_title": "Senha atualizada",
+    "password_reset_success_message": "Sua senha foi alterada com sucesso.",
+    "password_reset_continue_home": "Continuar",
+    "password_reset_continue_login": "Entrar",
+    "password_reset_error_title": "Falha ao redefinir"
   },
   "achievements": {
     "title": "Conquistas",

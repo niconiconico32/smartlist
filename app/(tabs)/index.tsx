@@ -74,6 +74,7 @@ import { supabase } from "@/src/lib/supabase";
 import {
     debouncedSyncToCloud,
     fetchActivitiesFromCloud,
+    getCachedActivities,
     syncActivitiesToCloud,
 } from "@/src/lib/syncService";
 import {
@@ -215,9 +216,13 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const { t } = useTranslation();
   const bottomInset = useBottomTabInset();
   const router = useRouter();
-  const { initializeAppOpened, checkAndUpdateAchievements } =
-    useAchievementsStore();
-  const { isPro } = useProStore();
+  const initializeAppOpened = useAchievementsStore(
+    (s) => s.initializeAppOpened,
+  );
+  const checkAndUpdateAchievements = useAchievementsStore(
+    (s) => s.checkAndUpdateAchievements,
+  );
+  const isPro = useProStore((s) => s.isPro);
 
   // Local state for isFirstTime if not passed from parent
   const [taskInput, setTaskInput] = useState("");
@@ -609,36 +614,37 @@ const PlanScreen = React.forwardRef(function PlanScreen(
   const loadActivities = async () => {
     try {
       setIsLoadingActivities(true);
-      const storedActivities = await fetchActivitiesFromCloud();
-      if (storedActivities && storedActivities.length > 0) {
-        const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
-        // Migrar tareas antiguas sin recurrence o scheduledDate
-        const migratedActivities = storedActivities.map(
-          (activity: Activity) => ({
-            ...activity,
-            recurrence: activity.recurrence || { type: "once" as const },
-            completedDates: activity.completedDates || [],
-            scheduledDate: activity.scheduledDate || realToday, // Asignar fecha actual a tareas sin scheduledDate
-          }),
-        );
+      const realToday = getLocalTodayDateKey(); // ✅ TIMEZONE SAFE
+      const migrateActivities = (source: any[]): Activity[] =>
+        source.map((activity: Activity) => ({
+          ...activity,
+          recurrence: activity.recurrence || { type: "once" as const },
+          completedDates: activity.completedDates || [],
+          scheduledDate: activity.scheduledDate || realToday,
+        }));
+      const showActivities = (source: any[]) => {
+        const migratedActivities = migrateActivities(source);
         setActivities(migratedActivities);
-
-        // Reprogramar notificaciones de tareas que tengan reminder habilitado
-        try {
-          await rescheduleAllTaskReminders(migratedActivities as any);
-        } catch (error) {
-          console.error("Error rescheduling task notifications:", error);
-        }
-
         if (migratedActivities.length > 0) {
           setLocalIsFirstTime(false);
-          if (setIsFirstTime) {
-            setIsFirstTime(false);
-          }
+          setIsFirstTime?.(false);
         }
-      } else {
-        setActivities([]);
+      };
+
+      // Paint cached tasks first; cloud reconciliation happens below.
+      const cachedActivities = await getCachedActivities();
+      if (cachedActivities.length > 0) {
+        showActivities(cachedActivities);
+        setIsLoadingActivities(false);
       }
+
+      const storedActivities = await fetchActivitiesFromCloud(cachedActivities);
+      showActivities(storedActivities);
+
+      // Notifications are maintenance work and should not delay the task list.
+      void rescheduleAllTaskReminders(storedActivities as any).catch((error) => {
+        console.error("Error rescheduling task notifications:", error);
+      });
     } catch (error) {
       console.error("Error loading activities:", error);
     } finally {
@@ -1782,7 +1788,7 @@ const PlanScreen = React.forwardRef(function PlanScreen(
 });
 
 PlanScreen.displayName = "PlanScreen";
-export default PlanScreen;
+export default React.memo(PlanScreen);
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background } as any,

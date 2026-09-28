@@ -979,7 +979,16 @@
     "forgot_password_subtitle": "Saisissez votre e-mail et nous vous enverrons un lien pour réinitialiser votre mot de passe.",
     "forgot_password_button": "Envoyer le lien",
     "password_reset_error": "Le lien n'a pas pu être envoyé. Réessayez.",
-    "back_to_login": "Retour à la connexion"
+    "back_to_login": "Retour à la connexion",
+    "reset_password_title": "Créer un nouveau mot de passe",
+    "reset_password_subtitle": "Saisissez un nouveau mot de passe pour votre compte.",
+    "new_password_placeholder": "Nouveau mot de passe",
+    "reset_password_button": "Enregistrer le mot de passe",
+    "password_reset_success_title": "Mot de passe mis à jour",
+    "password_reset_success_message": "Votre mot de passe a été modifié avec succès.",
+    "password_reset_continue_home": "Continuer",
+    "password_reset_continue_login": "Se connecter",
+    "password_reset_error_title": "Échec de la réinitialisation"
   },
   "achievements": {
     "title": "Succès",

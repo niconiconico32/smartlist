@@ -979,7 +979,16 @@
     "forgot_password_subtitle": "Inserisci la tua email e ti invieremo un link per reimpostare la password.",
     "forgot_password_button": "Invia link",
     "password_reset_error": "Impossibile inviare il link. Riprova.",
-    "back_to_login": "Torna al login"
+    "back_to_login": "Torna al login",
+    "reset_password_title": "Crea nuova password",
+    "reset_password_subtitle": "Inserisci una nuova password per il tuo account.",
+    "new_password_placeholder": "Nuova password",
+    "reset_password_button": "Salva password",
+    "password_reset_success_title": "Password aggiornata",
+    "password_reset_success_message": "La tua password è stata modificata con successo.",
+    "password_reset_continue_home": "Continua",
+    "password_reset_continue_login": "Accedi",
+    "password_reset_error_title": "Reimpostazione fallita"
   },
   "achievements": {
     "title": "Obiettivi",

@@ -37,6 +37,8 @@ interface AuthContextType {
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<void>;
+  updateUserPassword: (password: string) => Promise<{ error: Error | null }>;
+  verifyRecoveryToken: (token: string, email?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -54,6 +56,9 @@ const AuthContext = createContext<AuthContextType>({
   signUpWithEmail: async () => {},
   sendOtp: async () => {},
   verifyOtp: async () => {},
+  resetPasswordForEmail: async () => {},
+  updateUserPassword: async () => ({ error: null }),
+  verifyRecoveryToken: async () => ({ error: null }),
   signOut: async () => {},
 });
 
@@ -420,7 +425,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: Linking.createURL("/(tabs)"),
+        redirectTo: Linking.createURL("/reset-password"),
       });
       if (error) throw error;
     } catch (error: any) {
@@ -428,6 +433,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(error?.message || i18n.t("auth.password_reset_error"));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateUserPassword = async (password: string): Promise<{ error: Error | null }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      return { error };
+    } catch (error: any) {
+      console.error("❌ Update password error:", error.message);
+      return { error };
+    }
+  };
+
+  const verifyRecoveryToken = async (token: string, email?: string): Promise<{ error: Error | null }> => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email ?? "",
+        token,
+        type: "recovery",
+      });
+      return { error };
+    } catch (error: any) {
+      console.error("❌ Verify recovery token error:", error.message);
+      return { error };
     }
   };
 
@@ -464,6 +493,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sendOtp,
         verifyOtp,
         resetPasswordForEmail,
+        updateUserPassword,
+        verifyRecoveryToken,
         signOut,
       }}
     >

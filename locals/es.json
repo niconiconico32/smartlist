@@ -985,7 +985,16 @@
     "forgot_password_subtitle": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
     "forgot_password_button": "Enviar enlace",
     "password_reset_error": "No pudimos enviar el enlace. Inténtalo de nuevo.",
-    "back_to_login": "Volver a iniciar sesión"
+    "back_to_login": "Volver a iniciar sesión",
+    "reset_password_title": "Crear nueva contraseña",
+    "reset_password_subtitle": "Ingresa una nueva contraseña para tu cuenta.",
+    "new_password_placeholder": "Nueva contraseña",
+    "reset_password_button": "Guardar contraseña",
+    "password_reset_success_title": "Contraseña actualizada",
+    "password_reset_success_message": "Tu contraseña ha sido cambiada exitosamente.",
+    "password_reset_continue_home": "Continuar",
+    "password_reset_continue_login": "Iniciar sesión",
+    "password_reset_error_title": "Error al restablecer"
   },
   "restore": {
     "banner_title": "No pudimos confirmar tu suscripción.",

@@ -34,6 +34,51 @@ const LOCAL_CATALOG: CatalogEgg[] = EGG_METADATA.map((m) => ({
   petImage: m.petImage,
 }));
 
+let cachedCatalog: CatalogEgg[] | null = null;
+let catalogRequest: Promise<CatalogEgg[]> | null = null;
+
+function mergeCatalog(data: any[]): CatalogEgg[] {
+  const localIds = new Set(LOCAL_CATALOG.map((e) => e.id));
+  const remoteById = new Map(data.map((entry) => [entry.id, entry]));
+
+  const updated = LOCAL_CATALOG.map((local) => {
+    const remote = remoteById.get(local.id);
+    if (!remote) return local;
+    return {
+      ...local,
+      image: remote.egg_image_url
+        ? ({ uri: remote.egg_image_url } as ImageSourcePropType)
+        : local.image,
+      petImage: remote.pet_image_url
+        ? ({ uri: remote.pet_image_url } as ImageSourcePropType)
+        : local.petImage,
+    };
+  });
+
+  const remoteOnly = data
+    .filter((r) => !localIds.has(r.id) && r.egg_image_url && r.pet_image_url)
+    .map((r) => ({
+      id: r.id as number,
+      name: r.name as string,
+      rarity: r.rarity as EggRarity,
+      cost: r.cost as number,
+      image: { uri: r.egg_image_url } as ImageSourcePropType,
+      petImage: { uri: r.pet_image_url } as ImageSourcePropType,
+    }));
+
+  return [...updated, ...remoteOnly];
+}
+
+async function fetchCatalog(): Promise<CatalogEgg[]> {
+  const { data } = await supabase
+    .from("egg_catalog")
+    .select("id, name, rarity, cost, egg_image_url, pet_image_url")
+    .eq("active", true)
+    .order("sort_order", { ascending: true });
+
+  return data?.length ? mergeCatalog(data) : LOCAL_CATALOG;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -51,53 +96,41 @@ const LOCAL_CATALOG: CatalogEgg[] = EGG_METADATA.map((m) => ({
  *   egg image → https://<project>/storage/v1/object/public/pets/eggs/egg19.png
  *   pet image → https://<project>/storage/v1/object/public/pets/pets/pet19.png
  */
-export function useEggCatalog(): CatalogEgg[] {
-  const [catalog, setCatalog] = useState<CatalogEgg[]>(LOCAL_CATALOG);
+export function useEggCatalog(enabled = true): CatalogEgg[] {
+  const [catalog, setCatalog] = useState<CatalogEgg[]>(
+    () => cachedCatalog ?? LOCAL_CATALOG,
+  );
 
   useEffect(() => {
-    supabase
-      .from("egg_catalog")
-      .select("id, name, rarity, cost, egg_image_url, pet_image_url")
-      .eq("active", true)
-      .order("sort_order", { ascending: true })
-      .then(({ data }) => {
-        if (!data?.length) return;
+    if (!enabled) return;
 
-        const localIds = new Set(LOCAL_CATALOG.map((e) => e.id));
+    let cancelled = false;
+    if (cachedCatalog) {
+      setCatalog(cachedCatalog);
+      return;
+    }
 
-        // Override images on existing local entries where remote URLs are provided
-        const updated = LOCAL_CATALOG.map((local) => {
-          const remote = data.find((r) => r.id === local.id);
-          if (!remote) return local;
-          return {
-            ...local,
-            image: remote.egg_image_url
-              ? ({ uri: remote.egg_image_url } as ImageSourcePropType)
-              : local.image,
-            petImage: remote.pet_image_url
-              ? ({ uri: remote.pet_image_url } as ImageSourcePropType)
-              : local.petImage,
-          };
-        });
+    if (!catalogRequest) {
+      catalogRequest = fetchCatalog().then(
+        (result) => {
+          cachedCatalog = result;
+          return result;
+        },
+        () => {
+          cachedCatalog = LOCAL_CATALOG;
+          return LOCAL_CATALOG;
+        },
+      );
+    }
 
-        // Append new entries that only exist in Supabase (both image URLs required)
-        const remoteOnly = data
-          .filter((r) => !localIds.has(r.id) && r.egg_image_url && r.pet_image_url)
-          .map((r) => ({
-            id: r.id as number,
-            name: r.name as string,
-            rarity: r.rarity as EggRarity,
-            cost: r.cost as number,
-            image: { uri: r.egg_image_url } as ImageSourcePropType,
-            petImage: { uri: r.pet_image_url } as ImageSourcePropType,
-          }));
+    catalogRequest.then((result) => {
+      if (!cancelled) setCatalog(result);
+    });
 
-        setCatalog([...updated, ...remoteOnly]);
-      })
-      .catch(() => {
-        // Fail silently — local catalog already in state
-      });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
 
   return catalog;
 }

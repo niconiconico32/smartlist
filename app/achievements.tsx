@@ -12,7 +12,6 @@ import {
 } from "@/src/store/achievementsStore";
 import { useEggCatalog, CatalogEgg } from "@/src/hooks/useEggCatalog";
 import { useEggStore, EggData, EggRarity } from "@/src/store/eggStore";
-import { useAppStreakStore } from "@/src/store/appStreakStore";
 import { useProStore } from "@/src/store/proStore";
 import {
   renderRoutinesWidget,
@@ -35,6 +34,7 @@ import { useTranslation } from "react-i18next";
 import {
   Alert,
   Dimensions,
+  FlatList,
   Image,
   ImageBackground,
   Modal,
@@ -65,7 +65,6 @@ type TabType = "logros" | "outfits" | "backgrounds" | "eggs";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Memoized shop item card — only re-renders when its specific props change.
-// This prevents all 39 cards from re-rendering whenever totalCoins changes.
 // ─────────────────────────────────────────────────────────────────────────────
 type ShopItemCardProps = {
   item: ShopItem;
@@ -210,6 +209,8 @@ const ShopItemCard = React.memo(function ShopItemCard({
   );
 });
 
+const ListSeparator = () => <View style={{ height: 20 }} />;
+
 const EGG_RARITY_STYLES: Record<
   EggRarity,
   { border: string; bg: string }
@@ -320,33 +321,47 @@ function EggGrid({ catalog, eggs, totalCoins, isPro, spendCoins }: EggGridProps)
     );
   }, [isPro, totalCoins, spendCoins, unlockEgg, t]);
 
+  const eggsById = useMemo(
+    () => new Map<number, EggData>(eggs.map((egg) => [egg.id, egg])),
+    [eggs],
+  );
+
+  const renderEgg = useCallback(
+    ({ item: egg }: { item: CatalogEgg }) => {
+      const eggData = eggsById.get(egg.id);
+      return (
+        <EggCard
+          egg={egg}
+          owned={eggData?.unlocked ?? false}
+          hatched={eggData?.evolved ?? false}
+          onBuy={handleBuy}
+        />
+      );
+    },
+    [eggsById, handleBuy],
+  );
+
   return (
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.shopContentContainer}
-    >
-      <View style={styles.shopGrid}>
-          {catalog.map((egg) => {
-          const eggData = eggs.find((e) => e.id === egg.id);
-          const owned = eggData?.unlocked ?? false;
-          const hatched = eggData?.evolved ?? false;
-          return (
-            <EggCard
-              key={egg.id}
-              egg={egg}
-              owned={owned}
-              hatched={hatched}
-              onBuy={handleBuy}
-            />
-          );
-        })}
-      </View>
+    <>
+      <FlatList
+        style={styles.scrollView}
+        data={catalog}
+        renderItem={renderEgg}
+        keyExtractor={(egg) => String(egg.id)}
+        numColumns={NUM_COLUMNS}
+        columnWrapperStyle={styles.shopFlatListRow}
+        contentContainerStyle={styles.shopContentContainer}
+        initialNumToRender={9}
+        maxToRenderPerBatch={9}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === "android"}
+      />
       <PaywallModal
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         source="debug_panel"
       />
-    </ScrollView>
+    </>
   );
 }
 
@@ -365,13 +380,13 @@ export default function AchievementsScreen() {
   const setActiveBackground = useAchievementsStore((s) => s.setActiveBackground);
   const setActiveOutfit = useAchievementsStore((s) => s.setActiveOutfit);
   const claimAchievement = useAchievementsStore((s) => s.claimAchievement);
-  const storeLoaded = useAchievementsStore((s) => s._loaded);
-  const { streak: appStreak, getMultiplier } = useAppStreakStore();
-  const { isPro } = useProStore();
-  const shopItems = useShopItems();
-  const catalog = useEggCatalog();
-  const eggs = useEggStore((s) => s.eggs);
+  const isPro = useProStore((s) => s.isPro);
   const [activeTab, setActiveTab] = useState<TabType>("logros");
+  const shopItems = useShopItems(
+    activeTab === "outfits" || activeTab === "backgrounds",
+  );
+  const catalog = useEggCatalog(activeTab === "eggs");
+  const eggs = useEggStore((s) => s.eggs);
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const debugTapCount = useRef(0);
@@ -578,13 +593,84 @@ export default function AchievementsScreen() {
     [shopItems],
   );
 
-  if (!storeLoaded) {
-    return (
-      <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <Stack.Screen options={{ headerShown: false }} />
-      </SafeAreaView>
-    );
-  }
+  const renderBackgroundItem = useCallback(
+    ({ item }: { item: ShopItem }) => {
+      const owned = purchasedBackgrounds.includes(item.id);
+      return (
+        <Pressable
+          style={styles.bgItem}
+          onPress={() => (owned ? handleApply(item) : handleItemPress(item))}
+        >
+          <View style={styles.bgPreviewWrap}>
+            <Image
+              source={item.imageUri ? { uri: item.imageUri } : item.image}
+              style={styles.bgPreview}
+              resizeMode="cover"
+            />
+            <Image
+              source={require("@/assets/images/store_BackgroundBorder.png")}
+              style={styles.bgBorder}
+              resizeMode="stretch"
+            />
+            {!!item.isPro && !owned && (
+              <View style={styles.bgLockerBadge}>
+                <Image
+                  source={require("@/assets/images/store_Locker.png")}
+                  style={styles.bgLockerIcon}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+            <View style={styles.bgPricePill}>
+              {owned ? (
+                <Text style={styles.bgPricePillText}>
+                  {activeBackground === item.id
+                    ? t("achievements.shop.equipped")
+                    : "✓"}
+                </Text>
+              ) : (
+                <>
+                  <Image
+                    source={require("@/assets/images/crownIcon.png")}
+                    style={styles.bgPricePillIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.bgPricePillText}>{item.price}</Text>
+                </>
+              )}
+            </View>
+          </View>
+        </Pressable>
+      );
+    },
+    [
+      activeBackground,
+      handleApply,
+      handleItemPress,
+      purchasedBackgrounds,
+      t,
+    ],
+  );
+
+  const renderOutfitItem = useCallback(
+    ({ item }: { item: ShopItem }) => (
+      <ShopItemCard
+        item={item}
+        owned={purchasedOutfits.includes(item.id)}
+        active={activeOutfit === item.id}
+        canAfford={totalCoins >= item.price}
+        onItemPress={handleItemPress}
+        onApply={handleApply}
+      />
+    ),
+    [
+      activeOutfit,
+      handleApply,
+      handleItemPress,
+      purchasedOutfits,
+      totalCoins,
+    ],
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -731,76 +817,32 @@ export default function AchievementsScreen() {
             </View>
           </ScrollView>
         ) : activeTab === "backgrounds" ? (
-          <ScrollView
+          <FlatList
             style={styles.scrollView}
+            data={bgItems}
+            renderItem={renderBackgroundItem}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.shopContentContainer}
-          >
-            <View style={styles.bgList}>
-              {bgItems.map((item) => {
-                const isOwned = purchasedBackgrounds.includes(item.id);
-                return (
-                <Pressable key={item.id} style={styles.bgItem}
-                  onPress={() => isOwned ? handleApply(item) : handleItemPress(item)}
-                >
-                  <View style={styles.bgPreviewWrap}>
-                    <Image
-                      source={item.imageUri ? { uri: item.imageUri } : item.image}
-                      style={styles.bgPreview}
-                      resizeMode="cover"
-                    />
-                    <Image
-                      source={require("@/assets/images/store_BackgroundBorder.png")}
-                      style={styles.bgBorder}
-                      resizeMode="stretch"
-                    />
-                    {!!item.isPro && !isOwned && (
-                      <View style={styles.bgLockerBadge}>
-                        <Image source={require("@/assets/images/store_Locker.png")} style={styles.bgLockerIcon} resizeMode="contain" />
-                      </View>
-                    )}
-                    <View style={styles.bgPricePill}>
-                      {isOwned ? (
-                        <Text style={styles.bgPricePillText}>
-                          {activeBackground === item.id
-                            ? t("achievements.shop.equipped")
-                            : "✓"}
-                        </Text>
-                      ) : (
-                        <>
-                          <Image
-                            source={require("@/assets/images/crownIcon.png")}
-                            style={styles.bgPricePillIcon}
-                            resizeMode="contain"
-                          />
-                          <Text style={styles.bgPricePillText}>{item.price}</Text>
-                        </>
-                      )}
-                    </View>
-                  </View>
-                </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === "android"}
+            ItemSeparatorComponent={ListSeparator}
+          />
         ) : activeTab === "outfits" ? (
-          <ScrollView
+          <FlatList
             style={styles.scrollView}
+            data={outfitItems}
+            renderItem={renderOutfitItem}
+            keyExtractor={(item) => item.id}
+            numColumns={OUTFIT_COLUMNS}
+            columnWrapperStyle={styles.shopFlatListRow}
             contentContainerStyle={styles.outfitContentContainer}
-          >
-            <View style={styles.outfitGrid}>
-              {outfitItems.map((item) => (
-                <ShopItemCard
-                  key={item.id}
-                  item={item}
-                  owned={purchasedOutfits.includes(item.id)}
-                  active={activeOutfit === item.id}
-                  canAfford={totalCoins >= item.price}
-                  onItemPress={handleItemPress}
-                  onApply={handleApply}
-                />
-              ))}
-            </View>
-          </ScrollView>
+            initialNumToRender={9}
+            maxToRenderPerBatch={9}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === "android"}
+          />
         ) : activeTab === "eggs" ? (
           <EggGrid
             catalog={catalog}

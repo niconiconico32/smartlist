@@ -14,11 +14,14 @@ const SHOP_CACHE_KEY = '@smartlist_shop_catalog';
  *   - Fetch de Supabase en background → merge → actualiza → guarda en cache.
  *   - Fallback offline: si no hay conexión, se muestra el cache o los items locales.
  */
-export function useShopItems(): ShopItem[] {
+export function useShopItems(enabled = true): ShopItem[] {
   const [items, setItems] = useState<ShopItem[]>(SHOP_ITEMS);
   const hasHydrated = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return;
+
+    let cancelled = false;
     const localById = new Map(SHOP_ITEMS.map((i) => [i.id, i]));
 
     const mergeRemote = (data: any[]): ShopItem[] => {
@@ -57,16 +60,15 @@ export function useShopItems(): ShopItem[] {
     // 1. Load from cache instantly (no flash of local-only items)
     AsyncStorage.getItem(SHOP_CACHE_KEY)
       .then((cached) => {
-        if (cached && !hasHydrated.current) {
-          try {
-            const parsed = JSON.parse(cached) as ShopItem[];
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setItems(parsed);
-            }
-          } catch {}
-        }
-      })
-      .catch(() => {});
+        if (cancelled || !cached || hasHydrated.current) return;
+
+        try {
+          const parsed = JSON.parse(cached) as ShopItem[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setItems(parsed);
+          }
+        } catch {}
+      }, () => {});
 
     // 2. Fetch from Supabase in background (stale-while-revalidate)
     supabase
@@ -76,7 +78,7 @@ export function useShopItems(): ShopItem[] {
       .order('sort_order', { ascending: true })
       .then(
         ({ data }) => {
-          if (!data?.length) return;
+          if (cancelled || !data?.length) return;
 
           const remoteDriven = mergeRemote(data);
           hasHydrated.current = true;
@@ -89,7 +91,11 @@ export function useShopItems(): ShopItem[] {
         },
         () => {},
       );
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
 
   return items;
 }
