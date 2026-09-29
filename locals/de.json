@@ -989,7 +989,8 @@
     "password_reset_continue_home": "Weiter",
     "password_reset_continue_login": "Anmelden",
     "password_reset_error_title": "Zurücksetzen fehlgeschlagen",
-    "reset_password_validating": "Dein Zurücksetzen-Link wird überprüft..."
+    "reset_password_validating": "Dein Zurücksetzen-Link wird überprüft...",
+    "password_reset_web_message": "Wir haben dir eine E-Mail mit einem Link zum Zurücksetzen deines Passworts gesendet. Bitte öffne den Link in deinem Browser, um die Änderung abzuschließen."
   },
   "achievements": {
     "title": "Erfolge",

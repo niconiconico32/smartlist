@@ -39,7 +39,7 @@ import {
   storePendingRedemptionUrl,
   storePendingFunnelEmail,
 } from "@/src/lib/funnelClaim";
-import { parsePasswordRecoveryCallback } from "@/src/lib/passwordRecovery";
+
 import { armEggStoreCloudSync, syncEggsWithCloud } from "@/src/lib/userEggService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
@@ -358,11 +358,7 @@ function RootLayoutNav() {
       segments[0] === "plan-ready";
 
     if (!session) {
-      const currentSegment = segments[0] as string;
-      const allowedWithoutSession =
-        currentSegment === "login" ||
-        currentSegment === "reset-password";
-      if (!allowedWithoutSession) {
+      if (segments[0] !== "login") {
         // No session at all → the ORIGINAL login screen is the entry point now
         // (both for organic new users and funnel visitors). Fresh users reach
         // onboarding only AFTER signing up / continuing anonymously.
@@ -509,21 +505,8 @@ function RootLayoutNav() {
   // ── Warm deep links ────────────────────────────────────────────────────────
   // brainy://claim?token=...&redeem_url=... and rc-<appId>:// Redemption Links.
   // Persists the handoff immediately and routes to /claim.
-  // Also handles password recovery deep links (brainy://reset-password?token=...).
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      const recoveryCallback = parsePasswordRecoveryCallback(url);
-      if (recoveryCallback) {
-        router.replace({
-          pathname: "/reset-password" as any,
-          params: {
-            access_token: recoveryCallback.accessToken,
-            refresh_token: recoveryCallback.refreshToken,
-          },
-        });
-        return;
-      }
-
       const parsed = parseHandoffUrl(url);
       if (!parsed.claimToken && !parsed.redemptionUrl) return;
 
@@ -548,23 +531,10 @@ function RootLayoutNav() {
   // expo-router resolves brainy://claim itself, but rc-<appId>:// does not map
   // to any route — catch it here, persist the Redemption Link and route to
   // /claim.
-  // Also handles password recovery deep links on cold start.
   useEffect(() => {
     Linking.getInitialURL()
       .then((url) => {
         if (!url) return;
-
-        const recoveryCallback = parsePasswordRecoveryCallback(url);
-        if (recoveryCallback) {
-          router.replace({
-            pathname: "/reset-password" as any,
-            params: {
-              access_token: recoveryCallback.accessToken,
-              refresh_token: recoveryCallback.refreshToken,
-            },
-          });
-          return;
-        }
 
         const parsed = parseHandoffUrl(url);
         if (!parsed.claimToken && !parsed.redemptionUrl) return;
@@ -600,7 +570,6 @@ function RootLayoutNav() {
           <Stack.Screen name="onboarding-new" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding-v3" options={{ headerShown: false }} />
           <Stack.Screen name="claim" options={{ headerShown: false }} />
-          <Stack.Screen name="reset-password" options={{ headerShown: false }} />
           <Stack.Screen name="plan-ready" options={{ headerShown: false }} />
           <Stack.Screen name="achievements" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: "modal" }} />

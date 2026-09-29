@@ -989,7 +989,8 @@
     "password_reset_continue_home": "Continuer",
     "password_reset_continue_login": "Se connecter",
     "password_reset_error_title": "Échec de la réinitialisation",
-    "reset_password_validating": "Vérification de votre lien de réinitialisation..."
+    "reset_password_validating": "Vérification de votre lien de réinitialisation...",
+    "password_reset_web_message": "Nous vous avons envoyé un e-mail avec un lien pour réinitialiser votre mot de passe. Veuillez ouvrir le lien dans votre navigateur pour terminer la modification."
   },
   "achievements": {
     "title": "Succès",

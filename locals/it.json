@@ -989,7 +989,8 @@
     "password_reset_continue_home": "Continua",
     "password_reset_continue_login": "Accedi",
     "password_reset_error_title": "Reimpostazione fallita",
-    "reset_password_validating": "Verifica del link di reimpostazione..."
+    "reset_password_validating": "Verifica del link di reimpostazione...",
+    "password_reset_web_message": "Ti abbiamo inviato un'email con un link per reimpostare la password. Apri il link nel tuo browser per completare la modifica."
   },
   "achievements": {
     "title": "Obiettivi",

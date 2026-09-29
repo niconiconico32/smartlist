@@ -38,10 +38,6 @@ interface AuthContextType {
   verifyOtp: (email: string, token: string) => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<{ error: Error | null }>;
-  setRecoverySession: (
-    accessToken: string,
-    refreshToken: string,
-  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -59,10 +55,9 @@ const AuthContext = createContext<AuthContextType>({
   signUpWithEmail: async () => {},
   sendOtp: async () => {},
   verifyOtp: async () => {},
-  resetPasswordForEmail: async () => {},
-  updateUserPassword: async () => ({ error: null }),
-  setRecoverySession: async () => ({ error: null }),
-  signOut: async () => {},
+        resetPasswordForEmail: async () => {},
+        updateUserPassword: async () => ({ error: null }),
+        signOut: async () => {},
 });
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -424,15 +419,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const RESET_PASSWORD_REDIRECT_URL = "https://brainyadhd.com/reset-password/";
+
   const resetPasswordForEmail = async (email: string): Promise<void> => {
     try {
       setIsLoading(true);
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: Linking.createURL("/reset-password"),
+        redirectTo: RESET_PASSWORD_REDIRECT_URL,
       });
       if (error) throw error;
     } catch (error: any) {
-      console.error("❌ Password reset error:", error.message);
+      console.error("Password reset error:", error.message);
       throw new Error(error?.message || i18n.t("auth.password_reset_error"));
     } finally {
       setIsLoading(false);
@@ -445,22 +442,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error };
     } catch (error: any) {
       console.error("❌ Update password error:", error.message);
-      return { error };
-    }
-  };
-
-  const setRecoverySession = async (
-    accessToken: string,
-    refreshToken: string,
-  ): Promise<{ error: Error | null }> => {
-    try {
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      return { error };
-    } catch (error: any) {
-      console.error("❌ Set recovery session error:", error.message);
       return { error };
     }
   };
@@ -499,7 +480,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyOtp,
         resetPasswordForEmail,
         updateUserPassword,
-        setRecoverySession,
         signOut,
       }}
     >

@@ -1006,7 +1006,8 @@
     "password_reset_continue_home": "Continuar",
     "password_reset_continue_login": "Entrar",
     "password_reset_error_title": "Falha ao redefinir",
-    "reset_password_validating": "Verificando seu link de redefinição..."
+    "reset_password_validating": "Verificando seu link de redefinição...",
+    "password_reset_web_message": "Enviamos um e-mail com um link para redefinir sua senha. Abra o link no seu navegador para concluir a alteração."
   },
   "achievements": {
     "title": "Conquistas",

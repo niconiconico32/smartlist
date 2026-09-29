@@ -51,6 +51,7 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
 
   const reset = () => {
     setStep("otp_email");
@@ -59,6 +60,7 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
     setPassword("");
     setLoading(false);
     setError("");
+    setPasswordResetSent(false);
   };
 
   const handleClose = () => {
@@ -158,7 +160,8 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
       await resetPasswordForEmail(normalized);
       posthog.capture("auth_password_reset_sent");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      handleClose();
+      setError("");
+      setPasswordResetSent(true);
     } catch (err: any) {
       setError(err.message || t("auth.password_reset_error"));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -399,7 +402,7 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
             </>
           )}
 
-          {step === "forgot_password" && (
+          {step === "forgot_password" && !passwordResetSent && (
             <>
               <Pressable
                 testID="loginForgotPasswordSubmit"
@@ -420,6 +423,22 @@ export function LoginModal({ visible, onClose }: LoginModalProps) {
               </Pressable>
               <Pressable
                 testID="loginBackToLogin"
+                onPress={showOtpEmail}
+                hitSlop={8}
+                style={styles.otpFooter}
+              >
+                <Text style={styles.linkBtn}>{t("auth.back_to_login")}</Text>
+              </Pressable>
+            </>
+          )}
+
+          {step === "forgot_password" && passwordResetSent && (
+            <>
+              <Text style={styles.successMessage}>
+                {t("auth.password_reset_web_message")}
+              </Text>
+              <Pressable
+                testID="loginBackToLoginFromSuccess"
                 onPress={showOtpEmail}
                 hitSlop={8}
                 style={styles.otpFooter}
@@ -555,5 +574,19 @@ const styles = StyleSheet.create({
   switchText: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  passwordResetWebMessage: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    textAlign: "center",
+    lineHeight: 22,
+  },
+  successMessage: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.textPrimary,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });

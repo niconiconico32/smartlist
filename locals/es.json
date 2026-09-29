@@ -995,7 +995,8 @@
     "password_reset_continue_home": "Continuar",
     "password_reset_continue_login": "Iniciar sesión",
     "password_reset_error_title": "Error al restablecer",
-    "reset_password_validating": "Verificando tu enlace de restablecimiento..."
+    "reset_password_validating": "Verificando tu enlace de restablecimiento...",
+    "password_reset_web_message": "Te enviamos un correo con un enlace para restablecer tu contraseña. Abre el enlace en tu navegador para completar el cambio."
   },
   "restore": {
     "banner_title": "No pudimos confirmar tu suscripción.",
