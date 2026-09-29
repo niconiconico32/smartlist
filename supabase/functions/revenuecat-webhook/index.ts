@@ -46,52 +46,78 @@ serve(async (req) => {
           .update({ status: "processing", processed_at: null }).eq("event_id", eventId).eq("status", "retryable")
           .select("event_id").maybeSingle();
         if (!claimedRetry) return json({ success: true, idempotent: true });
+      } else if (existing?.status === "processing") {
+        // A crashed execution may have left the event in processing. Allow retry
+        // by claiming it with a conditional update.
+        const { data: claimedStuck } = await admin.from("revenuecat_webhook_events")
+          .update({ status: "processing", processed_at: null }).eq("event_id", eventId).eq("status", "processing")
+          .select("event_id").maybeSingle();
+        if (!claimedStuck) return json({ success: true, idempotent: true });
       } else if (existing) {
-        // processed, ignored, or currently processing: never emit twice.
+        // processed or ignored: never emit twice.
         return json({ success: true, idempotent: true });
       } else {
         return json({ success: false, error: "event_store_unavailable", retryable: true }, 503);
       }
     }
 
-    const finish = async (status: "processed" | "ignored" | "retryable") => {
-      await admin.from("revenuecat_webhook_events").update({ status, processed_at: status === "retryable" ? null : new Date().toISOString() }).eq("event_id", eventId);
+    const finish = async (status: "processed" | "ignored" | "retryable"): Promise<boolean> => {
+      const { error } = await admin.from("revenuecat_webhook_events").update({ status, processed_at: status === "retryable" ? null : new Date().toISOString() }).eq("event_id", eventId);
+      return !error;
     };
     if (!["INITIAL_PURCHASE", "RENEWAL"].includes(type) || !isUuid(appUserId)) {
-      await finish("ignored");
+      const ok = await finish("ignored");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
       return json({ success: true, ignored: true });
     }
 
     const { data: plans, error: planError } = await admin.from("web_funnel_plans")
       .select("id, funnel_user_id, status, claimed_by_user_id, purchase_confirmed_at")
       .eq("funnel_user_id", appUserId).order("created_at", { ascending: false }).limit(20);
+    if (planError) {
+      const ok = await finish("retryable");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
+      return json({ success: false, error: "plan_lookup_failed", retryable: true }, 503);
+    }
     // An expired-by-window row may still be the paid plan whose webhook arrived
     // late. INITIAL_PURCHASE/RENEWAL is allowed to revive it by setting
     // purchase_confirmed_at; only a materialized claimed row is excluded.
     const plan = (plans ?? []).find((candidate: any) => candidate.funnel_user_id === appUserId && candidate.status !== "claimed" && (!candidate.claimed_by_user_id || candidate.claimed_by_user_id === appUserId));
-    if (planError || !plan) {
-      await finish("ignored");
+    if (!plan) {
+      const ok = await finish("ignored");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
       return json({ success: true, ignored: true });
     }
 
     // entitlement_ids and period_type are not proof; this server-side lookup is authoritative.
     const rc = await checkEntitlementActive(appUserId, Deno.env.get("REVENUECAT_SECRET_API_KEY") ?? "");
     if (!rc.ok) {
-      await finish("retryable");
+      const ok = await finish("retryable");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
       return json({ success: false, error: "verification_unavailable", retryable: true }, 503);
     }
     if (!rc.active) {
-      await finish("retryable");
+      const ok = await finish("retryable");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
       return json({ success: false, error: "entitlement_inactive", retryable: true }, 409);
     }
 
-    await admin.from("web_funnel_plans").update({ purchase_confirmed_at: new Date().toISOString() }).eq("id", plan.id).is("purchase_confirmed_at", null);
+    const { error: confirmError } = await admin.from("web_funnel_plans").update({ purchase_confirmed_at: new Date().toISOString() }).eq("id", plan.id).is("purchase_confirmed_at", null);
+    if (confirmError) {
+      const ok = await finish("retryable");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
+      return json({ success: false, error: "purchase_confirm_failed", retryable: true }, 503);
+    }
     const issued = await issueFunnelCredentials(admin, plan.id, appUserId);
-    if (!issued.ok && issued.status !== "in_progress") {
-      await finish("retryable");
+    if (!issued.ok) {
+      const ok = await finish("retryable");
+      if (!ok) return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
       return json({ success: false, error: issued.status, retryable: true }, 503);
     }
-    await finish("processed");
+    const { error: finishError } = await admin.from("revenuecat_webhook_events").update({ status: "processed", processed_at: new Date().toISOString() }).eq("event_id", eventId);
+    if (finishError) {
+      return json({ success: false, error: "event_finish_failed", retryable: true }, 503);
+    }
     return json({ success: true, status: issued.status });
   } catch (_error) {
     return json({ success: false, error: "retryable", retryable: true }, 503);
