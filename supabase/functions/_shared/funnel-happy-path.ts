@@ -110,6 +110,11 @@ export interface CompleteDeps {
   issue(planId: string, userId: string): Promise<{ status: string }>;
 }
 
+/**
+ * Optional purchase-confirmation fast path (see complete-funnel-account/index.ts).
+ * Pure core: ownership via claimToken hash, server-side entitlement gate, then
+ * the same `issue` used by the webhook. It is unrelated to password recovery.
+ */
 export async function completeFunnelAccount(input: { planId: unknown; claimToken: unknown }, deps: CompleteDeps): Promise<Result> {
   const planId = typeof input.planId === "string" ? input.planId.trim() : "";
   const token = typeof input.claimToken === "string" ? input.claimToken.trim() : "";
@@ -127,52 +132,6 @@ export async function completeFunnelAccount(input: { planId: unknown; claimToken
   if (["sent", "already_completed"].includes(issued.status)) return { status: 200, body: { success: true, status: issued.status } };
   if (issued.status === "in_progress") return { status: 202, body: { success: true, status: "in_progress" } };
   return { status: issued.status === "entitlement_inactive" ? 409 : 503, body: { success: false, error: issued.status } };
-}
-
-export interface WebhookDeps {
-  eventBegin(event: { id: string; type: string; appUserId: string }): Promise<"started" | "retry_started" | "duplicate">;
-  eventFinish(eventId: string, status: "processed" | "ignored" | "retryable"): Promise<void>;
-  findPlan(userId: string): Promise<FunnelPlan | null>;
-  checkRevenueCat(userId: string): Promise<RcResult>;
-  confirmPurchase(planId: string, now: Date): Promise<void>;
-  issue(planId: string, userId: string): Promise<{ status: string }>;
-  now(): Date;
-}
-
-export async function revenueCatWebhook(input: { authorization: string; configuredAuthorization: string; event: { id?: unknown; type?: unknown; app_user_id?: unknown; period_type?: unknown } }, deps: WebhookDeps): Promise<Result> {
-  if (!constantTimeEqual(input.authorization, input.configuredAuthorization)) return { status: 401, body: { success: false, error: "unauthorized" } };
-  const id = typeof input.event.id === "string" ? input.event.id.trim() : "";
-  const type = typeof input.event.type === "string" ? input.event.type : "";
-  const appUserId = typeof input.event.app_user_id === "string" ? input.event.app_user_id.trim() : "";
-  if (!id || !type) return { status: 200, body: { success: true, ignored: true } };
-  const begin = await deps.eventBegin({ id, type, appUserId });
-  if (begin === "duplicate") return { status: 200, body: { success: true, idempotent: true } };
-  if (!["INITIAL_PURCHASE", "RENEWAL"].includes(type) || !isUuid(appUserId)) {
-    await deps.eventFinish(id, "ignored");
-    return { status: 200, body: { success: true, ignored: true } };
-  }
-  const plan = await deps.findPlan(appUserId);
-  if (!plan) {
-    await deps.eventFinish(id, "ignored");
-    return { status: 200, body: { success: true, ignored: true } };
-  }
-  const rc = await deps.checkRevenueCat(appUserId);
-  if (!rc.ok) {
-    await deps.eventFinish(id, "retryable");
-    return { status: 503, body: { success: false, error: "verification_unavailable", retryable: true } };
-  }
-  if (!rc.active) {
-    await deps.eventFinish(id, "retryable");
-    return { status: 409, body: { success: false, error: "entitlement_inactive", retryable: true } };
-  }
-  await deps.confirmPurchase(plan.id, deps.now());
-  const issued = await deps.issue(plan.id, appUserId);
-  if (!["sent", "already_completed", "in_progress"].includes(issued.status)) {
-    await deps.eventFinish(id, "retryable");
-    return { status: 503, body: { success: false, error: issued.status, retryable: true } };
-  }
-  await deps.eventFinish(id, "processed");
-  return { status: 200, body: { success: true, status: issued.status } };
 }
 
 export function constantTimeEqual(received: string, expected: string): boolean {

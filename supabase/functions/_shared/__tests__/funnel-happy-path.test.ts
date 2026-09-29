@@ -2,11 +2,9 @@ import {
   completeFunnelAccount,
   issueFunnelCredentialsWithDeps,
   prepareFunnelAccount,
-  revenueCatWebhook,
   type FunnelPlan,
   type IssueDeps,
   type PrepareDeps,
-  type WebhookDeps,
 } from "../funnel-happy-path";
 import { sha256Hex } from "../funnel-identity-core";
 
@@ -38,25 +36,11 @@ function prepareFake(plan: FunnelPlan, users: { id: string; email: string }[] = 
   };
 }
 
-function eventFake(plan: FunnelPlan | null, rc: { ok: boolean; active: boolean } = { ok: true, active: true }) {
-  const events = new Map<string, string>();
-  const calls = { confirmed: 0, issued: 0 };
-  const deps: WebhookDeps = {
-    now: () => new Date("2026-09-18T00:00:00Z"),
-    eventBegin: async ({ id }) => { if (events.has(id)) return "duplicate"; events.set(id, "processing"); return "started"; },
-    eventFinish: async (id, status) => { events.set(id, status); },
-    findPlan: async () => plan,
-    checkRevenueCat: async () => rc,
-    confirmPurchase: async () => { calls.confirmed++; if (plan) plan.purchaseConfirmedAt = "2026-09-18T00:00:00Z"; },
-    issue: async () => { calls.issued++; return { status: "sent" }; },
-  };
-  return { deps, events, calls };
-}
-
-function issueFake(plan: FunnelPlan, options: { rc?: { ok: boolean; active: boolean }; sendResults?: boolean[] } = {}) {
+function issueFake(plan: FunnelPlan, options: { rc?: { ok: boolean; active: boolean }; sendResults?: boolean[]; markIssuedFailures?: number } = {}) {
   const sent = options.sendResults ?? [true];
   let leaseTaken = false;
   let sendCount = 0;
+  let markFailures = options.markIssuedFailures ?? 0;
   const passwords: string[] = [];
   const emails: unknown[] = [];
   const deps: IssueDeps = {
@@ -68,7 +52,11 @@ function issueFake(plan: FunnelPlan, options: { rc?: { ok: boolean; active: bool
     derivePassword: async () => "004207",
     updatePassword: async (_id, password) => { passwords.push(password); },
     sendEmail: async (input) => { emails.push(input); return { accepted: sent[Math.min(sendCount++, sent.length - 1)], id: "email-id" }; },
-    markIssued: async (_id, _emailId, now) => { plan.credentialsIssuedAt = now.toISOString(); leaseTaken = false; },
+    markIssued: async (_id, _emailId, now) => {
+      if (markFailures > 0) { markFailures--; throw new Error("mark_issued_failed"); }
+      plan.credentialsIssuedAt = now.toISOString();
+      leaseTaken = false;
+    },
     releaseLease: async () => { leaseTaken = false; },
   };
   return { deps, passwords, emails };
@@ -128,64 +116,6 @@ describe("prepare-funnel-account pure handler", () => {
   });
 });
 
-describe("RevenueCat webhook pure handler", () => {
-  const event = (type: string, id = "event-1", user = USER) => ({ id, type, app_user_id: user, period_type: type === "INITIAL_PURCHASE" ? "TRIAL" : undefined });
-  it("rejects invalid auth", async () => {
-    const fake = eventFake(null);
-    expect((await revenueCatWebhook({ authorization: "bad", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, fake.deps)).status).toBe(401);
-  });
-  it.each(["INITIAL_PURCHASE", "RENEWAL"])("processes %s, including trial INITIAL_PURCHASE", async (type) => {
-    const fake = eventFake(await preparedPlan({ funnelUserId: USER }));
-    const result = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event(type) }, fake.deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
-    expect(fake.calls.confirmed).toBe(1);
-  });
-  it("ignores renewal without a pending plan and invalid app_user_id", async () => {
-    const noPlan = eventFake(null);
-    expect((await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("RENEWAL") }, noPlan.deps)).body).toMatchObject({ ignored: true });
-    const invalid = eventFake(null);
-    expect((await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-2", "not-a-uuid") }, invalid.deps)).body).toMatchObject({ ignored: true });
-  });
-  it("deduplicates event.id", async () => {
-    const fake = eventFake(await preparedPlan({ funnelUserId: USER }));
-    await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, fake.deps);
-    const second = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, fake.deps);
-    expect(second.body).toMatchObject({ idempotent: true });
-    expect(fake.calls.issued).toBe(1);
-  });
-  it("does not issue for inactive or unavailable RevenueCat", async () => {
-    const inactive = eventFake(await preparedPlan({ funnelUserId: USER }), { ok: true, active: false });
-    expect((await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, inactive.deps)).body).toMatchObject({ error: "entitlement_inactive" });
-    const unavailable = eventFake(await preparedPlan({ funnelUserId: USER }), { ok: false, active: false });
-    expect((await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-2") }, unavailable.deps)).body).toMatchObject({ retryable: true });
-  });
-
-  it("returns retryable when plan lookup fails", async () => {
-    const fake = eventFake(null);
-    fake.findPlan = async () => null;
-    const result = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-3") }, fake.deps);
-    expect(result.body).toMatchObject({ ignored: true });
-  });
-
-  it("allows retry when event is stuck in processing", async () => {
-    const plan = await preparedPlan({ funnelUserId: USER });
-    const fake = eventFake(plan);
-    fake.eventBegin = async ({ id }) => { if (fake.events.has(id)) return "duplicate"; fake.events.set(id, "processing"); return "started"; };
-    const first = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4") }, fake.deps);
-    expect(first.body).toMatchObject({ success: true });
-    const second = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4") }, fake.deps);
-    expect(second.body).toMatchObject({ idempotent: true });
-  });
-
-  it("does not mark event as processed when issue returns in_progress", async () => {
-    const plan = await preparedPlan({ funnelUserId: USER });
-    const fake = eventFake(plan);
-    fake.deps.issue = async () => ({ status: "in_progress" as const });
-    const result = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5") }, fake.deps);
-    expect(result.body).toMatchObject({ success: true, status: "in_progress" });
-  });
-});
-
 describe("credential convergence pure handler", () => {
   it("supports webhook-only, fast-path-then-webhook, and webhook-then-fast-path", async () => {
     const plan = await preparedPlan({ funnelUserId: USER, accountCreatedByFunnel: true, purchaseConfirmedAt: "now" });
@@ -227,13 +157,35 @@ describe("credential convergence pure handler", () => {
     expect((existingFake.emails[0] as any).accountCreatedByFunnel).toBe(false);
   });
 
-  it("does not replace a password when a funnel-created account was already used", async () => {
-    const plan = await preparedPlan({ funnelUserId: USER, accountCreatedByFunnel: true, purchaseConfirmedAt: "now" });
+  it("does not replace a password when a funnel-created account was already used", async () => {    const plan = await preparedPlan({ funnelUserId: USER, accountCreatedByFunnel: true, purchaseConfirmedAt: "now" });
     const fake = issueFake(plan);
     fake.deps.isAccountUsed = async () => true;
     await issueFunnelCredentialsWithDeps(PLAN, USER, fake.deps);
     expect(fake.passwords).toHaveLength(0);
     expect((fake.emails[0] as any).accountCreatedByFunnel).toBe(false);
+  });
+
+  it("converges on retry when the email was accepted but marking it issued failed", async () => {
+    const plan = await preparedPlan({ funnelUserId: USER, accountCreatedByFunnel: true, purchaseConfirmedAt: "now" });
+    const fake = issueFake(plan, { markIssuedFailures: 1 });
+
+    // First attempt: Resend accepts, the DB write fails. The lease is released so
+    // a later delivery can retry, and the password is NOT rotated.
+    const first = await issueFunnelCredentialsWithDeps(PLAN, USER, fake.deps);
+    expect(first.status).toBe("retryable");
+    expect(plan.credentialsIssuedAt).toBeFalsy();
+
+    // Second attempt converges and records issuance.
+    const second = await issueFunnelCredentialsWithDeps(PLAN, USER, fake.deps);
+    expect(second.status).toBe("sent");
+    expect(plan.credentialsIssuedAt).toBeTruthy();
+
+    // A third call must not emit again.
+    const third = await issueFunnelCredentialsWithDeps(PLAN, USER, fake.deps);
+    expect(third.status).toBe("already_completed");
+    expect(fake.emails).toHaveLength(2);
+    // The HMAC-derived password is stable across the failed-and-retried issuance.
+    expect(new Set(fake.passwords).size).toBe(1);
   });
 
   it("complete confirms purchase and uses the same issue function", async () => {

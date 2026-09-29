@@ -3,6 +3,28 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { checkEntitlementActive } from "../_shared/rc.ts";
 import { issueFunnelCredentials, isUuid, sha256Hex } from "../_shared/funnel-identity.ts";
 
+/**
+ * complete-funnel-account — OPTIONAL purchase-confirmation fast path.
+ *
+ * What it does, independent of any password-recovery flow:
+ *   Given a plan the caller already owns (proved by `claimToken` hashed against
+ *   `web_funnel_plans.claim_token_hash`), it server-side confirms the RevenueCat
+ *   entitlement, stamps `purchase_confirmed_at`, and then delegates to the SAME
+ *   `issueFunnelCredentials` used by revenuecat-webhook. Delivery is therefore
+ *   consistent whichever path runs first.
+ *
+ * It is NOT a password-recovery callback, and it does NOT require a deep link
+ * into the app. Its usefulness depends solely on whether the web funnel calls it
+ * to confirm the purchase eagerly instead of waiting for the RevenueCat webhook.
+ *
+ * Verified here: request/response shape, ownership check, entitlement gate and
+ * delegation to the shared issuance path.
+ * NOT verifiable from this repository: whether niconiconico32/brainy-web calls
+ * this endpoint at all, from which page, with which planId/claimToken, and
+ * whether it treats 202 in_progress as terminal. Do not deploy it on the
+ * assumption that the web uses it.
+ */
+
 const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Content-Type": "application/json" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers });
 
