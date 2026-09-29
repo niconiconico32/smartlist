@@ -114,6 +114,18 @@ describe("prepare-funnel-account pure handler", () => {
     expect(result.body).toMatchObject({ userId: USER });
     expect(plan.accountCreatedByFunnel).toBe(true);
   });
+
+  it("does not delete an existing account when identity persistence fails", async () => {
+    const plan = await preparedPlan();
+    const fake = prepareFake(plan, [{ id: USER, email: "user@example.com" }]);
+    fake.hasUnissuedFunnelAccount = async () => true;
+    fake.persistIdentity = async () => false;
+    const deleted: string[] = [];
+    fake.deleteUser = async (userId) => { deleted.push(userId); };
+    const result = await prepareFunnelAccount({ planId: PLAN, claimToken: TOKEN, email: "user@example.com" }, fake);
+    expect(result.status).toBe(409);
+    expect(deleted).toHaveLength(0);
+  });
 });
 
 describe("RevenueCat webhook pure handler", () => {

@@ -84,7 +84,6 @@ serve(async (req) => {
 
     const { data: updated, error: updateError } = await admin.from("web_funnel_plans").update({ email, funnel_user_id: user.id, account_created_by_funnel: createdByFunnel }).eq("id", planId).is("funnel_user_id", null).select("funnel_user_id").maybeSingle();
     if (updateError || !updated) {
-      if (createdByFunnel) await admin.auth.admin.deleteUser(user.id);
       const { data: winner } = await admin.from("web_funnel_plans").select("email, funnel_user_id").eq("id", planId).maybeSingle();
       if (!winner || normalizeEmail(winner.email ?? "") !== email || !winner.funnel_user_id) return json({ success: false, error: "identity_conflict" }, 409);
       user = { id: winner.funnel_user_id };
