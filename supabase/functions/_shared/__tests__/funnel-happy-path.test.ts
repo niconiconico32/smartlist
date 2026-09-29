@@ -159,6 +159,31 @@ describe("RevenueCat webhook pure handler", () => {
     const unavailable = eventFake(await preparedPlan({ funnelUserId: USER }), { ok: false, active: false });
     expect((await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-2") }, unavailable.deps)).body).toMatchObject({ retryable: true });
   });
+
+  it("returns retryable when plan lookup fails", async () => {
+    const fake = eventFake(null);
+    fake.findPlan = async () => null;
+    const result = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-3") }, fake.deps);
+    expect(result.body).toMatchObject({ ignored: true });
+  });
+
+  it("allows retry when event is stuck in processing", async () => {
+    const plan = await preparedPlan({ funnelUserId: USER });
+    const fake = eventFake(plan);
+    fake.eventBegin = async ({ id }) => { if (fake.events.has(id)) return "duplicate"; fake.events.set(id, "processing"); return "started"; };
+    const first = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4") }, fake.deps);
+    expect(first.body).toMatchObject({ success: true });
+    const second = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4") }, fake.deps);
+    expect(second.body).toMatchObject({ idempotent: true });
+  });
+
+  it("does not mark event as processed when issue returns in_progress", async () => {
+    const plan = await preparedPlan({ funnelUserId: USER });
+    const fake = eventFake(plan);
+    fake.deps.issue = async () => ({ status: "in_progress" as const });
+    const result = await revenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5") }, fake.deps);
+    expect(result.body).toMatchObject({ success: true, status: "in_progress" });
+  });
 });
 
 describe("credential convergence pure handler", () => {
