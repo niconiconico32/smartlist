@@ -57,7 +57,6 @@ export async function prepareFunnelAccount(input: { planId: unknown; claimToken:
   }
   const persisted = await deps.persistIdentity(planId, email, user.id, createdByFunnel);
   if (!persisted) {
-    if (createdByFunnel) await deps.deleteUser(user.id);
     const winner = await deps.findPlan(planId);
     if (!winner?.funnelUserId || normalizeEmail(winner.email ?? "") !== email) return { status: 409, body: { success: false, error: "identity_conflict" } };
     user = { id: winner.funnelUserId, email };
