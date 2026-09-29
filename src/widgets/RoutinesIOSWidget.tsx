@@ -186,7 +186,7 @@ function MediumWidget(props: RoutinesWidgetProps) {
     hasPending,
   } = props;
 
-  if (!isPro) {
+  if (!isPro && (props.totalRoutines ?? 0) > 1) {
     return (
       <ZStack modifiers={[frame({ maxWidth: 9999, maxHeight: 9999 })]}>
         <Rectangle

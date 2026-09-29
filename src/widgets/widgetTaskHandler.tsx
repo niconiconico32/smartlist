@@ -156,12 +156,10 @@ async function syncToggleInBackground(
     console.warn("Widget: could not queue task toggle", e);
   }
 
-  // 2. Sync immediately with Supabase
-  try {
-    const { supabase } = await import("../lib/supabase");
-    await supabase.auth.getSession();
-    const { updateTaskCompletion } = await import("../lib/routineService");
-    await updateTaskCompletion(taskId, routineId, userId, t.completed ?? false);
+    // 2. Sync immediately with Supabase
+    try {
+      const { updateTaskCompletion } = await import("../lib/routineService");
+      await updateTaskCompletion(taskId, routineId, userId, t.completed ?? false);
     // Telemetry: sync success
     try {
       const { posthog } = await import("../config/posthog");
@@ -198,8 +196,6 @@ async function syncToggleInBackground(
       const { useAchievementsStore } =
         await import("../store/achievementsStore");
 
-      const { supabase } = await import("../lib/supabase");
-      await supabase.auth.getSession();
       const { markRoutineComplete } = await import("../lib/routineService");
       await markRoutineComplete(routineId, userId);
 
@@ -264,8 +260,6 @@ async function syncToggleInBackground(
     } else if (!allTasksCompleteAfter && wasCompleteBefore) {
       await AsyncStorage.removeItem(`@widget_earned_coronas_${routineId}`);
 
-      const { supabase } = await import("../lib/supabase");
-      await supabase.auth.getSession();
       const { unmarkRoutineComplete } = await import("../lib/routineService");
       await unmarkRoutineComplete(routineId, userId);
 
@@ -379,7 +373,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
     try {
       const { posthog } = await import("../config/posthog");
       posthog.capture("widget_click", {
-        action: props.clickAction,
+        action: props.clickAction ?? "unknown",
         routine_index: routineIdx,
         task_index: taskIdx,
         isPro,
@@ -519,22 +513,27 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
             />,
           );
 
-          // 3. Fire-and-forget: sync with network/stores in background
-          syncToggleInBackground(
-            taskId,
-            routineId,
-            updatedRoutines,
-            previousRoutines,
-            props.renderWidget,
-            routineIdx,
-            taskIdx,
-            outfitUri, // variable holds outfit ID after the rename above
-            outfitRemoteUri,
-            bgMode,
-            bgId,
-            bgUri,
-            isPro,
-          ).catch((e) => console.warn("Widget: background sync error", e));
+          // 3. Await the sync so headless Android cannot terminate before the
+          // queue/network/store updates have been persisted.
+          try {
+            await syncToggleInBackground(
+              taskId,
+              routineId,
+              updatedRoutines,
+              previousRoutines,
+              props.renderWidget,
+              routineIdx,
+              taskIdx,
+              outfitUri, // variable holds outfit ID after the rename above
+              outfitRemoteUri,
+              bgMode,
+              bgId,
+              bgUri,
+              isPro,
+            );
+          } catch (e) {
+            console.warn("Widget: background sync error", e);
+          }
         }
         // Return early — optimistic render already dispatched above
         return;

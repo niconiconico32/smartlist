@@ -183,33 +183,63 @@ function RoutinesScreen({
   useEffect(() => {
     if (!isActive) return;
     const syncWidget = async () => {
-      if (Platform.OS !== "android") return;
+      if (Platform.OS !== "android" && Platform.OS !== "ios") return;
       try {
-        const widgetEntries: [string, string][] = [
-          [WIDGET_DATA_KEY, JSON.stringify(filteredRoutines)],
-          [WIDGET_OUTFIT_ID_KEY, activeOutfit ?? ""],
-          [WIDGET_OUTFIT_URI_KEY, activeOutfitUri ?? ""],
-          [WIDGET_BG_URI_KEY, activeBackgroundUri ?? ""],
-          [WIDGET_PRO_KEY, isPro ? "true" : "false"],
-        ];
+        if (Platform.OS === "android") {
+          const widgetEntries: [string, string][] = [
+            [WIDGET_DATA_KEY, JSON.stringify(filteredRoutines)],
+            [WIDGET_OUTFIT_ID_KEY, activeOutfit ?? ""],
+            [WIDGET_OUTFIT_URI_KEY, activeOutfitUri ?? ""],
+            [WIDGET_BG_URI_KEY, activeBackgroundUri ?? ""],
+            [WIDGET_PRO_KEY, isPro ? "true" : "false"],
+          ];
 
-        // Persist user id so the widget handler can call Supabase.
-        if (user?.id) widgetEntries.push([WIDGET_USER_KEY, user.id]);
+          // Persist user id so the widget handler can call Supabase.
+          if (user?.id) widgetEntries.push([WIDGET_USER_KEY, user.id]);
 
-        // Preserve the widget's last selected mode when no background is active.
-        if (activeBackground) {
-          widgetEntries.push([WIDGET_BG_ID_KEY, activeBackground]);
+          // Preserve the widget's last selected mode when no background is active.
+          if (activeBackground) {
+            widgetEntries.push([WIDGET_BG_ID_KEY, activeBackground]);
+          }
+          if (activeBackground || activeBackgroundUri) {
+            widgetEntries.push([WIDGET_BG_MODE_KEY, "user"]);
+          }
+
+          await AsyncStorage.multiSet(widgetEntries);
+
+          if (requestWidgetUpdate) {
+            requestWidgetUpdate({
+              widgetName: "RoutinesWidget",
+              renderWidget: renderRoutinesWidget,
+            });
+          }
+          return;
         }
-        if (activeBackground || activeBackgroundUri) {
-          widgetEntries.push([WIDGET_BG_MODE_KEY, "user"]);
-        }
 
-        await AsyncStorage.multiSet(widgetEntries);
+        if (Platform.OS === "ios") {
+          const currentRoutine = filteredRoutines[0] ?? null;
+          const currentTask = currentRoutine?.tasks.find((task) => !task.completed);
+          const allComplete =
+            !!currentRoutine &&
+            currentRoutine.tasks.length > 0 &&
+            currentRoutine.tasks.every((task) => task.completed);
+          const pendingRaw = await AsyncStorage.getItem(WIDGET_PENDING_KEY);
+          const pendingList = pendingRaw ? JSON.parse(pendingRaw) : [];
+          const { default: RoutinesIOSWidget } = await import(
+            "@/src/widgets/RoutinesIOSWidget"
+          );
 
-        if (requestWidgetUpdate) {
-          requestWidgetUpdate({
-            widgetName: "RoutinesWidget",
-            renderWidget: renderRoutinesWidget,
+          RoutinesIOSWidget.updateSnapshot({
+            isPro,
+            currentRoutineName: currentRoutine?.name ?? null,
+            currentTaskTitle: currentTask?.title ?? t("widgets.no_tasks"),
+            allComplete,
+            completedCount:
+              currentRoutine?.tasks.filter((task) => task.completed).length ?? 0,
+            totalCount: currentRoutine?.tasks.length ?? 0,
+            totalRoutines: filteredRoutines.length,
+            hasPending: pendingList.length > 0,
+            streak: useAppStreakStore.getState().streak,
           });
         }
       } catch (err) {

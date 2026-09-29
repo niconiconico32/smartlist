@@ -24,7 +24,7 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    token_hash?: string;
+    token?: string;
     email?: string;
   }>();
   const { session, isLoading: authLoading, updateUserPassword, verifyRecoveryToken } = useAuth();
@@ -37,11 +37,11 @@ export default function ResetPasswordScreen() {
 
   const startedRef = useRef(false);
 
-  const tokenHash =
-    typeof params.token_hash === "string" ? params.token_hash.trim() : "";
+  const token =
+    typeof params.token === "string" ? params.token.trim() : "";
   const email = typeof params.email === "string" ? params.email.trim() : "";
 
-  const hasRecoveryParams = !!tokenHash;
+  const hasRecoveryParams = !!token;
 
   const validate = useCallback((): string => {
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -93,7 +93,7 @@ export default function ResetPasswordScreen() {
       }
 
       const { error: verifyError } = await verifyRecoveryToken(
-        tokenHash,
+        token,
         email || undefined,
       );
 
@@ -110,7 +110,7 @@ export default function ResetPasswordScreen() {
       setPhase("error");
       setError(err.message || t("auth.password_reset_error"));
     });
-  }, [authLoading, session, hasRecoveryParams, tokenHash, email, t, verifyRecoveryToken]);
+  }, [authLoading, session, hasRecoveryParams, token, email, t, verifyRecoveryToken]);
 
   const goToLogin = useCallback(() => {
     router.replace("/login");

@@ -4,9 +4,11 @@
  * Tests the production parsePasswordRecoveryUrl function with realistic
  * Supabase password recovery URL fixtures.
  *
- * Supabase default flow (implicit / token_hash):
- * - Email template generates: https://<project>.supabase.co/auth/v1/verify?token_hash=<hash>&type=recovery&redirect_to=<url>
- * - When detectSessionInUrl: false, the app must manually extract and verify the token_hash
+ * Supabase default email template uses {{ .ConfirmationURL }} which generates:
+ *   https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery&redirect_to=<url>
+ *
+ * The token parameter is used with supabase.auth.verifyOtp({ token, type: "recovery" })
+ * when detectSessionInUrl: false.
  */
 
 import {
@@ -15,23 +17,23 @@ import {
 } from "@/src/lib/passwordRecovery";
 
 describe("parsePasswordRecoveryUrl", () => {
-  describe("Supabase default token_hash format", () => {
-    it("parses Supabase verify URL with token_hash and type=recovery", () => {
+  describe("Supabase default token format ({{ .ConfirmationURL }})", () => {
+    it("parses Supabase verify URL with token and type=recovery", () => {
       const url =
-        "https://xyz.supabase.co/auth/v1/verify?token_hash=abc123def456&type=recovery&redirect_to=brainy://reset-password";
+        "https://xyz.supabase.co/auth/v1/verify?token=abc123def456&type=recovery&redirect_to=brainy://reset-password";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc123def456",
+        token: "abc123def456",
         email: undefined,
         type: "recovery",
       });
     });
 
-    it("parses brainy:// deep link with token_hash", () => {
-      const url = "brainy://reset-password?token_hash=abc123def456&type=recovery";
+    it("parses brainy:// deep link with token", () => {
+      const url = "brainy://reset-password?token=abc123def456&type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc123def456",
+        token: "abc123def456",
         email: undefined,
         type: "recovery",
       });
@@ -39,10 +41,10 @@ describe("parsePasswordRecoveryUrl", () => {
 
     it("parses URL with email parameter for pre-filling", () => {
       const url =
-        "brainy://reset-password?token_hash=abc123&email=user%40example.com";
+        "brainy://reset-password?token=abc123&email=user%40example.com";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc123",
+        token: "abc123",
         email: "user@example.com",
         type: "recovery",
       });
@@ -50,32 +52,32 @@ describe("parsePasswordRecoveryUrl", () => {
 
     it("parses Supabase verify URL with email parameter", () => {
       const url =
-        "https://xyz.supabase.co/auth/v1/verify?token_hash=abc123&type=recovery&email=user%40test.com&redirect_to=brainy://reset-password";
+        "https://xyz.supabase.co/auth/v1/verify?token=abc123&type=recovery&email=user%40test.com&redirect_to=brainy://reset-password";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc123",
+        token: "abc123",
         email: "user@test.com",
         type: "recovery",
       });
     });
 
-    it("handles URL-encoded token_hash with special characters", () => {
+    it("handles URL-encoded token with special characters", () => {
       const url =
-        "brainy://reset-password?token_hash=abc%2F123%3D&type=recovery";
+        "brainy://reset-password?token=abc%2F123%3D&type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc/123=",
+        token: "abc/123=",
         email: undefined,
         type: "recovery",
       });
     });
 
-    it("handles token_hash with plus signs", () => {
+    it("handles token with plus signs", () => {
       const url =
-        "brainy://reset-password?token_hash=abc%2Bdef%2Bghi&type=recovery";
+        "brainy://reset-password?token=abc%2Bdef%2Bghi&type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "abc+def+ghi",
+        token: "abc+def+ghi",
         email: undefined,
         type: "recovery",
       });
@@ -108,19 +110,19 @@ describe("parsePasswordRecoveryUrl", () => {
   });
 
   describe("edge cases", () => {
-    it("returns null for empty token_hash", () => {
-      const url = "brainy://reset-password?token_hash=&type=recovery";
+    it("returns null for empty token", () => {
+      const url = "brainy://reset-password?token=&type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toBeNull();
     });
 
-    it("returns null for malformed URLs without token_hash", () => {
+    it("returns null for malformed URLs without token", () => {
       const url = "brainy://reset-password";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toBeNull();
     });
 
-    it("returns null for URLs with only type=recovery but no token_hash", () => {
+    it("returns null for URLs with only type=recovery but no token", () => {
       const url = "brainy://reset-password?type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toBeNull();
@@ -131,7 +133,7 @@ describe("parsePasswordRecoveryUrl", () => {
 describe("isPasswordRecoveryUrl", () => {
   it("returns true for valid recovery URLs", () => {
     const url =
-      "https://xyz.supabase.co/auth/v1/verify?token_hash=abc123&type=recovery";
+      "https://xyz.supabase.co/auth/v1/verify?token=abc123&type=recovery";
     expect(isPasswordRecoveryUrl(url)).toBe(true);
   });
 
@@ -150,25 +152,25 @@ describe("Password Recovery Flow States", () => {
   describe("session establishment", () => {
     it("uses existing session when available", () => {
       const session = { user: { id: "user-123" } };
-      const tokenHash = "abc123";
+      const token = "abc123";
 
-      const shouldVerifyToken = !session?.user && !!tokenHash;
+      const shouldVerifyToken = !session?.user && !!token;
       expect(shouldVerifyToken).toBe(false);
     });
 
-    it("verifies token_hash when no session", () => {
+    it("verifies token when no session", () => {
       const session = null;
-      const tokenHash = "abc123";
+      const token = "abc123";
 
-      const shouldVerifyToken = !session?.user && !!tokenHash;
+      const shouldVerifyToken = !session?.user && !!token;
       expect(shouldVerifyToken).toBe(true);
     });
 
     it("shows error when no session and no token", () => {
       const session = null;
-      const tokenHash = "";
+      const token = "";
 
-      const hasRecoveryParams = !!tokenHash;
+      const hasRecoveryParams = !!token;
       expect(hasRecoveryParams).toBe(false);
     });
   });
@@ -204,17 +206,17 @@ describe("Warm vs Cold Start Deep Link Handling", () => {
   describe("warm start (app already running)", () => {
     it("detects recovery URL in warm start listener", () => {
       const url =
-        "brainy://reset-password?token_hash=abc123&type=recovery";
+        "brainy://reset-password?token=abc123&type=recovery";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).not.toBeNull();
-      expect(result?.tokenHash).toBe("abc123");
+      expect(result?.token).toBe("abc123");
     });
 
     it("routes to /reset-password on warm start", () => {
-      const url = "brainy://reset-password?token_hash=warm_start_token";
+      const url = "brainy://reset-password?token=warm_start_token";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "warm_start_token",
+        token: "warm_start_token",
         email: undefined,
         type: "recovery",
       });
@@ -224,18 +226,18 @@ describe("Warm vs Cold Start Deep Link Handling", () => {
   describe("cold start (app launched from deep link)", () => {
     it("detects recovery URL in cold start handler", () => {
       const url =
-        "https://xyz.supabase.co/auth/v1/verify?token_hash=cold_start_token&type=recovery&redirect_to=brainy://reset-password";
+        "https://xyz.supabase.co/auth/v1/verify?token=cold_start_token&type=recovery&redirect_to=brainy://reset-password";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).not.toBeNull();
-      expect(result?.tokenHash).toBe("cold_start_token");
+      expect(result?.token).toBe("cold_start_token");
     });
 
-    it("extracts token_hash for cold start routing", () => {
+    it("extracts token for cold start routing", () => {
       const url =
-        "brainy://reset-password?token_hash=cold_start_token&email=user%40test.com";
+        "brainy://reset-password?token=cold_start_token&email=user%40test.com";
       const result = parsePasswordRecoveryUrl(url);
       expect(result).toEqual({
-        tokenHash: "cold_start_token",
+        token: "cold_start_token",
         email: "user@test.com",
         type: "recovery",
       });

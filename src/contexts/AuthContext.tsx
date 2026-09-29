@@ -39,7 +39,7 @@ interface AuthContextType {
   resetPasswordForEmail: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<{ error: Error | null }>;
   verifyRecoveryToken: (
-    tokenHash: string,
+    token: string,
     email?: string,
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -450,13 +450,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const verifyRecoveryToken = async (
-    tokenHash: string,
+    token: string,
     email?: string,
   ): Promise<{ error: Error | null }> => {
     try {
       const { error } = await supabase.auth.verifyOtp({
         email: email ?? "",
-        token_hash: tokenHash,
+        token,
         type: "recovery",
       });
       return { error };

@@ -358,7 +358,11 @@ function RootLayoutNav() {
       segments[0] === "plan-ready";
 
     if (!session) {
-      if (segments[0] !== "login") {
+      const currentSegment = segments[0] as string;
+      const allowedWithoutSession =
+        currentSegment === "login" ||
+        currentSegment === "reset-password";
+      if (!allowedWithoutSession) {
         // No session at all → the ORIGINAL login screen is the entry point now
         // (both for organic new users and funnel visitors). Fresh users reach
         // onboarding only AFTER signing up / continuing anonymously.
@@ -513,7 +517,7 @@ function RootLayoutNav() {
         router.replace({
           pathname: "/reset-password" as any,
           params: {
-            token_hash: recoveryParams.tokenHash,
+            token: recoveryParams.token,
             ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
           },
         });
@@ -555,7 +559,7 @@ function RootLayoutNav() {
           router.replace({
             pathname: "/reset-password" as any,
             params: {
-              token_hash: recoveryParams.tokenHash,
+              token: recoveryParams.token,
               ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
             },
           });

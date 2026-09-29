@@ -1,53 +1,54 @@
 /**
  * Password Recovery URL Parser
  *
- * Parses Supabase password recovery URLs to extract the token_hash and email.
+ * Parses Supabase password recovery URLs to extract the token and email.
  *
- * Supabase default flow (implicit / token_hash):
- * - Email template generates: https://<project>.supabase.co/auth/v1/verify?token_hash=<hash>&type=recovery&redirect_to=<url>
- * - When detectSessionInUrl: false, the app must manually extract and verify the token_hash
+ * Supabase default email template uses {{ .ConfirmationURL }} which generates:
+ *   https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery&redirect_to=<url>
+ *
+ * The token parameter is used with supabase.auth.verifyOtp({ token, type: "recovery" })
+ * when detectSessionInUrl: false.
  *
  * This parser handles:
- * - brainy://reset-password?token_hash=<hash>&type=recovery
- * - https://<project>.supabase.co/auth/v1/verify?token_hash=<hash>&type=recovery&redirect_to=...
+ * - https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery
+ * - brainy://reset-password?token=<token>&type=recovery
  * - URLs with email parameter for pre-filling
  */
 
 export interface ParsedRecoveryUrl {
-  tokenHash: string;
+  token: string;
   email?: string;
   type: "recovery";
 }
 
 /**
- * Parses a password recovery URL and extracts the token_hash and email.
+ * Parses a password recovery URL and extracts the token and email.
  * Returns null if the URL is not a valid recovery URL.
  */
 export function parsePasswordRecoveryUrl(url: string): ParsedRecoveryUrl | null {
   if (!url || typeof url !== "string") return null;
 
   const isRecoveryUrl =
-    url.includes("token_hash") ||
     url.includes("type=recovery") ||
     url.includes("/auth/v1/verify") ||
     url.includes("reset-password");
 
   if (!isRecoveryUrl) return null;
 
-  const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/);
+  const tokenMatch = url.match(/[?&]token=([^&]+)/);
   const emailMatch = url.match(/[?&]email=([^&]+)/);
 
-  const tokenHash = tokenHashMatch
-    ? decodeURIComponent(tokenHashMatch[1]).trim()
+  const token = tokenMatch
+    ? decodeURIComponent(tokenMatch[1]).trim()
     : "";
   const email = emailMatch
     ? decodeURIComponent(emailMatch[1]).trim()
     : undefined;
 
-  if (!tokenHash) return null;
+  if (!token) return null;
 
   return {
-    tokenHash,
+    token,
     email: email || undefined,
     type: "recovery",
   };
