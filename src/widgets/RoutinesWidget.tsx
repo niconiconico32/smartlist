@@ -10,7 +10,7 @@ import i18n from "../config/i18n";
 import type { Routine } from "../types/routine";
 
 // Static outfit image map — require() must be static, cannot be dynamic
-const WIDGET_OUTFIT_IMAGES: Record<string, number> = {
+export const WIDGET_OUTFIT_IMAGES: Record<string, number> = {
   outfit_1_1: require("../../assets/images/outfits/1_1.png"),
   outfit_1_2: require("../../assets/images/outfits/1_2.png"),
   outfit_1_3: require("../../assets/images/outfits/1_3.png"),
@@ -26,13 +26,13 @@ const WIDGET_OUTFIT_IMAGES: Record<string, number> = {
   outfit_w13: require("../../assets/images/outfits/13.webp"),
   outfit_w14: require("../../assets/images/outfits/14.webp"),
 };
-const WIDGET_DEFAULT_OUTFIT: number = require("../../assets/images/logomain.png");
+export const WIDGET_DEFAULT_OUTFIT: number = require("../../assets/images/logomain.png");
 
 // Default background — matches the home screen (FocusHeroCard)
-const WIDGET_DEFAULT_BG: number = require("../../assets/images/pixelbgs/spring.png");
+export const WIDGET_DEFAULT_BG: number = require("../../assets/images/pixelbgs/spring.png");
 
 // Static background image map — mirrors FocusHeroCard's BG_IMAGES
-const WIDGET_BG_IMAGES: Record<string, number> = {
+export const WIDGET_BG_IMAGES: Record<string, number> = {
   bg_spring: require("../../assets/images/pixelbgs/spring.png"),
   bg_beach: require("../../assets/images/pixelbgs/beach.png"),
   bg_autumn: require("../../assets/images/pixelbgs/autumm.png"),
@@ -123,6 +123,7 @@ export function RoutinesWidget({
   bgId,
   bgUri,
   earnedCoins,
+  hasPending,
   isPro = false,
 }: RoutinesWidgetProps) {
   const hasPrev = currentIndex > 0;
@@ -407,6 +408,13 @@ export function RoutinesWidget({
         {completedCount === 0 && !allComplete && tasks.length > 0 ? (
           <TextWidget
             text={i18n.t("widgets.tap_task_hint")}
+            maxLines={1}
+            style={{ fontSize: 8, color: C.dimmedText }}
+          />
+        ) : null}
+        {hasPending ? (
+          <TextWidget
+            text={i18n.t("widgets.action_queued")}
             maxLines={1}
             style={{ fontSize: 8, color: C.dimmedText }}
           />

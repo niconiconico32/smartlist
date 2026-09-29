@@ -4,7 +4,12 @@ import { Platform } from "react-native";
 import type { WidgetTaskHandlerProps } from "react-native-android-widget";
 import i18n from "../config/i18n";
 import type { Routine } from "../types/routine";
-import { RoutinesWidget, type BgMode } from "./RoutinesWidget";
+import {
+  RoutinesWidget,
+  WIDGET_BG_IMAGES,
+  WIDGET_DEFAULT_BG,
+  type BgMode,
+} from "./RoutinesWidget";
 
 // ── AsyncStorage keys ────────────────────────────────────────────────────────
 export const WIDGET_DATA_KEY = "@widget_routines";
@@ -407,7 +412,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
           bgMode={bgMode}
           bgId={bgId}
           bgUri={bgUri}
-          earnedCoins={earnedCoins}
+          earnedCoins={null}
           hasPending={hasPendingInit}
           isPro={isPro}
         />,

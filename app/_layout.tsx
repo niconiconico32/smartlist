@@ -39,6 +39,7 @@ import {
   storePendingRedemptionUrl,
   storePendingFunnelEmail,
 } from "@/src/lib/funnelClaim";
+import { parsePasswordRecoveryUrl } from "@/src/lib/passwordRecovery";
 import { armEggStoreCloudSync, syncEggsWithCloud } from "@/src/lib/userEggService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
@@ -507,25 +508,15 @@ function RootLayoutNav() {
   // Also handles password recovery deep links (brainy://reset-password?token=...).
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      if (url.includes("reset-password") || url.includes("recovery") || url.includes("token_hash") || url.includes("type=recovery")) {
-        const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/);
-        const codeMatch = url.match(/[?&]code=([^&]+)/);
-        const emailMatch = url.match(/[?&]email=([^&]+)/);
-        const tokenHash = tokenHashMatch ? decodeURIComponent(tokenHashMatch[1]) : undefined;
-        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : undefined;
-        const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
-
-        if (tokenHash) {
-          router.replace({
-            pathname: "/reset-password" as any,
-            params: { token_hash: tokenHash, ...(email ? { email } : {}) },
-          });
-        } else if (code) {
-          router.replace({
-            pathname: "/reset-password" as any,
-            params: { code, ...(email ? { email } : {}) },
-          });
-        }
+      const recoveryParams = parsePasswordRecoveryUrl(url);
+      if (recoveryParams) {
+        router.replace({
+          pathname: "/reset-password" as any,
+          params: {
+            token_hash: recoveryParams.tokenHash,
+            ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
+          },
+        });
         return;
       }
 
@@ -559,25 +550,15 @@ function RootLayoutNav() {
       .then((url) => {
         if (!url) return;
 
-        if (url.includes("reset-password") || url.includes("recovery") || url.includes("token_hash") || url.includes("type=recovery")) {
-          const tokenHashMatch = url.match(/[?&]token_hash=([^&]+)/);
-          const codeMatch = url.match(/[?&]code=([^&]+)/);
-          const emailMatch = url.match(/[?&]email=([^&]+)/);
-          const tokenHash = tokenHashMatch ? decodeURIComponent(tokenHashMatch[1]) : undefined;
-          const code = codeMatch ? decodeURIComponent(codeMatch[1]) : undefined;
-          const email = emailMatch ? decodeURIComponent(emailMatch[1]) : undefined;
-
-          if (tokenHash) {
-            router.replace({
-              pathname: "/reset-password" as any,
-              params: { token_hash: tokenHash, ...(email ? { email } : {}) },
-            });
-          } else if (code) {
-            router.replace({
-              pathname: "/reset-password" as any,
-              params: { code, ...(email ? { email } : {}) },
-            });
-          }
+        const recoveryParams = parsePasswordRecoveryUrl(url);
+        if (recoveryParams) {
+          router.replace({
+            pathname: "/reset-password" as any,
+            params: {
+              token_hash: recoveryParams.tokenHash,
+              ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
+            },
+          });
           return;
         }
 

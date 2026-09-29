@@ -1,6 +1,7 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { parsePasswordRecoveryUrl } from "@/src/lib/passwordRecovery";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,7 +25,6 @@ export default function ResetPasswordScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     token_hash?: string;
-    code?: string;
     email?: string;
   }>();
   const { session, isLoading: authLoading, updateUserPassword, verifyRecoveryToken } = useAuth();
@@ -36,14 +36,12 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false);
 
   const startedRef = useRef(false);
-  const tokenVerifiedRef = useRef(false);
 
   const tokenHash =
     typeof params.token_hash === "string" ? params.token_hash.trim() : "";
-  const code = typeof params.code === "string" ? params.code.trim() : "";
   const email = typeof params.email === "string" ? params.email.trim() : "";
 
-  const hasRecoveryParams = !!(tokenHash || code);
+  const hasRecoveryParams = !!tokenHash;
 
   const validate = useCallback((): string => {
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -84,7 +82,6 @@ export default function ResetPasswordScreen() {
 
     const establishSession = async () => {
       if (session?.user) {
-        tokenVerifiedRef.current = true;
         setPhase("form");
         return;
       }
@@ -95,13 +92,9 @@ export default function ResetPasswordScreen() {
         return;
       }
 
-      const type = code ? "pkce" : "token_hash";
-      const value = code || tokenHash;
-
       const { error: verifyError } = await verifyRecoveryToken(
-        value,
+        tokenHash,
         email || undefined,
-        type,
       );
 
       if (verifyError) {
@@ -110,7 +103,6 @@ export default function ResetPasswordScreen() {
         return;
       }
 
-      tokenVerifiedRef.current = true;
       setPhase("form");
     };
 
@@ -118,7 +110,7 @@ export default function ResetPasswordScreen() {
       setPhase("error");
       setError(err.message || t("auth.password_reset_error"));
     });
-  }, [authLoading, session, hasRecoveryParams, code, tokenHash, email, t, verifyRecoveryToken]);
+  }, [authLoading, session, hasRecoveryParams, tokenHash, email, t, verifyRecoveryToken]);
 
   const goToLogin = useCallback(() => {
     router.replace("/login");
