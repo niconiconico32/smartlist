@@ -39,7 +39,7 @@ import {
   storePendingRedemptionUrl,
   storePendingFunnelEmail,
 } from "@/src/lib/funnelClaim";
-import { parsePasswordRecoveryUrl } from "@/src/lib/passwordRecovery";
+import { parsePasswordRecoveryCallback } from "@/src/lib/passwordRecovery";
 import { armEggStoreCloudSync, syncEggsWithCloud } from "@/src/lib/userEggService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
@@ -512,13 +512,13 @@ function RootLayoutNav() {
   // Also handles password recovery deep links (brainy://reset-password?token=...).
   useEffect(() => {
     const subscription = Linking.addEventListener("url", ({ url }) => {
-      const recoveryParams = parsePasswordRecoveryUrl(url);
-      if (recoveryParams) {
+      const recoveryCallback = parsePasswordRecoveryCallback(url);
+      if (recoveryCallback) {
         router.replace({
           pathname: "/reset-password" as any,
           params: {
-            token: recoveryParams.token,
-            ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
+            access_token: recoveryCallback.accessToken,
+            refresh_token: recoveryCallback.refreshToken,
           },
         });
         return;
@@ -554,13 +554,13 @@ function RootLayoutNav() {
       .then((url) => {
         if (!url) return;
 
-        const recoveryParams = parsePasswordRecoveryUrl(url);
-        if (recoveryParams) {
+        const recoveryCallback = parsePasswordRecoveryCallback(url);
+        if (recoveryCallback) {
           router.replace({
             pathname: "/reset-password" as any,
             params: {
-              token: recoveryParams.token,
-              ...(recoveryParams.email ? { email: recoveryParams.email } : {}),
+              access_token: recoveryCallback.accessToken,
+              refresh_token: recoveryCallback.refreshToken,
             },
           });
           return;

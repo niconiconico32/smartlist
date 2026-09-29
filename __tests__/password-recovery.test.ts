@@ -1,150 +1,137 @@
 /**
- * Password Recovery URL Parser Tests
+ * Password Recovery Callback Parser Tests
  *
- * Tests the production parsePasswordRecoveryUrl function with realistic
- * Supabase password recovery URL fixtures.
+ * Tests the production parsePasswordRecoveryCallback function with realistic
+ * Supabase password recovery callback fixtures.
  *
- * Supabase default email template uses {{ .ConfirmationURL }} which generates:
- *   https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery&redirect_to=<url>
- *
- * The token parameter is used with supabase.auth.verifyOtp({ token, type: "recovery" })
- * when detectSessionInUrl: false.
+ * Supabase default flow (implicit):
+ * 1. User requests reset → resetPasswordForEmail(email, { redirectTo: "https://<web-domain>/reset-password" })
+ * 2. Supabase sends email with: https://<project>.supabase.co/auth/v1/verify?token={{ .TokenHash }}&type=recovery&redirect_to=https://<web-domain>/reset-password
+ * 3. User opens link in browser → Supabase verifies token → redirects to https://<web-domain>/reset-password#access_token=...&refresh_token=...
+ * 4. Web repo handles fragment and redirects to app: brainy://reset-password?access_token=...&refresh_token=...
+ * 5. App receives callback with tokens in query params
  */
 
 import {
-  parsePasswordRecoveryUrl,
-  isPasswordRecoveryUrl,
+  parsePasswordRecoveryCallback,
+  isPasswordRecoveryCallback,
 } from "@/src/lib/passwordRecovery";
 
-describe("parsePasswordRecoveryUrl", () => {
-  describe("Supabase default token format ({{ .ConfirmationURL }})", () => {
-    it("parses Supabase verify URL with token and type=recovery", () => {
+describe("parsePasswordRecoveryCallback", () => {
+  describe("Supabase implicit flow callback (access_token + refresh_token)", () => {
+    it("parses brainy:// callback with access_token and refresh_token", () => {
       const url =
-        "https://xyz.supabase.co/auth/v1/verify?token=abc123def456&type=recovery&redirect_to=brainy://reset-password";
-      const result = parsePasswordRecoveryUrl(url);
+        "brainy://reset-password?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c&refresh_token=refresh_token_abc123";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toEqual({
-        token: "abc123def456",
-        email: undefined,
-        type: "recovery",
+        accessToken:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+        refreshToken: "refresh_token_abc123",
+        type: "recovery_callback",
       });
     });
 
-    it("parses brainy:// deep link with token", () => {
-      const url = "brainy://reset-password?token=abc123def456&type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
+    it("parses callback with tokens in fragment", () => {
+      const url =
+        "brainy://reset-password#access_token=access_token_xyz&refresh_token=refresh_token_xyz";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toEqual({
-        token: "abc123def456",
-        email: undefined,
-        type: "recovery",
+        accessToken: "access_token_xyz",
+        refreshToken: "refresh_token_xyz",
+        type: "recovery_callback",
       });
     });
 
-    it("parses URL with email parameter for pre-filling", () => {
+    it("parses callback with URL-encoded tokens", () => {
       const url =
-        "brainy://reset-password?token=abc123&email=user%40example.com";
-      const result = parsePasswordRecoveryUrl(url);
+        "brainy://reset-password?access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature&refresh_token=refresh%2Btoken%3D";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toEqual({
-        token: "abc123",
-        email: "user@example.com",
-        type: "recovery",
-      });
-    });
-
-    it("parses Supabase verify URL with email parameter", () => {
-      const url =
-        "https://xyz.supabase.co/auth/v1/verify?token=abc123&type=recovery&email=user%40test.com&redirect_to=brainy://reset-password";
-      const result = parsePasswordRecoveryUrl(url);
-      expect(result).toEqual({
-        token: "abc123",
-        email: "user@test.com",
-        type: "recovery",
-      });
-    });
-
-    it("handles URL-encoded token with special characters", () => {
-      const url =
-        "brainy://reset-password?token=abc%2F123%3D&type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
-      expect(result).toEqual({
-        token: "abc/123=",
-        email: undefined,
-        type: "recovery",
-      });
-    });
-
-    it("handles token with plus signs", () => {
-      const url =
-        "brainy://reset-password?token=abc%2Bdef%2Bghi&type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
-      expect(result).toEqual({
-        token: "abc+def+ghi",
-        email: undefined,
-        type: "recovery",
+        accessToken: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature",
+        refreshToken: "refresh+token=",
+        type: "recovery_callback",
       });
     });
   });
 
-  describe("non-recovery URLs", () => {
+  describe("non-callback URLs", () => {
     it("returns null for claim URLs", () => {
       const url = "brainy://claim?token=claim_token_123";
-      const result = parsePasswordRecoveryUrl(url);
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
 
     it("returns null for regular app URLs", () => {
       const url = "brainy://(tabs)";
-      const result = parsePasswordRecoveryUrl(url);
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
 
     it("returns null for RevenueCat redemption URLs", () => {
       const url = "rc-f91d4f2118://redeem_web_purchase?redemption_token=abc";
-      const result = parsePasswordRecoveryUrl(url);
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
 
     it("returns null for empty string", () => {
-      const result = parsePasswordRecoveryUrl("");
+      const result = parsePasswordRecoveryCallback("");
+      expect(result).toBeNull();
+    });
+
+    it("returns null for URLs with only access_token (no refresh_token)", () => {
+      const url = "brainy://reset-password?access_token=abc123";
+      const result = parsePasswordRecoveryCallback(url);
+      expect(result).toBeNull();
+    });
+
+    it("returns null for URLs with only refresh_token (no access_token)", () => {
+      const url = "brainy://reset-password?refresh_token=abc123";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
   });
 
   describe("edge cases", () => {
-    it("returns null for empty token", () => {
-      const url = "brainy://reset-password?token=&type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
+    it("returns null for empty access_token", () => {
+      const url = "brainy://reset-password?access_token=&refresh_token=abc123";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
 
-    it("returns null for malformed URLs without token", () => {
-      const url = "brainy://reset-password";
-      const result = parsePasswordRecoveryUrl(url);
+    it("returns null for empty refresh_token", () => {
+      const url = "brainy://reset-password?access_token=abc123&refresh_token=";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toBeNull();
     });
 
-    it("returns null for URLs with only type=recovery but no token", () => {
-      const url = "brainy://reset-password?type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
-      expect(result).toBeNull();
+    it("handles tokens with special characters", () => {
+      const url =
+        "brainy://reset-password?access_token=abc%2Fdef%3D&refresh_token=ghi%2Bjkl%3D";
+      const result = parsePasswordRecoveryCallback(url);
+      expect(result).toEqual({
+        accessToken: "abc/def=",
+        refreshToken: "ghi+jkl=",
+        type: "recovery_callback",
+      });
     });
   });
 });
 
-describe("isPasswordRecoveryUrl", () => {
-  it("returns true for valid recovery URLs", () => {
+describe("isPasswordRecoveryCallback", () => {
+  it("returns true for valid callback URLs", () => {
     const url =
-      "https://xyz.supabase.co/auth/v1/verify?token=abc123&type=recovery";
-    expect(isPasswordRecoveryUrl(url)).toBe(true);
+      "brainy://reset-password?access_token=abc123&refresh_token=def456";
+    expect(isPasswordRecoveryCallback(url)).toBe(true);
   });
 
-  it("returns false for non-recovery URLs", () => {
+  it("returns false for non-callback URLs", () => {
     const url = "brainy://claim?token=abc123";
-    expect(isPasswordRecoveryUrl(url)).toBe(false);
+    expect(isPasswordRecoveryCallback(url)).toBe(false);
   });
 
   it("returns false for regular app URLs", () => {
     const url = "brainy://(tabs)";
-    expect(isPasswordRecoveryUrl(url)).toBe(false);
+    expect(isPasswordRecoveryCallback(url)).toBe(false);
   });
 });
 
@@ -152,26 +139,29 @@ describe("Password Recovery Flow States", () => {
   describe("session establishment", () => {
     it("uses existing session when available", () => {
       const session = { user: { id: "user-123" } };
-      const token = "abc123";
+      const accessToken = "abc123";
+      const refreshToken = "def456";
 
-      const shouldVerifyToken = !session?.user && !!token;
-      expect(shouldVerifyToken).toBe(false);
+      const shouldSetSession = !session?.user && !!(accessToken && refreshToken);
+      expect(shouldSetSession).toBe(false);
     });
 
-    it("verifies token when no session", () => {
+    it("sets session from callback tokens when no session", () => {
       const session = null;
-      const token = "abc123";
+      const accessToken = "abc123";
+      const refreshToken = "def456";
 
-      const shouldVerifyToken = !session?.user && !!token;
-      expect(shouldVerifyToken).toBe(true);
+      const shouldSetSession = !session?.user && !!(accessToken && refreshToken);
+      expect(shouldSetSession).toBe(true);
     });
 
-    it("shows error when no session and no token", () => {
+    it("shows error when no session and no callback tokens", () => {
       const session = null;
-      const token = "";
+      const accessToken = "";
+      const refreshToken = "";
 
-      const hasRecoveryParams = !!token;
-      expect(hasRecoveryParams).toBe(false);
+      const hasCallbackTokens = !!(accessToken && refreshToken);
+      expect(hasCallbackTokens).toBe(false);
     });
   });
 
@@ -204,42 +194,45 @@ describe("Password Recovery Flow States", () => {
 
 describe("Warm vs Cold Start Deep Link Handling", () => {
   describe("warm start (app already running)", () => {
-    it("detects recovery URL in warm start listener", () => {
+    it("detects callback URL in warm start listener", () => {
       const url =
-        "brainy://reset-password?token=abc123&type=recovery";
-      const result = parsePasswordRecoveryUrl(url);
+        "brainy://reset-password?access_token=warm_access_token&refresh_token=warm_refresh_token";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).not.toBeNull();
-      expect(result?.token).toBe("abc123");
+      expect(result?.accessToken).toBe("warm_access_token");
+      expect(result?.refreshToken).toBe("warm_refresh_token");
     });
 
     it("routes to /reset-password on warm start", () => {
-      const url = "brainy://reset-password?token=warm_start_token";
-      const result = parsePasswordRecoveryUrl(url);
+      const url =
+        "brainy://reset-password?access_token=warm_token&refresh_token=warm_refresh";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toEqual({
-        token: "warm_start_token",
-        email: undefined,
-        type: "recovery",
+        accessToken: "warm_token",
+        refreshToken: "warm_refresh",
+        type: "recovery_callback",
       });
     });
   });
 
   describe("cold start (app launched from deep link)", () => {
-    it("detects recovery URL in cold start handler", () => {
+    it("detects callback URL in cold start handler", () => {
       const url =
-        "https://xyz.supabase.co/auth/v1/verify?token=cold_start_token&type=recovery&redirect_to=brainy://reset-password";
-      const result = parsePasswordRecoveryUrl(url);
+        "brainy://reset-password?access_token=cold_access_token&refresh_token=cold_refresh_token";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).not.toBeNull();
-      expect(result?.token).toBe("cold_start_token");
+      expect(result?.accessToken).toBe("cold_access_token");
+      expect(result?.refreshToken).toBe("cold_refresh_token");
     });
 
-    it("extracts token for cold start routing", () => {
+    it("extracts tokens for cold start routing", () => {
       const url =
-        "brainy://reset-password?token=cold_start_token&email=user%40test.com";
-      const result = parsePasswordRecoveryUrl(url);
+        "brainy://reset-password#access_token=cold_fragment_token&refresh_token=cold_fragment_refresh";
+      const result = parsePasswordRecoveryCallback(url);
       expect(result).toEqual({
-        token: "cold_start_token",
-        email: "user@test.com",
-        type: "recovery",
+        accessToken: "cold_fragment_token",
+        refreshToken: "cold_fragment_refresh",
+        type: "recovery_callback",
       });
     });
   });

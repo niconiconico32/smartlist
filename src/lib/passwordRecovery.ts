@@ -1,62 +1,62 @@
 /**
  * Password Recovery URL Parser
  *
- * Parses Supabase password recovery URLs to extract the token and email.
+ * Parses Supabase password recovery callback URLs.
  *
- * Supabase default email template uses {{ .ConfirmationURL }} which generates:
- *   https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery&redirect_to=<url>
+ * Supabase default flow (implicit):
+ * 1. User requests reset → resetPasswordForEmail(email, { redirectTo: "https://<web-domain>/reset-password" })
+ * 2. Supabase sends email with: https://<project>.supabase.co/auth/v1/verify?token={{ .TokenHash }}&type=recovery&redirect_to=https://<web-domain>/reset-password
+ * 3. User opens link in browser → Supabase verifies token → redirects to https://<web-domain>/reset-password#access_token=...&refresh_token=...
+ * 4. Web repo handles fragment and redirects to app: brainy://reset-password?access_token=...&refresh_token=...
+ * 5. App receives callback with tokens in query params
  *
- * The token parameter is used with supabase.auth.verifyOtp({ token, type: "recovery" })
- * when detectSessionInUrl: false.
- *
- * This parser handles:
- * - https://<project>.supabase.co/auth/v1/verify?token=<token>&type=recovery
- * - brainy://reset-password?token=<token>&type=recovery
- * - URLs with email parameter for pre-filling
+ * This parser handles the callback that arrives at the app (step 5):
+ * - brainy://reset-password?access_token=...&refresh_token=...
+ * - brainy://reset-password#access_token=...&refresh_token=... (fragment)
  */
 
-export interface ParsedRecoveryUrl {
-  token: string;
-  email?: string;
-  type: "recovery";
+export interface ParsedRecoveryCallback {
+  accessToken: string;
+  refreshToken: string;
+  type: "recovery_callback";
 }
 
 /**
- * Parses a password recovery URL and extracts the token and email.
- * Returns null if the URL is not a valid recovery URL.
+ * Parses a password recovery callback URL and extracts access_token and refresh_token.
+ * Returns null if the URL is not a valid recovery callback.
  */
-export function parsePasswordRecoveryUrl(url: string): ParsedRecoveryUrl | null {
+export function parsePasswordRecoveryCallback(url: string): ParsedRecoveryCallback | null {
   if (!url || typeof url !== "string") return null;
 
-  const isRecoveryUrl =
-    url.includes("type=recovery") ||
-    url.includes("/auth/v1/verify") ||
-    url.includes("reset-password");
+  const isRecoveryCallback =
+    url.includes("access_token") ||
+    url.includes("refresh_token") ||
+    (url.includes("reset-password") && url.includes("#"));
 
-  if (!isRecoveryUrl) return null;
+  if (!isRecoveryCallback) return null;
 
-  const tokenMatch = url.match(/[?&]token=([^&]+)/);
-  const emailMatch = url.match(/[?&]email=([^&]+)/);
+  const accessTokenMatch = url.match(/[?&#]access_token=([^&]+)/);
+  const refreshTokenMatch = url.match(/[?&#]refresh_token=([^&]+)/);
 
-  const token = tokenMatch
-    ? decodeURIComponent(tokenMatch[1]).trim()
+  const accessToken = accessTokenMatch
+    ? decodeURIComponent(accessTokenMatch[1]).trim()
     : "";
-  const email = emailMatch
-    ? decodeURIComponent(emailMatch[1]).trim()
-    : undefined;
+  const refreshToken = refreshTokenMatch
+    ? decodeURIComponent(refreshTokenMatch[1]).trim()
+    : "";
 
-  if (!token) return null;
+  if (!accessToken || !refreshToken) return null;
 
   return {
-    token,
-    email: email || undefined,
-    type: "recovery",
+    accessToken,
+    refreshToken,
+    type: "recovery_callback",
   };
 }
 
 /**
- * Checks if a URL is a password recovery URL.
+ * Checks if a URL is a password recovery callback.
  */
-export function isPasswordRecoveryUrl(url: string): boolean {
-  return parsePasswordRecoveryUrl(url) !== null;
+export function isPasswordRecoveryCallback(url: string): boolean {
+  return parsePasswordRecoveryCallback(url) !== null;
 }

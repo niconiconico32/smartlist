@@ -38,9 +38,9 @@ interface AuthContextType {
   verifyOtp: (email: string, token: string) => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<{ error: Error | null }>;
-  verifyRecoveryToken: (
-    token: string,
-    email?: string,
+  setRecoverySession: (
+    accessToken: string,
+    refreshToken: string,
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -61,7 +61,7 @@ const AuthContext = createContext<AuthContextType>({
   verifyOtp: async () => {},
   resetPasswordForEmail: async () => {},
   updateUserPassword: async () => ({ error: null }),
-  verifyRecoveryToken: async () => ({ error: null }),
+  setRecoverySession: async () => ({ error: null }),
   signOut: async () => {},
 });
 
@@ -449,19 +449,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const verifyRecoveryToken = async (
-    token: string,
-    email?: string,
+  const setRecoverySession = async (
+    accessToken: string,
+    refreshToken: string,
   ): Promise<{ error: Error | null }> => {
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        email: email ?? "",
-        token,
-        type: "recovery",
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
       });
       return { error };
     } catch (error: any) {
-      console.error("❌ Verify recovery token error:", error.message);
+      console.error("❌ Set recovery session error:", error.message);
       return { error };
     }
   };
@@ -500,7 +499,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyOtp,
         resetPasswordForEmail,
         updateUserPassword,
-        verifyRecoveryToken,
+        setRecoverySession,
         signOut,
       }}
     >

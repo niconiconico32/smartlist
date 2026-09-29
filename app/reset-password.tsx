@@ -1,7 +1,7 @@
 import { colors } from "@/constants/theme";
 import { AppText as Text } from "@/src/components/AppText";
 import { useAuth } from "@/src/contexts/AuthContext";
-import { parsePasswordRecoveryUrl } from "@/src/lib/passwordRecovery";
+import { parsePasswordRecoveryCallback } from "@/src/lib/passwordRecovery";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,10 +24,10 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{
-    token?: string;
-    email?: string;
+    access_token?: string;
+    refresh_token?: string;
   }>();
-  const { session, isLoading: authLoading, updateUserPassword, verifyRecoveryToken } = useAuth();
+  const { session, isLoading: authLoading, updateUserPassword, setRecoverySession } = useAuth();
 
   const [phase, setPhase] = useState<Phase>("validating");
   const [password, setPassword] = useState("");
@@ -37,11 +37,12 @@ export default function ResetPasswordScreen() {
 
   const startedRef = useRef(false);
 
-  const token =
-    typeof params.token === "string" ? params.token.trim() : "";
-  const email = typeof params.email === "string" ? params.email.trim() : "";
+  const accessToken =
+    typeof params.access_token === "string" ? params.access_token.trim() : "";
+  const refreshToken =
+    typeof params.refresh_token === "string" ? params.refresh_token.trim() : "";
 
-  const hasRecoveryParams = !!token;
+  const hasCallbackTokens = !!(accessToken && refreshToken);
 
   const validate = useCallback((): string => {
     if (password.length < MIN_PASSWORD_LENGTH) {
@@ -86,20 +87,20 @@ export default function ResetPasswordScreen() {
         return;
       }
 
-      if (!hasRecoveryParams) {
+      if (!hasCallbackTokens) {
         setPhase("error");
         setError(t("auth.password_reset_error"));
         return;
       }
 
-      const { error: verifyError } = await verifyRecoveryToken(
-        token,
-        email || undefined,
+      const { error: sessionError } = await setRecoverySession(
+        accessToken,
+        refreshToken,
       );
 
-      if (verifyError) {
+      if (sessionError) {
         setPhase("error");
-        setError(verifyError.message || t("auth.password_reset_error"));
+        setError(sessionError.message || t("auth.password_reset_error"));
         return;
       }
 
@@ -110,7 +111,7 @@ export default function ResetPasswordScreen() {
       setPhase("error");
       setError(err.message || t("auth.password_reset_error"));
     });
-  }, [authLoading, session, hasRecoveryParams, token, email, t, verifyRecoveryToken]);
+  }, [authLoading, session, hasCallbackTokens, accessToken, refreshToken, t, setRecoverySession]);
 
   const goToLogin = useCallback(() => {
     router.replace("/login");
