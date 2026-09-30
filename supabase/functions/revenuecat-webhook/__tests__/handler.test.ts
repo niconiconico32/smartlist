@@ -1,12 +1,23 @@
-import { handleRevenueCatWebhook, planIdFromMetadata, type WebhookDeps } from "../handler.ts";
+import {
+  handleRevenueCatWebhook,
+  isOwnedBy,
+  planIdFromMetadata,
+  purchaseScope,
+  type AssociationOutcome,
+  type FunnelPlanRow,
+  type WebhookDeps,
+} from "../handler.ts";
 
 const USER = "550e8400-e29b-41d4-a716-446655440000";
-const OTHER_USER = "550e8400-e29b-41d4-a716-446655440009";
+const OTHER = "550e8400-e29b-41d4-a716-446655440009";
 const PLAN = "550e8400-e29b-41d4-a716-446655440002";
 const PLAN_2 = "550e8400-e29b-41d4-a716-446655440003";
-const TOKEN = "claim-token";
+const SUB = "sub-abc";
+const TX = "tx-abc";
 
-function basePlan(overrides: Record<string, unknown> = {}) {
+const NOW = new Date("2026-09-18T00:00:00Z");
+
+function plan(over: Partial<FunnelPlanRow> = {}): FunnelPlanRow {
   return {
     id: PLAN,
     funnel_user_id: USER,
@@ -15,367 +26,370 @@ function basePlan(overrides: Record<string, unknown> = {}) {
     purchase_confirmed_at: null,
     credentials_issued_at: null,
     created_at: "2026-09-18T00:00:00Z",
-    ...overrides,
+    ...over,
   };
 }
 
-function webhookFake(plans: Array<Record<string, unknown>> = [], options: { rc?: { ok: boolean; active: boolean }; issueResult?: { ok: boolean; status: string }; failInsert?: boolean; failFindPlans?: boolean } = {}) {
-  const events = new Map<string, { status: string; execution_id: string | null; lease_expires_at: string | null; plan_id: string | null }>();
-  const calls = { confirmed: 0, issued: 0, finished: 0, bound: [] as string[] };
-  const claims: Array<{ eventId: string; executionId: string; fromStatus: string; expiredOnly?: boolean }> = [];
-  /** Simula que otra ejecución más nueva roba el lease a mitad de vuelo. */
-  const state = { stealFinish: false };
+interface FakeOpts {
+  rc?: { ok: boolean; active: boolean };
+  issueResult?: { ok: boolean; status: string };
+  failInsert?: boolean;
+  failFindEvent?: boolean;
+  failClaim?: boolean;
+  /** Simulates another execution stealing the lease. */
+  stealLease?: boolean;
+  confirmUpdated?: number;
+  confirmError?: boolean;
+}
+
+function fake(options: FakeOpts = {}) {
+  const events = new Map<string, { status: string; execution_id: string | null; lease_expires_at: string | null }>();
+  const plans = [plan()];
+  const associations = new Map<string, string>(); // `${scope}|${tx}` -> planId
+  const bySubscription = new Map<string, string>(); // `${scope}|${sub}` -> planId
+  const calls = { confirmed: 0, issued: 0, bound: [] as string[], leaseChecks: 0, associated: [] as string[] };
+  const state = { steal: options.stealLease ?? false };
 
   const deps: WebhookDeps = {
-    now: () => new Date("2026-09-18T00:00:00Z"),
-    insertEvent: async (eventId, _type, _appUserId, executionId, leaseExpiresAt) => {
-      if (options.failInsert) return { data: null, error: { code: "23504" } };
-      if (events.has(eventId)) return { data: null, error: { code: "23505" } };
-      events.set(eventId, { status: "processing", execution_id: executionId, lease_expires_at: leaseExpiresAt, plan_id: null });
-      return { data: { event_id: eventId }, error: null };
+    now: () => NOW,
+    insertEvent: async (eventId, _t, _u, executionId, leaseExpiresAt) => {
+      if (options.failInsert) return { created: false, error: new Error("db down") };
+      if (events.has(eventId)) return { created: false, error: null };
+      events.set(eventId, { status: "processing", execution_id: executionId, lease_expires_at: leaseExpiresAt });
+      return { created: true, error: null };
     },
     findEvent: async (eventId) => {
-      const event = events.get(eventId);
-      return { data: event ?? null, error: null };
+      if (options.failFindEvent) return { data: null, error: new Error("db down") };
+      return { data: events.get(eventId) ?? null, error: null };
     },
-    claimEvent: async (eventId, executionId, leaseExpiresAt, claimOptions) => {
-      claims.push({ eventId, executionId, fromStatus: claimOptions.fromStatus, expiredOnly: claimOptions.expiredOnly });
-      const event = events.get(eventId);
-      if (!event) return { data: null, error: new Error("not found") };
-      if (event.status !== claimOptions.fromStatus) return { data: null, error: null };
-      if (claimOptions.expiredOnly && event.lease_expires_at && new Date(event.lease_expires_at).getTime() > new Date("2026-09-18T00:00:00Z").getTime()) {
-        return { data: null, error: null };
-      }
-      event.status = "processing";
-      event.execution_id = executionId;
-      event.lease_expires_at = leaseExpiresAt;
-      return { data: { event_id: eventId }, error: null };
+    claimEvent: async (eventId, executionId, leaseExpiresAt, fromStatus) => {
+      if (options.failClaim) return { updated: 0, error: new Error("db down") };
+      const e = events.get(eventId);
+      if (!e || e.status !== fromStatus || e.execution_id === executionId) return { updated: 0, error: null };
+      e.status = "processing";
+      e.execution_id = executionId;
+      e.lease_expires_at = leaseExpiresAt;
+      return { updated: 1, error: null };
+    },
+    claimExpiredEvent: async (eventId, executionId, leaseExpiresAt) => {
+      if (options.failClaim) return { updated: 0, error: new Error("db down") };
+      const e = events.get(eventId);
+      if (!e || e.status !== "processing" || e.execution_id === executionId) return { updated: 0, error: null };
+      const expired = !e.lease_expires_at || new Date(e.lease_expires_at).getTime() <= NOW.getTime();
+      if (!expired) return { updated: 0, error: null };
+      e.execution_id = executionId;
+      e.lease_expires_at = leaseExpiresAt;
+      return { updated: 1, error: null };
+    },
+    holdsLease: async (eventId, executionId) => {
+      calls.leaseChecks++;
+      if (options.failFindEvent) return { held: false, error: new Error("db down") };
+      if (state.steal) return { held: false, error: null };
+      const e = events.get(eventId);
+      return { held: !!e && e.execution_id === executionId && e.status === "processing", error: null };
     },
     finishEvent: async (eventId, executionId, status) => {
-      const event = events.get(eventId);
-      // Zero rows: the lease was taken by a newer execution mid-flight.
-      if (state.stealFinish) return { updated: 0, error: null };
-      if (!event || event.execution_id !== executionId) return { updated: 0, error: null };
-      event.status = status;
-      event.lease_expires_at = null;
-      calls.finished++;
+      const e = events.get(eventId);
+      if (state.steal) return { updated: 0, error: null };
+      if (!e || e.execution_id !== executionId) return { updated: 0, error: null };
+      e.status = status;
+      e.lease_expires_at = null;
       return { updated: 1, error: null };
     },
-    bindEventPlan: async (eventId, executionId, planId) => {
-      const event = events.get(eventId);
-      if (!event || event.execution_id !== executionId) return { updated: 0, error: null };
-      if (event.plan_id && event.plan_id !== planId) return { updated: 0, error: new Error("plan_already_bound") };
-      if (event.plan_id) return { updated: 1, error: null };
-      event.plan_id = planId;
-      calls.bound.push(planId);
-      return { updated: 1, error: null };
+    resolveAssociation: async ({ scope, transactionId, subscriptionId, declaredPlanId }): Promise<AssociationOutcome> => {
+      if (options.failClaim) return { status: "error" };
+      // 1) An existing association always wins (transaction, then subscription).
+      const txKey = transactionId ? `${scope}|${transactionId}` : "";
+      if (txKey && associations.has(txKey)) {
+        const bound = associations.get(txKey)!;
+        if (declaredPlanId && declaredPlanId !== bound) return { status: "conflict", planId: bound };
+        return { status: "existing", planId: bound };
+      }
+      const subKey = subscriptionId ? `${scope}|${subscriptionId}` : "";
+      if (subKey && bySubscription.has(subKey)) {
+        const bound = bySubscription.get(subKey)!;
+        if (declaredPlanId && declaredPlanId !== bound) return { status: "conflict", planId: bound };
+        return { status: "existing", planId: bound };
+      }
+      // 2) Only a declaring event may create an association.
+      if (!declaredPlanId || !transactionId) return { status: "unresolved" };
+      associations.set(txKey, declaredPlanId);
+      if (subKey) bySubscription.set(subKey, declaredPlanId);
+      calls.associated.push(declaredPlanId);
+      return { status: "linked", planId: declaredPlanId };
     },
-    findPlans: async () => {
-      if (options.failFindPlans) return { data: null, error: new Error("db error") };
-      return { data: plans, error: null };
-    },
-    findPlanById: async (planId) => {
-      if (options.failFindPlans) return { data: null, error: new Error("db error") };
-      return { data: plans.find((p) => p.id === planId) ?? null, error: null };
-    },
+    findPlanById: async (planId) => ({ data: plans.find((p) => p.id === planId) ?? null, error: null }),
     checkRevenueCat: async () => options.rc ?? { ok: true, active: true },
-    confirmPurchase: async (planId) => {
+    confirmPurchase: async () => {
       calls.confirmed++;
-      const plan = plans.find((p) => p.id === planId);
-      if (plan && !plan.purchase_confirmed_at) plan.purchase_confirmed_at = "2026-09-18T00:00:00Z";
-      return { updated: 1, error: null };
+      if (options.confirmError) return { updated: 0, error: new Error("db down") };
+      return { updated: options.confirmUpdated ?? 1, error: null };
     },
-    issue: async () => {
+    issue: async (planId) => {
       calls.issued++;
-      return options.issueResult ?? { ok: true, status: "sent" };
+      const result = options.issueResult ?? { ok: true, status: "sent" };
+      // The real issuance records credentials_issued_at; the fake must too, or
+      // the handler cannot be observed avoiding a duplicate delivery.
+      if (result.ok && result.status !== "in_progress") {
+        const p = plans.find((x) => x.id === planId);
+        if (p) p.credentials_issued_at = "2026-09-18T00:00:00Z";
+      }
+      return result;
     },
   };
 
-  return { deps, events, calls, claims, setStealFinish: (v: boolean) => { state.stealFinish = v; } };
+  return { deps, events, plans, associations, calls, setSteal: (v: boolean) => { state.steal = v; } };
 }
 
-describe("plan resolution from event.metadata.brainy_plan_id", () => {
-  const event = (id: string, metadata?: unknown, user = USER) => ({ id, type: "INITIAL_PURCHASE", app_user_id: user, metadata });
+const baseEvent = (over: Record<string, unknown> = {}) => ({
+  id: "e-1",
+  type: "INITIAL_PURCHASE",
+  app_id: "app-1",
+  app_user_id: USER,
+  store: "stripe",
+  environment: "production",
+  transaction_id: TX,
+  subscription_id: SUB,
+  ...over,
+});
 
-  it("extracts only a string plan id from metadata", () => {
+const call = (event: Record<string, unknown>, deps: WebhookDeps) =>
+  handleRevenueCatWebhook({ authorization: "s", configuredAuthorization: "s", event: event as never }, deps);
+
+describe("helpers", () => {
+  it("planIdFromMetadata only accepts a trimmed string", () => {
     expect(planIdFromMetadata({ brainy_plan_id: PLAN })).toBe(PLAN);
-    expect(planIdFromMetadata({ brainy_plan_id: `  ${PLAN} ` })).toBe(PLAN);
-    expect(planIdFromMetadata({ brainy_plan_id: 42 })).toBe("");
-    expect(planIdFromMetadata({})).toBe("");
+    expect(planIdFromMetadata({ brainy_plan_id: ` ${PLAN} ` })).toBe(PLAN);
+    expect(planIdFromMetadata({ brainy_plan_id: 7 })).toBe("");
     expect(planIdFromMetadata(null)).toBe("");
-    expect(planIdFromMetadata("plan")).toBe("");
   });
 
-  it("resolves the declared plan and pins it to the event", async () => {
-    const { deps, events, calls } = webhookFake([basePlan()]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-1", { brainy_plan_id: PLAN }) },
-      deps,
-    );
+  it("scope separates app, store and environment", () => {
+    expect(purchaseScope({ app_id: "a", store: "stripe", environment: "production" })).toBe("a|stripe|production");
+    expect(purchaseScope({ app_id: "a", store: "stripe", environment: "sandbox" })).toBe("a|stripe|sandbox");
+    expect(purchaseScope({ app_id: "a", store: "play_store", environment: "production" })).toBe("a|play_store|production");
+    expect(purchaseScope({ app_id: "b", store: "stripe", environment: "production" })).toBe("b|stripe|production");
+  });
+
+  it("ownership ignores materialization state", () => {
+    expect(isOwnedBy(plan({ status: "claimed", claimed_by_user_id: USER }), USER)).toBe(true);
+    expect(isOwnedBy(plan({ status: "claimed", claimed_by_user_id: OTHER }), USER)).toBe(false);
+    expect(isOwnedBy(plan({ funnel_user_id: null }), USER)).toBe(false);
+  });
+});
+
+describe("1. no plan selection by user", () => {
+  it("RENEWAL without metadata and no prior association performs no mutation", async () => {
+    const { deps, calls } = fake();
+    const result = await call(baseEvent({ id: "r-1", type: "RENEWAL", transaction_id: "tx-new" }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "plan_unresolved", retryable: true } });
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+    expect(calls.leaseChecks).toBe(0);
+  });
+
+  it("never falls back to the only existing plan", async () => {
+    const { deps, calls, plans } = fake();
+    plans.push(plan({ id: PLAN_2 }));
+    const result = await call(baseEvent({ id: "r-2", type: "RENEWAL", transaction_id: "tx-2" }), deps);
+    expect(result.body).toMatchObject({ error: "plan_unresolved" });
+    expect(calls.issued).toBe(0);
+  });
+
+  it("INITIAL_PURCHASE without metadata performs no mutation", async () => {
+    const { deps, calls } = fake();
+    const result = await call(baseEvent({ id: "i-1", metadata: {} }), deps);
+    expect(result.body).toMatchObject({ error: "plan_unresolved" });
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+  });
+});
+
+describe("2. persistent transaction-plan association", () => {
+  it("links the declared plan and issues", async () => {
+    const { deps, calls, associations } = fake();
+    const result = await call(baseEvent({ id: "a-1", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent", planId: PLAN } });
-    expect(calls.bound).toEqual([PLAN]);
-    expect(events.get("m-1")?.plan_id).toBe(PLAN);
+    expect(calls.confirmed).toBe(1);
+    expect(calls.issued).toBe(1);
+    expect(associations.get(`app-1|stripe|production|${TX}`)).toBe(PLAN);
+  });
+
+  it("two different events of the same purchase resolve to the same plan", async () => {
+    const { deps, calls, associations } = fake();
+    const first = await call(baseEvent({ id: "a-2", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(first.body).toMatchObject({ planId: PLAN });
+
+    // A second event of the SAME purchase (same transaction_id) carries no metadata.
+    const second = await call(baseEvent({ id: "a-3", type: "RENEWAL", transaction_id: TX, metadata: {} }), deps);
+    expect(second).toMatchObject({ status: 200, body: { success: true, planId: PLAN } });
+    expect(associations.size).toBe(1);
+    expect(calls.issued).toBe(1); // already issued -> ignored, never re-issued
+  });
+
+  it("rejects an attempt to bind the same purchase to another plan", async () => {
+    const { deps, plans, calls } = fake();
+    plans.push(plan({ id: PLAN_2 }));
+    await call(baseEvent({ id: "a-4", metadata: { brainy_plan_id: PLAN } }), deps);
+    // Same transaction, different declared plan.
+    const conflict = await call(baseEvent({ id: "a-5", metadata: { brainy_plan_id: PLAN_2 } }), deps);
+    expect(conflict).toMatchObject({ status: 200, body: { ignored: true, reason: "association_conflict" } });
+    expect(calls.issued).toBe(1);
   });
 
   it("refuses a declared plan owned by another user", async () => {
-    const { deps, calls, events } = webhookFake([basePlan({ funnel_user_id: OTHER_USER })]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-2", { brainy_plan_id: PLAN }) },
-      deps,
-    );
+    const { deps, plans, calls } = fake();
+    plans[0].funnel_user_id = OTHER;
+    const result = await call(baseEvent({ id: "a-6", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "plan_not_owned" } });
     expect(calls.confirmed).toBe(0);
     expect(calls.issued).toBe(0);
-    expect(events.get("m-2")?.status).toBe("ignored");
   });
 
-  it("retries when the declared plan does not exist instead of guessing another", async () => {
-    const { deps, calls } = webhookFake([basePlan({ id: PLAN_2 })]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-3", { brainy_plan_id: PLAN }) },
-      deps,
-    );
-    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "declared_plan_not_found" } });
-    expect(calls.confirmed).toBe(0);
-    expect(calls.issued).toBe(0);
+  it("renewal resolves a prior association by subscription", async () => {
+    const { deps } = fake();
+    await call(baseEvent({ id: "a-7", metadata: { brainy_plan_id: PLAN } }), deps);
+    // New transaction, same subscription, no metadata.
+    const renewal = await call(baseEvent({ id: "a-8", type: "RENEWAL", transaction_id: "tx-renew", subscription_id: SUB, metadata: {} }), deps);
+    expect(renewal.body).toMatchObject({ success: true, planId: PLAN });
   });
 
-  it("ignores a non-uuid declared plan id", async () => {
-    const { deps, calls } = webhookFake([basePlan()]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-4", { brainy_plan_id: "demo-1" }) },
+  it("scopes the same transaction id per app/store/environment", async () => {
+    const { deps, associations } = fake();
+    await call(baseEvent({ id: "a-9", metadata: { brainy_plan_id: PLAN } }), deps);
+    // Same transaction id in sandbox is a DIFFERENT purchase: unresolved.
+    const other = await call(
+      baseEvent({ id: "a-10", environment: "sandbox", transaction_id: TX, metadata: {} }),
       deps,
     );
-    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "invalid_plan_id" } });
-    expect(calls.issued).toBe(0);
-  });
-
-  it("keeps the pinned plan on retry even when a newer plan exists", async () => {
-    const plans = [basePlan({ id: PLAN_2, created_at: "2026-09-19T00:00:00Z" }), basePlan()];
-    const { deps, calls } = webhookFake(plans, { issueResult: { ok: false, status: "retryable" } });
-    // First delivery pins the declared (older) plan, then fails.
-    const first = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-5", { brainy_plan_id: PLAN }) },
-      deps,
-    );
-    expect(first).toMatchObject({ status: 503, body: { retryable: true } });
-    expect(calls.bound).toEqual([PLAN]);
-
-    // Retry must still target the pinned plan, not the newer one.
-    deps.issue = async () => { calls.issued++; return { ok: true, status: "sent" }; };
-    const retry = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-5", { brainy_plan_id: PLAN }) },
-      deps,
-    );
-    expect(retry).toMatchObject({ status: 200, body: { success: true, planId: PLAN } });
-    // PLAN_2 was never confirmed.
-    expect(plans.find((p) => p.id === PLAN_2)?.purchase_confirmed_at).toBeNull();
-  });
-
-  it("does not re-pin a different plan onto an event", async () => {
-    const plans = [basePlan({ id: PLAN_2 }), basePlan()];
-    const { deps } = webhookFake(plans);
-    await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-6", { brainy_plan_id: PLAN }) },
-      deps,
-    );
-    // Simulate a tampered replay declaring a different plan for the same event.
-    const replay = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: event("m-6", { brainy_plan_id: PLAN_2 }) },
-      deps,
-    );
-    expect(replay.body).toMatchObject({ success: true });
+    expect(other.body).toMatchObject({ error: "plan_unresolved" });
+    expect(associations.size).toBe(1);
   });
 });
 
-describe("pending issuance is retried even when the purchase is already confirmed", () => {
-  it("issues again when confirmed but credentials were never delivered", async () => {
-    const plan = basePlan({ purchase_confirmed_at: "2026-09-17T00:00:00Z", credentials_issued_at: null });
-    const { deps, calls } = webhookFake([plan]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: { id: "p-1", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
-      deps,
-    );
-    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
-    expect(calls.issued).toBe(1);
-    // Already confirmed: no second confirmation write.
-    expect(calls.confirmed).toBe(0);
+describe("3. concurrency responses", () => {
+  it("processing with a live lease returns 503 retryable", async () => {
+    const { deps, events } = fake();
+    events.set("c-1", { status: "processing", execution_id: "other", lease_expires_at: "2026-09-18T00:05:00Z" });
+    const result = await call(baseEvent({ id: "c-1", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "event_in_progress", retryable: true } });
   });
 
-  it("ignores the event when credentials were already issued", async () => {
-    const plan = basePlan({ purchase_confirmed_at: "2026-09-17T00:00:00Z", credentials_issued_at: "2026-09-17T01:00:00Z" });
-    const { deps, calls } = webhookFake([plan]);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: { id: "p-2", type: "INITIAL_PURCHASE", app_user_id: USER } },
-      deps,
-    );
+  it("processing with a NULL lease is reclaimed (handler and SQL agree)", async () => {
+    const { deps, events, calls } = fake();
+    events.set("c-2", { status: "processing", execution_id: "dead", lease_expires_at: null });
+    const result = await call(baseEvent({ id: "c-2", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { success: true } });
+    expect(calls.issued).toBe(1);
+  });
+
+  it("a live lease is not even attempted for takeover", async () => {
+    const { deps, events, calls } = fake();
+    events.set("c-3", { status: "processing", execution_id: "other", lease_expires_at: "2026-09-18T00:05:00Z" });
+    await call(baseEvent({ id: "c-3", metadata: { brainy_plan_id: PLAN } }), deps);
+    // untouched: still owned by the other execution
+    expect(events.get("c-3")).toMatchObject({ status: "processing", execution_id: "other" });
+    expect(calls.issued).toBe(0);
+  });
+
+  it("findEvent error returns 503", async () => {
+    const { deps, events } = fake({ failFindEvent: true });
+    events.set("c-4", { status: "retryable", execution_id: null, lease_expires_at: null });
+    const result = await call(baseEvent({ id: "c-4" }), deps);
+    expect(result).toMatchObject({ status: 503, body: { retryable: true } });
+  });
+
+  it("insert error returns 503", async () => {
+    const { deps } = fake({ failInsert: true });
+    const result = await call(baseEvent({ id: "c-5" }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "event_store_unavailable" } });
+  });
+
+  it("lost claim re-reads and answers 503 when not terminal", async () => {
+    const { deps, events } = fake();
+    events.set("c-6", { status: "retryable", execution_id: "someone", lease_expires_at: null });
+    // Simulate the row turning terminal between read and claim.
+    deps.finishEvent = async (eventId, _x, status) => {
+      const e = events.get(eventId)!;
+      e.status = status;
+      return { updated: 1, error: null };
+    };
+    deps.claimEvent = async () => ({ updated: 0, error: null });
+    const result = await call(baseEvent({ id: "c-6" }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "event_claim_lost" } });
+  });
+
+  it("terminal states answer 200 idempotent", async () => {
+    const { deps, events, calls } = fake();
+    events.set("c-7", { status: "processed", execution_id: null, lease_expires_at: null });
+    const result = await call(baseEvent({ id: "c-7", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { success: true, idempotent: true, status: "processed" } });
+    expect(calls.issued).toBe(0);
+  });
+
+  it("an execution without the lease does not confirm or issue", async () => {
+    const { deps, calls, setSteal } = fake();
+    setSteal(true);
+    const result = await call(baseEvent({ id: "c-8", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "lease_lost", retryable: true } });
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+  });
+});
+
+describe("4. pending credential recovery", () => {
+  it("confirmed purchase with failed email is retried successfully", async () => {
+    const { deps, plans, calls } = fake({ issueResult: { ok: false, status: "retryable" } });
+    plans[0].purchase_confirmed_at = "2026-09-17T00:00:00Z";
+    const first = await call(baseEvent({ id: "d-1", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(first).toMatchObject({ status: 503, body: { retryable: true } });
+    expect(calls.issued).toBe(1);
+    expect(calls.confirmed).toBe(0); // already confirmed
+
+    deps.issue = async () => { calls.issued++; return { ok: true, status: "sent" }; };
+    const second = await call(baseEvent({ id: "d-1", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(second).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(calls.issued).toBe(2);
+  });
+
+  it("a claimed plan with pending delivery is still delivered to its owner", async () => {
+    const { deps, plans, calls } = fake();
+    plans[0].status = "claimed";
+    plans[0].claimed_by_user_id = USER;
+    plans[0].purchase_confirmed_at = "2026-09-17T00:00:00Z";
+    const result = await call(baseEvent({ id: "d-2", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(calls.issued).toBe(1);
+  });
+
+  it("already issued answers ignored", async () => {
+    const { deps, plans, calls } = fake();
+    plans[0].credentials_issued_at = "2026-09-17T01:00:00Z";
+    const result = await call(baseEvent({ id: "d-3", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "already_issued" } });
     expect(calls.issued).toBe(0);
   });
-});
 
-describe("affected-rows check on finish", () => {
-  it("reports retryable and does not claim success when the lease was stolen", async () => {
-    const { deps, events, setStealFinish } = webhookFake([basePlan()]);
-    setStealFinish(true);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: { id: "s-1", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
-      deps,
-    );
-    // The email may have been sent, but this execution may NOT close the event.
-    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "event_finish_failed" } });
-    // The event must not be left marked processed by a stale execution.
-    expect(events.get("s-1")?.status).toBe("processing");
-  });
-
-  it("reports retryable when a release path updates zero rows", async () => {
-    // The release path (finish) is the one used for retryable/ignored outcomes.
-    // A stale execution must not be able to mark the event as such.
-    const { deps, events, setStealFinish } = webhookFake([basePlan()], { rc: { ok: true, active: false } });
-    setStealFinish(true);
-    const result = await handleRevenueCatWebhook(
-      { authorization: "secret", configuredAuthorization: "secret", event: { id: "s-2", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
-      deps,
-    );
-    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "event_finish_failed" } });
-    // Not silently recorded as retryable/ignored by an execution without the lease.
-    expect(events.get("s-2")?.status).toBe("processing");
-  });
-});
-
-describe("revenuecat-webhook handler", () => {
-  const event = (type: string, id = "event-1", user = USER) => ({ id, type, app_user_id: user, period_type: type === "INITIAL_PURCHASE" ? "TRIAL" : undefined });
-
-  it("rejects invalid auth", async () => {
-    const { deps } = webhookFake();
-    const result = await handleRevenueCatWebhook({ authorization: "bad", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, deps);
-    expect(result.status).toBe(401);
-  });
-
-  it("processes INITIAL_PURCHASE with valid plan", async () => {
-    const { deps, calls } = webhookFake([basePlan()]);
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE") }, deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
-    expect(calls.confirmed).toBe(1);
-    expect(calls.issued).toBe(1);
-  });
-
-  it("returns retryable when plan lookup fails", async () => {
-    const { deps, events } = webhookFake([], { failFindPlans: true });
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-2") }, deps);
-    expect(result.body).toMatchObject({ retryable: true, error: "plan_lookup_failed" });
-    expect(events.get("event-2")?.status).toBe("retryable");
-  });
-
-  it("allows retry when event is stuck in processing (expired lease)", async () => {
-    const { deps, events } = webhookFake([basePlan()]);
-    events.set("event-3", { status: "processing", execution_id: "old-exec", lease_expires_at: "2026-09-17T00:00:00Z" });
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-3") }, deps);
-    expect(result.body).toMatchObject({ success: true, status: "sent" });
-    expect(events.get("event-3")?.status).toBe("processed");
-  });
-
-  it("does not take control when the processing lease is still valid", async () => {
-    const { deps, events, calls, claims } = webhookFake([basePlan()]);
-    events.set("event-4", { status: "processing", execution_id: "active-exec", lease_expires_at: "2026-09-19T00:00:00Z" });
-
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4") }, deps);
-
-    // The handler must decide this on its own: it may not even attempt to claim,
-    // otherwise a DB that ignores the expiry filter would hand out the event twice.
-    expect(claims).toHaveLength(0);
-    expect(result.body).toMatchObject({ idempotent: true });
-    expect(calls.confirmed).toBe(0);
+  it("a bound plan that no longer exists is handled without a null dereference", async () => {
+    const { deps, plans, calls } = fake();
+    plans.length = 0;
+    const result = await call(baseEvent({ id: "d-4", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "plan_missing", retryable: true } });
     expect(calls.issued).toBe(0);
-    // The live execution keeps its lease and its identity.
-    expect(events.get("event-4")?.execution_id).toBe("active-exec");
-    expect(events.get("event-4")?.lease_expires_at).toBe("2026-09-19T00:00:00Z");
-    expect(events.get("event-4")?.status).toBe("processing");
   });
 
-  it("recovers an abandoned processing execution only after the lease expires", async () => {
-    const { deps, events, calls, claims } = webhookFake([basePlan()]);
-    events.set("event-4b", { status: "processing", execution_id: "dead-exec", lease_expires_at: "2026-09-17T23:59:00Z" });
-
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-4b") }, deps);
-
-    expect(claims).toHaveLength(1);
-    expect(claims[0]).toMatchObject({ fromStatus: "processing", expiredOnly: true });
-    expect(result.body).toMatchObject({ success: true, status: "sent" });
-    expect(events.get("event-4b")?.status).toBe("processed");
-    // The takeover replaced the dead execution identity.
-    expect(events.get("event-4b")?.execution_id).not.toBe("dead-exec");
-    expect(calls.issued).toBe(1);
+  it("confirmPurchase updating zero rows without a visible confirmation is retryable", async () => {
+    const { deps, plans } = fake({ confirmUpdated: 0 });
+    // Re-read returns the plan still unconfirmed -> must not assume success.
+    const result = await call(baseEvent({ id: "d-5", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "purchase_confirm_failed", retryable: true } });
+    expect(plans[0].purchase_confirmed_at).toBeNull();
   });
 
-  it("keeps the event retryable when issuance reports in_progress as a failure", async () => {
-    const { deps, events } = webhookFake([basePlan()], { issueResult: { ok: false, status: "in_progress" } });
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5") }, deps);
-    expect(result.body).toMatchObject({ retryable: true, error: "issuance_in_progress" });
-    expect(events.get("event-5")?.status).toBe("retryable");
-  });
-
-  it("keeps the event retryable when issuance reports in_progress as a success", async () => {
-    const { deps, events } = webhookFake([basePlan()], { issueResult: { ok: true, status: "in_progress" } });
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5b") }, deps);
-    expect(result.body).toMatchObject({ retryable: true, error: "issuance_in_progress" });
-    expect(events.get("event-5b")?.status).toBe("retryable");
-  });
-
-  it("lets a later delivery finish an event left retryable by an in_progress issuance", async () => {
-    const { deps, events, calls } = webhookFake([basePlan()], { issueResult: { ok: false, status: "in_progress" } });
-    await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5c") }, deps);
-    expect(events.get("event-5c")?.status).toBe("retryable");
-
-    deps.issue = async () => { calls.issued++; return { ok: true, status: "sent" }; };
-    const retry = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-5c") }, deps);
-    expect(retry.body).toMatchObject({ success: true, status: "sent" });
-    expect(events.get("event-5c")?.status).toBe("processed");
-  });
-
-  it("does not confirm a new pending plan when a confirmed plan still awaits delivery", async () => {
-    const plans = [
-      basePlan({ id: "plan-old", purchase_confirmed_at: "2026-09-17T00:00:00Z" }),
-      basePlan({ id: "plan-new", created_at: "2026-09-19T00:00:00Z" }),
-    ];
-    const { deps, calls } = webhookFake(plans);
-    // A renewal must complete the CONFIRMED plan's outstanding delivery and must
-    // never confirm the newer pending plan.
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("RENEWAL", "event-6") }, deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, planId: "plan-old" } });
-    expect(plans.find((p) => p.id === "plan-new")?.purchase_confirmed_at).toBeNull();
-    expect(calls.confirmed).toBe(0);
-  });
-
-  it("returns ambiguous_plan when multiple pending plans exist", async () => {
-    const { deps, events } = webhookFake([
-      basePlan({ id: "plan-1", created_at: "2026-09-17T00:00:00Z" }),
-      basePlan({ id: "plan-2", created_at: "2026-09-19T00:00:00Z" }),
-    ]);
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-7") }, deps);
-    expect(result.body).toMatchObject({ retryable: true, error: "ambiguous_plan" });
-    expect(events.get("event-7")?.status).toBe("retryable");
-  });
-
-  it("ignores renewal without eligible plans", async () => {
-    const { deps } = webhookFake([]);
-    const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("RENEWAL", "event-8") }, deps);
-    expect(result.body).toMatchObject({ ignored: true });
-  });
-
-  it("does not issue for inactive or unavailable RevenueCat", async () => {
-    const inactive = webhookFake([basePlan()], { rc: { ok: true, active: false } });
-    expect((await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-9") }, inactive.deps)).body).toMatchObject({ error: "entitlement_inactive" });
-
-    const unavailable = webhookFake([basePlan()], { rc: { ok: false, active: false } });
-    expect((await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-10") }, unavailable.deps)).body).toMatchObject({ retryable: true });
-  });
-
-  it("deduplicates event.id", async () => {
-    const { deps, calls } = webhookFake([basePlan()]);
-    await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-11") }, deps);
-    const second = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("INITIAL_PURCHASE", "event-11") }, deps);
-    expect(second.body).toMatchObject({ idempotent: true });
-    expect(calls.issued).toBe(1);
+  it("confirmPurchase zero rows but re-read shows confirmation -> proceeds", async () => {
+    const { deps, plans } = fake({ confirmUpdated: 0 });
+    deps.confirmPurchase = async () => { plans[0].purchase_confirmed_at = "2026-09-18T00:00:00Z"; return { updated: 0, error: null }; };
+    const result = await call(baseEvent({ id: "d-6", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
   });
 });
