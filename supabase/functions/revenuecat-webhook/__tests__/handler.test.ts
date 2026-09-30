@@ -317,26 +317,41 @@ describe("required scope", () => {
     ["app_id", { app_id: "" }],
     ["store", { store: "" }],
     ["environment", { environment: "" }],
-  ])("missing %s performs zero business mutations", async (_label, patch) => {
-    const { deps, calls, byTransaction } = fake();
+  ])("missing %s is retryable and performs zero business mutations", async (label, patch) => {
+    const { deps, calls, byTransaction, events } = fake();
     const result = await call(baseEvent({ id: "s-1", metadata: { brainy_plan_id: PLAN }, ...patch }), deps);
 
-    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "incomplete_scope" } });
+    // Retryable, NOT ignored: the real RevenueCat payload is not confirmed yet,
+    // so the event must stay recoverable instead of terminal.
+    expect(result).toMatchObject({
+      status: 503,
+      body: { success: false, error: "incomplete_scope", retryable: true },
+    });
+
+    // The stored event is left retryable with the lease released, so it can be
+    // picked up again automatically or replayed by hand.
+    const stored = events.get("s-1");
+    expect(stored?.status).toBe("retryable");
+    expect(stored?.lease_expires_at).toBeNull();
+
+    // Zero business mutations for the missing field.
     expect(byTransaction.has(scopedTx(TX))).toBe(false);
+    expect(calls.associated).toEqual([]);
     expect(calls.confirmed).toBe(0);
     expect(calls.issued).toBe(0);
     expect(calls.leaseChecks).toBe(0);
   });
 
   it("does not fall back to app_user_type when app_id is absent", async () => {
-    const { deps, byTransaction } = fake();
+    const { deps, byTransaction, events } = fake();
     const result = await call(baseEvent({
       id: "s-2",
       app_id: "",
       app_user_type: "APP_USER_ID",
       metadata: { brainy_plan_id: PLAN },
     }), deps);
-    expect(result.body).toMatchObject({ ignored: true, reason: "incomplete_scope" });
+    expect(result).toMatchObject({ status: 503, body: { error: "incomplete_scope", retryable: true } });
+    expect(events.get("s-2")?.status).toBe("retryable");
     expect(byTransaction.has(scopedTx(TX))).toBe(false);
   });
 });
