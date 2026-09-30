@@ -1,8 +1,9 @@
-import { handleRevenueCatWebhook, type WebhookDeps } from "../handler.ts";
-import { sha256Hex } from "../../_shared/funnel-identity-core.ts";
+import { handleRevenueCatWebhook, planIdFromMetadata, type WebhookDeps } from "../handler.ts";
 
 const USER = "550e8400-e29b-41d4-a716-446655440000";
+const OTHER_USER = "550e8400-e29b-41d4-a716-446655440009";
 const PLAN = "550e8400-e29b-41d4-a716-446655440002";
+const PLAN_2 = "550e8400-e29b-41d4-a716-446655440003";
 const TOKEN = "claim-token";
 
 function basePlan(overrides: Record<string, unknown> = {}) {
@@ -12,23 +13,25 @@ function basePlan(overrides: Record<string, unknown> = {}) {
     status: "pending",
     claimed_by_user_id: null,
     purchase_confirmed_at: null,
+    credentials_issued_at: null,
     created_at: "2026-09-18T00:00:00Z",
     ...overrides,
   };
 }
 
 function webhookFake(plans: Array<Record<string, unknown>> = [], options: { rc?: { ok: boolean; active: boolean }; issueResult?: { ok: boolean; status: string }; failInsert?: boolean; failFindPlans?: boolean } = {}) {
-  const events = new Map<string, { status: string; execution_id: string | null; lease_expires_at: string | null }>();
-  const calls = { confirmed: 0, issued: 0, finished: 0 };
+  const events = new Map<string, { status: string; execution_id: string | null; lease_expires_at: string | null; plan_id: string | null }>();
+  const calls = { confirmed: 0, issued: 0, finished: 0, bound: [] as string[] };
   const claims: Array<{ eventId: string; executionId: string; fromStatus: string; expiredOnly?: boolean }> = [];
-  let executionCounter = 0;
+  /** Simula que otra ejecución más nueva roba el lease a mitad de vuelo. */
+  const state = { stealFinish: false };
 
   const deps: WebhookDeps = {
     now: () => new Date("2026-09-18T00:00:00Z"),
     insertEvent: async (eventId, _type, _appUserId, executionId, leaseExpiresAt) => {
       if (options.failInsert) return { data: null, error: { code: "23504" } };
       if (events.has(eventId)) return { data: null, error: { code: "23505" } };
-      events.set(eventId, { status: "processing", execution_id: executionId, lease_expires_at: leaseExpiresAt });
+      events.set(eventId, { status: "processing", execution_id: executionId, lease_expires_at: leaseExpiresAt, plan_id: null });
       return { data: { event_id: eventId }, error: null };
     },
     findEvent: async (eventId) => {
@@ -48,29 +51,197 @@ function webhookFake(plans: Array<Record<string, unknown>> = [], options: { rc?:
       event.lease_expires_at = leaseExpiresAt;
       return { data: { event_id: eventId }, error: null };
     },
-    finishEvent: async (eventId, _executionId, status) => {
+    finishEvent: async (eventId, executionId, status) => {
       const event = events.get(eventId);
-      if (event) {
-        event.status = status;
-        event.lease_expires_at = null;
-      }
+      // Zero rows: the lease was taken by a newer execution mid-flight.
+      if (state.stealFinish) return { updated: 0, error: null };
+      if (!event || event.execution_id !== executionId) return { updated: 0, error: null };
+      event.status = status;
+      event.lease_expires_at = null;
       calls.finished++;
-      return { error: null };
+      return { updated: 1, error: null };
+    },
+    bindEventPlan: async (eventId, executionId, planId) => {
+      const event = events.get(eventId);
+      if (!event || event.execution_id !== executionId) return { updated: 0, error: null };
+      if (event.plan_id && event.plan_id !== planId) return { updated: 0, error: new Error("plan_already_bound") };
+      if (event.plan_id) return { updated: 1, error: null };
+      event.plan_id = planId;
+      calls.bound.push(planId);
+      return { updated: 1, error: null };
     },
     findPlans: async () => {
       if (options.failFindPlans) return { data: null, error: new Error("db error") };
       return { data: plans, error: null };
     },
+    findPlanById: async (planId) => {
+      if (options.failFindPlans) return { data: null, error: new Error("db error") };
+      return { data: plans.find((p) => p.id === planId) ?? null, error: null };
+    },
     checkRevenueCat: async () => options.rc ?? { ok: true, active: true },
-    confirmPurchase: async () => { calls.confirmed++; return { error: null }; },
+    confirmPurchase: async (planId) => {
+      calls.confirmed++;
+      const plan = plans.find((p) => p.id === planId);
+      if (plan && !plan.purchase_confirmed_at) plan.purchase_confirmed_at = "2026-09-18T00:00:00Z";
+      return { updated: 1, error: null };
+    },
     issue: async () => {
       calls.issued++;
       return options.issueResult ?? { ok: true, status: "sent" };
     },
   };
 
-  return { deps, events, calls, claims };
+  return { deps, events, calls, claims, setStealFinish: (v: boolean) => { state.stealFinish = v; } };
 }
+
+describe("plan resolution from event.metadata.brainy_plan_id", () => {
+  const event = (id: string, metadata?: unknown, user = USER) => ({ id, type: "INITIAL_PURCHASE", app_user_id: user, metadata });
+
+  it("extracts only a string plan id from metadata", () => {
+    expect(planIdFromMetadata({ brainy_plan_id: PLAN })).toBe(PLAN);
+    expect(planIdFromMetadata({ brainy_plan_id: `  ${PLAN} ` })).toBe(PLAN);
+    expect(planIdFromMetadata({ brainy_plan_id: 42 })).toBe("");
+    expect(planIdFromMetadata({})).toBe("");
+    expect(planIdFromMetadata(null)).toBe("");
+    expect(planIdFromMetadata("plan")).toBe("");
+  });
+
+  it("resolves the declared plan and pins it to the event", async () => {
+    const { deps, events, calls } = webhookFake([basePlan()]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-1", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent", planId: PLAN } });
+    expect(calls.bound).toEqual([PLAN]);
+    expect(events.get("m-1")?.plan_id).toBe(PLAN);
+  });
+
+  it("refuses a declared plan owned by another user", async () => {
+    const { deps, calls, events } = webhookFake([basePlan({ funnel_user_id: OTHER_USER })]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-2", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "plan_not_owned" } });
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+    expect(events.get("m-2")?.status).toBe("ignored");
+  });
+
+  it("retries when the declared plan does not exist instead of guessing another", async () => {
+    const { deps, calls } = webhookFake([basePlan({ id: PLAN_2 })]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-3", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "declared_plan_not_found" } });
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+  });
+
+  it("ignores a non-uuid declared plan id", async () => {
+    const { deps, calls } = webhookFake([basePlan()]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-4", { brainy_plan_id: "demo-1" }) },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "invalid_plan_id" } });
+    expect(calls.issued).toBe(0);
+  });
+
+  it("keeps the pinned plan on retry even when a newer plan exists", async () => {
+    const plans = [basePlan({ id: PLAN_2, created_at: "2026-09-19T00:00:00Z" }), basePlan()];
+    const { deps, calls } = webhookFake(plans, { issueResult: { ok: false, status: "retryable" } });
+    // First delivery pins the declared (older) plan, then fails.
+    const first = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-5", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    expect(first).toMatchObject({ status: 503, body: { retryable: true } });
+    expect(calls.bound).toEqual([PLAN]);
+
+    // Retry must still target the pinned plan, not the newer one.
+    deps.issue = async () => { calls.issued++; return { ok: true, status: "sent" }; };
+    const retry = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-5", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    expect(retry).toMatchObject({ status: 200, body: { success: true, planId: PLAN } });
+    // PLAN_2 was never confirmed.
+    expect(plans.find((p) => p.id === PLAN_2)?.purchase_confirmed_at).toBeNull();
+  });
+
+  it("does not re-pin a different plan onto an event", async () => {
+    const plans = [basePlan({ id: PLAN_2 }), basePlan()];
+    const { deps } = webhookFake(plans);
+    await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-6", { brainy_plan_id: PLAN }) },
+      deps,
+    );
+    // Simulate a tampered replay declaring a different plan for the same event.
+    const replay = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: event("m-6", { brainy_plan_id: PLAN_2 }) },
+      deps,
+    );
+    expect(replay.body).toMatchObject({ success: true });
+  });
+});
+
+describe("pending issuance is retried even when the purchase is already confirmed", () => {
+  it("issues again when confirmed but credentials were never delivered", async () => {
+    const plan = basePlan({ purchase_confirmed_at: "2026-09-17T00:00:00Z", credentials_issued_at: null });
+    const { deps, calls } = webhookFake([plan]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: { id: "p-1", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(calls.issued).toBe(1);
+    // Already confirmed: no second confirmation write.
+    expect(calls.confirmed).toBe(0);
+  });
+
+  it("ignores the event when credentials were already issued", async () => {
+    const plan = basePlan({ purchase_confirmed_at: "2026-09-17T00:00:00Z", credentials_issued_at: "2026-09-17T01:00:00Z" });
+    const { deps, calls } = webhookFake([plan]);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: { id: "p-2", type: "INITIAL_PURCHASE", app_user_id: USER } },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "already_issued" } });
+    expect(calls.issued).toBe(0);
+  });
+});
+
+describe("affected-rows check on finish", () => {
+  it("reports retryable and does not claim success when the lease was stolen", async () => {
+    const { deps, events, setStealFinish } = webhookFake([basePlan()]);
+    setStealFinish(true);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: { id: "s-1", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
+      deps,
+    );
+    // The email may have been sent, but this execution may NOT close the event.
+    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "event_finish_failed" } });
+    // The event must not be left marked processed by a stale execution.
+    expect(events.get("s-1")?.status).toBe("processing");
+  });
+
+  it("reports retryable when a release path updates zero rows", async () => {
+    // The release path (finish) is the one used for retryable/ignored outcomes.
+    // A stale execution must not be able to mark the event as such.
+    const { deps, events, setStealFinish } = webhookFake([basePlan()], { rc: { ok: true, active: false } });
+    setStealFinish(true);
+    const result = await handleRevenueCatWebhook(
+      { authorization: "secret", configuredAuthorization: "secret", event: { id: "s-2", type: "INITIAL_PURCHASE", app_user_id: USER, metadata: { brainy_plan_id: PLAN } } },
+      deps,
+    );
+    expect(result).toMatchObject({ status: 503, body: { retryable: true, error: "event_finish_failed" } });
+    // Not silently recorded as retryable/ignored by an execution without the lease.
+    expect(events.get("s-2")?.status).toBe("processing");
+  });
+});
 
 describe("revenuecat-webhook handler", () => {
   const event = (type: string, id = "event-1", user = USER) => ({ id, type, app_user_id: user, period_type: type === "INITIAL_PURCHASE" ? "TRIAL" : undefined });
@@ -162,13 +333,17 @@ describe("revenuecat-webhook handler", () => {
     expect(events.get("event-5c")?.status).toBe("processed");
   });
 
-  it("does not confirm a new plan when another is already confirmed", async () => {
-    const { deps, calls } = webhookFake([
+  it("does not confirm a new pending plan when a confirmed plan still awaits delivery", async () => {
+    const plans = [
       basePlan({ id: "plan-old", purchase_confirmed_at: "2026-09-17T00:00:00Z" }),
       basePlan({ id: "plan-new", created_at: "2026-09-19T00:00:00Z" }),
-    ]);
+    ];
+    const { deps, calls } = webhookFake(plans);
+    // A renewal must complete the CONFIRMED plan's outstanding delivery and must
+    // never confirm the newer pending plan.
     const result = await handleRevenueCatWebhook({ authorization: "secret", configuredAuthorization: "secret", event: event("RENEWAL", "event-6") }, deps);
-    expect(result.body).toMatchObject({ ignored: true });
+    expect(result).toMatchObject({ status: 200, body: { success: true, planId: "plan-old" } });
+    expect(plans.find((p) => p.id === "plan-new")?.purchase_confirmed_at).toBeNull();
     expect(calls.confirmed).toBe(0);
   });
 
