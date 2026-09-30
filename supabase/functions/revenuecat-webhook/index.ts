@@ -32,7 +32,7 @@ serve(async (req) => {
         },
         findEvent: async (eventId) => {
           return await admin.from("revenuecat_webhook_events")
-            .select("status, execution_id, lease_expires_at")
+            .select("status, execution_id, lease_expires_at, plan_id")
             .eq("event_id", eventId)
             .maybeSingle();
         },
@@ -47,27 +47,62 @@ serve(async (req) => {
           return await query.select("event_id").maybeSingle();
         },
         finishEvent: async (eventId, executionId, status) => {
-          return await admin.from("revenuecat_webhook_events")
-            .update({ status, processed_at: status === "retryable" ? null : new Date().toISOString(), lease_expires_at: null })
+          const { data, error } = await admin.from("revenuecat_webhook_events")
+            .update({
+              status,
+              processed_at: status === "retryable" ? null : new Date().toISOString(),
+              lease_expires_at: null,
+            })
             .eq("event_id", eventId)
-            .eq("execution_id", executionId);
+            .eq("execution_id", executionId)
+            .select("event_id");
+          return { updated: data?.length ?? 0, error };
+        },
+        bindEventPlan: async (eventId, executionId, planId) => {
+          // Idempotent: pins the plan once, and never overrides an existing pin.
+          const { data, error } = await admin.from("revenuecat_webhook_events")
+            .update({ plan_id: planId })
+            .eq("event_id", eventId)
+            .eq("execution_id", executionId)
+            .is("plan_id", null)
+            .select("event_id");
+          if (error) return { updated: data?.length ?? 0, error };
+          if (data && data.length > 0) return { updated: 1, error: null };
+          // Already pinned: verify it is the same plan, then treat as success.
+          const { data: current } = await admin.from("revenuecat_webhook_events")
+            .select("plan_id")
+            .eq("event_id", eventId)
+            .eq("execution_id", executionId)
+            .maybeSingle();
+          if (current?.plan_id && current.plan_id !== planId) {
+            return { updated: 0, error: new Error("plan_already_bound") };
+          }
+          return { updated: current?.plan_id ? 1 : 0, error: null };
         },
         findPlans: async (appUserId) => {
           return await admin.from("web_funnel_plans")
-            .select("id, funnel_user_id, status, claimed_by_user_id, purchase_confirmed_at, created_at")
+            .select("id, funnel_user_id, status, claimed_by_user_id, purchase_confirmed_at, credentials_issued_at, created_at")
             .eq("funnel_user_id", appUserId)
             .order("created_at", { ascending: false })
             .limit(20);
+        },
+        findPlanById: async (planId) => {
+          return await admin.from("web_funnel_plans")
+            .select("id, funnel_user_id, status, claimed_by_user_id, purchase_confirmed_at, credentials_issued_at, created_at")
+            .eq("id", planId)
+            .maybeSingle();
         },
         checkRevenueCat: async (appUserId) => {
           const { checkEntitlementActive } = await import("../_shared/rc.ts");
           return await checkEntitlementActive(appUserId, Deno.env.get("REVENUECAT_SECRET_API_KEY") ?? "");
         },
         confirmPurchase: async (planId) => {
-          return await admin.from("web_funnel_plans")
+          const { data, error } = await admin.from("web_funnel_plans")
             .update({ purchase_confirmed_at: new Date().toISOString() })
             .eq("id", planId)
-            .is("purchase_confirmed_at", null);
+            .is("purchase_confirmed_at", null)
+            .select("id");
+          return { updated: data?.length ?? 0, error };
         },
         issue: async (planId, userId) => {
           const { issueFunnelCredentials } = await import("../_shared/funnel-identity.ts");
