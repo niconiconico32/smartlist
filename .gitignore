@@ -52,3 +52,6 @@ yarn-error.*
 
 # E2E artifacts (Maestro results/screenshots — never commits secrets-content)
 e2e/.artifacts/
+
+# Deno lockfile produced by deno check on Edge Functions
+deno.lock

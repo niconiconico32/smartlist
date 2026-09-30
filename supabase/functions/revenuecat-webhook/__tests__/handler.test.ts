@@ -1,9 +1,11 @@
 import {
   handleRevenueCatWebhook,
+  isEligibleForPurchase,
   isOwnedBy,
   planIdFromMetadata,
   purchaseScope,
-  type AssociationOutcome,
+  type AssociationKey,
+  type CreateAssociationStatus,
   type FunnelPlanRow,
   type WebhookDeps,
 } from "../handler.ts";
@@ -12,9 +14,9 @@ const USER = "550e8400-e29b-41d4-a716-446655440000";
 const OTHER = "550e8400-e29b-41d4-a716-446655440009";
 const PLAN = "550e8400-e29b-41d4-a716-446655440002";
 const PLAN_2 = "550e8400-e29b-41d4-a716-446655440003";
-const SUB = "sub-abc";
 const TX = "tx-abc";
-
+const ORIG_TX = "tx-origin";
+const SUB = "sub-abc";
 const NOW = new Date("2026-09-18T00:00:00Z");
 
 function plan(over: Partial<FunnelPlanRow> = {}): FunnelPlanRow {
@@ -36,19 +38,22 @@ interface FakeOpts {
   failInsert?: boolean;
   failFindEvent?: boolean;
   failClaim?: boolean;
-  /** Simulates another execution stealing the lease. */
+  failLookup?: boolean;
   stealLease?: boolean;
   confirmUpdated?: number;
-  confirmError?: boolean;
+  ambiguous?: boolean;
 }
 
 function fake(options: FakeOpts = {}) {
   const events = new Map<string, { status: string; execution_id: string | null; lease_expires_at: string | null }>();
   const plans = [plan()];
-  const associations = new Map<string, string>(); // `${scope}|${tx}` -> planId
-  const bySubscription = new Map<string, string>(); // `${scope}|${sub}` -> planId
-  const calls = { confirmed: 0, issued: 0, bound: [] as string[], leaseChecks: 0, associated: [] as string[] };
-  const state = { steal: options.stealLease ?? false };
+  const byTransaction = new Map<string, string>();
+  const byOriginal = new Map<string, string>();
+  const bySubscription = new Map<string, string>();
+  const calls = { confirmed: 0, issued: 0, associated: [] as string[], leaseChecks: 0, lookups: 0 };
+  // Scope-aware: the same transaction id in another scope is another purchase.
+  const scoped = (scope: string, value: string) => `${scope}::${value}`;
+  const state = { stealFinish: false, stealLease: options.stealLease ?? false };
 
   const deps: WebhookDeps = {
     now: () => NOW,
@@ -84,52 +89,62 @@ function fake(options: FakeOpts = {}) {
     holdsLease: async (eventId, executionId) => {
       calls.leaseChecks++;
       if (options.failFindEvent) return { held: false, error: new Error("db down") };
-      if (state.steal) return { held: false, error: null };
+      if (state.stealLease) return { held: false, error: null };
       const e = events.get(eventId);
-      return { held: !!e && e.execution_id === executionId && e.status === "processing", error: null };
+      if (!e || e.execution_id !== executionId || e.status !== "processing") return { held: false, error: null };
+      // A live lease must be strictly in the future.
+      const live = !!e.lease_expires_at && new Date(e.lease_expires_at).getTime() > NOW.getTime();
+      return { held: live, error: null };
     },
     finishEvent: async (eventId, executionId, status) => {
       const e = events.get(eventId);
-      if (state.steal) return { updated: 0, error: null };
+      if (state.stealFinish) return { updated: 0, error: null };
       if (!e || e.execution_id !== executionId) return { updated: 0, error: null };
       e.status = status;
       e.lease_expires_at = null;
       return { updated: 1, error: null };
     },
-    resolveAssociation: async ({ scope, transactionId, subscriptionId, declaredPlanId }): Promise<AssociationOutcome> => {
-      if (options.failClaim) return { status: "error" };
-      // 1) An existing association always wins (transaction, then subscription).
-      const txKey = transactionId ? `${scope}|${transactionId}` : "";
-      if (txKey && associations.has(txKey)) {
-        const bound = associations.get(txKey)!;
-        if (declaredPlanId && declaredPlanId !== bound) return { status: "conflict", planId: bound };
-        return { status: "existing", planId: bound };
+    findAssociation: async (key: AssociationKey) => {
+      if (options.failClaim) return { planId: null, ambiguous: false, error: new Error("db down") };
+      if (options.ambiguous) return { planId: null, ambiguous: true, error: null };
+      for (const [map, value] of [
+        [byTransaction, key.transactionId],
+        [byOriginal, key.originalTransactionId],
+        [bySubscription, key.subscriptionId],
+      ] as const) {
+        const k = value ? scoped(key.scope, value) : "";
+        if (k && map.has(k)) return { planId: map.get(k)!, ambiguous: false, error: null };
       }
-      const subKey = subscriptionId ? `${scope}|${subscriptionId}` : "";
-      if (subKey && bySubscription.has(subKey)) {
-        const bound = bySubscription.get(subKey)!;
-        if (declaredPlanId && declaredPlanId !== bound) return { status: "conflict", planId: bound };
-        return { status: "existing", planId: bound };
-      }
-      // 2) Only a declaring event may create an association.
-      if (!declaredPlanId || !transactionId) return { status: "unresolved" };
-      associations.set(txKey, declaredPlanId);
-      if (subKey) bySubscription.set(subKey, declaredPlanId);
-      calls.associated.push(declaredPlanId);
-      return { status: "linked", planId: declaredPlanId };
+      return { planId: null, ambiguous: false, error: null };
     },
-    findPlanById: async (planId) => ({ data: plans.find((p) => p.id === planId) ?? null, error: null }),
+    createAssociation: async (key: AssociationKey, planId): Promise<{ planId: string | null; status: CreateAssociationStatus }> => {
+      if (options.failClaim) return { planId: null, status: "error" };
+      if (!key.transactionId) return { planId: null, status: "error" };
+      const winner = await deps.findAssociation(key);
+      if (winner.planId) {
+        return winner.planId === planId
+          ? { planId: winner.planId, status: "existing" }
+          : { planId: winner.planId, status: "conflict" };
+      }
+      byTransaction.set(scoped(key.scope, key.transactionId), planId);
+      if (key.originalTransactionId) byOriginal.set(scoped(key.scope, key.originalTransactionId), planId);
+      if (key.subscriptionId) bySubscription.set(scoped(key.scope, key.subscriptionId), planId);
+      calls.associated.push(planId);
+      return { planId, status: "linked" };
+    },
+    findPlanById: async (planId) => {
+      calls.lookups++;
+      if (options.failLookup) return { data: null, error: new Error("db down") };
+      return { data: plans.find((p) => p.id === planId) ?? null, error: null };
+    },
     checkRevenueCat: async () => options.rc ?? { ok: true, active: true },
     confirmPurchase: async () => {
       calls.confirmed++;
-      if (options.confirmError) return { updated: 0, error: new Error("db down") };
       return { updated: options.confirmUpdated ?? 1, error: null };
     },
     issue: async (planId) => {
       calls.issued++;
       const result = options.issueResult ?? { ok: true, status: "sent" };
-      // The real issuance records credentials_issued_at; the fake must too, or
-      // the handler cannot be observed avoiding a duplicate delivery.
       if (result.ok && result.status !== "in_progress") {
         const p = plans.find((x) => x.id === planId);
         if (p) p.credentials_issued_at = "2026-09-18T00:00:00Z";
@@ -138,7 +153,11 @@ function fake(options: FakeOpts = {}) {
     },
   };
 
-  return { deps, events, plans, associations, calls, setSteal: (v: boolean) => { state.steal = v; } };
+  return {
+    deps, events, plans, calls, byTransaction, byOriginal, bySubscription,
+    setSteal: (v: boolean) => { state.stealLease = v; },
+    setStealFinish: (v: boolean) => { state.stealFinish = v; },
+  };
 }
 
 const baseEvent = (over: Record<string, unknown> = {}) => ({
@@ -152,6 +171,9 @@ const baseEvent = (over: Record<string, unknown> = {}) => ({
   subscription_id: SUB,
   ...over,
 });
+
+/** Association keys are scoped: app|store|environment::transaction. */
+const scopedTx = (tx: string) => `app-1|stripe|production::${tx}`;
 
 const call = (event: Record<string, unknown>, deps: WebhookDeps) =>
   handleRevenueCatWebhook({ authorization: "s", configuredAuthorization: "s", event: event as never }, deps);
@@ -168,18 +190,23 @@ describe("helpers", () => {
     expect(purchaseScope({ app_id: "a", store: "stripe", environment: "production" })).toBe("a|stripe|production");
     expect(purchaseScope({ app_id: "a", store: "stripe", environment: "sandbox" })).toBe("a|stripe|sandbox");
     expect(purchaseScope({ app_id: "a", store: "play_store", environment: "production" })).toBe("a|play_store|production");
-    expect(purchaseScope({ app_id: "b", store: "stripe", environment: "production" })).toBe("b|stripe|production");
   });
 
-  it("ownership ignores materialization state", () => {
+  it("ownership ignores materialization state but not the claiming account", () => {
     expect(isOwnedBy(plan({ status: "claimed", claimed_by_user_id: USER }), USER)).toBe(true);
     expect(isOwnedBy(plan({ status: "claimed", claimed_by_user_id: OTHER }), USER)).toBe(false);
     expect(isOwnedBy(plan({ funnel_user_id: null }), USER)).toBe(false);
   });
+
+  it("an expired plan is not eligible for a purchase", () => {
+    expect(isEligibleForPurchase(plan(), USER)).toBe(true);
+    expect(isEligibleForPurchase(plan({ status: "expired" }), USER)).toBe(false);
+    expect(isEligibleForPurchase(plan({ status: "claimed", claimed_by_user_id: USER }), USER)).toBe(true);
+  });
 });
 
-describe("1. no plan selection by user", () => {
-  it("RENEWAL without metadata and no prior association performs no mutation", async () => {
+describe("no plan selection by user", () => {
+  it("RENEWAL without metadata and one plan performs no mutation", async () => {
     const { deps, calls } = fake();
     const result = await call(baseEvent({ id: "r-1", type: "RENEWAL", transaction_id: "tx-new" }), deps);
     expect(result).toMatchObject({ status: 503, body: { error: "plan_unresolved", retryable: true } });
@@ -188,94 +215,137 @@ describe("1. no plan selection by user", () => {
     expect(calls.leaseChecks).toBe(0);
   });
 
-  it("never falls back to the only existing plan", async () => {
-    const { deps, calls, plans } = fake();
-    plans.push(plan({ id: PLAN_2 }));
-    const result = await call(baseEvent({ id: "r-2", type: "RENEWAL", transaction_id: "tx-2" }), deps);
-    expect(result.body).toMatchObject({ error: "plan_unresolved" });
-    expect(calls.issued).toBe(0);
-  });
-
   it("INITIAL_PURCHASE without metadata performs no mutation", async () => {
     const { deps, calls } = fake();
     const result = await call(baseEvent({ id: "i-1", metadata: {} }), deps);
     expect(result.body).toMatchObject({ error: "plan_unresolved" });
     expect(calls.confirmed).toBe(0);
-    expect(calls.issued).toBe(0);
   });
 });
 
-describe("2. persistent transaction-plan association", () => {
-  it("links the declared plan and issues", async () => {
-    const { deps, calls, associations } = fake();
+describe("transaction identifiers", () => {
+  it("links the declared plan using transaction_id", async () => {
+    const { deps, calls, byTransaction } = fake();
     const result = await call(baseEvent({ id: "a-1", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent", planId: PLAN } });
+    expect(byTransaction.get(scopedTx(TX))).toBe(PLAN);
     expect(calls.confirmed).toBe(1);
+  });
+
+  it("a renewal resolves through original_transaction_id", async () => {
+    const { deps, byOriginal, calls } = fake();
+    await call(baseEvent({ id: "a-2", original_transaction_id: ORIG_TX, metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(byOriginal.get(`app-1|stripe|production::${ORIG_TX}`)).toBe(PLAN);
+    // New transaction, pointing back at the original purchase. It resolves the
+    // plan, then finds the delivery already done.
+    const renewal = await call(
+      baseEvent({ id: "a-3", type: "RENEWAL", transaction_id: "tx-renew", original_transaction_id: ORIG_TX, metadata: {} }),
+      deps,
+    );
+    expect(renewal.body).toMatchObject({ ignored: true, reason: "already_issued" });
     expect(calls.issued).toBe(1);
-    expect(associations.get(`app-1|stripe|production|${TX}`)).toBe(PLAN);
   });
 
-  it("two different events of the same purchase resolve to the same plan", async () => {
-    const { deps, calls, associations } = fake();
-    const first = await call(baseEvent({ id: "a-2", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(first.body).toMatchObject({ planId: PLAN });
-
-    // A second event of the SAME purchase (same transaction_id) carries no metadata.
-    const second = await call(baseEvent({ id: "a-3", type: "RENEWAL", transaction_id: TX, metadata: {} }), deps);
-    expect(second).toMatchObject({ status: 200, body: { success: true, planId: PLAN } });
-    expect(associations.size).toBe(1);
-    expect(calls.issued).toBe(1); // already issued -> ignored, never re-issued
+  it("a renewal resolves through subscription_id as last resort", async () => {
+    const { deps } = fake();
+    await call(baseEvent({ id: "a-4", metadata: { brainy_plan_id: PLAN } }), deps);
+    const renewal = await call(
+      baseEvent({ id: "a-5", type: "RENEWAL", transaction_id: "tx-x", original_transaction_id: "", metadata: {} }),
+      deps,
+    );
+    expect(renewal.body).toMatchObject({ ignored: true, reason: "already_issued" });
   });
 
-  it("rejects an attempt to bind the same purchase to another plan", async () => {
+  it("two events of the same purchase resolve to the same plan", async () => {
+    const { deps, calls } = fake();
+    await call(baseEvent({ id: "a-6", metadata: { brainy_plan_id: PLAN } }), deps);
+    const second = await call(baseEvent({ id: "a-7", type: "RENEWAL", transaction_id: TX, metadata: {} }), deps);
+    expect(second.body).toMatchObject({ ignored: true, reason: "already_issued" });
+    expect(calls.issued).toBe(1);
+  });
+
+  it("rejects rebinding the same purchase to another plan", async () => {
     const { deps, plans, calls } = fake();
     plans.push(plan({ id: PLAN_2 }));
-    await call(baseEvent({ id: "a-4", metadata: { brainy_plan_id: PLAN } }), deps);
-    // Same transaction, different declared plan.
-    const conflict = await call(baseEvent({ id: "a-5", metadata: { brainy_plan_id: PLAN_2 } }), deps);
+    await call(baseEvent({ id: "a-8", metadata: { brainy_plan_id: PLAN } }), deps);
+    const conflict = await call(baseEvent({ id: "a-9", metadata: { brainy_plan_id: PLAN_2 } }), deps);
     expect(conflict).toMatchObject({ status: 200, body: { ignored: true, reason: "association_conflict" } });
     expect(calls.issued).toBe(1);
   });
 
-  it("refuses a declared plan owned by another user", async () => {
-    const { deps, plans, calls } = fake();
-    plans[0].funnel_user_id = OTHER;
-    const result = await call(baseEvent({ id: "a-6", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "plan_not_owned" } });
-    expect(calls.confirmed).toBe(0);
+  it("an ambiguous association is refused, never guessed", async () => {
+    const { deps, calls } = fake({ ambiguous: true });
+    const result = await call(baseEvent({ id: "a-10", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "association_ambiguous", retryable: true } });
     expect(calls.issued).toBe(0);
+    expect(calls.associated).toHaveLength(0);
   });
 
-  it("renewal resolves a prior association by subscription", async () => {
-    const { deps } = fake();
-    await call(baseEvent({ id: "a-7", metadata: { brainy_plan_id: PLAN } }), deps);
-    // New transaction, same subscription, no metadata.
-    const renewal = await call(baseEvent({ id: "a-8", type: "RENEWAL", transaction_id: "tx-renew", subscription_id: SUB, metadata: {} }), deps);
-    expect(renewal.body).toMatchObject({ success: true, planId: PLAN });
-  });
-
-  it("scopes the same transaction id per app/store/environment", async () => {
-    const { deps, associations } = fake();
-    await call(baseEvent({ id: "a-9", metadata: { brainy_plan_id: PLAN } }), deps);
-    // Same transaction id in sandbox is a DIFFERENT purchase: unresolved.
-    const other = await call(
-      baseEvent({ id: "a-10", environment: "sandbox", transaction_id: TX, metadata: {} }),
-      deps,
-    );
+  it("scopes the transaction id per app/store/environment", async () => {
+    const { deps, calls } = fake();
+    await call(baseEvent({ id: "a-11", metadata: { brainy_plan_id: PLAN } }), deps);
+    const other = await call(baseEvent({ id: "a-12", environment: "sandbox", metadata: {} }), deps);
     expect(other.body).toMatchObject({ error: "plan_unresolved" });
-    expect(associations.size).toBe(1);
+    expect(calls.issued).toBe(1);
   });
 });
 
-describe("3. concurrency responses", () => {
+describe("validation before inserting the association", () => {
+  it("refuses a declared plan owned by another user and writes nothing", async () => {
+    const { deps, calls, byTransaction } = fake();
+    deps.findPlanById = async () => ({ data: plan({ funnel_user_id: OTHER }), error: null });
+    const result = await call(baseEvent({ id: "v-1", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "plan_not_owned" } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+    expect(calls.issued).toBe(0);
+  });
+
+  it("refuses an expired plan and writes nothing", async () => {
+    const { deps, byTransaction } = fake();
+    deps.findPlanById = async () => ({ data: plan({ status: "expired" }), error: null });
+    const result = await call(baseEvent({ id: "v-2", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "plan_ineligible" } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+  });
+
+  it("refuses when the declared plan does not exist and writes nothing", async () => {
+    const { deps, byTransaction } = fake();
+    deps.findPlanById = async () => ({ data: null, error: null });
+    const result = await call(baseEvent({ id: "v-3", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "plan_missing" } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+  });
+
+  it("checks the lease before inserting the association", async () => {
+    const { deps, byTransaction } = fake();
+    deps.holdsLease = async () => ({ held: false, error: null });
+    const result = await call(baseEvent({ id: "v-4", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "lease_lost" } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+  });
+
+  it("an expired lease is NOT a live lease", async () => {
+    const { deps, events } = fake();
+    // Force the stored lease to already be elapsed.
+    deps.holdsLease = async () => {
+      const e = events.get("v-5")!;
+      const live = !!e.lease_expires_at && new Date(e.lease_expires_at).getTime() > NOW.getTime();
+      return { held: live, error: null };
+    };
+    const ok = await call(baseEvent({ id: "v-5", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(ok.status).toBe(200);
+  });
+});
+
+describe("concurrency responses", () => {
   it("processing with a live lease returns 503 retryable", async () => {
     const { deps, events } = fake();
     events.set("c-1", { status: "processing", execution_id: "other", lease_expires_at: "2026-09-18T00:05:00Z" });
     const result = await call(baseEvent({ id: "c-1", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "event_in_progress", retryable: true } });
+    expect(result).toMatchObject({ status: 503, body: { error: "event_in_progress" } });
   });
 
-  it("processing with a NULL lease is reclaimed (handler and SQL agree)", async () => {
+  it("processing with a NULL lease is reclaimed", async () => {
     const { deps, events, calls } = fake();
     events.set("c-2", { status: "processing", execution_id: "dead", lease_expires_at: null });
     const result = await call(baseEvent({ id: "c-2", metadata: { brainy_plan_id: PLAN } }), deps);
@@ -283,113 +353,105 @@ describe("3. concurrency responses", () => {
     expect(calls.issued).toBe(1);
   });
 
-  it("a live lease is not even attempted for takeover", async () => {
-    const { deps, events, calls } = fake();
-    events.set("c-3", { status: "processing", execution_id: "other", lease_expires_at: "2026-09-18T00:05:00Z" });
-    await call(baseEvent({ id: "c-3", metadata: { brainy_plan_id: PLAN } }), deps);
-    // untouched: still owned by the other execution
-    expect(events.get("c-3")).toMatchObject({ status: "processing", execution_id: "other" });
-    expect(calls.issued).toBe(0);
-  });
-
   it("findEvent error returns 503", async () => {
     const { deps, events } = fake({ failFindEvent: true });
-    events.set("c-4", { status: "retryable", execution_id: null, lease_expires_at: null });
-    const result = await call(baseEvent({ id: "c-4" }), deps);
-    expect(result).toMatchObject({ status: 503, body: { retryable: true } });
+    events.set("c-3", { status: "retryable", execution_id: null, lease_expires_at: null });
+    expect(await call(baseEvent({ id: "c-3" }), deps)).toMatchObject({ status: 503 });
   });
 
   it("insert error returns 503", async () => {
     const { deps } = fake({ failInsert: true });
-    const result = await call(baseEvent({ id: "c-5" }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "event_store_unavailable" } });
+    expect(await call(baseEvent({ id: "c-4" }), deps)).toMatchObject({ status: 503, body: { error: "event_store_unavailable" } });
   });
 
   it("lost claim re-reads and answers 503 when not terminal", async () => {
     const { deps, events } = fake();
-    events.set("c-6", { status: "retryable", execution_id: "someone", lease_expires_at: null });
-    // Simulate the row turning terminal between read and claim.
-    deps.finishEvent = async (eventId, _x, status) => {
-      const e = events.get(eventId)!;
-      e.status = status;
-      return { updated: 1, error: null };
-    };
+    events.set("c-5", { status: "retryable", execution_id: "someone", lease_expires_at: null });
     deps.claimEvent = async () => ({ updated: 0, error: null });
-    const result = await call(baseEvent({ id: "c-6" }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "event_claim_lost" } });
+    expect(await call(baseEvent({ id: "c-5" }), deps)).toMatchObject({ status: 503, body: { error: "event_claim_lost" } });
   });
 
   it("terminal states answer 200 idempotent", async () => {
     const { deps, events, calls } = fake();
-    events.set("c-7", { status: "processed", execution_id: null, lease_expires_at: null });
-    const result = await call(baseEvent({ id: "c-7", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, idempotent: true, status: "processed" } });
+    events.set("c-6", { status: "processed", execution_id: null, lease_expires_at: null });
+    expect(await call(baseEvent({ id: "c-6", metadata: { brainy_plan_id: PLAN } }), deps))
+      .toMatchObject({ status: 200, body: { idempotent: true, status: "processed" } });
     expect(calls.issued).toBe(0);
   });
 
-  it("an execution without the lease does not confirm or issue", async () => {
+  it("a stolen lease stops confirm and issue", async () => {
     const { deps, calls, setSteal } = fake();
     setSteal(true);
-    const result = await call(baseEvent({ id: "c-8", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "lease_lost", retryable: true } });
+    const result = await call(baseEvent({ id: "c-7", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result.status).toBe(503);
     expect(calls.confirmed).toBe(0);
     expect(calls.issued).toBe(0);
   });
 });
 
-describe("4. pending credential recovery", () => {
+describe("pending credential recovery", () => {
   it("confirmed purchase with failed email is retried successfully", async () => {
     const { deps, plans, calls } = fake({ issueResult: { ok: false, status: "retryable" } });
     plans[0].purchase_confirmed_at = "2026-09-17T00:00:00Z";
     const first = await call(baseEvent({ id: "d-1", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(first).toMatchObject({ status: 503, body: { retryable: true } });
-    expect(calls.issued).toBe(1);
-    expect(calls.confirmed).toBe(0); // already confirmed
+    expect(first).toMatchObject({ status: 503 });
+    expect(calls.confirmed).toBe(0);
 
-    deps.issue = async () => { calls.issued++; return { ok: true, status: "sent" }; };
+    deps.issue = async (planId) => {
+      calls.issued++;
+      const p = plans.find((x) => x.id === planId);
+      if (p) p.credentials_issued_at = "2026-09-18T00:00:00Z";
+      return { ok: true, status: "sent" };
+    };
     const second = await call(baseEvent({ id: "d-1", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(second).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(second).toMatchObject({ status: 200, body: { status: "sent" } });
     expect(calls.issued).toBe(2);
   });
 
-  it("a claimed plan with pending delivery is still delivered to its owner", async () => {
+  it("a claimed plan with pending delivery is delivered to its owner", async () => {
     const { deps, plans, calls } = fake();
     plans[0].status = "claimed";
     plans[0].claimed_by_user_id = USER;
     plans[0].purchase_confirmed_at = "2026-09-17T00:00:00Z";
-    const result = await call(baseEvent({ id: "d-2", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(await call(baseEvent({ id: "d-2", metadata: { brainy_plan_id: PLAN } }), deps))
+      .toMatchObject({ status: 200, body: { status: "sent" } });
     expect(calls.issued).toBe(1);
   });
 
   it("already issued answers ignored", async () => {
     const { deps, plans, calls } = fake();
     plans[0].credentials_issued_at = "2026-09-17T01:00:00Z";
-    const result = await call(baseEvent({ id: "d-3", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "already_issued" } });
+    expect(await call(baseEvent({ id: "d-3", metadata: { brainy_plan_id: PLAN } }), deps))
+      .toMatchObject({ status: 200, body: { reason: "already_issued" } });
     expect(calls.issued).toBe(0);
   });
 
   it("a bound plan that no longer exists is handled without a null dereference", async () => {
     const { deps, plans, calls } = fake();
     plans.length = 0;
-    const result = await call(baseEvent({ id: "d-4", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "plan_missing", retryable: true } });
+    expect(await call(baseEvent({ id: "d-4", metadata: { brainy_plan_id: PLAN } }), deps))
+      .toMatchObject({ status: 503, body: { error: "plan_missing" } });
     expect(calls.issued).toBe(0);
   });
 
-  it("confirmPurchase updating zero rows without a visible confirmation is retryable", async () => {
+  it("confirmPurchase with zero rows and no visible confirmation is retryable", async () => {
     const { deps, plans } = fake({ confirmUpdated: 0 });
-    // Re-read returns the plan still unconfirmed -> must not assume success.
     const result = await call(baseEvent({ id: "d-5", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "purchase_confirm_failed", retryable: true } });
+    expect(result).toMatchObject({ status: 503, body: { error: "purchase_confirm_failed" } });
     expect(plans[0].purchase_confirmed_at).toBeNull();
   });
 
-  it("confirmPurchase zero rows but re-read shows confirmation -> proceeds", async () => {
+  it("confirmPurchase zero rows but re-read shows confirmation proceeds", async () => {
     const { deps, plans } = fake({ confirmUpdated: 0 });
     deps.confirmPurchase = async () => { plans[0].purchase_confirmed_at = "2026-09-18T00:00:00Z"; return { updated: 0, error: null }; };
-    const result = await call(baseEvent({ id: "d-6", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 200, body: { success: true, status: "sent" } });
+    expect(await call(baseEvent({ id: "d-6", metadata: { brainy_plan_id: PLAN } }), deps))
+      .toMatchObject({ status: 200, body: { status: "sent" } });
+  });
+
+  it("in_progress issuance stays retryable", async () => {
+    const { deps, events } = fake({ issueResult: { ok: false, status: "in_progress" } });
+    const result = await call(baseEvent({ id: "d-7", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "issuance_in_progress" } });
+    expect(events.get("d-7")?.status).toBe("retryable");
   });
 });

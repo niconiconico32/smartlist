@@ -20,24 +20,32 @@ CREATE INDEX IF NOT EXISTS idx_revenuecat_webhook_events_lease
 
 -- ── 2. Purchase → plan association ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.revenuecat_purchase_plans (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  scope_key       TEXT NOT NULL,
-  transaction_id  TEXT NOT NULL,
-  subscription_id TEXT,
-  app_user_id     UUID NOT NULL,
-  plan_id         UUID NOT NULL REFERENCES public.web_funnel_plans(id) ON DELETE CASCADE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scope_key               TEXT NOT NULL,
+  transaction_id          TEXT NOT NULL,
+  original_transaction_id TEXT,
+  subscription_id         TEXT,
+  app_user_id             UUID NOT NULL,
+  plan_id                 UUID NOT NULL REFERENCES public.web_funnel_plans(id) ON DELETE CASCADE,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   -- A purchase can be bound to exactly ONE plan, per scope. This is the
   -- constraint that makes a second, conflicting declaration fail at the DB.
   CONSTRAINT revenuecat_purchase_plans_scope_tx_uniq UNIQUE (scope_key, transaction_id)
 );
 
--- Renewals carry a new transaction_id but the same subscription_id, so a
--- renewal resolves through this index and can never create a new association.
-CREATE INDEX IF NOT EXISTS idx_revenuecat_purchase_plans_subscription
+-- A renewal must resolve to EXACTLY ONE plan. More than one row sharing a
+-- subscription inside a scope means the association is ambiguous, and the
+-- function refuses to pick: this index backs that probe.
+CREATE UNIQUE INDEX IF NOT EXISTS revenuecat_purchase_plans_scope_sub_uniq
   ON public.revenuecat_purchase_plans (scope_key, subscription_id)
   WHERE subscription_id IS NOT NULL;
+
+-- Renewals carry their own transaction_id plus original_transaction_id; this
+-- index resolves them back to the purchase that started the subscription.
+CREATE INDEX IF NOT EXISTS idx_revenuecat_purchase_plans_original_tx
+  ON public.revenuecat_purchase_plans (scope_key, original_transaction_id)
+  WHERE original_transaction_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_revenuecat_purchase_plans_user
   ON public.revenuecat_purchase_plans (app_user_id);
@@ -76,8 +84,10 @@ COMMENT ON TABLE public.revenuecat_purchase_plans IS
 COMMENT ON COLUMN public.revenuecat_purchase_plans.scope_key IS
   'app_id|store|environment — the boundary within which a transaction_id identifies a purchase.';
 COMMENT ON COLUMN public.revenuecat_purchase_plans.transaction_id IS
-  'RevenueCat transaction_id (web billing payment identifier). Unique per scope.';
+  'RevenueCat transaction_id of THIS purchase. Unique per scope.';
+COMMENT ON COLUMN public.revenuecat_purchase_plans.original_transaction_id IS
+  'RevenueCat original_transaction_id: the purchase a renewal descends from. Used to resolve, never to create.';
 COMMENT ON COLUMN public.revenuecat_purchase_plans.subscription_id IS
-  'RevenueCat subscription_id, shared by renewals. Used to resolve, never to create.';
+  'RevenueCat subscription_id. Unique per scope so a renewal can never be ambiguous.';
 COMMENT ON COLUMN public.revenuecat_purchase_plans.plan_id IS
   'Immutable funnel plan bound to this purchase. UPDATE is rejected by trigger.';
