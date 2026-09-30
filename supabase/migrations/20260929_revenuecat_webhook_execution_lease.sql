@@ -68,9 +68,19 @@ CREATE TRIGGER revenuecat_purchase_plans_immutable_trg
 
 -- ── 4. RLS: only the service role (Edge Function) touches this table ─────────
 ALTER TABLE public.revenuecat_purchase_plans ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.revenuecat_purchase_plans FROM anon, authenticated;
-GRANT SELECT, INSERT ON public.revenuecat_purchase_plans TO service_role;
+
+-- REVOKE ALL for service_role too, not just anon/authenticated. Supabase sets
+-- ALTER DEFAULT PRIVILEGES for the table owner in schema public, which grants
+-- ALL on every new public table to anon, authenticated AND service_role. A bare
+-- GRANT is additive and would leave UPDATE/DELETE/TRUNCATE in place, so the
+-- default grant has to be taken away explicitly before re-granting the minimum.
+REVOKE ALL ON TABLE public.revenuecat_purchase_plans
+  FROM anon, authenticated, service_role;
+
+GRANT SELECT, INSERT ON TABLE public.revenuecat_purchase_plans
+  TO service_role;
 -- No UPDATE/DELETE: reassignment is impossible even for a compromised caller.
+-- (The BEFORE UPDATE trigger on plan_id is a second, independent layer.)
 
 COMMENT ON TABLE public.revenuecat_purchase_plans IS
   'Immutable binding between a RevenueCat purchase (scope: app|store|environment + transaction_id) and the funnel plan it created.';
