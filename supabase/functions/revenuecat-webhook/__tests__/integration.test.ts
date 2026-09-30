@@ -277,12 +277,27 @@ describe("handler + adapter: happy path", () => {
     expect(supabase.state.associations).toHaveLength(1);
   });
 
-it("incomplete scope performs zero business mutations", async () => {
+  it.each([
+    ["app_id", "app_id"],
+    ["store", "store"],
+    ["environment", "environment"],
+  ])("missing %s is retryable and mutates nothing", async (label, field) => {
     const supabase = memorySupabase({ plans: [seedPlan()] });
     const deps = build(supabase);
-    // store missing entirely
-    const result = await call(deps, purchaseEvent({ id: "sc-1", store: "" }));
-    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "incomplete_scope" } });
+    const result = await call(deps, purchaseEvent({ id: `sc-${label}`, [field]: "" }));
+
+    // Retryable, not ignored: recoverable once the real payload is confirmed.
+    expect(result).toMatchObject({
+      status: 503,
+      body: { success: false, error: "incomplete_scope", retryable: true },
+    });
+
+    // The stored event is retryable, so RevenueCat (or a human) can resend it.
+    const stored = supabase.state.events[0];
+    expect(stored.status).toBe("retryable");
+    expect(stored.lease_expires_at).toBeNull();
+
+    // Zero business mutations.
     expect(supabase.state.associations).toHaveLength(0);
     expect(supabase.state.plans[0].purchase_confirmed_at).toBeNull();
     expect(supabase.state.plans[0].credentials_issued_at).toBeNull();

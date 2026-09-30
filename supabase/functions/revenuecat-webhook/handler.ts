@@ -231,8 +231,16 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
   // ── Scope (required) ─────────────────────────────────────────────────────
   // No app_id / store / environment => the purchase cannot be scoped, so we
   // must not associate, confirm or issue anything.
+  //
+  // This is retryable, NOT ignored: the payload shape RevenueCat actually sends
+  // is not confirmed yet. A missing field may be a one-off delivery problem or a
+  // fixable integration, and marking the event terminal would bury the event
+  // forever. The row stays 'retryable' (processed_at NULL, lease released) so it
+  // can be picked up again automatically or replayed by hand once the real
+  // payload is confirmed. Retrying is always safe: no association, confirmation
+  // or issuance happened on this path.
   const scope = purchaseScope(event);
-  if (!scope) return ignored("incomplete_scope");
+  if (!scope) return releaseThen(retryable("incomplete_scope"));
 
   // ── Entitlement gate FIRST ────────────────────────────────────────────────
   // The purchase is verified server-side before any association is created, so
