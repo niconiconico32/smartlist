@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS public.revenuecat_purchase_plans (
   scope_key               TEXT NOT NULL,
   transaction_id          TEXT NOT NULL,
   original_transaction_id TEXT,
-  subscription_id         TEXT,
   app_user_id             UUID NOT NULL,
   plan_id                 UUID NOT NULL REFERENCES public.web_funnel_plans(id) ON DELETE CASCADE,
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -34,16 +33,10 @@ CREATE TABLE IF NOT EXISTS public.revenuecat_purchase_plans (
   CONSTRAINT revenuecat_purchase_plans_scope_tx_uniq UNIQUE (scope_key, transaction_id)
 );
 
--- A renewal must resolve to EXACTLY ONE plan. More than one row sharing a
--- subscription inside a scope means the association is ambiguous, and the
--- function refuses to pick: this index backs that probe.
-CREATE UNIQUE INDEX IF NOT EXISTS revenuecat_purchase_plans_scope_sub_uniq
-  ON public.revenuecat_purchase_plans (scope_key, subscription_id)
-  WHERE subscription_id IS NOT NULL;
-
--- Renewals carry their own transaction_id plus original_transaction_id; this
--- index resolves them back to the purchase that started the subscription.
-CREATE INDEX IF NOT EXISTS idx_revenuecat_purchase_plans_original_tx
+-- SECOND half of the contract: a renewal (its own transaction_id) must always
+-- resolve back to the SAME plan as the purchase it descends from. Without this
+-- index a renewal could be associated to a different plan than its origin.
+CREATE UNIQUE INDEX IF NOT EXISTS revenuecat_purchase_plans_scope_orig_uniq
   ON public.revenuecat_purchase_plans (scope_key, original_transaction_id)
   WHERE original_transaction_id IS NOT NULL;
 
@@ -87,7 +80,5 @@ COMMENT ON COLUMN public.revenuecat_purchase_plans.transaction_id IS
   'RevenueCat transaction_id of THIS purchase. Unique per scope.';
 COMMENT ON COLUMN public.revenuecat_purchase_plans.original_transaction_id IS
   'RevenueCat original_transaction_id: the purchase a renewal descends from. Used to resolve, never to create.';
-COMMENT ON COLUMN public.revenuecat_purchase_plans.subscription_id IS
-  'RevenueCat subscription_id. Unique per scope so a renewal can never be ambiguous.';
 COMMENT ON COLUMN public.revenuecat_purchase_plans.plan_id IS
   'Immutable funnel plan bound to this purchase. UPDATE is rejected by trigger.';
