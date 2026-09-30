@@ -5,12 +5,14 @@ const LEASE_MS = 2 * 60 * 1000;
 
 /** Event types that may carry purchase metadata and therefore declare a plan. */
 const PLAN_DECLARING_TYPES = new Set(["INITIAL_PURCHASE", "NON_RENEWING_PURCHASE"]);
-/** Every event type this function acts on. */
 const HANDLED_TYPES = new Set([
   "INITIAL_PURCHASE",
   "RENEWAL",
   "NON_RENEWING_PURCHASE",
 ]);
+
+/** Terminal states are the only ones allowed to answer 200 idempotent. */
+const TERMINAL_STATUSES = new Set(["processed", "ignored"]);
 
 export function constantTimeEqual(received: string, expected: string): boolean {
   const a = new TextEncoder().encode(received);
@@ -43,36 +45,27 @@ export interface EventRow {
   lease_expires_at: string | null;
 }
 
-/** Terminal states are the only ones allowed to answer 200 idempotent. */
-const TERMINAL_STATUSES = new Set(["processed", "ignored"]);
+export type CreateAssociationStatus = "linked" | "existing" | "conflict" | "error";
 
-export type AssociationOutcome =
-  | { status: "linked"; planId: string }
-  | { status: "existing"; planId: string }
-  | { status: "conflict"; planId: string }
-  | { status: "unresolved" }
-  | { status: "error" };
+export interface AssociationKey {
+  scope: string;
+  transactionId: string;
+  originalTransactionId: string;
+  subscriptionId: string;
+  appUserId: string;
+}
 
 export interface WebhookDeps {
   now(): Date;
-  /** TRUE when the event row was created by this call. */
   insertEvent(eventId: string, type: string, appUserId: string, executionId: string, leaseExpiresAt: string): Promise<{ created: boolean; error: unknown }>;
   findEvent(eventId: string): Promise<{ data: EventRow | null; error: unknown }>;
-  /** Atomically takes the lease. `updated` counts the rows actually taken. */
   claimEvent(eventId: string, executionId: string, leaseExpiresAt: string, fromStatus: string): Promise<{ updated: number; error: unknown }>;
-  /** Must match the handler's notion of "expired", NULL lease included. */
   claimExpiredEvent(eventId: string, executionId: string, leaseExpiresAt: string): Promise<{ updated: number; error: unknown }>;
-  /** Confirms this execution still owns a live lease. Checked before mutations. */
+  /** TRUE only while this execution still holds a LIVE (unexpired) lease. */
   holdsLease(eventId: string, executionId: string): Promise<{ held: boolean; error: unknown }>;
   finishEvent(eventId: string, executionId: string, status: "processed" | "ignored" | "retryable"): Promise<{ updated: number; error: unknown }>;
-  /** Resolves (and for a declaring event, creates) the transaction→plan link. */
-  resolveAssociation(input: {
-    scope: string;
-    transactionId: string;
-    subscriptionId: string;
-    appUserId: string;
-    declaredPlanId: string;
-  }): Promise<AssociationOutcome>;
+  findAssociation(key: AssociationKey): Promise<{ planId: string | null; ambiguous: boolean; error: unknown }>;
+  createAssociation(key: AssociationKey, planId: string): Promise<{ planId: string | null; status: CreateAssociationStatus }>;
   findPlanById(planId: string): Promise<{ data: FunnelPlanRow | null; error: unknown }>;
   checkRevenueCat(appUserId: string): Promise<{ ok: boolean; active: boolean }>;
   confirmPurchase(planId: string): Promise<{ updated: number; error: unknown }>;
@@ -89,6 +82,7 @@ export interface RcWebhookEvent {
   environment?: unknown;
   subscription_id?: unknown;
   transaction_id?: unknown;
+  original_transaction_id?: unknown;
   metadata?: unknown;
 }
 
@@ -107,7 +101,7 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-/** Extrae el planId que la web envió en la metadata de la compra. */
+/** The plan id the web declared in the purchase metadata. */
 export function planIdFromMetadata(metadata: unknown): string {
   if (!metadata || typeof metadata !== "object") return "";
   return text((metadata as { brainy_plan_id?: unknown }).brainy_plan_id);
@@ -115,8 +109,8 @@ export function planIdFromMetadata(metadata: unknown): string {
 
 /**
  * Scope of a purchase. RevenueCat identifies a purchase within
- * (app, store, environment); the same transaction string in another app, store
- * or sandbox is a different purchase and must never share an association.
+ * (app, store, environment): the same transaction id in another app, store or
+ * sandbox is a different purchase and must never share an association.
  */
 export function purchaseScope(event: RcWebhookEvent): string {
   const app = text(event.app_id) || text(event.app_user_type) || "unknown-app";
@@ -126,15 +120,18 @@ export function purchaseScope(event: RcWebhookEvent): string {
 }
 
 /**
- * Ownership is about WHO the plan belongs to, not about its materialization
- * state. A `claimed` plan still has a pending delivery for its rightful owner,
- * so `status` is deliberately NOT part of this check. What IS part of it: a
- * plan materialized under a different account must never receive this purchase's
- * credentials, even though `funnel_user_id` still points at the buyer.
+ * Ownership: WHO the plan belongs to. `status` is deliberately excluded because
+ * a `claimed` plan may still have a pending credential delivery, but a plan
+ * materialized under a different account must never receive this purchase.
  */
 export function isOwnedBy(plan: FunnelPlanRow, appUserId: string): boolean {
   return plan.funnel_user_id === appUserId &&
     (!plan.claimed_by_user_id || plan.claimed_by_user_id === appUserId);
+}
+
+/** A plan past its window can no longer represent a live purchase. */
+export function isEligibleForPurchase(plan: FunnelPlanRow, appUserId: string): boolean {
+  return isOwnedBy(plan, appUserId) && plan.status !== "expired";
 }
 
 export async function handleRevenueCatWebhook(input: WebhookInput, deps: WebhookDeps): Promise<WebhookResult> {
@@ -167,23 +164,18 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     if (!existing) return retryable("event_store_unavailable");
 
     if (TERMINAL_STATUSES.has(existing.status)) {
-      // Verified terminal: safe to acknowledge without re-running anything.
       return { status: 200, body: { success: true, idempotent: true, status: existing.status } };
     }
 
     if (existing.status === "processing") {
-      // A NULL lease is not an active lease, so it is reclaimable — same rule the
-      // SQL adapter implements (lease_expires_at IS NULL OR < now).
+      // A NULL lease is not an active lease, so it is reclaimable — the same
+      // rule the SQL adapter implements (NULL OR expired).
       const expired = !existing.lease_expires_at ||
         new Date(existing.lease_expires_at).getTime() <= deps.now().getTime();
-      if (!expired) {
-        // Another live execution owns it. Not a completed state: ask for retry.
-        return retryable("event_in_progress");
-      }
+      if (!expired) return retryable("event_in_progress");
       const taken = await deps.claimExpiredEvent(eventId, executionId, leaseExpiresAt);
       if (taken.error) return retryable("event_store_unavailable");
       if (taken.updated !== 1) {
-        // Lost the race: re-read to see whether the winner finished it.
         const after = await deps.findEvent(eventId);
         if (after.error) return retryable("event_store_unavailable");
         if (after.data && TERMINAL_STATUSES.has(after.data.status)) {
@@ -192,7 +184,6 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
         return retryable("event_claim_lost");
       }
     } else {
-      // "retryable" (or any known non-terminal state): take it over.
       const taken = await deps.claimEvent(eventId, executionId, leaseExpiresAt, existing.status);
       if (taken.error) return retryable("event_store_unavailable");
       if (taken.updated !== 1) {
@@ -206,7 +197,6 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     }
   }
 
-  /** Finishing is only valid for the execution that still holds the lease. */
   const finish = async (status: "processed" | "ignored" | "retryable"): Promise<boolean> => {
     const { updated, error } = await deps.finishEvent(eventId, executionId, status);
     return !error && updated === 1;
@@ -215,51 +205,78 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     if (!(await finish("retryable"))) return retryable("event_finish_failed");
     return result;
   };
+  const ignored = async (reason: string): Promise<WebhookResult> => {
+    if (!(await finish("ignored"))) return retryable("event_finish_failed");
+    return { status: 200, body: { success: true, ignored: true, reason } };
+  };
+  /** Re-checked before every mutation: a stale execution must stop here. */
+  const leaseAlive = async (): Promise<WebhookResult | null> => {
+    const lease = await deps.holdsLease(eventId, executionId);
+    if (lease.error) return retryable("event_store_unavailable");
+    if (!lease.held) return retryable("lease_lost");
+    return null;
+  };
 
   // ── Event relevance ────────────────────────────────────────────────────────
-  if (!HANDLED_TYPES.has(type) || !isUuid(appUserId)) {
-    if (!(await finish("ignored"))) return retryable("event_finish_failed");
-    return { status: 200, body: { success: true, ignored: true } };
-  }
+  if (!HANDLED_TYPES.has(type) || !isUuid(appUserId)) return ignored("unhandled_event");
 
-  // ── Resolve the plan strictly through the purchase association ────────────
   const declaredPlanId = PLAN_DECLARING_TYPES.has(type) ? planIdFromMetadata(event.metadata) : "";
   if (PLAN_DECLARING_TYPES.has(type) && declaredPlanId && !isUuid(declaredPlanId)) {
-    if (!(await finish("ignored"))) return retryable("event_finish_failed");
-    return { status: 200, body: { success: true, ignored: true, reason: "invalid_plan_id" } };
+    return ignored("invalid_plan_id");
   }
 
-  const transactionId = text(event.transaction_id);
-  const association = await deps.resolveAssociation({
+  // ── Resolve the plan through the purchase association ──────────────────────
+  // RevenueCat identifiers: transaction_id identifies THIS transaction;
+  // original_transaction_id links a renewal back to the purchase that started
+  // the subscription; subscription_id is the broadest join available.
+  const key: AssociationKey = {
     scope: purchaseScope(event),
-    transactionId,
+    transactionId: text(event.transaction_id),
+    originalTransactionId: text(event.original_transaction_id),
     subscriptionId: text(event.subscription_id),
     appUserId,
-    declaredPlanId,
-  });
-  if (association.status === "error") return releaseThen(retryable("association_unavailable"));
-  if (association.status === "conflict") {
-    // The purchase is already bound to a different plan: never reassign.
-    if (!(await finish("ignored"))) return retryable("event_finish_failed");
-    return { status: 200, body: { success: true, ignored: true, reason: "association_conflict" } };
-  }
-  if (association.status === "unresolved") {
-    // No metadata and no prior association (e.g. a renewal from another
-    // device/web surface). Refuse to guess a plan from the user alone.
-    return releaseThen(retryable("plan_unresolved"));
+  };
+
+  const found = await deps.findAssociation(key);
+  if (found.error) return releaseThen(retryable("association_unavailable"));
+  if (found.ambiguous) {
+    // More than one plan could claim this purchase: refuse rather than guess.
+    return releaseThen(retryable("association_ambiguous"));
   }
 
-  const planLookup = await deps.findPlanById(association.planId);
+  let planId = found.planId;
+
+  if (planId) {
+    // An existing association is authoritative and can never be reassigned.
+    if (declaredPlanId && declaredPlanId !== planId) return ignored("association_conflict");
+  } else {
+    if (!declaredPlanId) return releaseThen(retryable("plan_unresolved"));
+    if (!key.transactionId) return releaseThen(retryable("plan_unresolved"));
+
+    // Validate owner and eligibility BEFORE writing any association.
+    const pre = await deps.findPlanById(declaredPlanId);
+    if (pre.error) return releaseThen(retryable("plan_lookup_failed"));
+    if (!pre.data) return releaseThen(retryable("plan_missing"));
+    if (!isOwnedBy(pre.data, appUserId)) return ignored("plan_not_owned");
+    if (!isEligibleForPurchase(pre.data, appUserId)) return ignored("plan_ineligible");
+
+    const early = await leaseAlive();
+    if (early) return releaseThen(early);
+
+    const created = await deps.createAssociation(key, declaredPlanId);
+    if (created.status === "error") return releaseThen(retryable("association_unavailable"));
+    if (created.status === "conflict") return ignored("association_conflict");
+    if (!created.planId) return releaseThen(retryable("association_unavailable"));
+    planId = created.planId;
+  }
+
+  if (!planId) return releaseThen(retryable("plan_unresolved"));
+
+  const planLookup = await deps.findPlanById(planId);
   if (planLookup.error) return releaseThen(retryable("plan_lookup_failed"));
-  if (!planLookup.data) {
-    // Bound plan vanished: controlled response, never dereference null.
-    return releaseThen(retryable("plan_missing"));
-  }
+  if (!planLookup.data) return releaseThen(retryable("plan_missing"));
   const plan = planLookup.data;
-  if (!isOwnedBy(plan, appUserId)) {
-    if (!(await finish("ignored"))) return retryable("event_finish_failed");
-    return { status: 200, body: { success: true, ignored: true, reason: "plan_not_owned" } };
-  }
+  if (!isOwnedBy(plan, appUserId)) return ignored("plan_not_owned");
 
   // ── Entitlement gate (server-side, authoritative) ─────────────────────────
   const rc = await deps.checkRevenueCat(appUserId);
@@ -269,17 +286,15 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     return { status: 409, body: { success: false, error: "entitlement_inactive", retryable: true } };
   }
 
-  // ── Ownership of the lease is re-checked BEFORE any mutation ──────────────
-  const lease = await deps.holdsLease(eventId, executionId);
-  if (lease.error) return releaseThen(retryable("event_store_unavailable"));
-  if (!lease.held) return retryable("lease_lost");
+  const beforeMutate = await leaseAlive();
+  if (beforeMutate) return releaseThen(beforeMutate);
 
-  // ── Confirm the purchase (idempotent; a confirmed purchase is NOT delivery) ─
+  // ── Confirm the purchase (a confirmed purchase is NOT a delivery) ──────────
   if (!plan.purchase_confirmed_at) {
     const confirmed = await deps.confirmPurchase(plan.id);
     if (confirmed.error) return releaseThen(retryable("purchase_confirm_failed"));
     if (confirmed.updated !== 1) {
-      // Zero rows: something else changed the row. Verify instead of assuming.
+      // Zero rows: verify, never assume another execution did it.
       const recheck = await deps.findPlanById(plan.id);
       if (recheck.error) return releaseThen(retryable("plan_lookup_failed"));
       if (!recheck.data || recheck.data.purchase_confirmed_at === null) {
@@ -289,14 +304,13 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
   }
 
   // ── Deliver credentials ───────────────────────────────────────────────────
-  if (plan.credentials_issued_at) {
-    if (!(await finish("ignored"))) return retryable("event_finish_failed");
-    return { status: 200, body: { success: true, ignored: true, reason: "already_issued", planId: plan.id } };
-  }
+  if (plan.credentials_issued_at) return ignored("already_issued");
+
+  const beforeIssue = await leaseAlive();
+  if (beforeIssue) return releaseThen(beforeIssue);
 
   const issued = await deps.issue(plan.id, appUserId);
   if (!issued.ok || issued.status === "in_progress") {
-    // The email was not proven sent; keep the event retryable.
     return releaseThen(retryable(issued.status === "in_progress" ? "issuance_in_progress" : issued.status));
   }
 
