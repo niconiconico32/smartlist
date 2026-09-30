@@ -16,7 +16,6 @@ const PLAN = "550e8400-e29b-41d4-a716-446655440002";
 const PLAN_2 = "550e8400-e29b-41d4-a716-446655440003";
 const TX = "tx-abc";
 const ORIG_TX = "tx-origin";
-const SUB = "sub-abc";
 const NOW = new Date("2026-09-18T00:00:00Z");
 
 function plan(over: Partial<FunnelPlanRow> = {}): FunnelPlanRow {
@@ -41,7 +40,6 @@ interface FakeOpts {
   failLookup?: boolean;
   stealLease?: boolean;
   confirmUpdated?: number;
-  ambiguous?: boolean;
 }
 
 function fake(options: FakeOpts = {}) {
@@ -49,7 +47,6 @@ function fake(options: FakeOpts = {}) {
   const plans = [plan()];
   const byTransaction = new Map<string, string>();
   const byOriginal = new Map<string, string>();
-  const bySubscription = new Map<string, string>();
   const calls = { confirmed: 0, issued: 0, associated: [] as string[], leaseChecks: 0, lookups: 0 };
   // Scope-aware: the same transaction id in another scope is another purchase.
   const scoped = (scope: string, value: string) => `${scope}::${value}`;
@@ -105,17 +102,15 @@ function fake(options: FakeOpts = {}) {
       return { updated: 1, error: null };
     },
     findAssociation: async (key: AssociationKey) => {
-      if (options.failClaim) return { planId: null, ambiguous: false, error: new Error("db down") };
-      if (options.ambiguous) return { planId: null, ambiguous: true, error: null };
+      if (options.failClaim) return { planId: null, error: new Error("db down") };
       for (const [map, value] of [
         [byTransaction, key.transactionId],
         [byOriginal, key.originalTransactionId],
-        [bySubscription, key.subscriptionId],
       ] as const) {
         const k = value ? scoped(key.scope, value) : "";
-        if (k && map.has(k)) return { planId: map.get(k)!, ambiguous: false, error: null };
+        if (k && map.has(k)) return { planId: map.get(k)!, error: null };
       }
-      return { planId: null, ambiguous: false, error: null };
+      return { planId: null, error: null };
     },
     createAssociation: async (key: AssociationKey, planId): Promise<{ planId: string | null; status: CreateAssociationStatus }> => {
       if (options.failClaim) return { planId: null, status: "error" };
@@ -128,7 +123,6 @@ function fake(options: FakeOpts = {}) {
       }
       byTransaction.set(scoped(key.scope, key.transactionId), planId);
       if (key.originalTransactionId) byOriginal.set(scoped(key.scope, key.originalTransactionId), planId);
-      if (key.subscriptionId) bySubscription.set(scoped(key.scope, key.subscriptionId), planId);
       calls.associated.push(planId);
       return { planId, status: "linked" };
     },
@@ -154,7 +148,7 @@ function fake(options: FakeOpts = {}) {
   };
 
   return {
-    deps, events, plans, calls, byTransaction, byOriginal, bySubscription,
+    deps, events, plans, calls, byTransaction, byOriginal,
     setSteal: (v: boolean) => { state.stealLease = v; },
     setStealFinish: (v: boolean) => { state.stealFinish = v; },
   };
@@ -168,7 +162,6 @@ const baseEvent = (over: Record<string, unknown> = {}) => ({
   store: "stripe",
   environment: "production",
   transaction_id: TX,
-  subscription_id: SUB,
   ...over,
 });
 
@@ -246,16 +239,6 @@ describe("transaction identifiers", () => {
     expect(calls.issued).toBe(1);
   });
 
-  it("a renewal resolves through subscription_id as last resort", async () => {
-    const { deps } = fake();
-    await call(baseEvent({ id: "a-4", metadata: { brainy_plan_id: PLAN } }), deps);
-    const renewal = await call(
-      baseEvent({ id: "a-5", type: "RENEWAL", transaction_id: "tx-x", original_transaction_id: "", metadata: {} }),
-      deps,
-    );
-    expect(renewal.body).toMatchObject({ ignored: true, reason: "already_issued" });
-  });
-
   it("two events of the same purchase resolve to the same plan", async () => {
     const { deps, calls } = fake();
     await call(baseEvent({ id: "a-6", metadata: { brainy_plan_id: PLAN } }), deps);
@@ -271,14 +254,6 @@ describe("transaction identifiers", () => {
     const conflict = await call(baseEvent({ id: "a-9", metadata: { brainy_plan_id: PLAN_2 } }), deps);
     expect(conflict).toMatchObject({ status: 200, body: { ignored: true, reason: "association_conflict" } });
     expect(calls.issued).toBe(1);
-  });
-
-  it("an ambiguous association is refused, never guessed", async () => {
-    const { deps, calls } = fake({ ambiguous: true });
-    const result = await call(baseEvent({ id: "a-10", metadata: { brainy_plan_id: PLAN } }), deps);
-    expect(result).toMatchObject({ status: 503, body: { error: "association_ambiguous", retryable: true } });
-    expect(calls.issued).toBe(0);
-    expect(calls.associated).toHaveLength(0);
   });
 
   it("scopes the transaction id per app/store/environment", async () => {
@@ -334,6 +309,80 @@ describe("validation before inserting the association", () => {
     };
     const ok = await call(baseEvent({ id: "v-5", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(ok.status).toBe(200);
+  });
+});
+
+describe("required scope", () => {
+  it.each([
+    ["app_id", { app_id: "" }],
+    ["store", { store: "" }],
+    ["environment", { environment: "" }],
+  ])("missing %s performs zero business mutations", async (_label, patch) => {
+    const { deps, calls, byTransaction } = fake();
+    const result = await call(baseEvent({ id: "s-1", metadata: { brainy_plan_id: PLAN }, ...patch }), deps);
+
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "incomplete_scope" } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+    expect(calls.leaseChecks).toBe(0);
+  });
+
+  it("does not fall back to app_user_type when app_id is absent", async () => {
+    const { deps, byTransaction } = fake();
+    const result = await call(baseEvent({
+      id: "s-2",
+      app_id: "",
+      app_user_type: "APP_USER_ID",
+      metadata: { brainy_plan_id: PLAN },
+    }), deps);
+    expect(result.body).toMatchObject({ ignored: true, reason: "incomplete_scope" });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+  });
+});
+
+describe("entitlement is verified before a new association", () => {
+  it("inactive entitlement creates no association", async () => {
+    const { deps, calls, byTransaction } = fake({ rc: { ok: true, active: false } });
+    const result = await call(baseEvent({ id: "e-1", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 409, body: { error: "entitlement_inactive", retryable: true } });
+    expect(byTransaction.has(scopedTx(TX))).toBe(false);
+    expect(calls.associated).toHaveLength(0);
+    expect(calls.issued).toBe(0);
+  });
+
+  it("an unreachable RevenueCat is retryable and creates no association", async () => {
+    const { deps, calls, events } = fake({ rc: { ok: false, active: false } });
+    const result = await call(baseEvent({ id: "e-2", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(result).toMatchObject({ status: 503, body: { error: "verification_unavailable", retryable: true } });
+    expect(calls.associated).toHaveLength(0);
+    expect(events.get("e-2")?.status).toBe("retryable");
+  });
+
+  it("the plan is not even loaded before the entitlement gate passes", async () => {
+    const { deps, calls } = fake({ rc: { ok: false, active: false } });
+    await call(baseEvent({ id: "e-3", metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(calls.lookups).toBe(0);
+  });
+});
+
+describe("original_transaction_id conflict", () => {
+  it("the same original_transaction_id cannot be bound to another plan", async () => {
+    const { deps, plans, calls, byOriginal } = fake();
+    plans.push(plan({ id: PLAN_2 }));
+    const first = await call(baseEvent({ id: "o-1", original_transaction_id: ORIG_TX, metadata: { brainy_plan_id: PLAN } }), deps);
+    expect(first).toMatchObject({ status: 200, body: { success: true, planId: PLAN } });
+
+    // A different purchase claiming the same origin must be refused.
+    const conflict = await call(baseEvent({
+      id: "o-2",
+      transaction_id: "tx-other",
+      original_transaction_id: ORIG_TX,
+      metadata: { brainy_plan_id: PLAN_2 },
+    }), deps);
+    expect(conflict).toMatchObject({ status: 200, body: { ignored: true, reason: "association_conflict" } });
+    expect(byOriginal.size).toBe(1);
+    expect(calls.issued).toBe(1);
   });
 });
 

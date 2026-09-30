@@ -51,7 +51,6 @@ export interface AssociationKey {
   scope: string;
   transactionId: string;
   originalTransactionId: string;
-  subscriptionId: string;
   appUserId: string;
 }
 
@@ -64,7 +63,7 @@ export interface WebhookDeps {
   /** TRUE only while this execution still holds a LIVE (unexpired) lease. */
   holdsLease(eventId: string, executionId: string): Promise<{ held: boolean; error: unknown }>;
   finishEvent(eventId: string, executionId: string, status: "processed" | "ignored" | "retryable"): Promise<{ updated: number; error: unknown }>;
-  findAssociation(key: AssociationKey): Promise<{ planId: string | null; ambiguous: boolean; error: unknown }>;
+  findAssociation(key: AssociationKey): Promise<{ planId: string | null; error: unknown }>;
   createAssociation(key: AssociationKey, planId: string): Promise<{ planId: string | null; status: CreateAssociationStatus }>;
   findPlanById(planId: string): Promise<{ data: FunnelPlanRow | null; error: unknown }>;
   checkRevenueCat(appUserId: string): Promise<{ ok: boolean; active: boolean }>;
@@ -80,7 +79,6 @@ export interface RcWebhookEvent {
   app_user_type?: unknown;
   store?: unknown;
   environment?: unknown;
-  subscription_id?: unknown;
   transaction_id?: unknown;
   original_transaction_id?: unknown;
   metadata?: unknown;
@@ -108,14 +106,19 @@ export function planIdFromMetadata(metadata: unknown): string {
 }
 
 /**
- * Scope of a purchase. RevenueCat identifies a purchase within
- * (app, store, environment): the same transaction id in another app, store or
- * sandbox is a different purchase and must never share an association.
+ * Scope of a purchase: (app_id, store, environment).
+ *
+ * All three are REQUIRED. There is deliberately no substitute and no
+ * "unknown-*" filler: an association created under a guessed scope would collide
+ * with, or silently shadow, a real one. A missing field means the event cannot
+ * be scoped, so the caller must not create associations, confirm purchases or
+ * issue credentials.
  */
-export function purchaseScope(event: RcWebhookEvent): string {
-  const app = text(event.app_id) || text(event.app_user_type) || "unknown-app";
-  const store = text(event.store) || "unknown-store";
-  const environment = text(event.environment) || "unknown-environment";
+export function purchaseScope(event: RcWebhookEvent): string | null {
+  const app = text(event.app_id);
+  const store = text(event.store);
+  const environment = text(event.environment);
+  if (!app || !store || !environment) return null;
   return `${app}|${store}|${environment}`;
 }
 
@@ -225,24 +228,35 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     return ignored("invalid_plan_id");
   }
 
-  // ── Resolve the plan through the purchase association ──────────────────────
-  // RevenueCat identifiers: transaction_id identifies THIS transaction;
-  // original_transaction_id links a renewal back to the purchase that started
-  // the subscription; subscription_id is the broadest join available.
+  // ── Scope (required) ─────────────────────────────────────────────────────
+  // No app_id / store / environment => the purchase cannot be scoped, so we
+  // must not associate, confirm or issue anything.
+  const scope = purchaseScope(event);
+  if (!scope) return ignored("incomplete_scope");
+
+  // ── Entitlement gate FIRST ────────────────────────────────────────────────
+  // The purchase is verified server-side before any association is created, so
+  // an inactive or unreachable RevenueCat can never leave a new association
+  // behind. A failure here is retryable and creates nothing.
+  const rc = await deps.checkRevenueCat(appUserId);
+  if (!rc.ok) return releaseThen(retryable("verification_unavailable"));
+  if (!rc.active) {
+    if (!(await finish("retryable"))) return retryable("event_finish_failed");
+    return { status: 409, body: { success: false, error: "entitlement_inactive", retryable: true } };
+  }
+
+  // ── Resolve the purchase → plan association ───────────────────────────────
+  // Contract: transaction_id identifies this purchase; original_transaction_id
+  // links a renewal back to the purchase that started the subscription.
   const key: AssociationKey = {
-    scope: purchaseScope(event),
+    scope,
     transactionId: text(event.transaction_id),
     originalTransactionId: text(event.original_transaction_id),
-    subscriptionId: text(event.subscription_id),
     appUserId,
   };
 
   const found = await deps.findAssociation(key);
   if (found.error) return releaseThen(retryable("association_unavailable"));
-  if (found.ambiguous) {
-    // More than one plan could claim this purchase: refuse rather than guess.
-    return releaseThen(retryable("association_ambiguous"));
-  }
 
   let planId = found.planId;
 
@@ -277,14 +291,6 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
   if (!planLookup.data) return releaseThen(retryable("plan_missing"));
   const plan = planLookup.data;
   if (!isOwnedBy(plan, appUserId)) return ignored("plan_not_owned");
-
-  // ── Entitlement gate (server-side, authoritative) ─────────────────────────
-  const rc = await deps.checkRevenueCat(appUserId);
-  if (!rc.ok) return releaseThen(retryable("verification_unavailable"));
-  if (!rc.active) {
-    if (!(await finish("retryable"))) return retryable("event_finish_failed");
-    return { status: 409, body: { success: false, error: "entitlement_inactive", retryable: true } };
-  }
 
   const beforeMutate = await leaseAlive();
   if (beforeMutate) return releaseThen(beforeMutate);

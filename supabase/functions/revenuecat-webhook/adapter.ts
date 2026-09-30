@@ -53,9 +53,6 @@ function rows(result: any): { rows: any[] | null; error: any } {
   return { rows: Array.isArray(result?.data) ? result.data : null, error: result?.error ?? null };
 }
 
-/** Read up to 2 rows so ambiguity is detectable instead of silently resolved. */
-const AMBIGUITY_PROBE = 2;
-
 export function createWebhookDeps(admin: any, deps: { now: () => Date }): WebhookDeps {
   return {
     now: deps.now,
@@ -141,17 +138,17 @@ export function createWebhookDeps(admin: any, deps: { now: () => Date }): Webhoo
         scope_key: key.scope,
         transaction_id: key.transactionId,
         original_transaction_id: key.originalTransactionId || null,
-        subscription_id: key.subscriptionId || null,
         app_user_id: key.appUserId,
         plan_id: planId,
       });
       if (!error) return { planId, status: "linked" };
 
-      // Unique violation (or a concurrent writer won): adopt the winner rather
-      // than forcing our own plan.
+      // A unique violation means a concurrent writer won. Recover THEIR row and
+      // never force our own plan. If the winner is not readable yet (its
+      // transaction has not committed), we report an error so the event is
+      // retried instead of guessing.
       const winner = await findAssociation(admin, key);
       if (winner.error) return { planId: null, status: "error" };
-      if (winner.ambiguous) return { planId: null, status: "conflict" };
       if (!winner.planId) return { planId: null, status: "error" };
       if (winner.planId !== planId) return { planId: winner.planId, status: "conflict" };
       return { planId: winner.planId, status: "existing" };
@@ -181,42 +178,39 @@ export function createWebhookDeps(admin: any, deps: { now: () => Date }): Webhoo
 }
 
 /**
- * Resolves a purchase to its plan using RevenueCat's documented identifiers, in
- * order of precision:
+ * Resolves a purchase to its plan with the two identifiers of the contract:
  *   1. transaction_id          — this exact transaction
  *   2. original_transaction_id — the purchase a renewal descends from
- *   3. subscription_id         — broadest; only used if the above are absent
  *
- * Any tier that matches more than one DISTINCT plan is reported as ambiguous.
- * There is deliberately no "newest wins" fallback.
+ * There is no third fallback and no "newest wins" tie-break. Uniqueness is
+ * enforced by the database (UNIQUE on (scope_key, transaction_id) and on
+ * (scope_key, original_transaction_id) where NOT NULL), so a single-row read is
+ * sufficient: if two rows could ever match, the read fails loudly instead of
+ * silently picking one.
  */
 async function findAssociation(
   admin: any,
   key: AssociationKey,
-): Promise<{ planId: string | null; ambiguous: boolean; error: unknown }> {
+): Promise<{ planId: string | null; error: unknown }> {
   const exact = async (column: string, value: string) => {
-    if (!value) return { planId: null, ambiguous: false, error: null };
+    if (!value) return { planId: null, error: null };
     const { data, error } = await table(admin, "revenuecat_purchase_plans")
       .select("plan_id")
       .eq("scope_key", key.scope)
       .eq(column, value)
-      .limit(AMBIGUITY_PROBE);
-    if (error) return { planId: null, ambiguous: false, error };
+      .limit(1);
+    if (error) return { planId: null, error };
     const list = (Array.isArray(data) ? data : []) as Array<{ plan_id: string }>;
-    const distinct = [...new Set(list.map((r) => r.plan_id))];
-    if (distinct.length > 1) return { planId: null, ambiguous: true, error: null };
-    return { planId: distinct[0] ?? null, ambiguous: false, error: null };
+    return { planId: list[0]?.plan_id ?? null, error: null };
   };
 
   for (const [column, value] of [
     ["transaction_id", key.transactionId],
     ["original_transaction_id", key.originalTransactionId],
-    ["subscription_id", key.subscriptionId],
   ] as const) {
     const hit = await exact(column, value);
-    if (hit.error) return { planId: null, ambiguous: false, error: hit.error };
-    if (hit.ambiguous) return { planId: null, ambiguous: true, error: null };
-    if (hit.planId) return { planId: hit.planId, ambiguous: false, error: null };
+    if (hit.error) return { planId: null, error: hit.error };
+    if (hit.planId) return { planId: hit.planId, error: null };
   }
-  return { planId: null, ambiguous: false, error: null };
+  return { planId: null, error: null };
 }

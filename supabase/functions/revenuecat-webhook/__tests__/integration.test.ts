@@ -13,7 +13,6 @@ const USER = "550e8400-e29b-41d4-a716-446655440000";
 const PLAN = "550e8400-e29b-41d4-a716-446655440002";
 const TX = "tx-1";
 const ORIG_TX = "tx-origin";
-const SUB = "sub-1";
 const NOW = new Date("2026-09-18T00:00:00Z");
 
 type Row = Record<string, any>;
@@ -98,10 +97,12 @@ function memorySupabase(seed: { plans?: Row[]; associations?: Row[]; events?: Ro
         if (pending?.kind === "insert") {
           const table_ = rowsOf();
           const dupTx = table_.find((r) => r.scope_key === pending.values.scope_key && r.transaction_id === pending.values.transaction_id);
-          const dupSub = pending.values.subscription_id
-            ? table_.find((r) => r.scope_key === pending.values.scope_key && r.subscription_id === pending.values.subscription_id)
+          // Mirrors the two UNIQUE indexes the migration will create.
+          const dupOrig = pending.values.original_transaction_id
+            ? table_.find((r) => r.scope_key === pending.values.scope_key
+              && r.original_transaction_id === pending.values.original_transaction_id)
             : null;
-          if (dupTx || dupSub) {
+          if (dupTx || dupOrig) {
             result = Promise.resolve({ data: null, error: { code: "23505" } });
           } else {
             const row = { ...pending.values };
@@ -147,7 +148,6 @@ const purchaseEvent = (over: Row = {}) => ({
   environment: "production",
   transaction_id: TX,
   original_transaction_id: "",
-  subscription_id: SUB,
   metadata: { brainy_plan_id: PLAN },
   ...over,
 });
@@ -274,6 +274,54 @@ describe("handler + adapter: happy path", () => {
     const second = await call(deps, purchaseEvent({ id: "ev-1" }));
     expect(second).toMatchObject({ status: 200, body: { status: "sent" } });
     expect(attempts).toBe(2);
+    expect(supabase.state.associations).toHaveLength(1);
+  });
+
+it("incomplete scope performs zero business mutations", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan()] });
+    const deps = build(supabase);
+    // store missing entirely
+    const result = await call(deps, purchaseEvent({ id: "sc-1", store: "" }));
+    expect(result).toMatchObject({ status: 200, body: { ignored: true, reason: "incomplete_scope" } });
+    expect(supabase.state.associations).toHaveLength(0);
+    expect(supabase.state.plans[0].purchase_confirmed_at).toBeNull();
+    expect(supabase.state.plans[0].credentials_issued_at).toBeNull();
+  });
+
+  it("inactive entitlement creates no association", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan()] });
+    const deps = build(supabase);
+    deps.checkRevenueCat = async () => ({ ok: true, active: false });
+
+    const result = await call(deps, purchaseEvent({ id: "en-1" }));
+    expect(result).toMatchObject({ status: 409, body: { error: "entitlement_inactive", retryable: true } });
+    expect(supabase.state.associations).toHaveLength(0);
+    expect(supabase.state.plans[0].purchase_confirmed_at).toBeNull();
+  });
+
+  it("a failing RevenueCat lookup is retryable and creates no association", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan()] });
+    const deps = build(supabase);
+    deps.checkRevenueCat = async () => ({ ok: false, active: false });
+
+    const result = await call(deps, purchaseEvent({ id: "en-2" }));
+    expect(result).toMatchObject({ status: 503, body: { error: "verification_unavailable", retryable: true } });
+    expect(supabase.state.associations).toHaveLength(0);
+    expect(supabase.state.events[0].status).toBe("retryable");
+  });
+
+  it("the same original_transaction_id cannot be rebound to another plan", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan(), seedPlan({ id: "550e8400-e29b-41d4-a716-446655440003" })] });
+    const deps = build(supabase);
+    await call(deps, purchaseEvent({ id: "ob-1", original_transaction_id: ORIG_TX }));
+
+    const conflict = await call(deps, purchaseEvent({
+      id: "ob-2",
+      transaction_id: "tx-other",
+      original_transaction_id: ORIG_TX,
+      metadata: { brainy_plan_id: "550e8400-e29b-41d4-a716-446655440003" },
+    }));
+    expect(conflict).toMatchObject({ status: 200, body: { ignored: true, reason: "association_conflict" } });
     expect(supabase.state.associations).toHaveLength(1);
   });
 

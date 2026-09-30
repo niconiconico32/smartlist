@@ -13,11 +13,19 @@ const NOW_ISO = NOW.toISOString();
 
 type Call = { op: string; args: unknown[] };
 
-function recorder(responses: { then?: any[]; bareRows?: boolean; maybeSingle?: { data: any; error: any } } = {}) {
+function recorder(responses: { then?: any[]; bareRows?: boolean; maybeSingle?: { data: any; error: any }; insertError?: any } = {}) {
   const calls: Call[] = [];
   const chain: any = {
     select: (...a: unknown[]) => { calls.push({ op: "select", args: a }); return chain; },
-    insert: (...a: unknown[]) => { calls.push({ op: "insert", args: a }); return chain; },
+    insert: (...a: unknown[]) => {
+      calls.push({ op: "insert", args: a });
+      if (responses.insertError) {
+        const failing: any = { ...chain };
+        failing.then = (resolve: any) => Promise.resolve(resolve({ data: null, error: responses.insertError }));
+        return failing;
+      }
+      return chain;
+    },
     update: (...a: unknown[]) => { calls.push({ op: "update", args: a }); return chain; },
     eq: (...a: unknown[]) => { calls.push({ op: "eq", args: a }); return chain; },
     neq: (...a: unknown[]) => { calls.push({ op: "neq", args: a }); return chain; },
@@ -108,14 +116,13 @@ describe("findAssociation", () => {
     scope: "app-1|stripe|production",
     transactionId: "tx-1",
     originalTransactionId: "tx-origin",
-    subscriptionId: "sub-1",
     appUserId: "550e8400-e29b-41d4-a716-446655440000",
   };
 
   it("prefers transaction_id", async () => {
     const r = recorder({ then: [{ plan_id: "P1" }] });
     const result = await createWebhookDeps(r.client, { now: () => NOW }).findAssociation(key);
-    expect(result).toMatchObject({ planId: "P1", ambiguous: false });
+    expect(result).toMatchObject({ planId: "P1" });
     expect(has(r.calls, "eq", "scope_key")).toBe(true);
     expect(has(r.calls, "eq", "transaction_id")).toBe(true);
   });
@@ -124,22 +131,16 @@ describe("findAssociation", () => {
     const r = recorder({ then: [] });
     await createWebhookDeps(r.client, { now: () => NOW }).findAssociation(key);
     expect(has(r.calls, "eq", "original_transaction_id")).toBe(true);
-    expect(has(r.calls, "eq", "subscription_id")).toBe(true);
   });
 
-  it("probes 2 rows and reports ambiguity instead of picking the newest", async () => {
-    const r = recorder({ then: [{ plan_id: "P1" }, { plan_id: "P2" }] });
-    const result = await createWebhookDeps(r.client, { now: () => NOW }).findAssociation(key);
-    expect(result).toMatchObject({ planId: null, ambiguous: true });
+  it("never queries subscription_id and never tie-breaks by recency", async () => {
+    const r = recorder({ then: [] });
+    await createWebhookDeps(r.client, { now: () => NOW }).findAssociation(key);
+    expect(has(r.calls, "eq", "subscription_id")).toBe(false);
     // The removed behaviour was `order(created_at desc).limit(1)`.
     expect(has(r.calls, "order")).toBe(false);
-    expect(has(r.calls, "limit", 2)).toBe(true);
-  });
-
-  it("two rows with the SAME plan are not ambiguous", async () => {
-    const r = recorder({ then: [{ plan_id: "P1" }, { plan_id: "P1" }] });
-    const result = await createWebhookDeps(r.client, { now: () => NOW }).findAssociation(key);
-    expect(result).toMatchObject({ planId: "P1", ambiguous: false });
+    // Uniqueness is the database's job, not the read's.
+    expect(has(r.calls, "limit", 1)).toBe(true);
   });
 });
 
@@ -148,7 +149,6 @@ describe("createAssociation", () => {
     scope: "app-1|stripe|production",
     transactionId: "tx-1",
     originalTransactionId: "tx-origin",
-    subscriptionId: "sub-1",
     appUserId: "550e8400-e29b-41d4-a716-446655440000",
   };
 
@@ -159,14 +159,23 @@ describe("createAssociation", () => {
     expect(has(r.calls, "insert")).toBe(false);
   });
 
-  it("persists original_transaction_id and subscription_id", async () => {
+  it("persists original_transaction_id and never subscription_id", async () => {
     const r = recorder();
     const result = await createWebhookDeps(r.client, { now: () => NOW }).createAssociation(key, "P1");
     expect(result).toMatchObject({ status: "linked", planId: "P1" });
     const inserted = r.calls.find((c) => c.op === "insert")!.args[0] as Record<string, unknown>;
     expect(inserted.original_transaction_id).toBe("tx-origin");
-    expect(inserted.subscription_id).toBe("sub-1");
+    expect("subscription_id" in inserted).toBe(false);
     expect(inserted.scope_key).toBe(key.scope);
+  });
+
+  it("fails closed when the winning row is not readable yet", async () => {
+    // Insert violates a unique index, and the winner is not visible: we must
+    // report an error (retryable) rather than assume our own plan won.
+    const r = recorder({ insertError: { code: "23505" }, then: [] });
+    const result = await createWebhookDeps(r.client, { now: () => NOW }).createAssociation(key, "P1");
+    expect(result).toMatchObject({ status: "error" });
+    expect(result.planId).toBeNull();
   });
 });
 
