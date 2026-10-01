@@ -47,7 +47,7 @@ function fake(options: FakeOpts = {}) {
   const plans = [plan()];
   const byTransaction = new Map<string, string>();
   const byOriginal = new Map<string, string>();
-  const calls = { confirmed: 0, issued: 0, associated: [] as string[], leaseChecks: 0, lookups: 0 };
+  const calls = { confirmed: 0, issued: 0, granted: 0, associated: [] as string[], leaseChecks: 0, lookups: 0 };
   // Scope-aware: the same transaction id in another scope is another purchase.
   const scoped = (scope: string, value: string) => `${scope}::${value}`;
   const state = { stealFinish: false, stealLease: options.stealLease ?? false };
@@ -132,9 +132,20 @@ function fake(options: FakeOpts = {}) {
       return { data: plans.find((p) => p.id === planId) ?? null, error: null };
     },
     checkRevenueCat: async () => options.rc ?? { ok: true, active: true },
-    confirmPurchase: async () => {
+confirmPurchase: async (planId) => {
       calls.confirmed++;
-      return { updated: options.confirmUpdated ?? 1, error: null };
+      const updated = options.confirmUpdated ?? 1;
+      // Mirror the real adapter: a successful confirm stamps the row, so tests
+      // can observe the confirmed state on a retry.
+      if (updated === 1) {
+        const p = plans.find((x) => x.id === planId);
+        if (p) p.purchase_confirmed_at = "2026-09-18T00:00:00Z";
+      }
+      return { updated, error: null };
+    },
+    grantProGift: async () => {
+      calls.granted++;
+      return { granted: true, error: null };
     },
     issue: async (planId) => {
       calls.issued++;
@@ -208,10 +219,11 @@ describe("no plan selection by user", () => {
     expect(calls.leaseChecks).toBe(0);
   });
 
-  it("INITIAL_PURCHASE without metadata performs no mutation", async () => {
+  it("INITIAL_PURCHASE without metadata grants the standalone Pro gift", async () => {
     const { deps, calls } = fake();
     const result = await call(baseEvent({ id: "i-1", metadata: {} }), deps);
-    expect(result.body).toMatchObject({ error: "plan_unresolved" });
+    expect(result).toMatchObject({ status: 200, body: { status: "processed", coinGift: true } });
+    expect(calls.granted).toBe(1);
     expect(calls.confirmed).toBe(0);
   });
 });
@@ -260,7 +272,8 @@ describe("transaction identifiers", () => {
     const { deps, calls } = fake();
     await call(baseEvent({ id: "a-11", metadata: { brainy_plan_id: PLAN } }), deps);
     const other = await call(baseEvent({ id: "a-12", environment: "sandbox", metadata: {} }), deps);
-    expect(other.body).toMatchObject({ error: "plan_unresolved" });
+    expect(other.body).toMatchObject({ status: "processed", coinGift: true });
+    expect(calls.granted).toBe(2);
     expect(calls.issued).toBe(1);
   });
 });
@@ -517,5 +530,127 @@ describe("pending credential recovery", () => {
     const result = await call(baseEvent({ id: "d-7", metadata: { brainy_plan_id: PLAN } }), deps);
     expect(result).toMatchObject({ status: 503, body: { error: "issuance_in_progress" } });
     expect(events.get("d-7")?.status).toBe("retryable");
+  });
+});
+
+describe("funnel purchase coin gift", () => {
+  it("grants the gift exactly once after a confirmed funnel purchase", async () => {
+    const { deps, calls } = fake();
+    const result = await call(baseEvent({ id: "g-1", metadata: { brainy_plan_id: PLAN } }), deps);
+
+    expect(result).toMatchObject({ status: 200, body: { status: "sent" } });
+    expect(calls.granted).toBe(1);
+    expect(calls.confirmed).toBe(1);
+    // The funnel path still associates the plan and issues credentials.
+    expect(calls.associated).toEqual([PLAN]);
+    expect(calls.issued).toBe(1);
+  });
+
+  it("a failing grant is retryable and holds back credential delivery", async () => {
+    const { deps, calls, plans } = fake();
+    deps.grantProGift = async () => ({ granted: false, error: new Error("rpc down") });
+
+    const result = await call(baseEvent({ id: "g-2", metadata: { brainy_plan_id: PLAN } }), deps);
+
+    expect(result).toMatchObject({ status: 503, body: { error: "coin_gift_unavailable" } });
+
+    // purchase_confirmed_at means "RevenueCat confirmed the payment", which is
+    // a fact independent of the reward, so it is allowed to stand. What must NOT
+    // happen is delivery: no credentials, no email, until the gift lands.
+    expect(calls.confirmed).toBe(1);
+    expect(plans[0].purchase_confirmed_at).not.toBeNull();
+    expect(calls.issued).toBe(0);
+
+    // On retry the confirmation is skipped and the gift is retried.
+    deps.grantProGift = async () => {
+      calls.granted++;
+      return { granted: true, error: null };
+    };
+    const second = await call(baseEvent({ id: "g-2", metadata: { brainy_plan_id: PLAN } }), deps);
+
+    expect(second).toMatchObject({ status: 200, body: { status: "sent" } });
+    expect(calls.confirmed).toBe(1); // not confirmed twice
+    expect(calls.issued).toBe(1);
+  });
+
+  it("an already-issued plan still grants the gift", async () => {
+    const { deps, plans, calls } = fake();
+    plans[0].status = "claimed";
+    plans[0].claimed_by_user_id = USER;
+    plans[0].purchase_confirmed_at = "2026-09-17T00:00:00Z";
+    plans[0].credentials_issued_at = "2026-09-17T01:00:00Z";
+
+    const result = await call(baseEvent({ id: "g-3", metadata: { brainy_plan_id: PLAN } }), deps);
+
+    expect(result).toMatchObject({ status: 200, body: { reason: "already_issued" } });
+    // Credentials were already delivered, but the coin gift must still land.
+    expect(calls.granted).toBe(1);
+    expect(calls.issued).toBe(0);
+  });
+
+  it("does not grant when the entitlement gate rejects the purchase", async () => {
+    const { deps, calls } = fake({ rc: { ok: true, active: false } });
+    const result = await call(baseEvent({ id: "g-4", metadata: { brainy_plan_id: PLAN } }), deps);
+
+    expect(result.status).toBe(409);
+    expect(calls.granted).toBe(0);
+    expect(calls.confirmed).toBe(0);
+  });
+});
+
+describe("in-app Pro purchase without funnel metadata", () => {
+  it("grants the Pro gift and finishes instead of retrying plan_unresolved", async () => {
+    const { deps, calls, events } = fake();
+    const result = await call(baseEvent({
+      id: "in-app-1",
+      metadata: undefined,
+      transaction_id: "in-app-tx-1",
+      original_transaction_id: "in-app-tx-1",
+    }), deps);
+
+    expect(result).toMatchObject({
+      status: 200,
+      body: { status: "processed", coinGift: true },
+    });
+    expect(calls.granted).toBe(1);
+    expect(calls.associated).toEqual([]);
+    expect(calls.confirmed).toBe(0);
+    expect(calls.issued).toBe(0);
+    expect(events.get("in-app-1")?.status).toBe("processed");
+  });
+
+  it("a failing gift is retryable and must not be swallowed", async () => {
+    const { deps, calls, events } = fake();
+    deps.grantProGift = async () => ({ granted: false, error: new Error("rpc down") });
+
+    const result = await call(baseEvent({
+      id: "in-app-2",
+      metadata: undefined,
+      transaction_id: "in-app-tx-2",
+      original_transaction_id: "in-app-tx-2",
+    }), deps);
+
+    // The gift must never be reported as a successful terminal event when it failed.
+    expect(result).toMatchObject({ status: 503, body: { error: "coin_gift_unavailable" } });
+    expect(result.body).not.toMatchObject({ coinGift: true });
+    // Overriding the dep bypasses the shared counter in the fake closure, so the
+    // observable evidence is the response plus the event row.
+    expect(events.get("in-app-2")?.status).toBe("retryable");
+    expect(events.get("in-app-2")?.lease_expires_at).toBeNull();
+  });
+
+  it("keeps a renewal without a known purchase association retryable", async () => {
+    const { deps, calls, events } = fake();
+    const result = await call(baseEvent({
+      id: "in-app-renewal-1",
+      type: "RENEWAL",
+      metadata: undefined,
+      transaction_id: "in-app-renewal-tx-1",
+      original_transaction_id: "in-app-origin-1",
+    }), deps);
+
+    expect(result).toMatchObject({ status: 503, body: { error: "plan_unresolved" } });
+    expect(calls.granted).toBe(0);
+    expect(events.get("in-app-renewal-1")?.status).toBe("retryable");
   });
 });

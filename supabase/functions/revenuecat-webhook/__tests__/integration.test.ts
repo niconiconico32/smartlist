@@ -156,6 +156,18 @@ const build = (supabase: any) => {
   // The adapter takes the Supabase client itself, not the wrapper.
   const deps = createWebhookDeps(supabase.client, { now: () => NOW });
   deps.checkRevenueCat = async () => ({ ok: true, active: true });
+  // In-memory stand-in for grant_revenuecat_pro_coin_gift. The real RPC is
+  // idempotent on (scope_key, transaction_id); mirror that so a duplicate
+  // delivery does not appear to grant twice.
+  deps.grantProGift = async (input: any) => {
+    supabase.state.coinGifts = supabase.state.coinGifts || [];
+    const key = `${input.scope}::${input.transactionId}`;
+    if (supabase.state.coinGifts.some((g: string) => g === key)) {
+      return { granted: false, error: null };
+    }
+    supabase.state.coinGifts.push(key);
+    return { granted: true, error: null };
+  };
   deps.issue = async (planId) => {
     const plan = (supabase.state.plans as Row[]).find((p) => p.id === planId);
     if (plan) plan.credentials_issued_at = "2026-09-18T00:00:00Z";
@@ -301,6 +313,41 @@ describe("handler + adapter: happy path", () => {
     expect(supabase.state.associations).toHaveLength(0);
     expect(supabase.state.plans[0].purchase_confirmed_at).toBeNull();
     expect(supabase.state.plans[0].credentials_issued_at).toBeNull();
+  });
+
+  it("the Pro coin gift is granted once even across a duplicate delivery", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan()] });
+    const deps = build(supabase);
+
+    const first = await call(deps, purchaseEvent({ id: "gift-1" }));
+    expect(first).toMatchObject({ status: 200, body: { status: "sent" } });
+    expect(supabase.state.coinGifts).toHaveLength(1);
+
+    // Same transaction id delivered twice must not grant twice.
+    const second = await call(deps, purchaseEvent({ id: "gift-2" }));
+    expect(second).toMatchObject({ status: 200 });
+    expect(supabase.state.coinGifts).toHaveLength(1);
+
+    // Exactly one credential delivery regardless of the replay.
+    expect(supabase.state.plans[0].credentials_issued_at).toBe("2026-09-18T00:00:00Z");
+  });
+
+  it("an in-app purchase without funnel metadata still gets the gift", async () => {
+    const supabase = memorySupabase({ plans: [seedPlan()] });
+    const deps = build(supabase);
+
+    const result = await call(deps, purchaseEvent({
+      id: "in-app-1",
+      transaction_id: "in-app-tx",
+      original_transaction_id: "in-app-tx",
+      metadata: {},
+    }));
+
+    expect(result).toMatchObject({ status: 200, body: { coinGift: true } });
+    expect(supabase.state.coinGifts).toHaveLength(1);
+    // No funnel plan is touched for an in-app purchase.
+    expect(supabase.state.associations).toHaveLength(0);
+    expect(supabase.state.plans[0].purchase_confirmed_at).toBeNull();
   });
 
   it("inactive entitlement creates no association", async () => {
