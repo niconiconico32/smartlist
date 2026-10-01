@@ -41,23 +41,45 @@ const PurchasesContext = createContext<PurchasesContextType>({
 });
 
 export function PurchasesProvider({ children }: { children: React.ReactNode }) {
-  const { user, session } = useAuth();
+  const { user, session, isLoading } = useAuth();
+  const appUserId = user?.id ?? null;
 
-  const [isPremium, setIsPremium] = useState(false);
+  // Seed from the persisted store so a paid Pro survives the cold start even
+  // before RevenueCat has answered. _layout awaits loadPro() before this
+  // provider mounts, so this reads the hydrated value.
+  const [isPremium, setIsPremium] = useState(() => useProStore.getState().isPro);
   const [isLoadingPurchases, setIsLoadingPurchases] = useState(true);
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
 
-  const syncPremiumStatus = useCallback(async (info: CustomerInfo) => {
-    const hasPro = isPremiumActive(info);
-    setIsPremium(hasPro);
+  const syncPremiumStatus = useCallback(
+    async (info: CustomerInfo, opts?: { identified?: boolean }) => {
+      const hasPro = isPremiumActive(info);
+      setIsPremium(hasPro);
 
-    const proStore = useProStore.getState();
-    if (hasPro && !proStore.isPro) {
-      await proStore.activatePermanentPro();
-    } else if (!hasPro && proStore.isPro) {
-      await proStore.cancelPermanentPro();
-    }
-  }, []);
+      const proStore = useProStore.getState();
+      if (hasPro && !proStore.isPro) {
+        await proStore.activatePermanentPro();
+        return;
+      }
+
+      // Never revoke Pro from a read that is not tied to the identified user.
+      // A customerInfo obtained before logIn (anonymous identity) says nothing
+      // about whether THIS user is entitled, and using it to clear the store
+      // wiped a paid entitlement on every cold start.
+      const identified =
+        opts?.identified ??
+        Boolean(
+          appUserId && info.originalAppUserId && info.originalAppUserId === appUserId,
+        );
+
+      if (!identified) return;
+
+      if (!hasPro && proStore.isPro) {
+        await proStore.cancelPermanentPro();
+      }
+    },
+    [appUserId],
+  );
 
   const refreshCustomerInfo = useCallback(async () => {
     try {
@@ -71,16 +93,26 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    // Do not touch RevenueCat until the auth state is known. Reading before
+    // this point operates on the anonymous identity.
+    if (isLoading) return;
+
     const init = async () => {
       try {
         await configurePurchases();
 
-        if (user && session) {
-          const info = await loginUser(user.id);
-          if (mounted) await syncPremiumStatus(info);
-        } else {
-          const info = await getCustomerInfo();
-          if (mounted) await syncPremiumStatus(info);
+        if (appUserId && session) {
+          // Identify FIRST, then read. Previously the anonymous read ran first
+          // and its result was applied to the store.
+          try {
+            const info = await loginUser(appUserId);
+            if (mounted) await syncPremiumStatus(info, { identified: true });
+          } catch (error) {
+            console.error("Error logging into RevenueCat:", error);
+            // Keep whatever is persisted rather than dropping to non-Pro
+            // because the network or the SDK was unavailable.
+            if (mounted) setIsPremium(useProStore.getState().isPro);
+          }
         }
 
         const nextPackages = await getOfferings();
@@ -99,14 +131,21 @@ export function PurchasesProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [user, session, syncPremiumStatus]);
+  }, [appUserId, session, isLoading, syncPremiumStatus]);
 
   useEffect(() => {
-    if (!session && !user) {
-      logoutUser().catch(() => {});
-      setIsPremium(false);
+    // Only act on a REAL logout. Previously this fired while the session was
+    // still being resolved, logging RevenueCat out to anonymous on every start.
+    if (isLoading) return;
+    if (session || appUserId) return;
+
+    logoutUser().catch(() => {});
+    setIsPremium(false);
+    const proStore = useProStore.getState();
+    if (proStore.isPro) {
+      proStore.cancelPermanentPro().catch(() => {});
     }
-  }, [session, user]);
+  }, [session, appUserId, isLoading]);
 
   const handlePurchase = useCallback(
     async (pkg: PurchasesPackage): Promise<PurchaseResult> => {
