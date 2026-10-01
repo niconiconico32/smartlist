@@ -14,6 +14,86 @@
 
 const DAY_ABBR = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+// The funnel web sends `days: ["daily"]` for routines that apply every day.
+// Previously that matched nothing and was silently dropped, producing rows with
+// `days = '{}'` that the app filters out on every weekday (app/(tabs)/two.tsx
+// filters by `routine.days.includes(currentDayAbbrev)`).
+const EVERY_DAY_ALIASES = new Set([
+  "daily",
+  "everyday",
+  "every day",
+  "every_day",
+  "todoslosdias",
+  "todos los dias",
+  "todos los días",
+  "all",
+  "any",
+  "*",
+]);
+
+// English abbreviations, normalised into the Spanish ones stored in the DB.
+const DAY_ALIASES: Record<string, string> = {
+  sun: "Dom",
+  sunday: "Dom",
+  mon: "Lun",
+  monday: "Lun",
+  tue: "Mar",
+  tues: "Mar",
+  tuesday: "Mar",
+  wed: "Mié",
+  weds: "Mié",
+  wednesday: "Mié",
+  thu: "Jue",
+  thur: "Jue",
+  thurs: "Jue",
+  thursday: "Jue",
+  fri: "Vie",
+  friday: "Vie",
+  sat: "Sáb",
+  saturday: "Sáb",
+};
+
+export function normalizeDays(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+
+  // A single "daily" marker means all seven days.
+  const wantsEveryDay = raw.some(
+    (d) =>
+      typeof d === "string" &&
+      EVERY_DAY_ALIASES.has(d.trim().toLowerCase().replace(/\s+/g, " ")),
+  );
+  if (wantsEveryDay) return [...DAY_ABBR];
+
+  const out: string[] = [];
+  const push = (abbr: string) => {
+    if (!out.includes(abbr)) out.push(abbr);
+  };
+
+  for (const d of raw) {
+    if (typeof d === "number" && Number.isFinite(d)) {
+      push(DAY_ABBR[d % 7] ?? DAY_ABBR[0]);
+    } else if (typeof d === "string") {
+      const trimmed = d.trim();
+      if (!trimmed) continue;
+      if (DAY_ABBR.includes(trimmed)) {
+        push(trimmed);
+        continue;
+      }
+      const lower = trimmed.toLowerCase();
+      const alias = DAY_ALIASES[lower] ?? DAY_ALIASES[lower.slice(0, 3)];
+      if (alias) {
+        push(alias);
+        continue;
+      }
+      const n = Number(trimmed);
+      if (Number.isFinite(n)) {
+        push(DAY_ABBR[n % 7] ?? DAY_ABBR[0]);
+      }
+    }
+  }
+  return out;
+}
+
 export function asArray(value: unknown): Record<string, any>[] {
   if (!Array.isArray(value)) return [];
   return value as Record<string, any>[];
@@ -22,30 +102,6 @@ export function asArray(value: unknown): Record<string, any>[] {
 export function toInt(value: unknown, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
-}
-
-export function normalizeDays(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const out: string[] = [];
-  for (const d of raw) {
-    if (typeof d === "number" && Number.isFinite(d)) {
-      const abbr = DAY_ABBR[d % 7] ?? DAY_ABBR[0];
-      if (!out.includes(abbr)) out.push(abbr);
-    } else if (typeof d === "string") {
-      const trimmed = d.trim();
-      if (!trimmed) continue;
-      if (DAY_ABBR.includes(trimmed)) {
-        if (!out.includes(trimmed)) out.push(trimmed);
-      } else {
-        const n = Number(trimmed);
-        if (Number.isFinite(n)) {
-          const abbr = DAY_ABBR[n % 7] ?? DAY_ABBR[0];
-          if (!out.includes(abbr)) out.push(abbr);
-        }
-      }
-    }
-  }
-  return out;
 }
 
 export function buildActivities(plan: Record<string, any>, claimId: string): any[] {
