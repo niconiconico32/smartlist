@@ -93,8 +93,13 @@ export async function fetchRoutines(userId: string): Promise<Routine[]> {
     // Load today's task completions
     return await loadTodayCompletions(transformedRoutines, userId);
   } catch (error) {
+    // Rethrow instead of returning []. Returning [] made a network/RLS failure
+    // indistinguishable from "this user has no routines": the screen rendered
+    // an empty state with no error and no retry. Both live callers
+    // (app/(tabs)/two.tsx and swipeable-layout.tsx) already wrap this in
+    // try/catch, so the caller decides what the user sees.
     console.error('fetchRoutines error:', error);
-    return [];
+    throw error;
   }
 }
 
