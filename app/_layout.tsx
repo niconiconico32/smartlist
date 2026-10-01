@@ -281,13 +281,29 @@ function RootLayoutNav() {
   useEffect(() => {
     let isActive = true;
 
-    const setProStatus = async (isProActive: boolean) => {
+    // Only a customerInfo belonging to the identified user may clear Pro.
+    // Reading on mount happens before RevenueCat identifies the app, so that
+    // read is anonymous and says nothing about this user's entitlement.
+    const identifiedUserId = session?.user?.id ?? null;
+    const isIdentifiedRead = (customerInfo: any) =>
+      Boolean(
+        identifiedUserId &&
+          customerInfo?.originalAppUserId &&
+          customerInfo.originalAppUserId === identifiedUserId,
+      );
+
+    const setProStatus = async (
+      isProActive: boolean,
+      customerInfo: any,
+    ) => {
       const { activatePermanentPro, cancelPermanentPro } =
         useProStore.getState();
 
       if (isProActive) {
         await activatePermanentPro();
       } else {
+        // Never revoke a paid Pro from an anonymous / unidentified read.
+        if (!isIdentifiedRead(customerInfo)) return;
         await cancelPermanentPro();
       }
     };
@@ -297,7 +313,7 @@ function RootLayoutNav() {
 
       if (!isActive) return;
 
-      await setProStatus(isProActive);
+      await setProStatus(isProActive, customerInfo);
     };
 
     const syncCustomerInfo = async () => {
@@ -331,14 +347,19 @@ function RootLayoutNav() {
     };
 
     Purchases.addCustomerInfoUpdateListener(customerInfoListener);
-    void syncCustomerInfo();
+    // Sync only once RevenueCat knows who the user is. Skipping the anonymous
+    // mount read is what removed the cold-start Pro wipe; foreground re-syncs
+    // still run through the AppState listener above.
+    if (identifiedUserId) {
+      void syncCustomerInfo();
+    }
 
     return () => {
       isActive = false;
       appStateSubscription.remove();
       Purchases.removeCustomerInfoUpdateListener(customerInfoListener);
     };
-  }, []);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (isLoading) return; // Wait until auth state is resolved
@@ -434,9 +455,33 @@ function RootLayoutNav() {
   // directly into HOME/onboarding (not only after visiting /login). This is
   // what prevents a closed/reopened app from sending an identified funnel
   // user through onboarding again. Legacy /claim handoffs remain untouched.
+  //
+  // The restore is a STARTUP check, not a per-navigation guard. It used to
+  // re-run on every route change and redirect to "/(tabs)", which hijacked
+  // legitimate navigation: the Store button pushed /achievements and the
+  // effect immediately bounced the user back to Home.
+  const funnelRestoreRanFor = useRef<string | null>(null);
   useEffect(() => {
     if (isLoading || !session?.user?.id || session.user.is_anonymous) return;
     if (segments[0] === "claim" || segments[0] === "plan-ready" || segments[0] === "login") return;
+
+    // Once per user: a repeat run can only re-apply the same redirect.
+    const userKey = session.user.id;
+    if (funnelRestoreRanFor.current === userKey) return;
+
+    // Never pull the user out of a destination they navigated to on purpose.
+    // Only act from the funnel/startup surfaces.
+    const restoreSurfaces = new Set([
+      "(tabs)",
+      "index",
+      "two",
+      "onboarding",
+      "onboarding-new",
+      "onboarding-v3",
+    ]);
+    if (segments[0] && !restoreSurfaces.has(segments[0])) return;
+
+    funnelRestoreRanFor.current = userKey;
     let active = true;
     void getPendingHandoff().then(async ({ claimToken, redemptionUrl }) => {
       if (claimToken || redemptionUrl) return;
