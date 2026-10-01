@@ -59,11 +59,18 @@ interface AppStreakStore {
 
   /**
    * Returns the coin multiplier based on current streak.
-   * Formula: 1 + (streak * 0.15)
-   * - 1 day  → 1.15x (+15%)
-   * - 2 days → 1.30x (+30%)
-   * - 3 days → 1.45x (+45%)
+   *
+   * Formula: 2 + (streak * 0.15)
+   * - 1 day  → 2.15x
+   * - 2 days → 2.30x
+   * - 3 days → 2.45x
    * - etc.
+   *
+   * NOTE: the docstring previously said "1 + (streak * 0.15)" with 1.15x for
+   * day 1, which contradicted the implementation for as long as it existed.
+   * The generous 2x base is INTENTIONAL and must not be "corrected" to 1.
+   * If you change this number, change this comment too.
+   *
    * If streak is 0, returns 1 (no bonus).
    */
   getMultiplier: () => number;
@@ -164,7 +171,10 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
           history: newHistory,
           maxStreak: newMaxStreak,
           shieldDates: data.shieldDates ?? [],
-          shouldShowStreakScreen: newCount > 1,
+          // Every first open of a new local day should show the streak screen,
+          // including a reset to 1 after a gap. The interface contract says
+          // "first open today", not "streak increased".
+          shouldShowStreakScreen: true,
         });
 
         // Cancel today's warning (user is in the app) and schedule for tomorrow
@@ -188,7 +198,7 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
           history: [today],
           maxStreak: 1,
           shieldDates: [],
-          shouldShowStreakScreen: false,
+          shouldShowStreakScreen: true,
         });
 
         // First ever open — schedule a warning for tomorrow to keep the streak alive
@@ -236,6 +246,7 @@ export const useAppStreakStore = create<AppStreakStore>((set, get) => ({
     // Multiplier is a Pro-only feature
     if (!useProStore.getState().isPro) return 1;
     if (streak <= 0) return 1;
+    // Generous 2x base is intentional; see the note in the interface docs.
     return 2 + streak * 0.15;
   },
 

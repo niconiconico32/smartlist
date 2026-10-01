@@ -34,7 +34,8 @@ describe('Store: routineStreakStore', () => {
       const state = useRoutineStreakStore.getState();
       expect(state.streaks['r1']).toEqual({
         count: 1,
-        lastCompletedDate: '2026-03-15'
+        lastCompletedDate: '2026-03-15',
+        level: 1,
       });
       // Verifica persistencia
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
@@ -59,7 +60,8 @@ describe('Store: routineStreakStore', () => {
       const state = useRoutineStreakStore.getState();
       expect(state.streaks['r1']).toEqual({
         count: 2, // ¡Aumentó!
-        lastCompletedDate: '2026-03-15'
+        lastCompletedDate: '2026-03-15',
+        level: 2,
       });
     });
 

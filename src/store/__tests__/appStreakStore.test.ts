@@ -1,3 +1,17 @@
+// appStreakStore imports ../utils/notifications, which pulls in
+// expo-notifications and kicks off async push-token registration at module
+// load. That work outlives the test run and Jest then fails with
+// "You are trying to `import` a file after the Jest environment has been torn
+// down". Notification scheduling is not what this suite asserts, so stub it.
+jest.mock('@/src/utils/notifications', () => ({
+  scheduleStreakWarningNotification: jest.fn(),
+  cancelStreakWarningNotification: jest.fn(),
+}));
+
+jest.mock('@/src/config/posthog', () => ({
+  posthog: { capture: jest.fn(), identify: jest.fn() },
+}));
+
 import { useAppStreakStore, AppStreakData } from '../appStreakStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as dateHelpers from '@/src/utils/dateHelpers';
@@ -210,14 +224,17 @@ describe('Store: appStreakStore', () => {
       expect(useAppStreakStore.getState().getMultiplier()).toBe(1);
     });
 
-    it('debe devolver 1.15x para 1 día', () => {
+    // The 2x base is intentional product generosity, not the "1 + streak*0.15"
+    // the old docstring claimed. See the note in AppStreakStore.getMultiplier.
+    it('debe devolver 2.15x para 1 día (base 2x intencional)', () => {
       useAppStreakStore.setState({ streak: 1 });
-      expect(useAppStreakStore.getState().getMultiplier()).toBe(1.15);
+      expect(useAppStreakStore.getState().getMultiplier()).toBe(2.15);
     });
 
-    it('debe devolver 1.45x para 3 días', () => {
+    it('debe devolver 2.45x para 3 días (base 2x intencional)', () => {
       useAppStreakStore.setState({ streak: 3 });
-      expect(useAppStreakStore.getState().getMultiplier()).toBeCloseTo(1.45);
+
+      expect(useAppStreakStore.getState().getMultiplier()).toBeCloseTo(2.45);
     });
   });
 });
