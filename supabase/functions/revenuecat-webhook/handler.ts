@@ -69,6 +69,13 @@ export interface WebhookDeps {
   checkRevenueCat(appUserId: string): Promise<{ ok: boolean; active: boolean }>;
   confirmPurchase(planId: string): Promise<{ updated: number; error: unknown }>;
   issue(planId: string, userId: string): Promise<{ ok: boolean; status: string }>;
+  grantProGift?: (input: {
+    scope: string;
+    transactionId: string;
+    originalTransactionId: string;
+    appUserId: string;
+    eventId: string;
+  }) => Promise<{ granted: boolean; error: unknown }>;
 }
 
 export interface RcWebhookEvent {
@@ -272,6 +279,24 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
     // An existing association is authoritative and can never be reassigned.
     if (declaredPlanId && declaredPlanId !== planId) return ignored("association_conflict");
   } else {
+    // In-app purchases do not have a funnel plan or brainy_plan_id metadata.
+    // They still need the one-time Pro coin gift and a terminal webhook result.
+    if (!declaredPlanId && (type === "INITIAL_PURCHASE" || type === "NON_RENEWING_PURCHASE")) {
+      if (!key.transactionId || !deps.grantProGift) {
+        return releaseThen(retryable("coin_gift_unavailable"));
+      }
+      const gift = await deps.grantProGift({
+        scope,
+        transactionId: key.transactionId,
+        originalTransactionId: key.originalTransactionId,
+        appUserId,
+        eventId,
+      });
+      if (gift.error) return releaseThen(retryable("coin_gift_unavailable"));
+      const processed = await deps.finishEvent(eventId, executionId, "processed");
+      if (processed.error || processed.updated !== 1) return retryable("event_finish_failed");
+      return { status: 200, body: { success: true, status: "processed", coinGift: true } };
+    }
     if (!declaredPlanId) return releaseThen(retryable("plan_unresolved"));
     if (!key.transactionId) return releaseThen(retryable("plan_unresolved"));
 
@@ -315,6 +340,17 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
         return releaseThen(retryable("purchase_confirm_failed"));
       }
     }
+  }
+
+  if (deps.grantProGift && key.transactionId) {
+    const gift = await deps.grantProGift({
+      scope,
+      transactionId: key.transactionId,
+      originalTransactionId: key.originalTransactionId,
+      appUserId,
+      eventId,
+    });
+    if (gift.error) return releaseThen(retryable("coin_gift_unavailable"));
   }
 
   // ── Deliver credentials ───────────────────────────────────────────────────

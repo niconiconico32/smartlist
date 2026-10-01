@@ -173,6 +173,20 @@ export function createWebhookDeps(admin: any, deps: { now: () => Date }): Webhoo
       return { updated: result.rows?.length ?? 0, error: result.error };
     },
 
+    grantProGift: async (input) => {
+      const result = await admin.rpc("grant_revenuecat_pro_coin_gift", {
+        p_scope_key: input.scope,
+        p_transaction_id: input.transactionId,
+        p_original_transaction_id: input.originalTransactionId || null,
+        p_app_user_id: input.appUserId,
+        p_event_id: input.eventId,
+      });
+      return {
+        granted: Boolean(result.data?.[0]?.granted),
+        error: result.error,
+      };
+    },
+
     issue: async () => ({ ok: true, status: "sent" }),
   };
 }

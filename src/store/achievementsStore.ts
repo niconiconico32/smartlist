@@ -546,6 +546,9 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
   // Debounced cloud sync — batches rapid local writes into a single
   // Supabase upsert after 3 seconds of quiet
   let cloudSyncTimer: ReturnType<typeof setTimeout> | null = null;
+  // Server coin grants are additive. Keep the last server baseline so a local
+  // change can sync as a delta instead of overwriting a concurrent gift.
+  let cloudCoinsBaseline = 0;
   const scheduleCloudSync = () => {
     if (!get()._loaded) return;
     if (cloudSyncTimer) clearTimeout(cloudSyncTimer);
@@ -554,10 +557,19 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return;
         const json = buildSnapshot();
-        await supabase.from('user_achievements').upsert(
-          { user_id: session.user.id, data: JSON.parse(json) },
-          { onConflict: 'user_id' },
+        const snapshot = JSON.parse(json) as AchievementsSnapshot;
+        const { data: totalCoins, error } = await supabase.rpc(
+          'merge_user_achievements',
+          { p_data: snapshot, p_coin_delta: (snapshot.totalCoins ?? 0) - cloudCoinsBaseline },
         );
+if (error) throw error;
+        if (typeof totalCoins === 'number') {
+          // Adopt the authoritative server total. Without this, a concurrent
+          // gift would leave our local balance stale and the NEXT delta would
+          // subtract the gift away.
+          if (totalCoins > get().totalCoins) set({ totalCoins });
+          cloudCoinsBaseline = totalCoins;
+        }
       } catch (error) {
         console.error('Cloud sync failed:', error);
       }
@@ -706,6 +718,7 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
         }
 
         const data = mergeSnapshots(localData, cloudData);
+        cloudCoinsBaseline = asFiniteNumber(cloudData?.totalCoins, 0);
 
         if (data) {
           const mergedAchievements = mergeAchievementMaps(data.achievements, undefined);
@@ -721,10 +734,15 @@ export const useAchievementsStore = create<AchievementsStore>((set, get) => {
           if (userId) {
             const cloudJson = cloudData ? JSON.stringify(cloudData) : null;
             if (cloudJson !== normalizedJson) {
-              await supabase.from('user_achievements').upsert(
-                { user_id: userId, data: normalizedData },
-                { onConflict: 'user_id' },
+              const { data: totalCoins, error } = await supabase.rpc(
+                'merge_user_achievements',
+                {
+                  p_data: normalizedData,
+                  p_coin_delta: (normalizedData.totalCoins ?? 0) - cloudCoinsBaseline,
+                },
               );
+              if (error) throw error;
+              if (typeof totalCoins === 'number') cloudCoinsBaseline = totalCoins;
             }
           }
 
