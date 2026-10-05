@@ -45,7 +45,6 @@ import SuccessTimelineSlide from "./custom/SuccessTimelineSlide";
 import TaskDemoSlide from "./custom/TaskDemoSlide";
 import TestimonialSlide from "./custom/TestimonialSlide";
 import TrialReminderSlide from "./custom/TrialReminderSlide";
-import WelcomeSlide from "./custom/WelcomeSlide";
 
 // ============================================
 // OPTIONS RESOLVER
@@ -92,9 +91,6 @@ const SlideRenderer: React.FC<Props> = ({
   onFinish,
 }) => {
   switch (config.type) {
-    case "welcome":
-      return <WelcomeSlide onNext={onNext} />;
-
     case "dialogue":
       return <DialogueSlide config={config} onNext={onNext} />;
 

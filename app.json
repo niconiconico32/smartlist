@@ -2,16 +2,19 @@
   "expo": {
     "name": "Brainy",
     "slug": "brainy",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "orientation": "default",
     "updates": {
       "url": "https://u.expo.dev/0025faea-a07f-4447-9b45-fd5edb5469a9",
       "checkAutomatically": "ON_LOAD",
       "fallbackToCacheTimeout": 0
     },
-    "runtimeVersion": "1.0.18",
+    "runtimeVersion": "1.0.19",
     "icon": "./assets/images/appstorelogo.png",
-    "scheme": ["brainy", "rc-f91d4f2118"],
+    "scheme": [
+      "brainy",
+      "rc-f91d4f2118"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -76,7 +79,7 @@
         ],
         "NSPrivacyTracking": false
       },
-      "buildNumber": "36"
+      "buildNumber": "38"
     },
     "android": {
       "adaptiveIcon": {
@@ -86,7 +89,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.brainyahdh.app",
-      "versionCode": 21,
+      "versionCode": 23,
       "permissions": [
         "POST_NOTIFICATIONS",
         "VIBRATE",

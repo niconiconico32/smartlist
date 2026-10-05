@@ -491,7 +491,34 @@
     "start_without_account": "Empezar sin cuenta",
     "email_login": "Iniciar sesión con correo y contraseña",
     "back_to_app": "Volver a la app",
-    "terms": "Al continuar, aceptas nuestros Términos de Servicio\ny Política de Privacidad."
+    "terms": "Al continuar, aceptas nuestros Términos de Servicio\ny Política de Privacidad.",
+    "start": "Empezar",
+    "have_account": "Tengo una Cuenta",
+    "legal_prefix": "Al continuar, aceptas nuestros",
+    "legal_terms": "Términos de Servicio",
+    "legal_and": "y",
+    "legal_privacy": "Política de Privacidad"
+  },
+  "common": {
+    "back": "Atrás"
+  },
+  "login_options": {
+    "title": "¿Ya has usado Brainy antes?",
+    "subtitle": "Dinos cuál es tu caso para llevarte al lugar adecuado.",
+    "first_time": "No, es mi primera vez.",
+    "first_time_hint": "Responde el cuestionario para empezar",
+    "has_subscription": "Sí, tengo una suscripción activa.",
+    "has_subscription_hint": "Accede con tu correo electrónico."
+  },
+  "login_existing": {
+    "title": "Introduce tu Correo",
+    "subtitle": "Usa el mismo correo al que te enviamos tu contraseña después de activar tu plan.",
+    "submit": "Acceder",
+    "email_invalid": "Introduce un correo electrónico válido.",
+    "password_required": "Introduce tu contraseña.",
+    "invalid_credentials": "Correo o contraseña incorrectos.",
+    "alt_signin": "O continúa con Google o Apple",
+    "alt_signin_hint": "Si tu cuenta se creó con Google, Apple o un código, entra por aquí."
   },
   "benefits": {
     "header": "Beneficios",

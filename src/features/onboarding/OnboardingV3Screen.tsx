@@ -35,8 +35,16 @@ import { useOnboardingTracking } from "./useOnboardingTracking";
 // ONBOARDING V3 SCREEN (Orchestrator)
 // ============================================
 export default function OnboardingV3Screen() {
-  const { t, i18n } = useTranslation();
-  const { startAt } = useLocalSearchParams<{ startAt?: string }>();
+  const {
+    t,
+    i18n,
+  } = useTranslation();
+  const { signInAnonymously, session } = useAuth();
+  const { startAt, reset } = useLocalSearchParams<{
+    startAt?: string;
+    reset?: string;
+  }>();
+  const shouldReset = reset === "1" || reset === "true";
   const initialSlide = useMemo(() => {
     if (startAt === "last3") {
       return Math.max(TOTAL_SLIDES_V3 - 3, 0);
@@ -54,9 +62,12 @@ export default function OnboardingV3Screen() {
   const [slideDirection, setSlideDirection] = useState<"forward" | "backward">(
     "forward",
   );
-  const { signInAnonymously } = useAuth();
   const prevSlideRef = useRef(initialSlide);
-  const restoredRef = useRef(false);
+  const restoreStartedRef = useRef(false);
+  // Writing is only safe once loadProgress() has resolved. Using a separate ref
+  // from restoreStartedRef avoids persisting the empty initial state on mount,
+  // which would wipe the saved progress before it is even read.
+  const canPersistRef = useRef(false);
 
   const {
     trackStart,
@@ -75,23 +86,54 @@ export default function OnboardingV3Screen() {
     trackStepViewed(initialSlide, "forward");
   }, [initialSlide]);
 
-  // ── Restore saved progress on mount ──
+  // ── Session bootstrap ──
+  // Slides in the middle of the questionnaire (routine-picker and
+  // routine-egg-flow) persist data scoped to the user, so the session must
+  // exist BEFORE the flow starts. The legacy "welcome" slide used to guarantee
+  // this by signing in anonymously at slide 0; without it those slides sit on a
+  // dead button. The ref guard keeps it to a single call: signInAnonymously is
+  // re-created on every provider render, which would otherwise re-fire this.
+  const anonSessionStartedRef = useRef(false);
   useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
+    if (session || anonSessionStartedRef.current) return;
+    anonSessionStartedRef.current = true;
+    void signInAnonymously();
+  }, [session, signInAnonymously]);
+
+// ── Restore saved progress on mount ──
+  // Skipped when an explicit startAt is passed (DebugPanel deep links) or when
+  // reset=1, so those entry points actually honour the slide they asked for.
+  useEffect(() => {
+    if (restoreStartedRef.current) return;
+    restoreStartedRef.current = true;
+
     const store = useOnboardingStore.getState();
-    store.loadProgress().then((saved) => {
-      if (saved && saved.currentSlide > 0) {
-        const safeSlide = Math.min(saved.currentSlide, TOTAL_SLIDES_V3 - 1);
-        const sanitizedAnswers = { ...saved.answers };
-        if (typeof sanitizedAnswers.taskText !== 'string') {
-          sanitizedAnswers.taskText = '';
+
+    if (reset || startAt !== undefined) {
+      if (reset) void store.clearProgress();
+      canPersistRef.current = true;
+      return;
+    }
+
+    store
+      .loadProgress()
+      .then((saved) => {
+        if (saved && saved.currentSlide > 0) {
+          const safeSlide = Math.min(saved.currentSlide, TOTAL_SLIDES_V3 - 1);
+          const sanitizedAnswers = { ...saved.answers };
+          if (typeof sanitizedAnswers.taskText !== "string") {
+            sanitizedAnswers.taskText = "";
+          }
+          setCurrentSlide(safeSlide);
+          setAnswers((prev) => ({ ...prev, ...sanitizedAnswers }));
         }
-        setCurrentSlide(safeSlide);
-        setAnswers((prev) => ({ ...prev, ...sanitizedAnswers }));
-      }
-    });
-  }, []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        // Enable persistence only after the read settled.
+        canPersistRef.current = true;
+      });
+  }, [reset, startAt]);
 
   useEffect(() => {
     if (currentSlide === 0) return; // handled by mount effect
@@ -110,7 +152,7 @@ export default function OnboardingV3Screen() {
 
   // ── Persist progress on every slide/answer change ──
   useEffect(() => {
-    if (!restoredRef.current) return;
+    if (!canPersistRef.current) return;
     const store = useOnboardingStore.getState();
     store.saveProgress({ currentSlide, answers: answers as unknown as Record<string, unknown> });
   }, [currentSlide, answers]);
@@ -132,15 +174,38 @@ export default function OnboardingV3Screen() {
     } catch (e) {
       console.error(t("onboarding.logs.complete_onboarding_error"), e);
     } finally {
+      // The login funnel owns authentication, so a user arriving straight at
+      // the questionnaire never passed through the old "welcome" slide (the
+      // only place that used to create the anonymous session). Create it here,
+      // otherwise the root guard would bounce them back to /login.
+      if (!session) {
+        try {
+          await signInAnonymously();
+        } catch (e) {
+          console.error("Onboarding: could not create anonymous session", e);
+        }
+      }
       // ALWAYS navigate off the onboarding regardless of db errors
       if (router.canGoBack()) {
         router.dismissAll();
       }
       router.replace("/(tabs)");
     }
-  }, [answers]);
+  }, [answers, session, signInAnonymously]);
 
-  const goToNextSlide = useCallback(() => {
+  // The back button is only offered on the first screens of the questionnaire,
+// and even there it can only move backwards WITHIN the onboarding (goToPrevSlide
+// is clamped at 0), so it can never drop the user back into the login funnel.
+// From this point on the flow is forward-only and only the progress bar shows.
+const BACK_BUTTON_SLIDE_LIMIT = 4;
+
+// Slides that auto-advance should not offer a manual back step.
+const hideBackOnSlides = ["paywall", "trial-reminder", "paywall-onboarding"];
+const showBack =
+  currentSlide < BACK_BUTTON_SLIDE_LIMIT &&
+  !hideBackOnSlides.includes(config.type);
+
+const goToNextSlide = useCallback(() => {
     trackStepCompleted(currentSlide, answers);
     if (currentSlide < TOTAL_SLIDES_V3 - 1) {
       hapticSelection();
@@ -152,13 +217,14 @@ export default function OnboardingV3Screen() {
   }, [currentSlide, finishOnboarding, answers, trackStepCompleted]);
 
   const goToPrevSlide = useCallback(() => {
-    if (currentSlide > 0) {
+    // Clamped at 0: back never escapes the onboarding.
+    if (currentSlide > 0 && showBack) {
       trackStepBack(currentSlide, currentSlide - 1);
       hapticLight();
       setSlideDirection("backward");
-      setCurrentSlide((s) => s - 1);
+      setCurrentSlide((s) => Math.max(0, s - 1));
     }
-  }, [currentSlide, trackStepBack]);
+  }, [currentSlide, showBack, trackStepBack]);
 
   // ── Answer handler ──
   const handleAnswer = useCallback(
@@ -174,17 +240,7 @@ export default function OnboardingV3Screen() {
   // ── Can continue? ──
   const canContinue = config.canContinue ? config.canContinue(answers) : true;
 
-  // Slides that should hide the back button (auto-advancing slides)
-  const hideBackOnSlides = [
-    "welcome",
-    "paywall",
-    "trial-reminder",
-    "paywall-onboarding",
-    ...(__DEV__ ? [] : ["dialogue"]),
-  ];
-  const showBack = currentSlide > 0 && !hideBackOnSlides.includes(config.type);
-
-  // Slides sobre fondo claro (preguntas): adapta back/progress a color oscuro
+// Slides sobre fondo claro (preguntas): adapta back/progress a color oscuro
   const isLightBackground =
     config.backgroundColor === LIGHT_BACKGROUND ||
     config.backgroundColor === "#f2f2f2";
@@ -285,12 +341,16 @@ export default function OnboardingV3Screen() {
         {/* Disable iOS swipe back and header */}
         <Stack.Screen options={{ gestureEnabled: false, headerShown: false }} />
 
-        {/* Header: back + progress bar */}
-        {showBack && (
-          <View style={s.headerContainer}>
-            <View style={s.backButtonArea}>
+        {/* Header: back (first slides only) + progress bar (always) */}
+        <View style={s.headerContainer}>
+          {/* Always rendered so the progress bar keeps the same width whether or
+              not the back button is shown. */}
+          <View style={s.backButtonArea}>
+            {showBack && (
               <Animated.View entering={FadeInDown.duration(300)}>
                 <Pressable
+                  testID="onboardingBack"
+                  accessibilityRole="button"
                   onPress={goToPrevSlide}
                   style={({ pressed }) => [
                     s.backButton,
@@ -302,28 +362,28 @@ export default function OnboardingV3Screen() {
                   />
                 </Pressable>
               </Animated.View>
-            </View>
+            )}
+          </View>
 
-            <View style={s.progressBarWrapper}>
-              <View
+          <View style={s.progressBarWrapper}>
+            <View
+              style={[
+                s.progressBarBackground,
+                isLightBackground && s.progressBarBackgroundLight,
+              ]}
+            >
+              <Animated.View
+                entering={FadeInDown.duration(400)}
                 style={[
-                  s.progressBarBackground,
-                  isLightBackground && s.progressBarBackgroundLight,
+                  s.progressBarFill,
+                  {
+                    width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%`,
+                  },
                 ]}
-              >
-                <Animated.View
-                  entering={FadeInDown.duration(400)}
-                  style={[
-                    s.progressBarFill,
-                    {
-                      width: `${((currentSlide + 1) / TOTAL_SLIDES_V3) * 100}%`,
-                    },
-                  ]}
-                />
-              </View>
+              />
             </View>
           </View>
-        )}
+        </View>
 
         <View style={s.slideContainer}>
           <Animated.View

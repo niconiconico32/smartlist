@@ -17,14 +17,21 @@ appId: com.brainyahdh.app
 - openLink: ${BRAINY_E2E_OPEN_URL}
 
 # 2) Arranque en frío tras pm clear: el bundler puede tardar en servir.
+#    Pantalla 1 del flujo de login → "Tengo una Cuenta" → /login-social.
+- extendedWaitUntil:
+    visible:
+      id: loginStart
+    timeout: 240000
+- assertVisible:
+    id: loginStart
+
+# 3) Entrar por la pantalla de métodos de acceso y abrir el modal de email.
+- tapOn:
+    id: loginHaveAccount
 - extendedWaitUntil:
     visible:
       id: loginEmailOpen
-    timeout: 240000
-- assertVisible:
-    id: loginEmailOpen
-
-# 3) Abrir el modal de email (OTP-first).
+    timeout: 20000
 - tapOn:
     id: loginEmailOpen
 - extendedWaitUntil:

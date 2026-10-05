@@ -493,15 +493,42 @@
   },
   "login": {
     "connect_account": "Conecte sua conta para salvar\nseu progresso com segurança",
-    "title": "Feito para cérebros que funcionam diferente.",
-    "tagline": "o companheiro que transforma tarefas chatas em um jogo gratificante",
+    "title": "Feito para cérebros que funcionam de forma diferente.",
+    "tagline": "O companheiro que transforma tarefas chatas em um jogo recompensador",
     "continue_with_google": "Continuar com Google",
     "continue_with_apple": "Continuar com Apple",
     "or": "ou",
     "start_without_account": "Começar sem conta",
     "email_login": "Entrar com e-mail/senha",
-    "back_to_app": "Voltar para o app",
-    "terms": "Ao continuar, você concorda com nossos Termos de Serviço\ne Política de Privacidade."
+    "back_to_app": "Voltar ao app",
+    "terms": "Ao continuar, você concorda com nossos Termos de Serviço\ne Política de Privacidade.",
+    "start": "Começar",
+    "have_account": "Tenho uma conta",
+    "legal_prefix": "Ao continuar, você concorda com nossos",
+    "legal_terms": "Termos de Serviço",
+    "legal_and": "e",
+    "legal_privacy": "Política de Privacidade"
+  },
+  "common": {
+    "back": "Voltar"
+  },
+  "login_options": {
+    "title": "Você já usou o Brainy antes?",
+    "subtitle": "Diga-nos sua situação para levá-lo ao lugar certo.",
+    "first_time": "Não, é minha primeira vez.",
+    "first_time_hint": "Responda ao questionário para começar",
+    "has_subscription": "Sim, tenho uma assinatura ativa.",
+    "has_subscription_hint": "Acesse com seu endereço de e-mail."
+  },
+  "login_existing": {
+    "title": "Digite seu e-mail",
+    "subtitle": "Use o mesmo e-mail para o qual enviamos sua senha após ativar seu plano.",
+    "submit": "Entrar",
+    "email_invalid": "Digite um endereço de e-mail válido.",
+    "password_required": "Digite sua senha.",
+    "invalid_credentials": "E-mail ou senha incorretos.",
+    "alt_signin": "Ou continue com Google ou Apple",
+    "alt_signin_hint": "Se sua conta foi criada com Google, Apple ou um código, entre por aqui."
   },
   "benefits": {
     "header": "Benefícios",

@@ -483,16 +483,43 @@
     }
   },
   "login": {
-    "connect_account": "Connetti il tuo account per salvare in sicurezza i tuoi progressi",
-    "title": "Creato per menti che funzionano diversamente.",
-    "tagline": "il compagno che trasforma i compiti noiosi in un gioco gratificante",
+    "connect_account": "Collega il tuo account per salvare\ni tuoi progressi in modo sicuro",
+    "title": "Creato per cervelli che funzionano in modo diverso.",
+    "tagline": "Il compagno che trasforma le noiose attività in un gioco gratificante",
     "continue_with_google": "Continua con Google",
     "continue_with_apple": "Continua con Apple",
-    "or": "oppure",
-    "start_without_account": "Inizia senza un account",
+    "or": "o",
+    "start_without_account": "Inizia senza account",
     "email_login": "Accedi con nome utente/password",
     "back_to_app": "Torna all'app",
-    "terms": "Continuando, accetti i nostri Termini di Servizio\ne l'Informativa sulla Privacy."
+    "terms": "Continuando, accetti i nostri Termini di Servizio\ne la nostra Politica sulla Privacy.",
+    "start": "Inizia",
+    "have_account": "Ho un account",
+    "legal_prefix": "Continuando, accetti i nostri",
+    "legal_terms": "Termini di Servizio",
+    "legal_and": "e",
+    "legal_privacy": "Politica sulla Privacy"
+  },
+  "common": {
+    "back": "Indietro"
+  },
+  "login_options": {
+    "title": "Hai già usato Brainy?",
+    "subtitle": "Dici la tua situazione per portarti nel posto giusto.",
+    "first_time": "No, è la mia prima volta.",
+    "first_time_hint": "Rispondi al questionario per iniziare",
+    "has_subscription": "Sì, ho un abbonamento attivo.",
+    "has_subscription_hint": "Accedi con il tuo indirizzo email."
+  },
+  "login_existing": {
+    "title": "Inserisci la tua email",
+    "subtitle": "Usa la stessa email a cui abbiamo inviato la tua password dopo l'attivazione del tuo piano.",
+    "submit": "Accedi",
+    "email_invalid": "Inserisci un indirizzo email valido.",
+    "password_required": "Inserisci la tua password.",
+    "invalid_credentials": "Email o password non corretti.",
+    "alt_signin": "O continua con Google o Apple",
+    "alt_signin_hint": "Se il tuo account è stato creato con Google, Apple o un codice, accedi qui."
   },
   "benefits": {
     "header": "Vantaggi",

@@ -5,41 +5,36 @@ import type { SlideConfig } from './types';
 /**
  * Onboarding V3 — Full flow based on onboarding-new + closing screens from onboardingfinal.
  *
+ * Authentication is NOT part of this flow anymore: the /login funnel owns it.
+ * The legacy "welcome" slide (which rendered its own social/email buttons) was
+ * removed so no entry point can reach it.
+ *
  * Slide order:
- *  0  welcome
- *  1  dialogue
- *  2  situation (single-select)
- *  3  diagnosis (single-select)
- *  4  adhd-symptoms (multi-select)
- *  5  life-area (single-select)
- *  6  main-goal (multi-select)
- *  7  dialogue-2
- *  8  statement1 (agreement)
- *  9  statement2 (agreement)
- * 10  statement3 (agreement)
- * 11  statement4 (agreement)
- * 12  dialogue-3
- * 13  task-demo
- * 14  dialogue-4
- * 15  results
- * 16  success-chart
- * 17  routine-egg-flow
- * 18  paywall
- * 19  trial-reminder
- * 20  paywall-onboarding
- * 21  commitment
- * 22  all-done
+ *  0  dialogue
+ *  1  situation (single-select)
+ *  2  diagnosis (single-select)
+ *  3  adhd-symptoms (multi-select)
+ *  4  life-area (single-select)
+ *  5  main-goal (multi-select)
+ *  6  dialogue-2
+ *  7  statement1 (agreement)
+ *  8  statement2 (agreement)
+ *  9  statement3 (agreement)
+ * 10  statement4 (agreement)
+ * 11  dialogue-3
+ * 12  task-demo
+ * 13  dialogue-4
+ * 14  results
+ * 15  success-chart
+ * 16  routine-egg-flow
+ * 17  paywall
+ * 18  trial-reminder
+ * 19  paywall-onboarding
+ * 20  commitment
+ * 21  all-done
  */
 export const SLIDES_V3: SlideConfig[] = [
-  // === 0: Welcome ===
-  {
-    type: 'welcome',
-    id: 'welcome',
-    answerKey: null,
-    showNavButton: false,
-  },
-
-  // === 1: Dialogue ===
+  // === 0: Dialogue ===
   {
     type: 'dialogue',
     id: 'dialogue',

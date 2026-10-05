@@ -115,8 +115,7 @@ export default function RoutinePickerSlide({
   };
 
   const handleContinue = async () => {
-    const userId = user?.id;
-    if (!userId || saving) return;
+    if (saving) return;
 
     const preset = PRESET_ROUTINES.find((r) => r.id === selected);
     if (!preset) {
@@ -129,6 +128,17 @@ export default function RoutinePickerSlide({
     }
 
     if (skipCreateRoutine) {
+      onNext(preset);
+      return;
+    }
+
+    const userId = user?.id;
+    if (!userId) {
+      // Without a session the routine cannot be persisted. This used to be a
+      // silent no-op, which hard-stuck the whole onboarding.
+      console.warn(
+        "RoutinePicker: no session available, advancing without creating the routine",
+      );
       onNext(preset);
       return;
     }

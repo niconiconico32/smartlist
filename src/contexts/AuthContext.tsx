@@ -25,6 +25,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  /**
+   * True once the initial session lookup has settled. Distinct from `isLoading`,
+   * which is also true while ANY auth request is in flight. Boot gates (the root
+   * layout returning null, the auth redirect guard) must use this one: gating on
+   * `isLoading` unmounts the navigator in the middle of a sign-in attempt,
+   * destroying the navigation stack and the screen the user is filling in.
+   */
+  isAuthResolved: boolean;
   isAnonymous: boolean;
   signInWithOAuth: (
     provider: OAuthProvider,
@@ -45,6 +53,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isLoading: true,
+  isAuthResolved: false,
   isAnonymous: true,
   signInWithOAuth: async () => {},
   signInWithApple: async () => {},
@@ -62,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthResolved, setIsAuthResolved] = useState(false);
 
   const isAnonymous = !session || session.user?.is_anonymous === true;
 
@@ -98,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+      setIsAuthResolved(true);
     });
 
     // 2. Listen for auth state changes
@@ -108,6 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        setIsAuthResolved(true);
 
         if (session?.user && !session.user.is_anonymous) {
           const provider =
@@ -440,6 +452,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session,
         isLoading,
         isAnonymous,
+        isAuthResolved,
         signInWithOAuth,
         signInWithApple,
         signInAnonymously,

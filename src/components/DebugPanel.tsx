@@ -180,7 +180,12 @@ export default function DebugPanel({ onTriggerStreak }: DebugPanelProps) {
                   style={styles.actionButton}
                   onPress={() => {
                     setIsOpen(false);
-                    router.push("/onboarding-v3");
+                    // reset=1 drops any saved progress, otherwise the
+                    // onboarding restores the previous slide instead of 0.
+                    router.push({
+                      pathname: "/onboarding-v3",
+                      params: { reset: "1" },
+                    });
                   }}
                 >
                   <Rocket size={20} color="#F9E2AF" />
@@ -193,7 +198,7 @@ export default function DebugPanel({ onTriggerStreak }: DebugPanelProps) {
                     setIsOpen(false);
                     router.push({
                       pathname: "/onboarding-v3",
-                      params: { startAt: "last5" },
+                      params: { startAt: "last3" },
                     });
                   }}
                 >

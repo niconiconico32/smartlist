@@ -485,14 +485,41 @@
   "login": {
     "connect_account": "Connectez votre compte pour sauvegarder\nvotre progression en toute sécurité",
     "title": "Conçu pour les cerveaux qui fonctionnent différemment.",
-    "tagline": "le compagnon qui transforme les tâches ennuyeuses en jeu gratifiant",
+    "tagline": "Le compagnon qui transforme les tâches fastidieuses en jeu gratifiant",
     "continue_with_google": "Continuer avec Google",
     "continue_with_apple": "Continuer avec Apple",
     "or": "ou",
     "start_without_account": "Commencer sans compte",
     "email_login": "Se connecter avec e-mail / mot de passe",
     "back_to_app": "Retour à l'app",
-    "terms": "En continuant, vous acceptez nos Conditions d'utilisation\net notre Politique de confidentialité."
+    "terms": "En continuant, vous acceptez nos Conditions d'utilisation\net notre Politique de confidentialité.",
+    "start": "Commencer",
+    "have_account": "J'ai un compte",
+    "legal_prefix": "En continuant, vous acceptez nos",
+    "legal_terms": "Conditions d'utilisation",
+    "legal_and": "et",
+    "legal_privacy": "Politique de confidentialité"
+  },
+  "common": {
+    "back": "Retour"
+  },
+  "login_options": {
+    "title": "Avez-vous déjà utilisé Brainy ?",
+    "subtitle": "Dites-nous votre situation pour vous diriger vers le bon endroit.",
+    "first_time": "Non, c'est ma première fois.",
+    "first_time_hint": "Répondez au questionnaire pour commencer",
+    "has_subscription": "Oui, j'ai un abonnement actif.",
+    "has_subscription_hint": "Connectez-vous avec votre adresse e-mail."
+  },
+  "login_existing": {
+    "title": "Entrez votre e-mail",
+    "subtitle": "Utilisez le même e-mail auquel nous avons envoyé votre mot de passe après l'activation de votre plan.",
+    "submit": "Se connecter",
+    "email_invalid": "Saisissez une adresse e-mail valide.",
+    "password_required": "Saisissez votre mot de passe.",
+    "invalid_credentials": "E-mail ou mot de passe incorrect.",
+    "alt_signin": "Ou continuer avec Google ou Apple",
+    "alt_signin_hint": "Si votre compte a été créé avec Google, Apple ou un code, connectez-vous ici."
   },
   "benefits": {
     "header": "Bénéfices",

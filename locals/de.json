@@ -483,16 +483,43 @@
     }
   },
   "login": {
-    "connect_account": "Verbinde dein Konto, um deinen Fortschritt sicher zu speichern",
+    "connect_account": "Verbinde dein Konto, um deinen\nFortschritt sicher zu speichern",
     "title": "Gebaut für Gehirne, die anders funktionieren.",
-    "tagline": "der Begleiter, der lästige Aufgaben in ein belohnendes Spiel verwandelt",
+    "tagline": "Der Begleiter, der langweilige Aufgaben in ein lohnendes Spiel verwandelt",
     "continue_with_google": "Mit Google fortfahren",
     "continue_with_apple": "Mit Apple fortfahren",
     "or": "oder",
     "start_without_account": "Ohne Konto starten",
     "email_login": "Anmelden mit Benutzername/Passwort",
     "back_to_app": "Zurück zur App",
-    "terms": "Indem du fortfährst, stimmst du unseren Nutzungsbedingungen\nund der Datenschutzrichtlinie zu."
+    "terms": "Mit dem Fortfahren akzeptierst du unsere Nutzungsbedingungen\nund Datenschutzrichtlinie.",
+    "start": "Loslegen",
+    "have_account": "Ich habe ein Konto",
+    "legal_prefix": "Mit dem Fortfahren akzeptierst du unsere",
+    "legal_terms": "Nutzungsbedingungen",
+    "legal_and": "und",
+    "legal_privacy": "Datenschutzrichtlinie"
+  },
+  "common": {
+    "back": "Zurück"
+  },
+  "login_options": {
+    "title": "Hast du Brainy schon einmal benutzt?",
+    "subtitle": "Sag uns deine Situation, damit wir dich an den richtigen Ort bringen.",
+    "first_time": "Nein, es ist mein erstes Mal.",
+    "first_time_hint": "Beantwarte den Fragebogen, um zu beginnen",
+    "has_subscription": "Ja, ich habe ein aktives Abonnement.",
+    "has_subscription_hint": "Melde dich mit deiner E-Mail-Adresse an."
+  },
+  "login_existing": {
+    "title": "Gib deine E-Mail ein",
+    "subtitle": "Verwende dieselbe E-Mail, an die wir dein Passwort nach der Aktivierung deines Plans gesendet haben.",
+    "submit": "Anmelden",
+    "email_invalid": "Gib eine gültige E-Mail-Adresse ein.",
+    "password_required": "Gib dein Passwort ein.",
+    "invalid_credentials": "E-Mail oder Passwort falsch.",
+    "alt_signin": "Oder mit Google bzw. Apple fortfahren",
+    "alt_signin_hint": "Wenn dein Konto mit Google, Apple oder einem Code erstellt wurde, melde dich hier an."
   },
   "benefits": {
     "header": "Vorteile",

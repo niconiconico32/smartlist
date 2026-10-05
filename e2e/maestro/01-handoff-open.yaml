@@ -8,38 +8,38 @@ appId: com.brainyahdh.app
 # 1) Abrir el link (brainy://claim?token=...&redeem_url=... o la rc-:// link)
 - openLink: ${BRAINY_E2E_OPEN_URL}
 
-# 2) Si el app pidió login (sin sesión real), entrar por el modal de email.
-#    Tras un arranque en frío el bundler puede tardar bastante en mostrar la
-#    welcome screen, así que se espera loginEmailOpen con margen amplio.
+# 2) Si el app pidió login (sin sesión real), entrar por email + contraseña.
+#    El flujo es /login → "Tengo una Cuenta" → /login-social, y el enlace de
+#    correo abre /login-existing, que ya muestra el formulario inline de email y
+#    contraseña (no hay modal ni toggle que usar).
+#    Tras un arranque en frío el bundler puede tardar mucho en mostrar la
+#    pantalla 1, así que se espera loginStart con margen amplio.
+- extendedWaitUntil:
+    visible:
+      id: loginStart
+    timeout: 180000
+- assertVisible:
+    id: loginStart
+- tapOn:
+    id: loginHaveAccount
 - extendedWaitUntil:
     visible:
       id: loginEmailOpen
-    timeout: 180000
-- assertVisible:
-    id: loginEmailOpen
+    timeout: 20000
 - tapOn:
     id: loginEmailOpen
 - extendedWaitUntil:
     visible:
-      id: loginEmailInput
+      id: loginExistingEmail
     timeout: 15000
 - tapOn:
-    id: loginEmailInput
+    id: loginExistingEmail
 - inputText: ${BRAINY_TEST_EMAIL}
-# El modal es OTP-first: hay que togglear a "usar contraseña" antes de que
-# exista loginPasswordInput. El runner crea el usuario con password, así el
-# login no depende de leer un OTP por correo.
 - tapOn:
-    id: loginPasswordToggle
-- extendedWaitUntil:
-    visible:
-      id: loginPasswordInput
-    timeout: 15000
-- tapOn:
-    id: loginPasswordInput
+    id: loginExistingPassword
 - inputText: ${BRAINY_TEST_PASSWORD}
 - tapOn:
-    id: loginSubmit
+    id: loginExistingSubmit
 
 # 3) El claim automatizado desemboca en /plan-ready (wizard visto y ruta final).
 - extendedWaitUntil:

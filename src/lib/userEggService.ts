@@ -29,6 +29,63 @@ let pendingSyncUser: string | null = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function migrationKey(userId: string): string {
+  return `${MIGRATION_KEY}:${userId}`;
+}
+
+/**
+ * Clears routine links that do not belong to `userId`.
+ *
+ * Defence in depth for the one-time migration below. That migration stamps the
+ * CURRENT user id onto whatever sits in the local store, so a stale store from
+ * a previous account would attribute that account's routines to this user.
+ */
+async function dropForeignRoutineLinks(
+  userId: string,
+  eggs: EggData[],
+): Promise<EggData[]> {
+  const ids = eggs.map((e) => e.routineId).filter((id): id is string => !!id);
+  if (ids.length === 0) return eggs;
+
+  const detachAll = () => eggs.map((e) => ({ ...e, routineId: null }));
+  try {
+    const { data } = await supabase
+      .from("routines")
+      .select("id")
+      .eq("user_id", userId)
+      .in("id", ids);
+    const owned = new Set((data ?? []).map((r: { id: string }) => r.id));
+    return eggs.map((e) =>
+      e.routineId && !owned.has(e.routineId) ? { ...e, routineId: null } : e,
+    );
+  } catch {
+    // Ownership could not be verified: push no links rather than wrong ones.
+    return detachAll();
+  }
+}
+
+/**
+ * Drops the previous account's egg state.
+ *
+ * `useEggStore` is a global store and `signOut()` does not clear it, so without
+ * this a second account signing in on the same device inherits the first
+ * account's routine links. Combined with the one-time migration — which stamps
+ * the CURRENT user id onto whatever is in the local store — that wrote another
+ * account's routine ids under this user's rows, and because the push upserts on
+ * (user_id, egg_id) it overwrote the routine→egg links the funnel had just
+ * created, leaving every restored routine without its companion.
+ */
+export function resetEggStoreForUserChange(): void {
+  armed = false;
+  isApplyingRemote = false;
+  pendingSyncUser = null;
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+  }
+  useEggStore.setState({ eggs: buildBaseEggs() });
+}
+
 function buildBaseEggs(): EggData[] {
   return EGG_METADATA.map(({ id, rarity }) => ({
     id,
@@ -43,11 +100,15 @@ function buildBaseEggs(): EggData[] {
 }
 
 /**
- * Push the whole local egg store up as rows. `nickname` is intentionally
+ * Pushes the given egg state up as rows. `nickname` is intentionally
  * omitted so a local push never wipes a nickname set elsewhere.
  */
-async function pushEggsToCloud(userId: string): Promise<void> {
-  const rows = useEggStore.getState().eggs.map((e) => ({
+async function pushEggsToCloud(
+  userId: string,
+  eggs?: EggData[],
+): Promise<void> {
+  const source = eggs ?? useEggStore.getState().eggs;
+  const rows = source.map((e) => ({
     user_id: userId,
     egg_id: e.id,
     routine_id: e.routineId,
@@ -99,11 +160,25 @@ export async function syncEggsWithCloud(userId: string): Promise<void> {
     const rows = (data ?? []) as UserEggRow[];
 
     if (rows.length === 0) {
-      // One-time local → cloud migration for existing users.
-      const alreadyMigrated = (await AsyncStorage.getItem(MIGRATION_KEY)) === "true";
+      // One-time local → cloud migration for existing users. Scoped per user so
+      // a fresh account on a device that already migrated someone else still
+      // gets its chance, and vice versa.
+      const key = migrationKey(userId);
+      const alreadyMigrated = (await AsyncStorage.getItem(key)) === "true";
       if (!alreadyMigrated) {
-        await pushEggsToCloud(userId);
-        await AsyncStorage.setItem(MIGRATION_KEY, "true");
+        const local = await dropForeignRoutineLinks(
+          userId,
+          useEggStore.getState().eggs,
+        );
+        if (isApplyingRemote) return;
+        isApplyingRemote = true;
+        try {
+          useEggStore.setState({ eggs: local });
+        } finally {
+          isApplyingRemote = false;
+        }
+        await pushEggsToCloud(userId, local);
+        await AsyncStorage.setItem(key, "true");
       }
       armed = true;
       return;

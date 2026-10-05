@@ -39,7 +39,11 @@ import {
   storePendingRedemptionUrl,
   storePendingFunnelEmail,
 } from "@/src/lib/funnelClaim";
-import { armEggStoreCloudSync, syncEggsWithCloud } from "@/src/lib/userEggService";
+import {
+  armEggStoreCloudSync,
+  resetEggStoreForUserChange,
+  syncEggsWithCloud,
+} from "@/src/lib/userEggService";
 import { useAchievementsStore } from "@/src/store/achievementsStore";
 import { useOnboardingStore } from "@/src/store/onboardingStore";
 import { useProStore } from "@/src/store/proStore";
@@ -239,7 +243,7 @@ export default function RootLayout() {
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const { session, isLoading, isAnonymous } = useAuth();
+  const { session, isAuthResolved, isAnonymous } = useAuth();
   const isOnboardingLocal = useOnboardingStore((s) => s.isOnboardingComplete);
   const segments = useSegments();
   const router = useRouter();
@@ -361,22 +365,47 @@ function RootLayoutNav() {
     };
   }, [session?.user?.id]);
 
+  // A brand-new user finishes onboarding with NO session (the login funnel
+  // owns auth), so completeOnboarding() has nothing to write to. This retries
+  // the push once a session exists — it is a no-op after the server
+  // acknowledges it, and self-heals if onboarding finished offline.
   useEffect(() => {
-    if (isLoading) return; // Wait until auth state is resolved
+    if (!isAuthResolved || !session?.user) return;
+    void useOnboardingStore.getState().syncCompletedToServer();
+  }, [isAuthResolved, session?.user?.id]);
+
+  useEffect(() => {
+    if (!isAuthResolved) return; // Wait until auth state is resolved
     let active = true;
 
+    // The login flow is a multi-screen funnel (login → login-options →
+    // login-existing / login-social). Every step must be treated as part of
+    // the unauthenticated area, otherwise the guard below bounces the user
+    // back to /login while they are already inside the flow.
+    //
+    // `onboarding-v3` is included on purpose: a brand-new user has no session
+    // yet when answering "No, es mi primera vez", so the real onboarding must
+    // be reachable without one. Leaving it out makes that CTA look inert.
+    const loginRoutes = new Set([
+      "login",
+      "login-options",
+      "login-existing",
+      "login-social",
+      "onboarding-v3",
+    ]);
+    const onLoginFlow = loginRoutes.has(segments[0]);
+
     const inAuthGroup =
-      segments[0] === "login" ||
+      onLoginFlow ||
       segments[0] === "onboarding-new" ||
-      segments[0] === "onboarding-v3" ||
       segments[0] === "claim" ||
       segments[0] === "plan-ready";
 
     if (!session) {
-      if (segments[0] !== "login") {
-        // No session at all → the ORIGINAL login screen is the entry point now
-        // (both for organic new users and funnel visitors). Fresh users reach
-        // onboarding only AFTER signing up / continuing anonymously.
+      if (segments[0] && !loginRoutes.has(segments[0])) {
+        // No session at all → the login flow is the entry point now (both for
+        // organic new users and funnel visitors). Fresh users reach onboarding
+        // only AFTER signing up / continuing anonymously.
         router.replace("/login");
       }
       return () => {
@@ -389,8 +418,11 @@ function RootLayoutNav() {
       isOnboardingLocal;
 
     if (session.user?.is_anonymous !== true) {
-      if (segments[0] === "login") {
-        // Real user landing on login:
+      // Runs for every step of the login flow, not just /login — otherwise a
+      // user who signs in from /login-existing or /login-social would stay
+      // stuck on the form after the session appears.
+      if (onLoginFlow) {
+        // Real user landing anywhere in the login flow:
         //  1. Legacy deep-link handoff (claim token / RevenueCat redemption
         //     link persisted by the web funnel) → /claim (compat path).
         //  2. Otherwise the NEW happy path: server-side email restore lookup
@@ -405,6 +437,14 @@ function RootLayoutNav() {
             }
             const outcome = await runFunnelRestore(session.user!.id);
             if (!active) return;
+            if (outcome === "restored_fresh" || outcome === "restored_replay") {
+              // The claim RPC creates routines AND user_eggs rows. The egg
+              // store was hydrated when the session appeared, which is BEFORE
+              // the RPC ran, so the routine→egg links never reached the local
+              // store and every funnel routine rendered without its companion.
+              // Re-fetch now that the rows exist.
+              await syncEggsWithCloud(session.user!.id);
+            }
             if (outcome === "restored_fresh") {
               // The RestoringOverlay now owns the final confirmation ("Tu
               // Brainy está listo" + counts + "Empezar"). It routes to HOME on
@@ -449,7 +489,7 @@ function RootLayoutNav() {
     return () => {
       active = false;
     };
-  }, [session, isLoading, isAnonymous, segments, isOnboardingLocal, router]);
+  }, [session, isAuthResolved, isAnonymous, segments, isOnboardingLocal, router]);
 
   // Re-run the server-authoritative funnel lookup when a session is restored
   // directly into HOME/onboarding (not only after visiting /login). This is
@@ -462,8 +502,19 @@ function RootLayoutNav() {
   // effect immediately bounced the user back to Home.
   const funnelRestoreRanFor = useRef<string | null>(null);
   useEffect(() => {
-    if (isLoading || !session?.user?.id || session.user.is_anonymous) return;
-    if (segments[0] === "claim" || segments[0] === "plan-ready" || segments[0] === "login") return;
+    if (!isAuthResolved || !session?.user?.id || session.user.is_anonymous) return;
+    // The sign-in flow owns navigation while it is on screen: the effect at
+    // the top of this component already routes the user once the session
+    // exists, so this startup check must stay out of the way.
+    if (
+      segments[0] === "claim" ||
+      segments[0] === "plan-ready" ||
+      segments[0] === "login" ||
+      segments[0] === "login-options" ||
+      segments[0] === "login-existing" ||
+      segments[0] === "login-social"
+    )
+      return;
 
     // Once per user: a repeat run can only re-apply the same redirect.
     const userKey = session.user.id;
@@ -488,6 +539,10 @@ function RootLayoutNav() {
       const outcome = await runFunnelRestore(session.user.id);
       if (!active) return;
       if (outcome === "restored_fresh" || outcome === "restored_replay") {
+        // Same reason as the sign-in path: the claim RPC just created the
+        // user_eggs rows, after the egg store was hydrated. Re-fetch so the
+        // routine→egg links land before the user sees Home.
+        await syncEggsWithCloud(session.user.id);
         router.replace("/(tabs)");
       } else if (outcome === "no_plan" && !isOnboardingLocal && segments[0] !== "onboarding-v3" && segments[0] !== "onboarding-new") {
         router.replace("/onboarding-v3");
@@ -496,7 +551,7 @@ function RootLayoutNav() {
       }
     }).catch(() => {});
     return () => { active = false; };
-  }, [isLoading, session?.user?.id, session?.user?.is_anonymous, segments[0], isOnboardingLocal, router, runFunnelRestore]);
+  }, [isAuthResolved, session?.user?.id, session?.user?.is_anonymous, segments[0], isOnboardingLocal, router, runFunnelRestore]);
 
   // ── Funnel handoff plumbing ─────────────────────────────────────────────────
   // Funnel any persisted but unhandled handoff (claim token and/or RevenueCat
@@ -504,7 +559,7 @@ function RootLayoutNav() {
   // Covers email/Google/Apple login, OAuth redirects, app reloads and
   // background/foreground cycles.
   useEffect(() => {
-    if (isLoading) return;
+    if (!isAuthResolved) return;
 
     const currentPath = pathnameRef.current ?? "";
     const onClaimPath =
@@ -521,25 +576,36 @@ function RootLayoutNav() {
         }
       })
       .catch(() => {});
-  }, [isLoading, session?.user?.id, pathname, router]);
+  }, [isAuthResolved, session?.user?.id, pathname, router]);
 
   // Hydrate + keep the egg store in sync with user_eggs once logged in.
+const eggSyncUserRef = useRef<string | null>(null);
   useEffect(() => {
-    if (isLoading || !session?.user?.id) return;
+    const nextUserId = session?.user?.id ?? null;
+    if (eggSyncUserRef.current === nextUserId) return;
 
-    syncEggsWithCloud(session.user.id).catch(() => {});
-    if (!eggSyncCleanupRef.current) {
-      eggSyncCleanupRef.current = armEggStoreCloudSync(session.user.id);
-    }
-  }, [isLoading, session?.user?.id]);
+    // The account changed (or signed out). Drop the previous account's eggs
+    // BEFORE syncing: the egg store is global and signOut() does not clear it,
+    // so without this a new account inherits the old one's routine links and
+    // the one-time migration stamps them under the new user id.
+    resetEggStoreForUserChange();
+    eggSyncUserRef.current = nextUserId;
+    eggSyncCleanupRef.current?.();
+    eggSyncCleanupRef.current = null;
 
-  // Cleanup the egg-store subscription whenever the user changes/signs out.
+    if (!isAuthResolved || !nextUserId) return;
+    void syncEggsWithCloud(nextUserId).catch(() => {});
+    eggSyncCleanupRef.current = armEggStoreCloudSync(nextUserId);
+  }, [isAuthResolved, session?.user?.id]);
+
+  // Subscription teardown on unmount. Per-user teardown now lives in the sync
+  // effect above, which handles both sign-out and account switches.
   useEffect(() => {
-    if (!session?.user?.id && eggSyncCleanupRef.current) {
-      eggSyncCleanupRef.current();
+    return () => {
+      eggSyncCleanupRef.current?.();
       eggSyncCleanupRef.current = null;
-    }
-  }, [session?.user?.id]);
+    };
+  }, []);
 
   // ── Warm deep links ────────────────────────────────────────────────────────
   // brainy://claim?token=...&redeem_url=... and rc-<appId>:// Redemption Links.
@@ -593,8 +659,11 @@ function RootLayoutNav() {
       .catch(() => {});
   }, [router]);
 
-  // Return nothing while loading to prevent navigation flicker
-  if (isLoading) return null;
+  // Render nothing until the initial auth lookup settles. This must use
+  // isAuthResolved, not isLoading: isLoading is also true during an in-flight
+  // sign-in, and returning null there unmounted the whole navigator mid-request,
+  // wiping the navigation stack and the form the user was filling in.
+  if (!isAuthResolved) return null;
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
@@ -602,6 +671,18 @@ function RootLayoutNav() {
         <Stack>
           <Stack.Screen
             name="login"
+            options={{ headerShown: false, animation: "fade" }}
+          />
+          <Stack.Screen
+            name="login-options"
+            options={{ headerShown: false, animation: "fade" }}
+          />
+          <Stack.Screen
+            name="login-existing"
+            options={{ headerShown: false, animation: "fade" }}
+          />
+          <Stack.Screen
+            name="login-social"
             options={{ headerShown: false, animation: "fade" }}
           />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

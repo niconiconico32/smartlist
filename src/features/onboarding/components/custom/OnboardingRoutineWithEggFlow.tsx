@@ -39,7 +39,18 @@ export default function OnboardingRoutineWithEggFlow({
 
   // Paso 1: Selección de rutina
   const handleRoutineNext = async (preset: any) => {
-    if (!user?.id || !preset) return;
+    if (!preset) {
+      onDone();
+      return;
+    }
+    if (!user?.id) {
+      // Same silent no-op that used to block the flow: advance instead.
+      console.warn(
+        "RoutineWithEggFlow: no session available, advancing without creating the routine",
+      );
+      onDone();
+      return;
+    }
     try {
       const routine = await createRoutine(user.id, {
         name: `${preset.emoji} ${t(preset.label)}`,

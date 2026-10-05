@@ -488,11 +488,38 @@
     "tagline": "the companion that turns tedious tasks into a rewarding game",
     "continue_with_google": "Continue with Google",
     "continue_with_apple": "Continue with Apple",
-    "or": "or",
+    "or": "o",
     "start_without_account": "Start without an account",
     "email_login": "Login with username/password",
     "back_to_app": "Back to app",
-    "terms": "By continuing, you agree to our Terms of Service\nand Privacy Policy."
+    "terms": "By continuing, you agree to our Terms of Service\nand Privacy Policy.",
+    "start": "Get Started",
+    "have_account": "I Have an Account",
+    "legal_prefix": "By continuing, you agree to our",
+    "legal_terms": "Terms of Service",
+    "legal_and": "and",
+    "legal_privacy": "Privacy Policy"
+  },
+  "common": {
+    "back": "Back"
+  },
+  "login_options": {
+    "title": "Have you used Brainy before?",
+    "subtitle": "Tell us your situation so we can take you to the right place.",
+    "first_time": "No, it's my first time.",
+    "first_time_hint": "Answer the questionnaire to get started",
+    "has_subscription": "Yes, I have an active subscription.",
+    "has_subscription_hint": "Sign in with your email address."
+  },
+  "login_existing": {
+    "title": "Enter Your Email",
+    "subtitle": "Use the same email we sent your password to after activating your plan.",
+    "submit": "Sign In",
+    "email_invalid": "Enter a valid email address.",
+    "password_required": "Enter your password.",
+    "invalid_credentials": "Incorrect email or password.",
+    "alt_signin": "Or continue with Google or Apple",
+    "alt_signin_hint": "If your account was created with Google, Apple or a code, sign in here."
   },
   "benefits": {
     "header": "Benefits",
