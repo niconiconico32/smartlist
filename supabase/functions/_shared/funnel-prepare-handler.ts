@@ -4,15 +4,16 @@
 // account preparation can be exercised in tests. Invariants:
 //  - `planId` + `claimToken` + `email` are validated BEFORE any Auth call, so an
 //    invalid token or a plan owned by someone else touches nothing in Auth;
-//  - a new account created here always carries the funnel metadata contract
-//    (`funnelCreatedMetadata()`); the browser never sends it;
-//  - an account already linked to the validated plan is repaired in place
-//    (metadata flags only): same UUID, same password, no second user;
+//  - a new account is stamped ONLY with `brainy_funnel_account_created`. It is
+//    NEVER stamped with `onboarding_completed`: the plan is not materialized at
+//    this point, and the app reads that flag as "content already in place" and
+//    would skip the restore path, landing the user on an empty Home. The flag
+//    is written after canonical materialization, by the webhook path.
+//  - preparing an account NEVER materializes anything;
 //  - Pro is never granted here. The server-side RevenueCat check stays the only
 //    authority and is still required for `alreadyPro`.
 
 import { isUuid, normalizeEmail, sha256Hex } from "./funnel-identity-core.ts";
-import { repairFunnelOnboardingMetadata, type RepairDeps } from "./funnel-metadata-repair.ts";
 import { funnelCreatedMetadata, type UserMetadata } from "./funnel-metadata.ts";
 
 export type Result = { status: number; body: Record<string, unknown> };
@@ -33,10 +34,9 @@ export interface PreparePlan {
 export interface PrepareUser {
   id: string;
   email?: string | null;
-  userMetadata?: UserMetadata | null;
 }
 
-export interface PrepareHandlerDeps extends RepairDeps {
+export interface PrepareHandlerDeps {
   now(): Date;
   findPlan(planId: string): Promise<PreparePlan | null>;
   findUserByEmail(email: string): Promise<PrepareUser | null>;
@@ -49,18 +49,6 @@ export interface PrepareHandlerDeps extends RepairDeps {
 
 function failure(status: number, error: string): Result {
   return { status, body: { success: false, error } };
-}
-
-/**
- * Derives the funnel onboarding flag for an already-linked account. Returns
- * `"persist_failed"` when Supabase could not write the metadata, so the caller
- * answers with a recoverable error instead of a false success.
- */
-async function repairLinkedAccount(deps: PrepareHandlerDeps, userId: string, expectedEmail: string): Promise<string | null> {
-  const outcome = await repairFunnelOnboardingMetadata(userId, expectedEmail, deps);
-  // Every other outcome (already correct, not funnel-created, identity
-  // mismatch, unknown user) is a safe no-op for this request.
-  return outcome === "persist_failed" ? "persist_failed" : null;
 }
 
 export async function prepareFunnelAccountHandler(
@@ -82,8 +70,6 @@ export async function prepareFunnelAccountHandler(
     // Existing prepared rows are only idempotent when their identity remains intact.
     if (frozenEmail !== email) return failure(409, "identity_conflict");
     if (plan.funnelUserId) {
-      const repairError = await repairLinkedAccount(deps, plan.funnelUserId, frozenEmail);
-      if (repairError) return failure(503, "metadata_update_failed");
       const rc = await deps.checkRevenueCat(plan.funnelUserId);
       if (!rc.ok && rc.status !== 404) return failure(503, "verification_unavailable");
       return { status: 200, body: { success: true, userId: plan.funnelUserId, alreadyPro: rc.active === true } };
@@ -101,12 +87,6 @@ export async function prepareFunnelAccountHandler(
     // An abandoned funnel-created account is still a funnel-new account.
     // The decision is based on persisted prior plans, not this plan's flag.
     createdByFunnel = await deps.hasUnissuedFunnelAccount(user.id, planId);
-    if (createdByFunnel) {
-      // A brand-new account already carries both flags; an abandoned one may
-      // predate the contract and is repaired here, flags only.
-      const repairError = await repairLinkedAccount(deps, user.id, frozenEmail || email);
-      if (repairError) return failure(503, "metadata_update_failed");
-    }
   }
 
   const persisted = await deps.persistIdentity(planId, email, user.id, createdByFunnel);

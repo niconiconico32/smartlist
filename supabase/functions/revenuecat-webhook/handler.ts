@@ -68,6 +68,17 @@ export interface WebhookDeps {
   findPlanById(planId: string): Promise<{ data: FunnelPlanRow | null; error: unknown }>;
   checkRevenueCat(appUserId: string): Promise<{ ok: boolean; active: boolean }>;
   confirmPurchase(planId: string): Promise<{ updated: number; error: unknown }>;
+  /**
+   * CANONICAL materialization of the exact plan for the exact account. Must be
+   * the shared `materializeCanonicalPlan` so this path cannot drift from
+   * `finalize-funnel-plan`.
+   */
+  materialize(planId: string, userId: string): Promise<{ ok: boolean; reason?: string }>;
+  /**
+   * Writes `onboarding_completed` ONLY with canonical evidence that the plan is
+   * materialized (shared `completeFunnelOnboardingAfterMaterialization`).
+   */
+  completeOnboarding(planId: string, userId: string): Promise<{ ok: boolean; reason?: string }>;
   issue(planId: string, userId: string): Promise<{ ok: boolean; status: string }>;
   grantProGift?: (input: {
     scope: string;
@@ -351,6 +362,33 @@ export async function handleRevenueCatWebhook(input: WebhookInput, deps: Webhook
       eventId,
     });
     if (gift.error) return releaseThen(retryable("coin_gift_unavailable"));
+  }
+
+  // ── Content BEFORE the onboarding flag, the flag BEFORE the email ──────────
+  // Order is the whole point of this block:
+  //   materialize -> onboarding_completed -> credentials
+  //
+  // Writing `onboarding_completed` first makes the app skip the restore path
+  // and land on an empty Home (the ordering regression this fixes). Everything
+  // below is retryable and idempotent, so a failure just replays the event:
+  // `materialize` converges through the canonical RPC (claimed -> replay) and
+  // `completeOnboarding` is a no-op once the flag is set.
+  const beforeMaterialize = await leaseAlive();
+  if (beforeMaterialize) return releaseThen(beforeMaterialize);
+
+  const materialized = await deps.materialize(plan.id, appUserId);
+  if (!materialized.ok) {
+    return releaseThen(retryable(`materialization_${materialized.reason ?? "failed"}`));
+  }
+
+  const beforeOnboarding = await leaseAlive();
+  if (beforeOnboarding) return releaseThen(beforeOnboarding);
+
+  const onboarded = await deps.completeOnboarding(plan.id, appUserId);
+  if (!onboarded.ok) {
+    // Materialized but not flagged: retry. The plan is already in place, so the
+    // next run converges without duplicating a single routine or task.
+    return releaseThen(retryable(`onboarding_${onboarded.reason ?? "failed"}`));
   }
 
   // ── Deliver credentials ───────────────────────────────────────────────────

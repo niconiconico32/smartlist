@@ -81,17 +81,6 @@ serve(async (req) => {
             .eq("id", planId).is("funnel_user_id", null).select("funnel_user_id").maybeSingle();
           return Boolean(data);
         },
-        getUserById: async (userId) => {
-          const { data, error } = await admin.auth.admin.getUserById(userId);
-          if (error || !data?.user) return null;
-          return { id: data.user.id, email: data.user.email, user_metadata: data.user.user_metadata ?? null };
-        },
-        // Metadata only: never the password, the email, the providers or the
-        // confirmation flags.
-        updateUserMetadata: async (userId, userMetadata) => {
-          const { error } = await admin.auth.admin.updateUserById(userId, { user_metadata: userMetadata });
-          return !error;
-        },
         checkRevenueCat: async (userId) => checkEntitlementActive(userId, Deno.env.get("REVENUECAT_SECRET_API_KEY") ?? ""),
       },
     );
