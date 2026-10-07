@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { checkEntitlementActive } from "./rc.ts";
+import { buildCredentialsEmail } from "./funnel-credentials-email.ts";
 export { deriveSixDigitPassword, isUuid, normalizeEmail, sha256Hex } from "./funnel-identity-core.ts";
 import { deriveSixDigitPassword, normalizeEmail } from "./funnel-identity-core.ts";
 
@@ -10,37 +11,11 @@ export type IssueResult =
   | { ok: true; status: "sent" | "already_completed" }
   | { ok: false; status: "in_progress" | "entitlement_inactive" | "verification_unavailable" | "retryable" };
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
-  }[char] ?? char));
-}
-
-function emailContent(email: string, password: string | null, accountCreated: boolean) {
-  const safeEmail = escapeHtml(email);
-  if (accountCreated) {
-    return {
-      subject: "Tu Brainy está listo 🎉",
-      text: [
-        "Tu plan Brainy ya está activado.", "", "Tus datos de acceso:",
-        `Email: ${email}`, `Contraseña: ${password}`, "", "Cómo entrar:",
-        "1. Descarga o abre Brainy.", "2. Pulsa \"Iniciar sesión\".",
-        "3. Ingresa este email y esta contraseña.",
-        "4. Tu plan y Brainy Pro estarán disponibles automáticamente.", "",
-        "Guarda este correo: contiene tus datos de acceso.",
-      ].join("\n"),
-      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;line-height:1.5"><h1>Tu Brainy está listo 🎉</h1><p>Tu plan Brainy ya está activado.</p><h2>Tus datos de acceso</h2><p><b>Email:</b> ${safeEmail}<br><b>Contraseña:</b> ${escapeHtml(password ?? "")}</p><h2>Cómo entrar</h2><ol><li>Descarga o abre Brainy.</li><li>Pulsa “Iniciar sesión”.</li><li>Ingresa este email y esta contraseña.</li><li>Tu plan y Brainy Pro estarán disponibles automáticamente.</li></ol><p><b>Guarda este correo: contiene tus datos de acceso.</b></p></div>`,
-    };
-  }
-  return {
-    subject: "Tu Brainy Pro está activado 🎉",
-    text: `Brainy Pro ya está activo en tu cuenta.\n\nEmail: ${email}\n\nAbre Brainy e inicia sesión con tu contraseña habitual.`,
-    html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;line-height:1.5"><h1>Tu Brainy Pro está activado 🎉</h1><p>Brainy Pro ya está activo en tu cuenta.</p><p><b>Email:</b> ${safeEmail}</p><p>Abre Brainy e inicia sesión con tu contraseña habitual.</p></div>`,
-  };
-}
-
+// The message itself lives in funnel-credentials-email.ts (pure + unit
+// tested). Delivery, retries and the Resend idempotency key stay here, in the
+// single issuance path, so restyling the email cannot alter delivery.
 async function sendResend(email: string, password: string | null, accountCreated: boolean, apiKey: string, from: string, planId: string) {
-  const content = emailContent(email, password, accountCreated);
+  const content = buildCredentialsEmail({ email, password, accountCreated });
   const response = await fetch(RESEND_URL, {
     method: "POST",
     headers: {
