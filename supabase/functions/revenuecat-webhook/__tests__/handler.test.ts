@@ -40,6 +40,8 @@ interface FakeOpts {
   failLookup?: boolean;
   stealLease?: boolean;
   confirmUpdated?: number;
+  materializeResult?: { ok: boolean; reason?: string };
+  onboardingResult?: { ok: boolean; reason?: string };
 }
 
 function fake(options: FakeOpts = {}) {
@@ -47,7 +49,7 @@ function fake(options: FakeOpts = {}) {
   const plans = [plan()];
   const byTransaction = new Map<string, string>();
   const byOriginal = new Map<string, string>();
-  const calls = { confirmed: 0, issued: 0, granted: 0, associated: [] as string[], leaseChecks: 0, lookups: 0 };
+  const calls = { confirmed: 0, issued: 0, granted: 0, associated: [] as string[], leaseChecks: 0, lookups: 0, materialized: 0, onboarded: 0, order: [] as string[] };
   // Scope-aware: the same transaction id in another scope is another purchase.
   const scoped = (scope: string, value: string) => `${scope}::${value}`;
   const state = { stealFinish: false, stealLease: options.stealLease ?? false };
@@ -147,8 +149,27 @@ confirmPurchase: async (planId) => {
       calls.granted++;
       return { granted: true, error: null };
     },
+    materialize: async (planId, userId) => {
+      calls.materialized++;
+      calls.order.push(`materialize:${planId === plans[0]?.id && userId === USER ? "owned" : "other"}`);
+      const result = options.materializeResult ?? { ok: true };
+      if (result.ok) {
+        const p = plans.find((x) => x.id === planId);
+        if (p) {
+          p.status = "claimed";
+          p.claimed_by_user_id = userId;
+        }
+      }
+      return result;
+    },
+    completeOnboarding: async (planId) => {
+      calls.onboarded++;
+      calls.order.push(`onboarding:${planId === plans[0]?.id ? "owned" : "other"}`);
+      return options.onboardingResult ?? { ok: true };
+    },
     issue: async (planId) => {
       calls.issued++;
+      calls.order.push("issue");
       const result = options.issueResult ?? { ok: true, status: "sent" };
       if (result.ok && result.status !== "in_progress") {
         const p = plans.find((x) => x.id === planId);

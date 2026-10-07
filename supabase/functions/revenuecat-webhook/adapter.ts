@@ -164,6 +164,13 @@ export function createWebhookDeps(admin: any, deps: { now: () => Date }): Webhoo
 
     checkRevenueCat: async () => ({ ok: true, active: true }),
 
+    // Overridden by the real implementations in index.ts. These defaults exist
+    // only so the storage adapter stays independently testable; a caller that
+    // forgets to wire them fails the funnel loudly instead of silently skipping
+    // materialization.
+    materialize: async () => ({ ok: false, reason: "materialization_unavailable" }),
+    completeOnboarding: async () => ({ ok: false, reason: "onboarding_unavailable" }),
+
     confirmPurchase: async (planId) => {
       const result = rows(await table(admin, "web_funnel_plans")
         .update({ purchase_confirmed_at: new Date().toISOString() })
