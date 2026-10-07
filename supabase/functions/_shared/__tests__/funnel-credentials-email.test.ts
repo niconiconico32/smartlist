@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import {
   APPROVED_HOSTS,
   LINKS,
@@ -171,6 +172,60 @@ describe("links and calls to action", () => {
       expect(mail.text).toContain(LINKS.googlePlay);
       expect(name).toBeTruthy();
     }
+  });
+
+  /**
+   * Regression: the Google Play package id.
+   *
+   * A transposition typo in the package id (the "h" and "d" of the
+   * `brainyahdh` segment swapped) would still render as a plausible URL and
+   * would only fail as a dead link after a customer had already paid. The
+   * canonical id comes from the Android config (`android.package` in
+   * app.json) and from the links the mobile app itself already uses.
+   */
+  describe("Google Play package id", () => {
+    const CANONICAL_PACKAGE = "com.brainyahdh.app";
+    // The typo: `h` and `d` transposed inside the brand segment.
+    const TRANSPOSED_PACKAGE = "com.brainyahhd.app";
+
+    it("uses the canonical package id", () => {
+      expect(LINKS.googlePlay).toBe(`https://play.google.com/store/apps/details?id=${CANONICAL_PACKAGE}`);
+      expect(LINKS.googlePlay).toContain(CANONICAL_PACKAGE);
+    });
+
+    it("does not contain the transposed package id anywhere", () => {
+      for (const { name, mail } of VARIANTS) {
+        const rendered = `${mail.html}${mail.text}`;
+        expect(`${name} template:`).not.toContain(TRANSPOSED_PACKAGE);
+        expect(rendered).not.toContain(TRANSPOSED_PACKAGE);
+      }
+      // Nor anywhere else in the template module's own source.
+      const source = readFileSync(
+        require("node:path").join(__dirname, "..", "funnel-credentials-email.ts"),
+        "utf8",
+      );
+      expect(source).not.toContain(TRANSPOSED_PACKAGE);
+      expect(source).toContain(CANONICAL_PACKAGE);
+    });
+
+    it("is pure ASCII, so no homoglyph can disguise it", () => {
+      expect(LINKS.googlePlay).toBe(LINKS.googlePlay.normalize("NFKC"));
+      for (const ch of LINKS.googlePlay) {
+        expect(ch.codePointAt(0)).toBeLessThanOrEqual(127);
+      }
+      const id = LINKS.googlePlay.split("?id=")[1];
+      expect(id).toBe(CANONICAL_PACKAGE);
+      // Character-level guard: no Cyrillic look-alikes (а, е, о, р, с).
+      expect(id).not.toMatch(/[\u0400-\u04FF]/);
+      expect(id).toMatch(/^com\.[a-z]+\.app$/);
+    });
+
+    it("renders the canonical id in both formats of both variants", () => {
+      for (const { mail } of VARIANTS) {
+        expect(mail.html).toContain(`href="https://play.google.com/store/apps/details?id=${CANONICAL_PACKAGE}"`);
+        expect(mail.text).toContain(`Google Play: https://play.google.com/store/apps/details?id=${CANONICAL_PACKAGE}`);
+      }
+    });
   });
 
   it("labels both store actions", () => {
