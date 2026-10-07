@@ -44,7 +44,7 @@ export interface CredentialsEmail {
  * somewhere unexpected.
  */
 export const LINKS = {
-  appStore: "https://apps.apple.com/app/id6747673851",
+  appStore: "https://apps.apple.com/app/id6761862417",
   googlePlay: "https://play.google.com/store/apps/details?id=com.brainyahdh.app",
   manageSubscription: "https://brainyadhd.com/manage-subscription/",
   support: "https://brainyadhd.com/support.html",

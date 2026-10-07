@@ -228,6 +228,73 @@ describe("links and calls to action", () => {
     });
   });
 
+  /**
+   * Regression: the App Store id.
+   *
+   * A wrong numeric id is indistinguishable from the right one at a glance:
+   * same host, same `/app/id` shape, same length. It renders as a perfect
+   * button and only fails as a dead link once the customer taps it, after
+   * having already paid. The canonical id is the one EAS submits builds
+   * under (`ios.ascAppId` in eas.json).
+   *
+   * The stale id is assembled from fragments on purpose: keeping the literal
+   * out of the tree lets `git grep` prove it appears in no file at all,
+   * while this assertion still rejects it anywhere it is rendered.
+   */
+  describe("App Store id", () => {
+    const CANONICAL_APP_STORE_ID = "6761862417";
+    const CANONICAL_APP_STORE_URL = `https://apps.apple.com/app/id${CANONICAL_APP_STORE_ID}`;
+    /** The id that shipped until this fix: a different but equally plausible number. */
+    const STALE_APP_STORE_ID = ["6747", "673851"].join("");
+
+    it("uses the canonical App Store id", () => {
+      expect(LINKS.appStore).toBe(CANONICAL_APP_STORE_URL);
+      expect(LINKS.appStore).toContain(CANONICAL_APP_STORE_ID);
+    });
+
+    it("does not contain the stale App Store id anywhere", () => {
+      for (const { name, mail } of VARIANTS) {
+        const rendered = `${mail.html}${mail.text}`;
+        expect(`${name} template:`).not.toContain(STALE_APP_STORE_ID);
+        expect(rendered).not.toContain(STALE_APP_STORE_ID);
+        // Every store href must be the canonical URL, never just the host.
+        for (const href of hrefs(mail.html)) {
+          if (href.includes("apps.apple.com")) expect(href).toBe(CANONICAL_APP_STORE_URL);
+        }
+      }
+      const source = readFileSync(
+        require("node:path").join(__dirname, "..", "funnel-credentials-email.ts"),
+        "utf8",
+      );
+      expect(source).not.toContain(STALE_APP_STORE_ID);
+      expect(source).toContain(CANONICAL_APP_STORE_ID);
+    });
+
+    it("renders the canonical id in both formats of both variants", () => {
+      for (const { mail } of VARIANTS) {
+        expect(mail.html).toContain(`href="${CANONICAL_APP_STORE_URL}"`);
+        expect(mail.text).toContain(`App Store: ${CANONICAL_APP_STORE_URL}`);
+      }
+    });
+
+    it("is a bare ASCII id, so no homoglyph can disguise it", () => {
+      const id = LINKS.appStore.split("/id")[1];
+      expect(id).toBe(CANONICAL_APP_STORE_ID);
+      expect(id).toMatch(/^[0-9]{10}$/);
+      for (const ch of id) expect(ch.codePointAt(0)).toBeLessThanOrEqual(127);
+      expect(LINKS.appStore).toBe(LINKS.appStore.normalize("NFKC"));
+    });
+  });
+
+  it("leaves the Google Play package link untouched", () => {
+    const CANONICAL_PACKAGE = "com.brainyahdh.app";
+    expect(LINKS.googlePlay).toBe(`https://play.google.com/store/apps/details?id=${CANONICAL_PACKAGE}`);
+    for (const { mail } of VARIANTS) {
+      expect(mail.html).toContain(`href="${LINKS.googlePlay}"`);
+      expect(mail.text).toContain(`Google Play: ${LINKS.googlePlay}`);
+    }
+  });
+
   it("labels both store actions", () => {
     for (const { mail } of VARIANTS) {
       expect(mail.html).toContain("Open in the App Store");
